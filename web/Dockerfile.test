@@ -1,0 +1,19 @@
+# Test runner Dockerfile for web frontend
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies including dev dependencies
+RUN npm install
+
+# Copy source code and tests
+COPY . .
+
+# Create coverage directory
+RUN mkdir -p coverage
+
+# Default command
+CMD ["npm", "test"]

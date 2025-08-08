@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: pdffiller_test
+      POSTGRES_USER: pdffiller
+      POSTGRES_PASSWORD: pdffiller123
+    volumes:
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdffiller"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  test-runner:
+    build: 
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://pdffiller:pdffiller123@postgres-test:5432/pdffiller_test
+      REDIS_URL: redis://redis-test:6379
+      JWT_SECRET: test-secret-key
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./coverage:/app/coverage
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    command: npm test
+
+  web-test:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.test
+    volumes:
+      - ./web/src:/app/src
+      - ./web/tests:/app/tests
+      - ./web/coverage:/app/coverage
+    command: npm test

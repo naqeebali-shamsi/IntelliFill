@@ -1,0 +1,42 @@
+# Simple Node.js app without build step
+FROM node:20-alpine
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    poppler-utils \
+    ghostscript \
+    imagemagick \
+    cairo \
+    pango \
+    jpeg \
+    giflib \
+    python3 \
+    py3-pip \
+    py3-pillow \
+    py3-numpy
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies including dev dependencies for ts-node
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p uploads outputs logs models data
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"
+
+# Expose port
+EXPOSE 3000
+
+# Start application with ts-node
+CMD ["npx", "ts-node", "src/index.ts"]

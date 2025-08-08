@@ -1,0 +1,130 @@
+# Claude Code / Claude Flow
+.claude/
+.claude-flow/
+.swarm/
+.hive-mind/
+.roo/
+.roomodes
+CLAUDE.md
+claude-flow*
+*.claude
+*.swarm
+config/mcp.config.json
+.mcp.json
+
+# Dependencies
+node_modules/
+bower_components/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+out/
+*.js.map
+*.d.ts
+!src/**/*.d.ts
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Docker volumes (local data)
+postgres_data/
+redis_data/
+prometheus_data/
+grafana_data/
+
+# Application specific
+uploads/
+outputs/
+temp/
+tmp/
+cache/
+sessions/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Package files
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.rar
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+
+# Lock files (keep package-lock.json)
+yarn.lock
+pnpm-lock.yaml
+
+# Models (if they're large ML models)
+models/*.pkl
+models/*.h5
+models/*.pb
+models/*.onnx
+
+# Reports and documentation artifacts  
+CLEANUP_REPORT.md
+TODO.md
+NOTES.md
+
+# Scripts (keep the scripts folder, but ignore temp scripts)
+scripts/*.tmp
+scripts/*.temp

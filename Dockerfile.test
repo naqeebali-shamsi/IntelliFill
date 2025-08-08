@@ -1,0 +1,25 @@
+# Test runner Dockerfile
+FROM node:20-alpine
+
+# Install build dependencies and test tools
+RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY jest.config.js ./
+
+# Install all dependencies including dev dependencies
+RUN npm install
+
+# Copy source code and tests
+COPY src ./src
+COPY tests ./tests
+
+# Create coverage directory
+RUN mkdir -p coverage
+
+# Default command
+CMD ["npm", "test"]
