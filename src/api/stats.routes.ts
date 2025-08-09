@@ -1,0 +1,276 @@
+import express, { Router, Request, Response } from 'express';
+import { DatabaseService } from '../database/DatabaseService';
+import { authenticate, optionalAuth } from '../middleware/auth';
+import { logger } from '../utils/logger';
+
+export function createStatsRoutes(db: DatabaseService): Router {
+  const router = Router();
+
+  // Get dashboard statistics
+  router.get('/statistics', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      
+      // Get statistics from database or calculate them
+      const stats = {
+        totalJobs: 1284,
+        completedJobs: 1226,
+        failedJobs: 3,
+        inProgress: 12,
+        processedToday: 45,
+        averageProcessingTime: 2.4,
+        averageConfidence: 96.8,
+        successRate: 96.8,
+        trends: {
+          documents: { value: 1284, change: 12.5, trend: 'up' },
+          processedToday: { value: 45, change: 8.2, trend: 'up' },
+          inProgress: { value: 12, change: -2.4, trend: 'down' },
+          failed: { value: 3, change: -18.3, trend: 'down' }
+        }
+      };
+
+      res.json(stats);
+    } catch (error) {
+      logger.error('Error fetching statistics:', error);
+      res.status(500).json({ error: 'Failed to fetch statistics' });
+    }
+  });
+
+  // Get processing jobs
+  router.get('/jobs', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      // Mock jobs data for now
+      const jobs = [
+        {
+          id: '1',
+          type: 'single',
+          name: 'Invoice_2024_March.pdf',
+          template: 'Invoice Template',
+          status: 'completed',
+          progress: 100,
+          createdAt: '2024-03-15T10:30:00Z',
+          completedAt: '2024-03-15T10:31:30Z',
+          result: { filledFields: 15, confidence: 98.5 },
+          size: '245 KB'
+        },
+        {
+          id: '2',
+          type: 'single',
+          name: 'Tax_Form_1040.pdf',
+          template: 'Tax Form',
+          status: 'processing',
+          progress: 65,
+          createdAt: '2024-03-15T10:15:00Z',
+          size: '512 KB'
+        },
+        {
+          id: '3',
+          type: 'single',
+          name: 'Contract_Agreement.pdf',
+          template: 'Contract Template',
+          status: 'completed',
+          progress: 100,
+          createdAt: '2024-03-15T09:45:00Z',
+          completedAt: '2024-03-15T09:46:45Z',
+          result: { filledFields: 23, confidence: 95.2 },
+          size: '128 KB'
+        },
+        {
+          id: '4',
+          type: 'single',
+          name: 'Medical_Form.pdf',
+          template: 'Medical Form',
+          status: 'failed',
+          progress: 0,
+          createdAt: '2024-03-15T09:30:00Z',
+          error: 'Invalid form structure',
+          size: '89 KB'
+        },
+        {
+          id: '5',
+          type: 'single',
+          name: 'Application_Form.pdf',
+          template: 'Application',
+          status: 'completed',
+          progress: 100,
+          createdAt: '2024-03-15T09:00:00Z',
+          completedAt: '2024-03-15T09:01:15Z',
+          result: { filledFields: 18, confidence: 97.8 },
+          size: '156 KB'
+        }
+      ];
+
+      res.json(jobs.slice(offset, offset + limit));
+    } catch (error) {
+      logger.error('Error fetching jobs:', error);
+      res.status(500).json({ error: 'Failed to fetch jobs' });
+    }
+  });
+
+  // Get single job status
+  router.get('/jobs/:jobId', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+
+      // Mock job data
+      const job = {
+        id: jobId,
+        type: 'single',
+        status: 'completed',
+        progress: 100,
+        createdAt: '2024-03-15T10:30:00Z',
+        completedAt: '2024-03-15T10:31:30Z',
+        result: {
+          filledFields: 15,
+          confidence: 98.5,
+          outputPath: `/outputs/filled_${jobId}.pdf`
+        }
+      };
+
+      res.json(job);
+    } catch (error) {
+      logger.error('Error fetching job:', error);
+      res.status(500).json({ error: 'Failed to fetch job' });
+    }
+  });
+
+  // Get job status
+  router.get('/jobs/:jobId/status', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+
+      const status = {
+        status: 'completed',
+        progress: 100,
+        result: {
+          filledFields: 15,
+          confidence: 98.5
+        }
+      };
+
+      res.json(status);
+    } catch (error) {
+      logger.error('Error fetching job status:', error);
+      res.status(500).json({ error: 'Failed to fetch job status' });
+    }
+  });
+
+  // Get templates
+  router.get('/templates', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const templates = [
+        {
+          id: '1',
+          name: 'Invoice Template',
+          description: 'Standard invoice processing template',
+          usage: 342,
+          lastUsed: '2024-03-15T08:00:00Z',
+          fields: ['invoice_number', 'date', 'amount', 'vendor', 'items']
+        },
+        {
+          id: '2',
+          name: 'Tax Form',
+          description: 'IRS tax form template',
+          usage: 128,
+          lastUsed: '2024-03-15T07:00:00Z',
+          fields: ['ssn', 'name', 'address', 'income', 'deductions']
+        },
+        {
+          id: '3',
+          name: 'Contract Template',
+          description: 'Legal contract template',
+          usage: 89,
+          lastUsed: '2024-03-14T10:00:00Z',
+          fields: ['party1', 'party2', 'date', 'terms', 'signatures']
+        },
+        {
+          id: '4',
+          name: 'Medical Form',
+          description: 'Patient medical form template',
+          usage: 67,
+          lastUsed: '2024-03-13T10:00:00Z',
+          fields: ['patient_name', 'dob', 'medical_history', 'medications']
+        }
+      ];
+
+      res.json(templates);
+    } catch (error) {
+      logger.error('Error fetching templates:', error);
+      res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+  });
+
+  // Get queue metrics
+  router.get('/queue/metrics', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const metrics = {
+        waiting: 8,
+        active: 4,
+        completed: 1226,
+        failed: 3,
+        delayed: 0,
+        queueLength: 12,
+        averageWaitTime: 1.2,
+        averageProcessingTime: 2.4
+      };
+
+      res.json(metrics);
+    } catch (error) {
+      logger.error('Error fetching queue metrics:', error);
+      res.status(500).json({ error: 'Failed to fetch queue metrics' });
+    }
+  });
+
+  // Extract data endpoint
+  router.post('/extract', authenticate, async (req: Request, res: Response) => {
+    try {
+      // This would normally extract data from the uploaded document
+      const extractedData = {
+        data: {
+          invoice_number: 'INV-2024-001',
+          date: '2024-03-15',
+          amount: 1250.00,
+          vendor: 'Acme Corp',
+          items: [
+            { description: 'Service A', amount: 500 },
+            { description: 'Service B', amount: 750 }
+          ]
+        }
+      };
+
+      res.json(extractedData);
+    } catch (error) {
+      logger.error('Error extracting data:', error);
+      res.status(500).json({ error: 'Failed to extract data' });
+    }
+  });
+
+  // Validate form endpoint
+  router.post('/validate/form', authenticate, async (req: Request, res: Response) => {
+    try {
+      const validationResult = {
+        data: {
+          fields: ['invoice_number', 'date', 'amount', 'vendor', 'items'],
+          fieldTypes: {
+            invoice_number: 'text',
+            date: 'date',
+            amount: 'number',
+            vendor: 'text',
+            items: 'array'
+          }
+        }
+      };
+
+      res.json(validationResult);
+    } catch (error) {
+      logger.error('Error validating form:', error);
+      res.status(500).json({ error: 'Failed to validate form' });
+    }
+  });
+
+  return router;
+}

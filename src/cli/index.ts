@@ -36,7 +36,7 @@ program
 program
   .command('fill')
   .description('Fill a PDF form with data from documents')
-  .requiredOption('-d, --document <path>', 'Path to source document(s)', (val, prev) => {
+  .requiredOption('-d, --document <path>', 'Path to source document(s)', (val, prev: string[] | undefined) => {
     return prev ? prev.concat(val) : [val];
   })
   .requiredOption('-f, --form <path>', 'Path to PDF form')

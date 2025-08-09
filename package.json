@@ -5,8 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --exit-child --watch src --ignore-watch node_modules src/index.ts",
+    "dev:nodemon": "nodemon src/index.ts",
+    "dev:debug": "ts-node-dev --respawn --transpile-only --inspect --exit-child src/index.ts",
+    "dev:worker": "ts-node-dev --respawn --transpile-only --exit-child --watch src src/workers/queue-processor.ts",
     "start": "node dist/index.js",
+    "start:prod": "NODE_ENV=production node dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
@@ -16,6 +20,7 @@
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
@@ -39,7 +44,8 @@
     "pg": "^8.11.3",
     "prom-client": "^15.1.0",
     "redis": "^4.6.11",
-    "sharp": "^0.33.1",
+    "sharp": "^0.33.5",
+    "tesseract.js": "^6.0.1",
     "uuid": "^9.0.1",
     "winston": "^3.11.0"
   },

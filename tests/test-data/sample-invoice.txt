@@ -1,0 +1,42 @@
+INVOICE #2024-001
+
+Date: December 9, 2024
+Due Date: December 31, 2024
+
+FROM:
+Acme Corporation
+123 Business Street
+New York, NY 10001
+Email: billing@acme.com
+Phone: (555) 123-4567
+
+TO:
+John Doe
+456 Customer Lane
+Los Angeles, CA 90001
+Email: john.doe@example.com
+Phone: (555) 987-6543
+
+INVOICE DETAILS:
+-----------------
+Item: Web Development Services
+Description: Frontend development for e-commerce platform
+Quantity: 40 hours
+Rate: $150/hour
+Amount: $6,000.00
+
+Item: UI/UX Design
+Description: Design mockups and prototypes
+Quantity: 20 hours  
+Rate: $125/hour
+Amount: $2,500.00
+
+Subtotal: $8,500.00
+Tax (10%): $850.00
+-----------------
+TOTAL DUE: $9,350.00
+
+Payment Terms: Net 30
+Payment Methods: Bank Transfer, Check, Credit Card
+
+Thank you for your business!

@@ -67,6 +67,56 @@ async function initializeApp() {
 
     // Setup routes with authentication
     setupRoutes(app, intelliFillService, db);
+    
+    // Error handling middleware (must be after routes)
+    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      logger.error('Unhandled error:', err);
+      
+      // JWT errors
+      if (err.name === 'JsonWebTokenError') {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+      
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired' });
+      }
+      
+      // Multer errors (file upload)
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File too large' });
+      }
+      
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ error: 'Invalid file field' });
+      }
+
+      // Database errors
+      if (err.code === '23505') { // Unique constraint violation
+        return res.status(409).json({ error: 'Resource already exists' });
+      }
+      
+      if (err.code === '23503') { // Foreign key violation
+        return res.status(400).json({ error: 'Invalid reference' });
+      }
+
+      // Rate limit errors
+      if (err.status === 429) {
+        return res.status(429).json({ error: 'Too many requests' });
+      }
+
+      // Default error response
+      res.status(err.status || 500).json({ 
+        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+      });
+    });
+
+    // 404 handler (must be last)
+    app.use('*', (req: express.Request, res: express.Response) => {
+      res.status(404).json({ 
+        error: 'Not found',
+        message: `Route ${req.method} ${req.originalUrl} not found` 
+      });
+    });
 
     return { app, db };
   } catch (error) {
@@ -74,56 +124,6 @@ async function initializeApp() {
     process.exit(1);
   }
 }
-
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('Unhandled error:', err);
-  
-  // JWT errors
-  if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-  
-  if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({ error: 'Token expired' });
-  }
-  
-  // Multer errors (file upload)
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ error: 'File too large' });
-  }
-  
-  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-    return res.status(400).json({ error: 'Invalid file field' });
-  }
-
-  // Database errors
-  if (err.code === '23505') { // Unique constraint violation
-    return res.status(409).json({ error: 'Resource already exists' });
-  }
-  
-  if (err.code === '23503') { // Foreign key violation
-    return res.status(400).json({ error: 'Invalid reference' });
-  }
-
-  // Rate limit errors
-  if (err.status === 429) {
-    return res.status(429).json({ error: 'Too many requests' });
-  }
-
-  // Default error response
-  res.status(err.status || 500).json({ 
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
-  });
-});
-
-// 404 handler
-app.use('*', (req: express.Request, res: express.Response) => {
-  res.status(404).json({ 
-    error: 'Not found',
-    message: `Route ${req.method} ${req.originalUrl} not found` 
-  });
-});
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {

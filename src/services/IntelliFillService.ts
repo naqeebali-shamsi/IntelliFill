@@ -167,10 +167,10 @@ export class IntelliFillService {
   }> {
     try {
       const parsedDoc = await this.documentParser.parse(documentPath);
-      const validationResult = await this.validationService.validateRules(parsedDoc, []);
+      const validationResult = await this.validationService.validateData(parsedDoc.metadata || {});
       
       return {
-        valid: validationResult.isValid,
+        valid: validationResult.valid,
         errors: validationResult.errors || [],
         warnings: validationResult.warnings || []
       };

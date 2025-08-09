@@ -135,7 +135,7 @@ export class MCPDataTransformer {
       let transformedData = schema.preTransform ? schema.preTransform(data) : data;
 
       // Apply transformation rules
-      const result: any = options?.preserveUnmapped ? { ...transformedData } : {};
+      let result: any = options?.preserveUnmapped ? { ...transformedData } : {};
       const errors: ValidationResult['errors'] = [];
       const warnings: ValidationResult['warnings'] = [];
 

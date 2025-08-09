@@ -48,7 +48,7 @@ export class MCPServerManager extends EventEmitter {
   private servers: Map<string, MCPServerConfig> = new Map();
   private connections: Map<string, MCPConnection> = new Map();
   private logger: Logger;
-  private healthCheckInterval?: NodeJS.Timer;
+  private healthCheckInterval?: NodeJS.Timeout;
 
   constructor() {
     super();

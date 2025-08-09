@@ -15,9 +15,6 @@ export interface User {
   created_at: Date;
   updated_at: Date;
   last_login?: Date;
-  login_attempts: number;
-  locked_until?: Date;
-  two_factor_enabled: boolean;
 }
 
 export interface RefreshToken {
@@ -110,7 +107,7 @@ export class AuthService {
       const result = await this.db.query(
         `INSERT INTO users (id, email, password_hash, full_name, role, email_verified, is_active) 
          VALUES ($1, $2, $3, $4, $5, $6, $7) 
-         RETURNING id, email, full_name, role, is_active, email_verified, created_at, updated_at, last_login, login_attempts, locked_until, two_factor_enabled`,
+         RETURNING id, email, full_name, role, is_active, email_verified, created_at, updated_at, last_login`,
         [userId, userData.email.toLowerCase(), passwordHash, userData.fullName, userData.role || 'user', false, true]
       );
 
@@ -145,11 +142,8 @@ export class AuthService {
         throw new Error('Invalid credentials');
       }
 
-      // Check if account is locked
-      if (user.locked_until && new Date(user.locked_until) > new Date()) {
-        const lockoutEnd = new Date(user.locked_until).toLocaleString();
-        throw new Error(`Account is locked until ${lockoutEnd}`);
-      }
+      // Account lockout feature not yet implemented
+      // TODO: Add login_attempts and locked_until columns to database
 
       // Check if account is active
       if (!user.is_active) {
@@ -363,10 +357,14 @@ export class AuthService {
     };
 
     // Generate access token
-    const accessToken = jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+    const accessToken = jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtExpiresIn } as jwt.SignOptions);
     
-    // Generate refresh token
-    const refreshToken = jwt.sign(payload, this.jwtRefreshSecret, { expiresIn: this.refreshTokenExpiresIn });
+    // Generate refresh token with unique identifier to prevent duplicates
+    const refreshPayload = {
+      ...payload,
+      jti: crypto.randomUUID() // Add unique token ID
+    };
+    const refreshToken = jwt.sign(refreshPayload, this.jwtRefreshSecret, { expiresIn: this.refreshTokenExpiresIn } as jwt.SignOptions);
     
     // Store refresh token in database
     await this.storeRefreshToken(user.id, refreshToken, loginInfo);
@@ -388,9 +386,9 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + this.parseExpirationDays(this.refreshTokenExpiresIn));
 
     await this.db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address, user_agent) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [userId, tokenHash, expiresAt, loginInfo?.deviceInfo, loginInfo?.ipAddress, loginInfo?.userAgent]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, tokenHash, expiresAt, loginInfo?.deviceInfo || null, loginInfo?.ipAddress || null]
     );
   }
 
@@ -421,11 +419,13 @@ export class AuthService {
   }
 
   private async handleFailedLogin(email: string): Promise<void> {
-    await this.db.query('SELECT handle_failed_login($1)', [email]);
+    // TODO: Implement failed login tracking when columns are added
+    // await this.db.query('SELECT handle_failed_login($1)', [email]);
   }
 
   private async resetLoginAttempts(email: string): Promise<void> {
-    await this.db.query('SELECT reset_login_attempts($1)', [email]);
+    // TODO: Implement login attempt reset when columns are added
+    // await this.db.query('SELECT reset_login_attempts($1)', [email]);
   }
 
   private sanitizeUser(user: User): Omit<User, 'password_hash'> {

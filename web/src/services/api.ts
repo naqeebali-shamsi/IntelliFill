@@ -1,4 +1,5 @@
 import axios, { AxiosProgressEvent } from 'axios';
+import { useAuthStore } from '@/stores/simpleAuthStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -11,20 +12,48 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  // Get token from Zustand store instead of localStorage
+  const token = useAuthStore.getState().tokens?.accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Handle auth errors
+// Handle auth errors and token refresh
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Try to refresh token
+        const authStore = useAuthStore.getState();
+        if (authStore.tokens?.refreshToken) {
+          await authStore.refreshToken();
+          
+          // Retry the original request with new token
+          const newToken = useAuthStore.getState().tokens?.accessToken;
+          if (newToken) {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return api(originalRequest);
+          }
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+      }
+      
+      // Refresh failed or no refresh token, logout user
+      const authStore = useAuthStore.getState();
+      await authStore.logout();
+      
+      // Only redirect if we're not already on the login page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

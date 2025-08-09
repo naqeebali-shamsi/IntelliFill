@@ -1,7 +1,7 @@
-import * as Tesseract from 'tesseract.js';
+import Tesseract from 'tesseract.js';
 import { PDFDocument } from 'pdf-lib';
 import * as fs from 'fs/promises';
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import { logger } from '../utils/logger';
 
 export interface OCRResult {
@@ -27,16 +27,13 @@ export class OCRService {
     if (this.initialized) return;
 
     try {
-      this.worker = await Tesseract.createWorker({
-        logger: (m) => {
+      this.worker = await Tesseract.createWorker('eng+spa+fra+deu', 1, {
+        logger: (m: any) => {
           if (m.status === 'recognizing text') {
             logger.debug(`OCR Progress: ${(m.progress * 100).toFixed(1)}%`);
           }
         }
       });
-
-      await this.worker.loadLanguage('eng+spa+fra+deu');
-      await this.worker.initialize('eng');
       
       // Configure for better accuracy
       await this.worker.setParameters({

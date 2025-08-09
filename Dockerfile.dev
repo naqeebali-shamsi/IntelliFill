@@ -1,0 +1,24 @@
+FROM node:18-alpine
+
+# Install build tools for native dependencies
+RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies)
+RUN npm ci
+
+# Copy TypeScript config
+COPY tsconfig.json ./
+COPY nodemon.json ./
+
+# The source code will be mounted as volume, so we don't copy it here
+
+# Expose app port and debug port
+EXPOSE 3000 9229
+
+# Default command (can be overridden in docker-compose)
+CMD ["npm", "run", "dev"]

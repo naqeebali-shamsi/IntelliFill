@@ -5,6 +5,7 @@ import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
 import { ValidationRule } from '../validators/ValidationService';
 import { createAuthRoutes } from './auth.routes';
+import { createStatsRoutes } from './stats.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticate, optionalAuth } from '../middleware/auth';
 
@@ -31,6 +32,10 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   if (db) {
     const authRoutes = createAuthRoutes({ db });
     app.use('/api/auth', authRoutes);
+    
+    // Setup stats and dashboard routes
+    const statsRoutes = createStatsRoutes(db);
+    app.use('/api', statsRoutes);
   }
 
   // Health check
