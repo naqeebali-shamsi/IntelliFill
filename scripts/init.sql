@@ -1,11 +1,24 @@
 -- Database initialization script for PDF Filler Tool
 
+-- Create user if not exists
+DO
+$do$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_user WHERE usename = 'intellifill') THEN
+      CREATE USER intellifill WITH PASSWORD 'intellifill123';
+   END IF;
+END
+$do$;
+
 -- Create database if not exists
-SELECT 'CREATE DATABASE pdffiller'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'pdffiller')\gexec
+SELECT 'CREATE DATABASE intellifill'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'intellifill')\gexec
+
+-- Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE intellifill TO intellifill;
 
 -- Connect to the database
-\c pdffiller;
+\c intellifill;
 
 -- Enable extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -247,6 +260,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO pdffiller;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO pdffiller;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO pdffiller;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO intellifill;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO intellifill;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO intellifill;

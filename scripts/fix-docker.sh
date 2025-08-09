@@ -3,7 +3,7 @@
 echo "🔧 Fixing Docker container dependencies..."
 
 # Install missing packages in the running container
-docker exec quikadmin-app-1 npm install cors cookie-parser @types/cors @types/cookie-parser jsonwebtoken bcrypt @types/jsonwebtoken @types/bcrypt
+docker exec intellifill-app-1 npm install cors cookie-parser @types/cors @types/cookie-parser jsonwebtoken bcrypt @types/jsonwebtoken @types/bcrypt
 
 echo "✅ Dependencies installed"
 

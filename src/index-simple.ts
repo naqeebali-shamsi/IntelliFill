@@ -5,7 +5,7 @@
 
 import express from 'express';
 import dotenv from 'dotenv';
-import { PDFFillerService } from './services/PDFFillerService';
+import { IntelliFillService } from './services/IntelliFillService';
 import { DocumentParser } from './parsers/DocumentParser';
 import { DataExtractor } from './extractors/DataExtractor';
 import { FieldMapper } from './mappers/FieldMapper';
@@ -26,7 +26,7 @@ const fieldMapper = new FieldMapper();
 const formFiller = new FormFiller();
 const validationService = new ValidationService();
 
-const pdfFillerService = new PDFFillerService({
+const intelliFillService = new IntelliFillService({
   documentParser,
   dataExtractor,
   fieldMapper,
@@ -39,7 +39,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Setup routes
-setupRoutes(app, pdfFillerService);
+setupRoutes(app, intelliFillService);
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -53,4 +53,4 @@ app.listen(PORT, () => {
   logger.info(`API documentation available at http://localhost:${PORT}/api-docs`);
 });
 
-export { pdfFillerService };
+export { intelliFillService };

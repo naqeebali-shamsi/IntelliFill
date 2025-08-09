@@ -221,14 +221,12 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
           return res.status(400).json({ error: 'Document file is required' });
         }
 
-        const rules = req.body.rules || [];
         const validationResult = await intelliFillService.validateDocument(
-          req.file.path,
-          rules
+          req.file.path
         );
 
         res.json({
-          success: validationResult.isValid,
+          success: validationResult.valid,
           data: validationResult
         });
       } catch (error) {

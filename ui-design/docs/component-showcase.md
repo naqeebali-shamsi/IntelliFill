@@ -236,6 +236,6 @@ This complete UI design system provides everything needed to build a modern, acc
 The design system follows modern web standards and best practices, ensuring your PDF filler application will provide an excellent user experience while maintaining high accessibility and performance standards.
 
 All files are located at:
-- `/mnt/n/NomadCrew/quikadmin/ui-design/`
+- `/mnt/n/NomadCrew/intellifill/ui-design/`
 
 Ready to implement! 🎉

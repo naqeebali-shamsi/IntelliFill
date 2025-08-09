@@ -8,7 +8,7 @@ import { DataExtractor } from '../extractors/DataExtractor';
 import { FieldMapper } from '../mappers/FieldMapper';
 import { FormFiller } from '../fillers/FormFiller';
 import { ValidationService } from '../validators/ValidationService';
-import { PDFFillerService } from '../services/PDFFillerService';
+import { IntelliFillService } from '../services/IntelliFillService';
 
 const program = new Command();
 
@@ -19,7 +19,7 @@ const fieldMapper = new FieldMapper();
 const formFiller = new FormFiller();
 const validationService = new ValidationService();
 
-const pdfFillerService = new PDFFillerService({
+const intelliFillService = new IntelliFillService({
   documentParser,
   dataExtractor,
   fieldMapper,
@@ -55,8 +55,8 @@ program
       }
 
       const result = documents.length === 1
-        ? await pdfFillerService.processSingle(documents[0], options.form, options.output)
-        : await pdfFillerService.processMultiple(documents, options.form, options.output);
+        ? await intelliFillService.processSingle(documents[0], options.form, options.output)
+        : await intelliFillService.processMultiple(documents, options.form, options.output);
 
       if (result.success) {
         console.log('✅ PDF form filled successfully!\n');
@@ -164,7 +164,7 @@ program
         throw new Error('Invalid configuration: missing jobs array');
       }
 
-      const results = await pdfFillerService.batchProcess(config.jobs);
+      const results = await intelliFillService.batchProcess(config.jobs);
 
       console.log(`✅ Batch processing complete!\n`);
       console.log(`📊 Results:`);

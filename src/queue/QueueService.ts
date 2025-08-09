@@ -1,6 +1,6 @@
 import Bull from 'bull';
 import { Job } from 'bull';
-import { PDFFillerService } from '../services/PDFFillerService';
+import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
 import { DatabaseService } from '../database/DatabaseService';
 
@@ -19,15 +19,15 @@ export class QueueService {
   private processingQueue: Bull.Queue<ProcessingJob>;
   private ocrQueue: Bull.Queue<{ filePath: string; jobId: string }>;
   private mlTrainingQueue: Bull.Queue<{ data: any[]; modelId: string }>;
-  private pdfFillerService: PDFFillerService;
+  private intelliFillService: IntelliFillService;
   private databaseService: DatabaseService;
 
   constructor(
-    pdfFillerService: PDFFillerService,
+    intelliFillService: IntelliFillService,
     databaseService: DatabaseService,
     redisUrl: string = 'redis://localhost:6379'
   ) {
-    this.pdfFillerService = pdfFillerService;
+    this.intelliFillService = intelliFillService;
     this.databaseService = databaseService;
 
     // Initialize queues
@@ -89,12 +89,12 @@ export class QueueService {
         switch (type) {
           case 'single':
             await job.progress(30);
-            result = await this.pdfFillerService.processSingle(documents[0], form, output);
+            result = await this.intelliFillService.processSingle(documents[0], form, output);
             break;
             
           case 'multiple':
             await job.progress(30);
-            result = await this.pdfFillerService.processMultiple(documents, form, output);
+            result = await this.intelliFillService.processMultiple(documents, form, output);
             break;
             
           case 'batch':
@@ -104,7 +104,7 @@ export class QueueService {
               form,
               output: `${output}_${i}.pdf`
             }));
-            result = await this.pdfFillerService.batchProcess(jobs);
+            result = await this.intelliFillService.batchProcess(jobs);
             break;
             
           default:

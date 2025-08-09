@@ -1,5 +1,5 @@
 import { QueueService } from '../queue/QueueService';
-import { PDFFillerService } from '../services/PDFFillerService';
+import { IntelliFillService } from '../services/IntelliFillService';
 import { DatabaseService } from '../database/DatabaseService';
 import * as dotenv from 'dotenv';
 
@@ -17,7 +17,7 @@ class QueueProcessor {
     const { FormFiller } = require('../fillers/FormFiller');
     const { ValidationService } = require('../validators/ValidationService');
     
-    const pdfFillerService = new PDFFillerService({
+    const intelliFillService = new IntelliFillService({
       documentParser: new DocumentParser(),
       dataExtractor: new DataExtractor(),
       fieldMapper: new FieldMapper(),
@@ -30,7 +30,7 @@ class QueueProcessor {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     
     this.queueService = new QueueService(
-      pdfFillerService,
+      intelliFillService,
       databaseService,
       redisUrl
     );
