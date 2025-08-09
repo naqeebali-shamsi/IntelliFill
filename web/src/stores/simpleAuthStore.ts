@@ -6,7 +6,22 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
-import { User, AuthTokens, AppError, LoginCredentials, RegisterData } from './types';
+import { User, AuthTokens, AppError } from './types';
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+interface RegisterData {
+  email: string;
+  password: string;
+  fullName?: string;
+  name?: string;  // Alias for fullName
+  acceptTerms?: boolean;
+  marketingConsent?: boolean;
+}
 import api from '@/services/api';
 
 // =================== STORE INTERFACES ===================

@@ -142,8 +142,11 @@ export class AuthService {
         throw new Error('Invalid credentials');
       }
 
-      // Account lockout feature not yet implemented
-      // TODO: Add login_attempts and locked_until columns to database
+      // Check if account is locked due to too many failed attempts
+      if (user.locked_until && new Date(user.locked_until) > new Date()) {
+        const remainingTime = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
+        throw new Error(`Account is locked. Please try again in ${remainingTime} minutes`);
+      }
 
       // Check if account is active
       if (!user.is_active) {
@@ -419,13 +422,55 @@ export class AuthService {
   }
 
   private async handleFailedLogin(email: string): Promise<void> {
-    // TODO: Implement failed login tracking when columns are added
-    // await this.db.query('SELECT handle_failed_login($1)', [email]);
+    try {
+      // Get user to update login attempts
+      const user = await this.findUserByEmail(email);
+      if (!user) return;
+      
+      // Increment login attempts
+      const result = await this.db.query(
+        `UPDATE users 
+         SET login_attempts = COALESCE(login_attempts, 0) + 1,
+             last_login_attempt = NOW()
+         WHERE id = $1
+         RETURNING login_attempts`,
+        [user.id]
+      );
+      
+      const loginAttempts = result.rows[0]?.login_attempts || 0;
+      
+      // Lock account if max attempts exceeded
+      if (loginAttempts >= this.maxLoginAttempts) {
+        const lockedUntil = new Date();
+        lockedUntil.setMinutes(lockedUntil.getMinutes() + this.lockoutDuration);
+        
+        await this.db.query(
+          `UPDATE users SET locked_until = $1 WHERE id = $2`,
+          [lockedUntil, user.id]
+        );
+        
+        logger.warn(`Account locked for user ${email} due to ${loginAttempts} failed login attempts`);
+      }
+    } catch (error) {
+      logger.error('Failed to handle failed login:', error);
+    }
   }
 
   private async resetLoginAttempts(email: string): Promise<void> {
-    // TODO: Implement login attempt reset when columns are added
-    // await this.db.query('SELECT reset_login_attempts($1)', [email]);
+    try {
+      await this.db.query(
+        `UPDATE users 
+         SET login_attempts = 0,
+             locked_until = NULL,
+             last_login = NOW()
+         WHERE email = $1`,
+        [email.toLowerCase()]
+      );
+      
+      logger.info(`Login attempts reset for user ${email}`);
+    } catch (error) {
+      logger.error('Failed to reset login attempts:', error);
+    }
   }
 
   private sanitizeUser(user: User): Omit<User, 'password_hash'> {

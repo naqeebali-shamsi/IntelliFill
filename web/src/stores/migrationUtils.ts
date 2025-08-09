@@ -2,7 +2,7 @@
  * Migration utilities for moving from localStorage to Zustand persistence
  */
 
-import { useAuthStore } from './authStore';
+import { useAuthStore } from './simpleAuthStore';
 
 export interface LegacyAuthData {
   token?: string;
