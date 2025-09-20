@@ -15,6 +15,9 @@ export interface User {
   created_at: Date;
   updated_at: Date;
   last_login?: Date;
+  locked_until?: Date;
+  login_attempts?: number;
+  last_login_attempt?: Date;
 }
 
 export interface RefreshToken {
@@ -72,16 +75,31 @@ export class AuthService {
 
   constructor(db: DatabaseService) {
     this.db = db;
-    this.jwtSecret = process.env.JWT_SECRET || 'your-jwt-secret-key';
-    this.jwtRefreshSecret = process.env.JWT_REFRESH_SECRET || 'your-jwt-refresh-secret-key';
+    // CRITICAL: Remove ALL hardcoded secrets - FAIL FAST if missing
+    this.jwtSecret = process.env.JWT_SECRET!;
+    this.jwtRefreshSecret = process.env.JWT_REFRESH_SECRET!;
+    
+    if (!this.jwtSecret || !this.jwtRefreshSecret) {
+      throw new Error('CRITICAL: JWT_SECRET and JWT_REFRESH_SECRET environment variables are required');
+    }
+    
+    if (this.jwtSecret.length < 64 || this.jwtRefreshSecret.length < 64) {
+      throw new Error('CRITICAL: JWT secrets must be at least 64 characters long');
+    }
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
     this.refreshTokenExpiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
     this.saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12');
     this.maxLoginAttempts = parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5');
     this.lockoutDuration = parseInt(process.env.LOCKOUT_DURATION_MINUTES || '30');
 
-    if (this.jwtSecret === 'your-jwt-secret-key' || this.jwtRefreshSecret === 'your-jwt-refresh-secret-key') {
-      logger.warn('Using default JWT secrets. Please set JWT_SECRET and JWT_REFRESH_SECRET environment variables in production.');
+    // Entropy validation for production security
+    const calculateEntropy = (str: string): number => {
+      const chars = new Set(str).size;
+      return Math.log2(Math.pow(chars, str.length));
+    };
+    
+    if (calculateEntropy(this.jwtSecret) < 256) {
+      throw new Error('CRITICAL: JWT_SECRET has insufficient entropy (minimum 256 bits)');
     }
   }
 
@@ -179,12 +197,48 @@ export class AuthService {
   }
 
   /**
-   * Refresh access token using refresh token
+   * Refresh access token using refresh token with enhanced security
    */
   async refreshToken(refreshToken: string): Promise<AuthTokens> {
     try {
-      // Verify refresh token
-      const payload = jwt.verify(refreshToken, this.jwtRefreshSecret) as TokenPayload;
+      // SECURITY: Validate token format first
+      if (!refreshToken || typeof refreshToken !== 'string') {
+        throw new Error('Invalid refresh token format');
+      }
+
+      // SECURITY: Check token structure
+      const tokenParts = refreshToken.split('.');
+      if (tokenParts.length !== 3) {
+        throw new Error('Invalid refresh token structure');
+      }
+
+      // SECURITY: Check header for algorithm confusion attacks
+      let header;
+      try {
+        header = JSON.parse(Buffer.from(tokenParts[0], 'base64url').toString());
+      } catch {
+        throw new Error('Invalid refresh token header');
+      }
+
+      // SECURITY: Reject 'none' algorithm and enforce HS256
+      if (!header.alg || header.alg === 'none' || header.alg !== 'HS256') {
+        throw new Error('Invalid or unsupported refresh token algorithm');
+      }
+
+      // Verify refresh token with strict validation
+      const payload = jwt.verify(refreshToken, this.jwtRefreshSecret, {
+        algorithms: ['HS256'], // Only accept HS256
+        issuer: process.env.JWT_ISSUER || 'quikadmin-api',
+        audience: process.env.JWT_AUDIENCE || 'quikadmin-client',
+        clockTolerance: 0, // No clock tolerance
+        ignoreExpiration: false,
+        ignoreNotBefore: false
+      } as jwt.VerifyOptions) as TokenPayload;
+
+      // SECURITY: Validate payload structure
+      if (!payload.id || !payload.email) {
+        throw new Error('Invalid refresh token payload');
+      }
       
       // Find refresh token in database
       const tokenHash = this.hashRefreshToken(refreshToken);
@@ -243,13 +297,60 @@ export class AuthService {
   }
 
   /**
-   * Verify JWT token
+   * Verify JWT token with comprehensive security checks
    */
   async verifyAccessToken(token: string): Promise<TokenPayload> {
     try {
-      const payload = jwt.verify(token, this.jwtSecret) as TokenPayload;
+      // SECURITY: Validate token format first
+      if (!token || typeof token !== 'string') {
+        throw new Error('Invalid token format');
+      }
+
+      // SECURITY: Check token structure (JWT must have 3 parts)
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        throw new Error('Invalid token structure');
+      }
+
+      // SECURITY: Decode and check header for algorithm confusion attacks
+      let header;
+      try {
+        header = JSON.parse(Buffer.from(tokenParts[0], 'base64url').toString());
+      } catch {
+        throw new Error('Invalid token header');
+      }
+
+      // SECURITY: Explicitly reject 'none' algorithm and enforce HS256 only
+      if (!header.alg || header.alg === 'none' || header.alg !== 'HS256') {
+        throw new Error('Invalid or unsupported algorithm');
+      }
+
+      // SECURITY: Verify token with strict options
+      const payload = jwt.verify(token, this.jwtSecret, {
+        algorithms: ['HS256'], // Only accept HS256
+        issuer: process.env.JWT_ISSUER || 'quikadmin-api',
+        audience: process.env.JWT_AUDIENCE || 'quikadmin-client',
+        clockTolerance: 0, // No clock tolerance for strict expiration
+        ignoreExpiration: false, // Explicitly check expiration
+        ignoreNotBefore: false // Check nbf claim
+      } as jwt.VerifyOptions) as TokenPayload;
+
+      // SECURITY: Additional payload validation
+      if (!payload.id || !payload.email || !payload.role) {
+        throw new Error('Invalid token payload - missing required fields');
+      }
+
+      // SECURITY: Validate token expiration explicitly
+      if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
+        throw new Error('Token has expired');
+      }
+
+      // SECURITY: Validate issued at time (prevent future tokens)
+      if (payload.iat && payload.iat > Math.floor(Date.now() / 1000) + 60) {
+        throw new Error('Invalid token issue time');
+      }
       
-      // Optionally verify user still exists and is active
+      // Verify user still exists and is active
       const user = await this.findUserById(payload.id);
       if (!user || !user.is_active) {
         throw new Error('User not found or deactivated');
@@ -258,6 +359,15 @@ export class AuthService {
       return payload;
     } catch (error) {
       logger.error('Token verification error:', error);
+      if (error instanceof jwt.JsonWebTokenError) {
+        if (error.name === 'TokenExpiredError') {
+          throw new Error('Token has expired');
+        } else if (error.name === 'JsonWebTokenError') {
+          throw new Error('Invalid token signature');
+        } else if (error.name === 'NotBeforeError') {
+          throw new Error('Token not active yet');
+        }
+      }
       throw new Error('Invalid or expired token');
     }
   }
@@ -323,7 +433,7 @@ export class AuthService {
       'SELECT * FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
-    return result.rows[0] || null;
+    return result.rows[0] as User || null;
   }
 
   private async findUserById(id: string): Promise<User | null> {
@@ -331,7 +441,7 @@ export class AuthService {
       'SELECT * FROM users WHERE id = $1',
       [id]
     );
-    return result.rows[0] || null;
+    return result.rows[0] as User || null;
   }
 
   private async hashPassword(password: string): Promise<string> {
@@ -359,15 +469,25 @@ export class AuthService {
       role: user.role
     };
 
-    // Generate access token
-    const accessToken = jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtExpiresIn } as jwt.SignOptions);
+    // Generate access token with explicit algorithm and security options
+    const accessToken = jwt.sign(payload, this.jwtSecret, { 
+      expiresIn: this.jwtExpiresIn,
+      algorithm: 'HS256',
+      issuer: process.env.JWT_ISSUER || 'quikadmin-api',
+      audience: process.env.JWT_AUDIENCE || 'quikadmin-client'
+    } as jwt.SignOptions);
     
     // Generate refresh token with unique identifier to prevent duplicates
     const refreshPayload = {
       ...payload,
       jti: crypto.randomUUID() // Add unique token ID
     };
-    const refreshToken = jwt.sign(refreshPayload, this.jwtRefreshSecret, { expiresIn: this.refreshTokenExpiresIn } as jwt.SignOptions);
+    const refreshToken = jwt.sign(refreshPayload, this.jwtRefreshSecret, { 
+      expiresIn: this.refreshTokenExpiresIn,
+      algorithm: 'HS256',
+      issuer: process.env.JWT_ISSUER || 'quikadmin-api',
+      audience: process.env.JWT_AUDIENCE || 'quikadmin-client'
+    } as jwt.SignOptions);
     
     // Store refresh token in database
     await this.storeRefreshToken(user.id, refreshToken, loginInfo);
