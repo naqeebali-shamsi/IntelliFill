@@ -9,6 +9,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  full_name?: string;
   role: 'admin' | 'user' | 'viewer';
   avatar?: string;
   preferences: UserPreferences;
@@ -38,6 +39,7 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+  expiresIn?: number;
 }
 
 // =================== DOCUMENT TYPES ===================
