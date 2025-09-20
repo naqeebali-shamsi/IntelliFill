@@ -82,7 +82,7 @@ jobs:
         run: cd web && npm ci
       
       - name: Run frontend type checks
-        run: cd web && npm run typecheck
+        run: cd web && npx tsc --noEmit
       
       - name: Build frontend
         run: cd web && npm run build
@@ -116,5 +116,5 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          base: ${{ github.event.before }}
+          head: ${{ github.sha }}
