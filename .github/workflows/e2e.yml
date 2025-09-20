@@ -1,0 +1,62 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  cypress:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Start backend services
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 10  # Wait for services to be ready
+      
+      - name: Check backend health
+        run: |
+          for i in {1..30}; do
+            if curl -f http://localhost:3002/api/health 2>/dev/null; then
+              echo "Backend is healthy"
+              break
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 2
+          done
+      
+      - name: Install Cypress
+        run: cd web && npm ci
+      
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: web
+          start: npm run dev
+          wait-on: 'http://localhost:5173'
+          wait-on-timeout: 120
+          browser: chrome
+          spec: |
+            cypress/e2e/actual-login.cy.ts
+        env:
+          CYPRESS_BASE_URL: http://localhost:5173
+      
+      - name: Upload screenshots on failure
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: web/cypress/screenshots
+      
+      - name: Cleanup
+        if: always()
+        run: docker-compose -f docker-compose.test.yml down -v

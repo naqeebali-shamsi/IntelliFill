@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { ValidationRule } from '../validators/ValidationService';
 import { createAuthRoutes } from './auth.routes';
 import { createStatsRoutes } from './stats.routes';
+import { neonAuthRouter } from './neon-auth.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticate, optionalAuth } from '../middleware/auth';
 
@@ -33,6 +34,9 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
     const authRoutes = createAuthRoutes({ db });
     app.use('/api/auth', authRoutes);
     
+    // Setup Neon auth routes
+    app.use('/api/neon-auth', neonAuthRouter);
+    
     // Setup stats and dashboard routes
     const statsRoutes = createStatsRoutes(db);
     app.use('/api', statsRoutes);
@@ -40,7 +44,67 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Health check
   router.get('/health', (req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '1.0.0',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
+  // Ready check - verifies all services are operational
+  router.get('/ready', async (req: Request, res: Response) => {
+    try {
+      const checks = {
+        database: false,
+        redis: false,
+        filesystem: false
+      };
+
+      // Check database if available
+      if (db) {
+        try {
+          await db.query('SELECT 1');
+          checks.database = true;
+        } catch (error) {
+          logger.error('Database health check failed:', error);
+        }
+      }
+
+      // Check filesystem
+      try {
+        const fs = require('fs').promises;
+        await fs.access('uploads/', fs.constants.W_OK);
+        checks.filesystem = true;
+      } catch (error) {
+        logger.error('Filesystem health check failed:', error);
+      }
+
+      // TODO: Add Redis check when implemented
+      checks.redis = true; // Placeholder for now
+
+      const allHealthy = Object.values(checks).every(check => check === true);
+      
+      if (allHealthy) {
+        res.json({ 
+          status: 'ready',
+          checks,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        res.status(503).json({ 
+          status: 'not ready',
+          checks,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      res.status(503).json({ 
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
   // Process single document and form (protected route)
