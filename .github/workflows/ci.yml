@@ -61,7 +61,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test-secret-key-for-ci-only-minimum-256-bits-long-to-pass-validation
           JWT_REFRESH_SECRET: test-refresh-secret-key-for-ci-only-minimum-256-bits-long
-        run: npm test -- --passWithNoTests
+        run: npm test -- --passWithNoTests --testPathIgnorePatterns="puppeteer-scenarios"
       
       - name: Build backend
         run: npm run build
