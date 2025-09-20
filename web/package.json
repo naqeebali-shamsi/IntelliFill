@@ -30,7 +30,7 @@
     "zustand": "^5.0.7"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.0.0-beta.4",
+    "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^20.19.10",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
