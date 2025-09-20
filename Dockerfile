@@ -7,15 +7,15 @@ ARG ALPINE_VERSION=3.19
 # ============================================
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS dependencies
 
-# Install build dependencies in single layer
+# Install build dependencies without strict versions
 RUN apk add --no-cache \
-    python3=~3.11 \
-    make=~4.4 \
-    g++=~13.2 \
-    cairo-dev=~1.18 \
-    jpeg-dev=~9 \
-    pango-dev=~1.51 \
-    giflib-dev=~5.2 \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /app
@@ -40,8 +40,9 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package*.json tsconfig.json ./
 
-# Copy source code
+# Copy source code and prisma schema
 COPY src ./src
+COPY prisma ./prisma
 
 # Build application with parallel compilation
 RUN npm run build
@@ -56,26 +57,26 @@ LABEL maintainer="IntelliFill Team"
 LABEL version="1.0.0"
 LABEL description="IntelliFill Document Processing Platform"
 
-# Install runtime dependencies with specific versions
+# Install runtime dependencies without strict versions
 RUN apk add --no-cache \
-    tesseract-ocr=~5.3 \
-    tesseract-ocr-data-eng=~5.3 \
-    tesseract-ocr-data-spa=~5.3 \
-    tesseract-ocr-data-fra=~5.3 \
-    tesseract-ocr-data-deu=~5.3 \
-    poppler-utils=~23.12 \
-    ghostscript=~10.02 \
-    imagemagick=~7.1 \
-    cairo=~1.18 \
-    pango=~1.51 \
-    jpeg=~9 \
-    giflib=~5.2 \
-    librsvg=~2.57 \
-    python3=~3.11 \
-    py3-pip=~23.3 \
-    py3-pillow=~10.1 \
-    py3-numpy=~1.25 \
-    dumb-init=~1.2 \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    tesseract-ocr-data-spa \
+    tesseract-ocr-data-fra \
+    tesseract-ocr-data-deu \
+    poppler-utils \
+    ghostscript \
+    imagemagick \
+    cairo \
+    pango \
+    jpeg \
+    giflib \
+    librsvg \
+    python3 \
+    py3-pip \
+    py3-pillow \
+    py3-numpy \
+    dumb-init \
     && rm -rf /var/cache/apk/*
 
 # Install Python dependencies with specific versions
@@ -97,6 +98,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
 # Copy necessary files
 COPY --chown=nodejs:nodejs package*.json ./
+COPY --chown=nodejs:nodejs prisma ./prisma
 
 # Create necessary directories with proper permissions
 RUN mkdir -p uploads outputs logs models data \
