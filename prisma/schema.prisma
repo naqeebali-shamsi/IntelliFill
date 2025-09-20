@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  firstName       String?
+  lastName        String?
+  role            UserRole  @default(USER)
+  isActive        Boolean   @default(true)
+  emailVerified   Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastLogin       DateTime?
+  refreshTokens   RefreshToken[]
+  documents       Document[]
+  sessions        Session[]
+  templates       Template[]
+  mappings        FieldMapping[]
+  
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  token       String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  
+  @@map("refresh_tokens")
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String   @unique
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  
+  @@map("sessions")
+}
+
+model Document {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName        String
+  fileType        String
+  fileSize        Int
+  storageUrl      String
+  status          DocumentStatus @default(PENDING)
+  extractedText   String?
+  extractedData   Json?
+  confidence      Float?
+  templateId      String?
+  template        Template?  @relation(fields: [templateId], references: [id])
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("documents")
+}
+
+model Template {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fieldMappings   Json
+  documentType    String
+  isActive        Boolean   @default(true)
+  documents       Document[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("templates")
+}
+
+model FieldMapping {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceField     String
+  targetField     String
+  transformRules  Json?
+  confidence      Float     @default(1.0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("field_mappings")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  VIEWER
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  ARCHIVED
+}
