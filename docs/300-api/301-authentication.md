@@ -1,15 +1,57 @@
 # Authentication API Reference
 
-**Last Updated:** 2025-01-10
-**Status:** Complete
-**API Version:** 1.0.0
-**Base URL:** `http://localhost:3002/api/auth`
+**Last Updated:** 2025-10-25
+**Status:** Phase 3 SDK Migration - Dual Auth Active
+**API Version:** 2.0.0 (Supabase) + 1.0.0 (Legacy)
 
 ---
 
-## Overview
+## 🚀 MIGRATION NOTICE
 
-The Authentication API provides endpoints for user registration, login, token management, and profile operations. All authentication uses JWT (JSON Web Tokens) with secure HS256 algorithm enforcement.
+QuikAdmin is migrating to **Supabase Auth** for improved security and features. During Phase 3-5, both authentication systems are active:
+
+| System | Base URL | Status | Recommendation |
+|--------|----------|--------|----------------|
+| **Supabase Auth (v2)** | `/api/auth/v2` | ✅ **Preferred** | Use for new integrations |
+| **Legacy JWT** | `/api/auth` | ⚠️ **Deprecated** | Existing users only |
+
+**New users:** Please use **Supabase Auth v2 endpoints** documented in [Auth Routes Reference](./304-auth-routes-reference.md).
+
+**Migration Timeline:**
+- **Phase 3** (Current): Both systems active
+- **Phase 4-5**: User migration to Supabase
+- **Phase 6**: Legacy system removed
+
+---
+
+## Quick Start
+
+### For New Applications (Supabase Auth v2)
+
+```javascript
+// Register
+const response = await fetch('/api/auth/v2/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: 'user@example.com',
+    password: 'SecurePass123!',
+    fullName: 'John Doe'
+  })
+});
+
+const { tokens, user } = response.data.data;
+```
+
+**See:** [Supabase Auth Routes Reference](./304-auth-routes-reference.md) for complete v2 documentation.
+
+---
+
+## Overview (Legacy System)
+
+The Legacy Authentication API uses custom JWT (JSON Web Tokens) with secure HS256 algorithm enforcement.
+
+**Note:** This system is being phased out. New integrations should use Supabase Auth v2.
 
 **Security Features:**
 - 15-minute access token expiry (reduced from 1h for security)

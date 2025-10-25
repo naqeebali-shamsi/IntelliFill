@@ -6,6 +6,7 @@ import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
 import { ValidationRule } from '../validators/ValidationService';
 import { createAuthRoutes } from './auth.routes';
+import { createSupabaseAuthRoutes } from './supabase-auth.routes';
 import { createStatsRoutes } from './stats.routes';
 import { neonAuthRouter } from './neon-auth.routes';
 import { createDocumentRoutes } from './documents.routes';
@@ -45,8 +46,16 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Setup authentication routes
   if (db) {
+    // Legacy JWT auth routes (Phase 3 SDK Migration - will be deprecated)
+    // Mounted at /api/auth for backwards compatibility
     const authRoutes = createAuthRoutes({ db });
     app.use('/api/auth', authRoutes);
+
+    // Supabase auth routes (Phase 3 SDK Migration - new preferred auth)
+    // Mounted at /api/auth/v2 for gradual migration
+    // These routes use Supabase Auth SDK for all authentication operations
+    const supabaseAuthRoutes = createSupabaseAuthRoutes();
+    app.use('/api/auth/v2', supabaseAuthRoutes);
 
     // Setup Neon auth routes
     app.use('/api/neon-auth', neonAuthRouter);
