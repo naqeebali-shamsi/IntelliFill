@@ -88,12 +88,93 @@ Subagents are configured to run on specific Claude models (Haiku, Sonnet, Opus) 
 
 ---
 
-## 7. Documentation adherence and usage
+## 7. Documentation Adherence and Usage (Updated 2025-10-25)
 
-Always use and update the documentation available in @docs/ directory in the project root.
+### QuikAdmin Documentation Structure
 
-Smartly select the document based on the context.
-Apply this instruction when you spawn agents as well
+**CRITICAL:** Always use and reference the structured documentation in `@docs/` directory.
+
+### Documentation Hierarchy (Priority Order)
+
+**Tier 1 - Always Read First:**
+1. **`@docs/CURRENT_ARCHITECTURE.md`** - ⭐⭐ Single source of truth (41KB, comprehensive reality check)
+   - Read this FIRST before making any architectural decisions
+   - Contains actual implementation, not aspirational vision
+2. **`@CLAUDE.md`** - Project-specific Claude Code configuration
+3. **`@docs/ARCHITECTURE_QUICK_REFERENCE.md`** - 5-minute overview for quick context
+
+**Tier 2 - Task-Specific Navigation:**
+- **Getting Started:** `@docs/100-getting-started/` - Installation, tutorials, first steps
+- **Architecture & Design:** `@docs/200-architecture/` - Security, design decisions, patterns
+- **API Reference:** `@docs/300-api/` - Endpoint documentation with examples
+- **How-To Guides:** `@docs/400-guides/` - Troubleshooting, feature guides
+- **Technical Reference:** `@docs/500-reference/` - Config, env vars, schema (TODO)
+- **Development Workflows:** `@docs/600-development/` - Testing, Git, CI/CD (TODO)
+- **Deployment Guides:** `@docs/700-deployment/` - Production deployment (TODO)
+
+**Tier 3 - Specialized Documentation:**
+- **Future Vision:** `@docs/architecture-vision/` - **WARNING:** Aspirational plans, NOT current reality
+- **Research Findings:** `@docs/research/` - Documentation best practices, memory systems
+- **Blueprints:** `@docs/DOCUMENTATION_ARCHITECTURE_BLUEPRINT.md` - Implementation roadmap
+
+### Documentation Rules for Agent Spawning
+
+**When spawning agents, provide:**
+1. **Relevant documentation paths** - Specific docs the agent should read
+2. **Architecture context** - Always mention CURRENT_ARCHITECTURE.md as reference
+3. **Reality vs Vision warning** - Don't assume architecture-vision/ features exist
+4. **Structured navigation** - Use 100-700 section numbers for clarity
+
+**Example Agent Prompt:**
+```
+Read these docs for context:
+- @docs/CURRENT_ARCHITECTURE.md (architecture reality)
+- @docs/300-api/301-authentication.md (auth endpoints)
+- @docs/400-guides/407-troubleshooting.md (common issues)
+
+WARNING: Don't reference @docs/architecture-vision/ - that's future plans, not current implementation.
+```
+
+### Smart Document Selection by Context
+
+**For Architecture Questions:**
+- Primary: `CURRENT_ARCHITECTURE.md`
+- Quick ref: `ARCHITECTURE_QUICK_REFERENCE.md`
+- Future plans: `architecture-vision/` (with disclaimer)
+
+**For API Development:**
+- Primary: `docs/300-api/301-authentication.md`
+- Context: `CURRENT_ARCHITECTURE.md` (API section)
+- Examples: Code in `src/api/` directory
+
+**For Troubleshooting:**
+- Primary: `docs/400-guides/407-troubleshooting.md`
+- Context: `SETUP_GUIDE_WINDOWS.md` (Windows-specific)
+- Examples: `CLEANUP_EXECUTION_REPORT.md` (what changed recently)
+
+**For Getting Started:**
+- Primary: `docs/100-getting-started/104-first-document.md` (10-min tutorial)
+- Setup: `docs/100-getting-started/101-installation.md`
+- Quick start: `README.md`
+
+### Documentation Update Protocol
+
+When agents create or update code:
+1. **Check if documentation exists** in relevant section (100-700)
+2. **Update or create documentation** if feature is user-facing or architectural
+3. **Cross-link documents** to related content
+4. **Maintain CURRENT_ARCHITECTURE.md** if changes affect system design
+5. **Never update architecture-vision/** - that's for strategic planning only
+
+### Key Insight from Recent Cleanup
+
+**Problem Solved:** Previous documentation mixed reality with aspiration (Kubernetes, microservices docs for monolithic system).
+
+**Current State:** Clear separation:
+- `CURRENT_ARCHITECTURE.md` = What IS built ✅
+- `architecture-vision/` = What WILL BE built 🔮
+
+**Agent Instruction:** Always verify claims against actual code in `src/` and `package.json`, not aspirational documentation.
 
 ---
 

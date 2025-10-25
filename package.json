@@ -20,11 +20,14 @@
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write 'src/**/*.{ts,tsx,json}'",
-    "cli": "ts-node src/cli/index.ts"
+    "cli": "ts-node src/cli/index.ts",
+    "test:supabase": "npx ts-node scripts/test-supabase-connection.ts",
+    "migrate:supabase": "npx ts-node scripts/migrate-users-to-supabase.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/client": "^6.14.0",
+    "@supabase/supabase-js": "^2.76.1",
     "@tensorflow/tfjs-node": "^4.22.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.9",

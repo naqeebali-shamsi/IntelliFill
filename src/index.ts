@@ -57,7 +57,20 @@ function validateEnvironment() {
       process.exit(1);
     }
   }
-  
+
+  // Supabase Configuration (Phase 4 Migration)
+  if (!process.env.SUPABASE_URL) {
+    console.warn('⚠️  SUPABASE_URL not set - Supabase Auth will not work');
+  }
+
+  if (!process.env.SUPABASE_ANON_KEY) {
+    console.warn('⚠️  SUPABASE_ANON_KEY not set - Supabase Auth will not work');
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - Admin operations will fail');
+  }
+
   console.log('✅ Environment validation passed');
 }
 
