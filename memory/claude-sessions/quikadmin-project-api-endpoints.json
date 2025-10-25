@@ -1,0 +1,15 @@
+{
+  "value": [
+    "/api/process-document",
+    "/api/extract-fields",
+    "/api/fill-form"
+  ],
+  "timestamp": 1754827086228,
+  "ttl": 86400000,
+  "accessCount": 1,
+  "metadata": {
+    "namespace": "quikadmin-project",
+    "type": "object",
+    "storedBy": "claude-memory"
+  }
+}

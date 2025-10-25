@@ -1,0 +1,43 @@
+{
+  "key": "ocr-test-results",
+  "value": {
+    "status": "passed",
+    "accuracy": 100,
+    "confidence": 94,
+    "processingTime": 973,
+    "timestamp": "2025-08-23T15:08:59.026Z",
+    "extractedData": {
+      "email": [
+        "john.doe@example.com"
+      ],
+      "phone": [
+        "+1 (555) 123-4567",
+        "2024",
+        "2024-001",
+        "234.56"
+      ],
+      "date": [
+        "12/31/2024"
+      ],
+      "currency": [
+        "$1,234.56"
+      ],
+      "fields": {
+        "ocr_test_document_name": "John Doe",
+        "email": "john.doe@example.com",
+        "phone": "+1 (555) 123-4567",
+        "date": "12/31/2024",
+        "amount": "$1,234.56",
+        "status": "Approved"
+      }
+    }
+  },
+  "timestamp": 1755961739038,
+  "ttl": 604800000,
+  "namespace": "quikadmin-project",
+  "metadata": {
+    "type": "object",
+    "accessCount": 0,
+    "lastAccessed": 1755961739038
+  }
+}

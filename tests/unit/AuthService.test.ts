@@ -13,6 +13,10 @@ describe('AuthService', () => {
   let mockDb: jest.Mocked<DatabaseService>;
 
   beforeEach(() => {
+    // Set required environment variables for testing
+    process.env.JWT_SECRET = 'test_jwt_secret_that_is_long_enough_to_pass_validation_64_chars_min';
+    process.env.JWT_REFRESH_SECRET = 'test_refresh_secret_that_is_long_enough_to_pass_validation_64_chars';
+    
     mockDb = new DatabaseService() as jest.Mocked<DatabaseService>;
     authService = new AuthService(mockDb);
     jest.clearAllMocks();

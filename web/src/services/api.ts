@@ -1,7 +1,7 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import { useAuthStore } from '@/stores/simpleAuthStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,13 +10,23 @@ const api = axios.create({
   },
 });
 
-// Add auth token to requests
+// Shared refresh promise to prevent multiple simultaneous refresh attempts
+let refreshPromise: Promise<string | null> | null = null;
+
+// Add auth token and company context to requests
 api.interceptors.request.use((config) => {
   // Get token from Zustand store instead of localStorage
-  const token = useAuthStore.getState().tokens?.accessToken;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const { tokens, company } = useAuthStore.getState();
+
+  if (tokens?.accessToken) {
+    config.headers.Authorization = `Bearer ${tokens.accessToken}`;
   }
+
+  // Add company context for multi-tenant requests
+  if (company?.id) {
+    config.headers['X-Company-ID'] = company.id;
+  }
+
   return config;
 });
 
@@ -25,31 +35,48 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
-        // Try to refresh token
-        const authStore = useAuthStore.getState();
-        if (authStore.tokens?.refreshToken) {
-          await authStore.refreshToken();
-          
-          // Retry the original request with new token
-          const newToken = useAuthStore.getState().tokens?.accessToken;
-          if (newToken) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            return api(originalRequest);
-          }
+        // Use shared refresh promise to prevent stampede
+        if (!refreshPromise) {
+          refreshPromise = (async () => {
+            try {
+              const authStore = useAuthStore.getState();
+              if (!authStore.tokens?.refreshToken) {
+                return null;
+              }
+
+              await authStore.refreshToken();
+              const newToken = useAuthStore.getState().tokens?.accessToken;
+              return newToken || null;
+            } catch (err) {
+              console.error('Token refresh failed:', err);
+              return null;
+            } finally {
+              // Clear promise after completion
+              refreshPromise = null;
+            }
+          })();
+        }
+
+        const newToken = await refreshPromise;
+
+        if (newToken) {
+          // Retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
         }
       } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
+        console.error('Refresh error:', refreshError);
       }
-      
-      // Refresh failed or no refresh token, logout user
+
+      // Refresh failed, logout user
       const authStore = useAuthStore.getState();
       await authStore.logout();
-      
+
       // Only redirect if we're not already on the login page
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

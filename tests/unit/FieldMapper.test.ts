@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+// Jest is already globally available, no imports needed
 import { FieldMapper } from '../../src/mappers/FieldMapper';
 import { ExtractedData } from '../../src/extractors/DataExtractor';
 

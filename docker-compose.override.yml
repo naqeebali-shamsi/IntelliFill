@@ -1,0 +1,109 @@
+# Docker Compose Override for Local Development
+# This file is automatically loaded by docker-compose and overrides settings in docker-compose.yml
+# Perfect for local development without modifying the main configuration
+
+# Docker Compose v2+ doesn't require version field
+
+services:
+  # Override app service for development with hot-reloading
+  app:
+    command: npm run dev  # Use nodemon/ts-node-dev for hot reload
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      # Development-specific settings
+      RATE_LIMIT_MAX: 1000  # Higher limit for testing
+      RATE_LIMIT_WINDOW: 1  # Shorter window for development
+    volumes:
+      # Mount source code for hot reloading
+      - ./src:/app/src:delegated
+      - ./package.json:/app/package.json:delegated
+      - ./package-lock.json:/app/package-lock.json:delegated
+      - ./tsconfig.json:/app/tsconfig.json:delegated
+      - ./nodemon.json:/app/nodemon.json:delegated
+      - ./.env:/app/.env:ro
+      # Prevent node_modules from being overwritten
+      - /app/node_modules
+    ports:
+      - "9229:9229"  # Node.js debugging port
+
+  # Override worker for development
+  worker:
+    command: npm run dev:worker
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+    volumes:
+      # Mount source code for hot reloading
+      - ./src:/app/src:delegated
+      - ./package.json:/app/package.json:delegated
+      - ./package-lock.json:/app/package-lock.json:delegated
+      - ./tsconfig.json:/app/tsconfig.json:delegated
+      - /app/node_modules
+
+  # Override web for development with Vite hot module replacement using Bun
+  web:
+    command: bun run dev -- --host 0.0.0.0
+    environment:
+      NODE_ENV: development
+      BUN_JSC_forceRAMSize: 2147483648  # 2GB memory limit for Bun
+    volumes:
+      # Mount source code for hot reloading
+      - ./web/src:/app/src:delegated
+      - ./web/public:/app/public:delegated
+      - ./web/index.html:/app/index.html:delegated
+      - ./web/package.json:/app/package.json:delegated
+      - ./web/bun.lockb:/app/bun.lockb:delegated
+      - ./web/vite.config.ts:/app/vite.config.ts:delegated
+      - ./web/tsconfig.json:/app/tsconfig.json:delegated
+      - ./web/tsconfig.node.json:/app/tsconfig.node.json:delegated
+      - ./web/postcss.config.js:/app/postcss.config.js:delegated
+      - ./web/tailwind.config.js:/app/tailwind.config.js:delegated
+      - /app/node_modules
+      - /app/.vite
+    ports:
+      - "5173:5173"  # Vite dev server port
+
+  # Development database with exposed port for direct access
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      # Enable query logging in development
+      POSTGRES_INITDB_ARGS: "-c log_statement=all -c log_duration=on"
+
+  # Development Redis with exposed port and verbose logging
+  redis:
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --loglevel verbose
+
+  # Optional: Add mailhog for email testing in development
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - backend
+
+  # Optional: Add pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - backend
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  pgadmin_data:
+    driver: local

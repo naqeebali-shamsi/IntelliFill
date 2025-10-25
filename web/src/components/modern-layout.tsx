@@ -1,10 +1,11 @@
 import React from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ModeToggle } from '@/components/mode-toggle'
+import { useAuthStore } from '@/stores/simpleAuthStore'
 import {
   FileText,
   Upload,
@@ -20,7 +21,8 @@ import {
   Bell,
   User,
   Search,
-  Plus
+  Plus,
+  FilePenLine
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -37,7 +39,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Upload', href: '/upload', icon: Upload },
+  { name: 'Fill Form', href: '/fill-form', icon: FilePenLine },
   { name: 'History', href: '/history', icon: History },
+  { name: 'Documents', href: '/documents', icon: Files },
   { name: 'Templates', href: '/templates', icon: Layout },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
@@ -48,7 +52,9 @@ interface ModernLayoutProps {
 
 export function ModernLayout({ children }: ModernLayoutProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  const { user, logout } = useAuthStore()
 
   const NavContent = () => (
     <>
@@ -104,11 +110,11 @@ export function ModernLayout({ children }: ModernLayoutProps) {
         <div className="flex items-center space-x-2">
           <Avatar className="h-8 w-8">
             <AvatarImage src="/avatar.png" />
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarFallback>{user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
           <div className="flex-1 text-sm">
-            <p className="font-medium">John Doe</p>
-            <p className="text-muted-foreground">john@example.com</p>
+            <p className="font-medium">{user?.full_name || 'User'}</p>
+            <p className="text-muted-foreground">{user?.email || 'user@example.com'}</p>
           </div>
         </div>
       </div>
@@ -161,62 +167,20 @@ export function ModernLayout({ children }: ModernLayoutProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs">
-                    3
-                  </Badge>
-                  <span className="sr-only">Notifications</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">Document processing complete</p>
-                    <p className="text-xs text-muted-foreground">Document_2024.pdf is ready</p>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">New template available</p>
-                    <p className="text-xs text-muted-foreground">Tax Form 1040 template added</p>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-medium">Processing failed</p>
-                    <p className="text-xs text-muted-foreground">Invoice_March.pdf failed to process</p>
-                  </div>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {/* Theme Toggle */}
             <ModeToggle />
 
-            {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <User className="h-5 w-5" />
-                  <span className="sr-only">User menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Billing</DropdownMenuItem>
-                <DropdownMenuItem>Subscription</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Direct Logout Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await logout()
+                navigate('/login')
+              }}
+            >
+              Sign out
+            </Button>
           </div>
         </header>
 

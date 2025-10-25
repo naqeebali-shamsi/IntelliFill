@@ -1,59 +1,71 @@
-version: '3.8'
+# Test-specific Docker Compose configuration
+# Isolated environment for testing
 
 services:
+  # Test Database
   postgres-test:
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: pdffiller_test
-      POSTGRES_USER: pdffiller
-      POSTGRES_PASSWORD: pdffiller123
-    volumes:
-      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+      POSTGRES_DB: intellifill_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5433:5432"
+    networks:
+      - test-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pdffiller"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
+  # Test Redis
   redis-test:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly no
     ports:
       - "6380:6379"
+    networks:
+      - test-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
-  test-runner:
-    build: 
+  # Test Application
+  app-test:
+    build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: Dockerfile
+      target: test
     environment:
       NODE_ENV: test
-      DATABASE_URL: postgresql://pdffiller:pdffiller123@postgres-test:5432/pdffiller_test
+      DATABASE_URL: postgresql://test_user:test_pass@postgres-test:5432/intellifill_test
       REDIS_URL: redis://redis-test:6379
-      JWT_SECRET: test-secret-key
+      JWT_SECRET: test-jwt-secret-key-minimum-64-characters-for-testing-only-not-for-production
+      JWT_REFRESH_SECRET: test-refresh-secret-key-minimum-64-characters-for-testing-only-not-for-production
+      JWT_ISSUER: test-issuer
+      JWT_AUDIENCE: test-audience
+      LOG_LEVEL: error
     volumes:
-      - ./src:/app/src
-      - ./tests:/app/tests
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
       - ./coverage:/app/coverage
     depends_on:
       postgres-test:
         condition: service_healthy
       redis-test:
         condition: service_healthy
-    command: npm test
+    networks:
+      - test-network
+    command: npm run test:ci
 
-  web-test:
-    build:
-      context: ./web
-      dockerfile: Dockerfile.test
-    volumes:
-      - ./web/src:/app/src
-      - ./web/tests:/app/tests
-      - ./web/coverage:/app/coverage
-    command: npm test
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  test-postgres-data:
+  test-redis-data:

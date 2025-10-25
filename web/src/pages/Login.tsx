@@ -17,6 +17,7 @@ export default function Login() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    companySlug: '',
     rememberMe: false
   })
 
@@ -46,6 +47,7 @@ export default function Login() {
       await login({
         email: formData.email,
         password: formData.password,
+        companySlug: formData.companySlug || undefined,
         rememberMe: formData.rememberMe
       })
       
@@ -81,8 +83,9 @@ export default function Login() {
   // Test credentials for demo
   const fillTestCredentials = () => {
     setFormData({
-      email: 'demo@example.com',
-      password: 'Demo@123456',
+      email: 'admin@example.com',
+      password: 'admin123',
+      companySlug: 'demo-company',
       rememberMe: false
     })
   }
@@ -130,6 +133,20 @@ export default function Login() {
                 </AlertDescription>
               </Alert>
             )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="companySlug">Company (Optional)</Label>
+              <Input
+                id="companySlug"
+                name="companySlug"
+                type="text"
+                placeholder="your-company-slug"
+                value={formData.companySlug}
+                onChange={handleChange}
+                disabled={isLoading}
+                className="w-full"
+              />
+            </div>
             
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

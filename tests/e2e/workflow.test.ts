@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+// Jest is already globally available, no imports needed
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';

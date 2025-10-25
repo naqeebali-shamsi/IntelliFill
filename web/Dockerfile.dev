@@ -1,19 +1,18 @@
-FROM node:18-alpine
+FROM oven/bun:1-alpine
 
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json bun.lockb* ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with Bun
+RUN bun install --frozen-lockfile 2>/dev/null || bun install
 
 # The source code will be mounted as volume
+# so we don't copy it here
 
-# Expose Vite dev server port
 EXPOSE 5173
 
-# Enable hot module replacement for all network interfaces
-ENV VITE_HOST=0.0.0.0
-
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Default command for development
+# Vite needs --host flag to listen on all interfaces in Docker
+CMD ["bun", "run", "dev", "--", "--host", "0.0.0.0"]

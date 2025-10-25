@@ -1,14 +1,20 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
+import { PrismaClient } from '@prisma/client';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
 import { ValidationRule } from '../validators/ValidationService';
 import { createAuthRoutes } from './auth.routes';
 import { createStatsRoutes } from './stats.routes';
 import { neonAuthRouter } from './neon-auth.routes';
+import { createDocumentRoutes } from './documents.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticate, optionalAuth } from '../middleware/auth';
+import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
+import { validateFilePath } from '../utils/encryption';
+
+const prisma = new PrismaClient();
 
 const upload = multer({
   dest: 'uploads/',
@@ -18,10 +24,18 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type ${ext} not supported`));
+
+    try {
+      // Validate filename for path traversal
+      validateFilePath(file.originalname);
+
+      if (allowedTypes.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`File type ${ext} not supported`));
+      }
+    } catch (error) {
+      cb(error as Error);
     }
   }
 });
@@ -33,14 +47,18 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   if (db) {
     const authRoutes = createAuthRoutes({ db });
     app.use('/api/auth', authRoutes);
-    
+
     // Setup Neon auth routes
     app.use('/api/neon-auth', neonAuthRouter);
-    
+
     // Setup stats and dashboard routes
     const statsRoutes = createStatsRoutes(db);
     app.use('/api', statsRoutes);
   }
+
+  // Setup document management routes
+  const documentRoutes = createDocumentRoutes();
+  app.use('/api/documents', documentRoutes);
 
   // Health check
   router.get('/health', (req: Request, res: Response) => {
@@ -114,43 +132,90 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
       { name: 'document', maxCount: 1 },
       { name: 'form', maxCount: 1 }
     ]),
+    encryptUploadedFiles, // Encrypt files after upload
     async (req: Request, res: Response, next: NextFunction) => {
       try {
+        const userId = (req as any).user?.id;
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        
+
         if (!files.document || !files.form) {
           return res.status(400).json({ error: 'Both document and form files are required' });
         }
 
-        const documentPath = files.document[0].path;
-        const formPath = files.form[0].path;
-        const outputPath = `outputs/filled_${Date.now()}.pdf`;
+        const documentFile = files.document[0];
+        const formFile = files.form[0];
 
-        const result = await intelliFillService.processSingle(
-          documentPath,
-          formPath,
-          outputPath
-        );
+        // Step 1: Create document record BEFORE processing
+        const document = await prisma.document.create({
+          data: {
+            userId,
+            fileName: documentFile.originalname,
+            fileType: documentFile.mimetype,
+            fileSize: documentFile.size,
+            storageUrl: documentFile.path,
+            status: 'PROCESSING'
+          }
+        });
 
-        if (result.success) {
-          res.json({
-            success: true,
-            message: 'PDF form filled successfully',
-            data: {
-              outputPath: result.fillResult.outputPath,
-              filledFields: result.fillResult.filledFields,
-              confidence: result.mappingResult.overallConfidence,
-              processingTime: result.processingTime,
+        try {
+          const documentPath = documentFile.path;
+          const formPath = formFile.path;
+          const outputPath = `outputs/filled_${document.id}_${Date.now()}.pdf`;
+
+          // Step 2: Process the document
+          const result = await intelliFillService.processSingle(
+            documentPath,
+            formPath,
+            outputPath
+          );
+
+          if (result.success) {
+            // Step 3: Update document with extracted data (encrypted)
+            const encryptedData = encryptExtractedData(result.mappingResult);
+
+            await prisma.document.update({
+              where: { id: document.id },
+              data: {
+                extractedData: encryptedData,
+                status: 'COMPLETED',
+                confidence: result.mappingResult.overallConfidence,
+                processedAt: new Date()
+              }
+            });
+
+            res.json({
+              success: true,
+              message: 'PDF form filled successfully',
+              data: {
+                documentId: document.id,
+                outputPath: result.fillResult.outputPath,
+                filledFields: result.fillResult.filledFields,
+                confidence: result.mappingResult.overallConfidence,
+                processingTime: result.processingTime,
+                warnings: result.fillResult.warnings
+              }
+            });
+          } else {
+            // Update status to FAILED
+            await prisma.document.update({
+              where: { id: document.id },
+              data: { status: 'FAILED' }
+            });
+
+            res.status(400).json({
+              success: false,
+              message: 'Failed to fill PDF form',
+              errors: result.errors,
               warnings: result.fillResult.warnings
-            }
+            });
+          }
+        } catch (processingError) {
+          // Update status to FAILED on error
+          await prisma.document.update({
+            where: { id: document.id },
+            data: { status: 'FAILED' }
           });
-        } else {
-          res.status(400).json({
-            success: false,
-            message: 'Failed to fill PDF form',
-            errors: result.errors,
-            warnings: result.fillResult.warnings
-          });
+          throw processingError;
         }
       } catch (error) {
         next(error);

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset Authentication</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #dc2626;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Authentication Reset</h1>
+        <p>This page will clear all authentication data and reset your session.</p>
+
+        <div id="current" class="info" style="display: block;">
+            <strong>Checking current state...</strong>
+        </div>
+
+        <button onclick="resetAuth()">Clear Authentication & Reload</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Check current state
+        window.onload = () => {
+            const authData = localStorage.getItem('intellifill-auth');
+            const currentEl = document.getElementById('current');
+
+            if (authData) {
+                try {
+                    const parsed = JSON.parse(authData);
+                    const expiry = parsed.state?.sessionExpiry;
+                    const isExpired = expiry && Date.now() >= expiry;
+
+                    currentEl.innerHTML = `
+                        <strong>Current Auth State:</strong><br>
+                        Session Expiry: ${expiry ? new Date(expiry).toISOString() : 'None'}<br>
+                        Status: <span style="color: ${isExpired ? 'red' : 'green'}">${isExpired ? 'EXPIRED ❌' : 'Valid ✅'}</span>
+                    `;
+                } catch (e) {
+                    currentEl.innerHTML = '<strong>Auth data found but cannot be parsed</strong>';
+                }
+            } else {
+                currentEl.innerHTML = '<strong>No auth data found</strong>';
+            }
+        };
+
+        function resetAuth() {
+            const statusEl = document.getElementById('status');
+
+            // Clear ALL localStorage
+            const keysCleared = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) keysCleared.push(key);
+            }
+            localStorage.clear();
+
+            // Clear sessionStorage
+            sessionStorage.clear();
+
+            // Show success
+            statusEl.style.display = 'block';
+            statusEl.className = 'success';
+            statusEl.innerHTML = `
+                <strong>✅ Authentication Reset Complete!</strong><br><br>
+                Cleared ${keysCleared.length} localStorage items:<br>
+                ${keysCleared.map(k => `• ${k}`).join('<br>')}<br><br>
+                <strong>Redirecting to login in 2 seconds...</strong>
+            `;
+
+            // Redirect to login after delay
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

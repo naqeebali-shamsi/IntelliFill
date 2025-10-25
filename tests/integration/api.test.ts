@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+// Jest is already globally available, no imports needed
 import request from 'supertest';
 import { app } from '../../src/index';
 import * as fs from 'fs/promises';

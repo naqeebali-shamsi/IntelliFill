@@ -1,0 +1,127 @@
+{
+  "testCompanies": [
+    {
+      "id": "company_1",
+      "name": "TechCorp Solutions",
+      "slug": "techcorp-solutions",
+      "domain": "techcorp.com",
+      "industry": "Technology",
+      "size": "50-100",
+      "plan": "professional",
+      "credits": {
+        "available": 450,
+        "total": 500,
+        "used": 50
+      },
+      "settings": {
+        "autoApprove": false,
+        "requireReview": true,
+        "notifications": {
+          "email": true,
+          "slack": false,
+          "browser": true
+        }
+      },
+      "subscription": {
+        "status": "active",
+        "billingCycle": "monthly",
+        "nextBilling": "2024-02-01T00:00:00Z"
+      }
+    },
+    {
+      "id": "company_2",
+      "name": "StartupInc",
+      "slug": "startup-inc",
+      "domain": "startup.io",
+      "industry": "SaaS",
+      "size": "10-25",
+      "plan": "trial",
+      "credits": {
+        "available": 85,
+        "total": 100,
+        "used": 15
+      },
+      "settings": {
+        "autoApprove": true,
+        "requireReview": false,
+        "notifications": {
+          "email": true,
+          "slack": true,
+          "browser": false
+        }
+      },
+      "subscription": {
+        "status": "trial",
+        "trialEnds": "2024-02-15T00:00:00Z"
+      }
+    },
+    {
+      "id": "company_3",
+      "name": "Enterprise Corp",
+      "slug": "enterprise-corp",
+      "domain": "enterprise.com",
+      "industry": "Finance",
+      "size": "500+",
+      "plan": "enterprise",
+      "credits": {
+        "available": 1850,
+        "total": 2000,
+        "used": 150
+      },
+      "settings": {
+        "autoApprove": false,
+        "requireReview": true,
+        "notifications": {
+          "email": true,
+          "slack": true,
+          "browser": true
+        }
+      },
+      "subscription": {
+        "status": "active",
+        "billingCycle": "annual",
+        "nextBilling": "2024-12-01T00:00:00Z"
+      }
+    }
+  ],
+  "newCompanyTemplates": {
+    "startup": {
+      "name": "{{randomName}} Startup",
+      "slug": "{{randomSlug}}-startup",
+      "domain": "{{randomDomain}}.io",
+      "industry": "Technology",
+      "size": "1-10"
+    },
+    "enterprise": {
+      "name": "{{randomName}} Enterprise",
+      "slug": "{{randomSlug}}-enterprise", 
+      "domain": "{{randomDomain}}.com",
+      "industry": "Finance",
+      "size": "500+"
+    },
+    "agency": {
+      "name": "{{randomName}} Agency",
+      "slug": "{{randomSlug}}-agency",
+      "domain": "{{randomDomain}}.agency",
+      "industry": "Marketing",
+      "size": "25-50"
+    }
+  },
+  "invalidCompanies": {
+    "duplicateSlug": {
+      "name": "Duplicate Company",
+      "slug": "techcorp-solutions",
+      "domain": "duplicate.com"
+    },
+    "duplicateDomain": {
+      "name": "Another Company",
+      "slug": "another-company",
+      "domain": "techcorp.com"
+    },
+    "invalidSlug": {
+      "name": "Invalid Slug Company",
+      "slug": "Invalid Slug!",
+      "domain": "invalid.com"
+    }
+  }
+}

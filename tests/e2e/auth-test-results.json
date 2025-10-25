@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-09T16:51:29.720Z",
+  "timestamp": "2025-08-10T13:27:26.343Z",
   "environment": {
     "frontend": "http://localhost:3001",
     "backend": "http://localhost:3000"
@@ -7,75 +7,14 @@
   "tests": [
     {
       "name": "Backend Health Check",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:29.750Z",
-      "message": "Backend is healthy",
-      "response": {
-        "status": "ok",
-        "timestamp": "2025-08-09T16:51:29.745Z",
-        "version": "1.0.0",
-        "environment": "development"
-      }
-    },
-    {
-      "name": "Registration API",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:29.959Z",
-      "message": "User registered successfully",
-      "userId": "60a0ed6d-f83d-4027-bc9a-cbd94daa7c5c"
-    },
-    {
-      "name": "Login API",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.159Z",
-      "message": "Login successful",
-      "hasAccessToken": true,
-      "hasRefreshToken": true
-    },
-    {
-      "name": "Protected Route Access",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.173Z",
-      "message": "Successfully accessed protected route",
-      "userEmail": "test1754758289720@example.com"
-    },
-    {
-      "name": "Token Refresh",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.184Z",
-      "message": "Token refreshed successfully",
-      "hasNewAccessToken": true
-    },
-    {
-      "name": "Protected Route Access",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.187Z",
-      "message": "Successfully accessed protected route",
-      "userEmail": "test1754758289720@example.com"
-    },
-    {
-      "name": "Logout",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.195Z",
-      "message": "Logout successful"
-    },
-    {
-      "name": "Invalid Login Rejection",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.200Z",
-      "message": "Invalid credentials properly rejected"
-    },
-    {
-      "name": "Rate Limiting",
-      "status": "passed",
-      "timestamp": "2025-08-09T16:51:30.225Z",
-      "message": "Rate limiting working correctly",
-      "blockedAtAttempt": 6
+      "status": "failed",
+      "timestamp": "2025-08-10T13:27:26.374Z",
+      "error": "fetch failed"
     }
   ],
   "summary": {
-    "total": 9,
-    "passed": 9,
-    "failed": 0
+    "total": 1,
+    "passed": 0,
+    "failed": 1
   }
 }

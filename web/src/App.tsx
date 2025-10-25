@@ -16,6 +16,8 @@ import History from './pages/History';
 import Templates from './pages/Templates';
 import Settings from './pages/Settings';
 import JobDetails from './pages/JobDetails';
+import DocumentLibrary from './pages/DocumentLibrary';
+import SimpleFillForm from './pages/SimpleFillForm';
 
 // Layout wrapper for protected routes with authentication check
 function ProtectedLayout() {
@@ -59,6 +61,8 @@ function App() {
               <Route path="dashboard" element={<ConnectedDashboard />} />
               <Route path="upload" element={<ConnectedUpload />} />
               <Route path="history" element={<History />} />
+              <Route path="documents" element={<DocumentLibrary />} />
+              <Route path="fill-form" element={<SimpleFillForm />} />
               <Route path="templates" element={<Templates />} />
               <Route path="settings" element={<Settings />} />
               <Route path="job/:jobId" element={<JobDetails />} />

@@ -9,32 +9,20 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
-  
+
   // Get auth store state and actions
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const isLoading = useAuthStore((state) => state.isLoading);
   const checkSession = useAuthStore((state) => state.checkSession);
   const initialize = useAuthStore((state) => state.initialize);
-  
+
   // Initialize auth store on component mount
   useEffect(() => {
     if (!isInitialized) {
       initialize();
     }
   }, [isInitialized, initialize]);
-  
-  // Check session validity on each render
-  useEffect(() => {
-    if (isInitialized && isAuthenticated) {
-      const isSessionValid = checkSession();
-      if (!isSessionValid) {
-        // Session expired, checkSession already handles logout
-        return;
-      }
-    }
-  }, [isAuthenticated, isInitialized, checkSession]);
-  
+
   // Show loading spinner while initializing
   if (!isInitialized || isLoading) {
     return (
@@ -46,12 +34,16 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
       </div>
     );
   }
-  
-  // If not authenticated, redirect to login with return URL
-  if (!isAuthenticated) {
+
+  // Check session validity BEFORE reading isAuthenticated
+  // This ensures expired tokens are cleared synchronously before render decision
+  const isSessionValid = checkSession();
+
+  // If session invalid or not authenticated, redirect to login with return URL
+  if (!isSessionValid) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   // User is authenticated, render the protected content
   return <>{children}</>;
 }

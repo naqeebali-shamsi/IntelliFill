@@ -11,6 +11,7 @@ import { User, AuthTokens, AppError } from './types';
 interface LoginCredentials {
   email: string;
   password: string;
+  companySlug?: string;
   rememberMe?: boolean;
 }
 
@@ -19,6 +20,8 @@ interface RegisterData {
   password: string;
   fullName?: string;
   name?: string;  // Alias for fullName
+  companyName?: string;
+  companySlug?: string;
   acceptTerms?: boolean;
   marketingConsent?: boolean;
 }
@@ -32,6 +35,15 @@ interface AuthState {
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isInitialized: boolean;
+  
+  // Company context
+  company: {
+    id: string;
+    name: string;
+    slug: string;
+    tier: string;
+    creditsRemaining: number;
+  } | null;
   
   // Loading and error states
   isLoading: boolean;
@@ -86,6 +98,7 @@ const initialState: AuthState = {
   tokens: null,
   isAuthenticated: false,
   isInitialized: false,
+  company: null,
   isLoading: false,
   error: null,
   loginAttempts: 0,
@@ -164,28 +177,69 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           try {
-            const response = await api.post('/auth/login', {
-              email: credentials.email,
-              password: credentials.password,
-              rememberMe: credentials.rememberMe,
-              deviceId: get().deviceId || generateDeviceId(),
-            });
+            // Try Neon auth first if company slug provided
+            if (credentials.companySlug) {
+              // First authenticate with regular auth
+              const authResponse = await api.post('/auth/login', {
+                email: credentials.email,
+                password: credentials.password,
+                rememberMe: credentials.rememberMe,
+                deviceId: get().deviceId || generateDeviceId(),
+              });
 
-            const { user, tokens } = response.data.data;
+              const authData = authResponse.data.data || authResponse.data;
+              
+              // Then get Neon context
+              const neonResponse = await api.post('/neon-auth/login', {
+                authId: authData.user.id,
+              });
 
-            set((state) => {
-              state.user = user;
-              state.tokens = tokens;
-              state.isAuthenticated = true;
-              state.sessionExpiry = tokens.expiresAt;
-              state.lastActivity = Date.now();
-              state.rememberMe = credentials.rememberMe || false;
-              state.loginAttempts = 0;
-              state.isLocked = false;
-              state.lockExpiry = null;
-              state.deviceId = state.deviceId || generateDeviceId();
-              state.isLoading = false;
-            });
+              const { user, company, token: neonToken } = neonResponse.data;
+
+              set((state) => {
+                state.user = user;
+                state.company = company;
+                state.tokens = { 
+                  accessToken: neonToken, 
+                  refreshToken: authData.tokens.refreshToken,
+                  expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+                };
+                state.isAuthenticated = true;
+                state.sessionExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
+                state.lastActivity = Date.now();
+                state.rememberMe = credentials.rememberMe || false;
+                state.loginAttempts = 0;
+                state.isLocked = false;
+                state.lockExpiry = null;
+                state.deviceId = state.deviceId || generateDeviceId();
+                state.isLoading = false;
+              });
+            } else {
+              // Regular auth flow for legacy users
+              const response = await api.post('/auth/login', {
+                email: credentials.email,
+                password: credentials.password,
+                rememberMe: credentials.rememberMe,
+                deviceId: get().deviceId || generateDeviceId(),
+              });
+
+              const responseData = response.data.data || response.data;
+              const { user, tokens } = responseData;
+
+              set((state) => {
+                state.user = user;
+                state.tokens = tokens;
+                state.isAuthenticated = true;
+                state.sessionExpiry = Date.now() + (tokens.expiresIn * 1000);
+                state.lastActivity = Date.now();
+                state.rememberMe = credentials.rememberMe || false;
+                state.loginAttempts = 0;
+                state.isLocked = false;
+                state.lockExpiry = null;
+                state.deviceId = state.deviceId || generateDeviceId();
+                state.isLoading = false;
+              });
+            }
           } catch (error: any) {
             const authError = createAuthError(error);
             
@@ -211,23 +265,64 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           try {
-            const response = await api.post('/auth/register', {
-              ...data,
-              deviceId: get().deviceId || generateDeviceId(),
-            });
+            // If company data provided, use Neon signup
+            if (data.companyName && data.companySlug) {
+              // First register with regular auth
+              const authResponse = await api.post('/auth/register', {
+                email: data.email,
+                password: data.password,
+                fullName: data.fullName || data.name,
+                deviceId: get().deviceId || generateDeviceId(),
+              });
 
-            const { user, tokens } = response.data.data;
+              const authData = authResponse.data.data;
 
-            set((state) => {
-              state.user = user;
-              state.tokens = tokens;
-              state.isAuthenticated = true;
-              state.sessionExpiry = tokens.expiresAt;
-              state.lastActivity = Date.now();
-              state.rememberMe = data.acceptTerms;
-              state.deviceId = state.deviceId || generateDeviceId();
-              state.isLoading = false;
-            });
+              // Then create company in Neon
+              const neonResponse = await api.post('/neon-auth/signup', {
+                companyName: data.companyName,
+                companySlug: data.companySlug,
+                email: data.email,
+                fullName: data.fullName || data.name,
+                authId: authData.user.id,
+              });
+
+              const { user, company, token: neonToken } = neonResponse.data;
+
+              set((state) => {
+                state.user = user;
+                state.company = company;
+                state.tokens = { 
+                  accessToken: neonToken, 
+                  refreshToken: authData.tokens.refreshToken,
+                  expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+                };
+                state.isAuthenticated = true;
+                state.sessionExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
+                state.lastActivity = Date.now();
+                state.rememberMe = data.acceptTerms;
+                state.deviceId = state.deviceId || generateDeviceId();
+                state.isLoading = false;
+              });
+            } else {
+              // Regular registration for legacy users
+              const response = await api.post('/auth/register', {
+                ...data,
+                deviceId: get().deviceId || generateDeviceId(),
+              });
+
+              const { user, tokens } = response.data.data;
+
+              set((state) => {
+                state.user = user;
+                state.tokens = tokens;
+                state.isAuthenticated = true;
+                state.sessionExpiry = tokens.expiresAt;
+                state.lastActivity = Date.now();
+                state.rememberMe = data.acceptTerms;
+                state.deviceId = state.deviceId || generateDeviceId();
+                state.isLoading = false;
+              });
+            }
           } catch (error: any) {
             const authError = createAuthError(error);
             
@@ -251,9 +346,13 @@ export const useAuthStore = create<AuthStore>()(
             console.warn('Logout request failed:', error);
           }
 
+          // Clear localStorage FIRST to prevent rehydration
+          localStorage.removeItem('intellifill-auth');
+
           set((state) => {
             state.user = null;
             state.tokens = null;
+            state.company = null;
             state.isAuthenticated = false;
             state.sessionExpiry = null;
             state.error = null;
@@ -324,14 +423,26 @@ export const useAuthStore = create<AuthStore>()(
 
         checkSession: () => {
           const { tokens, sessionExpiry } = get();
-          
+
           if (!tokens?.accessToken || !sessionExpiry) {
             return false;
           }
 
           // Check if token is expired
           if (Date.now() >= sessionExpiry) {
-            get().logout();
+            // Clear localStorage FIRST to prevent Zustand persist rehydration race
+            localStorage.removeItem('intellifill-auth');
+
+            // Then clear session state immediately (synchronous)
+            set((state) => {
+              state.user = null;
+              state.tokens = null;
+              state.company = null;
+              state.isAuthenticated = false;
+              state.sessionExpiry = null;
+              state.error = null;
+              state.deviceId = null;
+            });
             return false;
           }
 
@@ -441,6 +552,7 @@ export const useAuthStore = create<AuthStore>()(
         partialize: (state) => ({
           user: state.user,
           tokens: state.tokens,
+          company: state.company,
           isAuthenticated: state.isAuthenticated,
           sessionExpiry: state.sessionExpiry,
           rememberMe: state.rememberMe,
@@ -448,6 +560,21 @@ export const useAuthStore = create<AuthStore>()(
           lastActivity: state.lastActivity,
         }),
         version: 1,
+        // Validate persisted data before rehydration
+        onRehydrateStorage: () => (state) => {
+          if (state?.sessionExpiry && Date.now() >= state.sessionExpiry) {
+            // Session expired - clear localStorage immediately
+            localStorage.removeItem('intellifill-auth');
+            // Reset to initial state
+            state.user = null;
+            state.tokens = null;
+            state.company = null;
+            state.isAuthenticated = false;
+            state.sessionExpiry = null;
+            state.error = null;
+            state.deviceId = null;
+          }
+        },
       }
     ),
     {

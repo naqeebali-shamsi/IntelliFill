@@ -1,0 +1,216 @@
+{
+  "documentProcessing": {
+    "successful": {
+      "fileName": "employee-form.pdf",
+      "fileType": "application/pdf",
+      "fileSize": 1024576,
+      "pages": 3,
+      "expectedFields": [
+        "firstName",
+        "lastName", 
+        "email",
+        "phone",
+        "department",
+        "startDate"
+      ],
+      "processingTime": 2500,
+      "creditsRequired": 3
+    },
+    "ocr": {
+      "fileName": "scanned-document.png",
+      "fileType": "image/png",
+      "fileSize": 2048000,
+      "expectedText": "This is a scanned document with text that needs OCR processing",
+      "processingTime": 4500,
+      "creditsRequired": 5
+    },
+    "complex": {
+      "fileName": "multi-page-form.pdf",
+      "fileType": "application/pdf",
+      "fileSize": 5120000,
+      "pages": 12,
+      "expectedFields": [
+        "applicantName",
+        "applicationDate",
+        "documentType",
+        "businessName",
+        "businessAddress",
+        "contactPerson",
+        "phoneNumber",
+        "emailAddress",
+        "taxId",
+        "licenseNumber"
+      ],
+      "processingTime": 8500,
+      "creditsRequired": 8
+    }
+  },
+  "errorScenarios": {
+    "corrupted": {
+      "fileName": "corrupted.pdf",
+      "error": "FILE_CORRUPTED",
+      "expectedMessage": "File appears to be corrupted"
+    },
+    "passwordProtected": {
+      "fileName": "protected.pdf",
+      "error": "PASSWORD_PROTECTED",
+      "expectedMessage": "Password Required"
+    },
+    "tooLarge": {
+      "fileName": "huge-file.pdf",
+      "fileSize": 52428800,
+      "error": "FILE_TOO_LARGE",
+      "expectedMessage": "File size exceeds limit"
+    },
+    "unsupportedFormat": {
+      "fileName": "document.xyz",
+      "error": "UNSUPPORTED_FORMAT",
+      "expectedMessage": "Unsupported file type"
+    }
+  },
+  "userJourneys": {
+    "newUserOnboarding": {
+      "steps": [
+        "Register company",
+        "Verify email",
+        "Complete profile",
+        "Upload first document",
+        "Process document",
+        "Review results",
+        "Invite team member"
+      ],
+      "expectedDuration": 600000,
+      "checkpoints": [
+        "Company created",
+        "User authenticated", 
+        "Credits allocated",
+        "Document uploaded",
+        "Processing completed",
+        "Fields extracted",
+        "Invitation sent"
+      ]
+    },
+    "teamCollaboration": {
+      "steps": [
+        "Admin uploads document",
+        "Admin shares with team",
+        "Member receives notification",
+        "Member reviews document",
+        "Member adds comments",
+        "Admin approves changes",
+        "Document finalized"
+      ],
+      "expectedDuration": 300000,
+      "notifications": [
+        "Document shared",
+        "Review requested",
+        "Comments added",
+        "Changes approved"
+      ]
+    },
+    "creditManagement": {
+      "steps": [
+        "Check credit balance",
+        "Process documents until low",
+        "Receive low credit warning",
+        "View pricing plans",
+        "Purchase credits",
+        "Confirm payment",
+        "Credits updated"
+      ],
+      "expectedDuration": 180000,
+      "checkpoints": [
+        "Credits displayed",
+        "Warning triggered",
+        "Payment processed",
+        "Balance updated"
+      ]
+    }
+  },
+  "performanceTestData": {
+    "largeBatch": {
+      "documentCount": 50,
+      "totalSize": 104857600,
+      "expectedProcessingTime": 300000,
+      "maxConcurrentProcessing": 5
+    },
+    "stressTest": {
+      "documentCount": 100,
+      "simultaneousUsers": 10,
+      "expectedThroughput": "5 docs/minute",
+      "maxResponseTime": 5000
+    }
+  },
+  "securityTestData": {
+    "xssPayloads": [
+      "<script>alert('xss')</script>",
+      "javascript:alert('xss')",
+      "<img src=x onerror=alert('xss')>",
+      "';alert('xss');//"
+    ],
+    "sqlInjectionPayloads": [
+      "'; DROP TABLE users; --",
+      "' OR '1'='1",
+      "admin'--",
+      "' UNION SELECT * FROM users --"
+    ],
+    "invalidFileTypes": [
+      {
+        "fileName": "malicious.exe",
+        "actualType": "application/x-executable",
+        "disguisedAs": "application/pdf"
+      },
+      {
+        "fileName": "script.js",
+        "actualType": "application/javascript",
+        "disguisedAs": "text/plain"
+      }
+    ]
+  },
+  "accessibilityTestData": {
+    "screenReaderText": [
+      "Upload document button",
+      "Process document button", 
+      "Download results button",
+      "Main navigation menu",
+      "Document processing status"
+    ],
+    "keyboardNavigation": [
+      "Tab through all interactive elements",
+      "Enter to activate buttons",
+      "Space to toggle checkboxes",
+      "Arrow keys for radio groups",
+      "Escape to close modals"
+    ],
+    "colorContrastRequirements": {
+      "normal": 4.5,
+      "large": 3.0,
+      "nonText": 3.0
+    }
+  },
+  "mobileTestData": {
+    "viewports": {
+      "iphone5": {"width": 320, "height": 568},
+      "iphoneSE": {"width": 375, "height": 667},
+      "iphone12": {"width": 390, "height": 844},
+      "iphone12Pro": {"width": 428, "height": 926},
+      "ipadMini": {"width": 768, "height": 1024},
+      "ipadPro": {"width": 1024, "height": 1366},
+      "androidSmall": {"width": 360, "height": 640},
+      "androidMedium": {"width": 412, "height": 732},
+      "androidLarge": {"width": 414, "height": 896}
+    },
+    "touchTargets": {
+      "minimumSize": "44px",
+      "recommendedSize": "48px",
+      "spacing": "8px"
+    },
+    "gesturePatterns": [
+      "swipeLeft",
+      "swipeRight", 
+      "pinchZoom",
+      "pullToRefresh",
+      "longPress"
+    ]
+  }
+}

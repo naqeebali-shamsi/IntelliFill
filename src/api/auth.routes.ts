@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
-import { AuthService, LoginRequest, RegisterRequest } from '../services/AuthService';
+import { PrismaAuthService, LoginRequest, RegisterRequest } from '../services/PrismaAuthService';
 import { DatabaseService } from '../database/DatabaseService';
 import { logger } from '../utils/logger';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -12,7 +12,7 @@ export interface AuthRouterDependencies {
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // max 5 attempts per window
+  max: process.env.NODE_ENV === 'development' ? 100 : 5, // Higher limit for dev
   message: {
     error: 'Too many authentication attempts. Please try again later.',
     retryAfter: '15 minutes'
@@ -41,7 +41,7 @@ const registerLimiter = rateLimit({
 
 export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
   const router = Router();
-  const authService = new AuthService(db);
+  const prismaAuthService = new PrismaAuthService();
 
   /**
    * POST /api/auth/register
@@ -78,7 +78,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         });
       }
 
-      const result = await authService.register({
+      const result = await prismaAuthService.register({
         email,
         password,
         fullName,
@@ -144,7 +144,8 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         userAgent: req.headers['user-agent']
       };
 
-      const result = await authService.login(loginData);
+      // Use Prisma auth service for now
+      const result = await prismaAuthService.login(loginData);
 
       // Set secure HTTP-only cookie for refresh token (optional)
       if (process.env.USE_REFRESH_TOKEN_COOKIE === 'true') {
@@ -212,7 +213,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         });
       }
 
-      const tokens = await authService.refreshToken(refreshToken);
+      const tokens = await prismaAuthService.refreshToken(refreshToken);
 
       // Update refresh token cookie if using cookies
       if (process.env.USE_REFRESH_TOKEN_COOKIE === 'true') {
@@ -254,7 +255,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
       }
 
       if (refreshToken) {
-        await authService.logout(refreshToken);
+        await prismaAuthService.logout(refreshToken);
       }
 
       // Clear refresh token cookie
@@ -288,7 +289,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         });
       }
 
-      await authService.logoutAllDevices(req.user.id);
+      await prismaAuthService.logoutAllDevices(req.user.id);
       
       // Clear refresh token cookie
       res.clearCookie('refreshToken');
@@ -319,7 +320,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         });
       }
 
-      const user = await authService.getUserProfile(req.user.id);
+      const user = await prismaAuthService.getUserProfile(req.user.id);
 
       res.json({
         success: true,
@@ -367,7 +368,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         });
       }
 
-      await authService.changePassword(req.user.id, currentPassword, newPassword);
+      await prismaAuthService.changePassword(req.user.id, currentPassword, newPassword);
 
       logger.info(`Password changed for user: ${req.user.email}`);
 
@@ -410,7 +411,7 @@ export function createAuthRoutes({ db }: AuthRouterDependencies): Router {
         });
       }
 
-      const payload = await authService.verifyAccessToken(token);
+      const payload = await prismaAuthService.verifyAccessToken(token);
 
       res.json({
         success: true,

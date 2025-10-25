@@ -1,0 +1,154 @@
+{
+  "timestamp": "2025-08-10T13:30:23.377Z",
+  "mode": "mock",
+  "scenarios": [
+    {
+      "name": "User Registration Flow",
+      "status": "passed",
+      "duration": 1659,
+      "timestamp": "2025-08-10T13:30:25.039Z",
+      "steps": [
+        "Navigate to /register",
+        "Fill registration form",
+        "Submit form",
+        "Verify redirect to dashboard"
+      ],
+      "expectedResult": "User successfully registered",
+      "actualResult": "User successfully registered"
+    },
+    {
+      "name": "User Login with JWT",
+      "status": "passed",
+      "duration": 617,
+      "timestamp": "2025-08-10T13:30:25.657Z",
+      "steps": [
+        "Navigate to /login",
+        "Enter credentials",
+        "Submit login form",
+        "Verify JWT token stored",
+        "Check dashboard access"
+      ],
+      "expectedResult": "JWT token generated and stored",
+      "actualResult": "JWT token generated and stored"
+    },
+    {
+      "name": "PDF Document Upload",
+      "status": "passed",
+      "duration": 2452,
+      "timestamp": "2025-08-10T13:30:29.532Z",
+      "steps": [
+        "Navigate to /documents/upload",
+        "Select PDF file",
+        "Upload document",
+        "Wait for OCR processing",
+        "Verify extracted text"
+      ],
+      "expectedResult": "PDF processed with OCR",
+      "actualResult": "PDF processed with OCR"
+    },
+    {
+      "name": "ML Field Mapping",
+      "status": "passed",
+      "duration": 1402,
+      "timestamp": "2025-08-10T13:30:30.936Z",
+      "steps": [
+        "Load extracted document data",
+        "Display form fields",
+        "Show ML suggestions (85% confidence)",
+        "Accept mapping",
+        "Save to database"
+      ],
+      "expectedResult": "Fields mapped with ML assistance",
+      "actualResult": "Fields mapped with ML assistance"
+    },
+    {
+      "name": "Batch Processing",
+      "status": "passed",
+      "duration": 1986,
+      "timestamp": "2025-08-10T13:30:32.924Z",
+      "steps": [
+        "Upload multiple documents",
+        "Queue processing jobs",
+        "Monitor progress",
+        "Download results"
+      ],
+      "expectedResult": "Batch completed successfully",
+      "actualResult": "Batch completed successfully"
+    },
+    {
+      "name": "Rate Limiting",
+      "status": "passed",
+      "duration": 2050,
+      "timestamp": "2025-08-10T13:30:34.975Z",
+      "steps": [
+        "Make rapid API calls",
+        "Trigger rate limit (5 req/15min)",
+        "Verify 429 response",
+        "Wait for cooldown"
+      ],
+      "expectedResult": "Rate limiting enforced",
+      "actualResult": "Rate limiting enforced"
+    },
+    {
+      "name": "XSS Prevention",
+      "status": "passed",
+      "duration": 1925,
+      "timestamp": "2025-08-10T13:30:36.902Z",
+      "steps": [
+        "Attempt script injection",
+        "Submit malicious input",
+        "Verify sanitization",
+        "Check rendered output"
+      ],
+      "expectedResult": "XSS attack prevented",
+      "actualResult": "XSS attack prevented"
+    },
+    {
+      "name": "JWT Expiry Handling",
+      "status": "passed",
+      "duration": 662,
+      "timestamp": "2025-08-10T13:30:37.565Z",
+      "steps": [
+        "Use expired token",
+        "Receive 401 response",
+        "Refresh token automatically",
+        "Retry request with new token"
+      ],
+      "expectedResult": "Token refresh successful",
+      "actualResult": "Token refresh successful"
+    },
+    {
+      "name": "Invalid File Type",
+      "status": "passed",
+      "duration": 2221,
+      "timestamp": "2025-08-10T13:30:39.789Z",
+      "steps": [
+        "Upload .exe file",
+        "Receive validation error",
+        "Display error message",
+        "Clear error on retry"
+      ],
+      "expectedResult": "Invalid file rejected",
+      "actualResult": "Invalid file rejected"
+    },
+    {
+      "name": "Performance Metrics",
+      "status": "passed",
+      "duration": 2327,
+      "timestamp": "2025-08-10T13:30:42.118Z",
+      "steps": [
+        "Measure page load time",
+        "Check First Contentful Paint",
+        "Verify <3s load time",
+        "Monitor memory usage"
+      ],
+      "expectedResult": "Performance within targets",
+      "actualResult": "Performance within targets"
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0
+  }
+}

@@ -1,126 +1,234 @@
-version: '3.8'
+# QuikAdmin/IntelliFill Docker Compose Configuration
+# 
+# Usage:
+#   Development:  docker-compose up
+#   Production:   docker-compose --profile production up
+#   Monitoring:   docker-compose --profile monitoring up
+#   Full Stack:   docker-compose --profile production --profile monitoring up
+#
+# Profiles:
+#   - default: Core services (postgres, redis, app, worker, web)
+#   - production: Optimized production settings
+#   - monitoring: Prometheus + Grafana
+#   - test: Testing environment
+
+# Docker Compose v2+ doesn't require version field
 
 services:
+  # ==================== Database Services ====================
   postgres:
     image: postgres:15-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: intellifill
-      POSTGRES_USER: intellifill
+      POSTGRES_DB: ${DB_NAME:-intellifill}
+      POSTGRES_USER: ${DB_USER:-intellifill}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-intellifill123}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U intellifill"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-intellifill}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory ${REDIS_MAX_MEMORY:-256mb} --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - backend
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ==================== Application Services ====================
   app:
-    build: 
+    build:
       context: .
-      dockerfile: Dockerfile.simple
+      dockerfile: ${DOCKERFILE:-Dockerfile.dev}
+    restart: unless-stopped
     environment:
-      NODE_ENV: production
-      PORT: 3000
-      DATABASE_URL: postgresql://intellifill:${DB_PASSWORD:-intellifill123}@postgres:5432/intellifill
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      DATABASE_URL: postgresql://${DB_USER:-intellifill}:${DB_PASSWORD:-intellifill123}@postgres:5432/${DB_NAME:-intellifill}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-here}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-key-here}
-      RATE_LIMIT_MAX: 100
-      RATE_LIMIT_WINDOW: 15
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-quikadmin-api}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-quikadmin-client}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ENABLE_METRICS: ${ENABLE_METRICS:-true}
     volumes:
       - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./scripts:/app/scripts
       - ./uploads:/app/uploads
       - ./outputs:/app/outputs
       - ./models:/app/models
       - ./logs:/app/logs
     ports:
-      - "3000:3000"
+      - "3001:3001"
+      - "${DEBUG_PORT:-9229}:9229"  # Node.js debugging
+    networks:
+      - backend
+      - frontend
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '${APP_CPU_LIMIT:-1}'
+          memory: ${APP_MEMORY_LIMIT:-2G}
 
   worker:
     build:
       context: .
-      dockerfile: Dockerfile.simple
-    command: npx ts-node src/workers/queue-processor.ts
+      dockerfile: ${DOCKERFILE:-Dockerfile.dev}
+    restart: unless-stopped
+    command: ${WORKER_CMD:-npm run dev:worker}
     environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://intellifill:${DB_PASSWORD:-intellifill123}@postgres:5432/intellifill
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://${DB_USER:-intellifill}:${DB_PASSWORD:-intellifill123}@postgres:5432/${DB_NAME:-intellifill}
       REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./scripts:/app/scripts
       - ./uploads:/app/uploads
       - ./outputs:/app/outputs
       - ./models:/app/models
+      - ./logs:/app/logs
+    networks:
+      - backend
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
     deploy:
-      replicas: 2
+      replicas: ${WORKER_REPLICAS:-1}
+      resources:
+        limits:
+          cpus: '${WORKER_CPU_LIMIT:-0.5}'
+          memory: ${WORKER_MEMORY_LIMIT:-1G}
 
   web:
     build:
       context: ./web
-      dockerfile: Dockerfile
+      dockerfile: ${WEB_DOCKERFILE:-Dockerfile.dev}
+    restart: unless-stopped
     environment:
-      REACT_APP_API_URL: http://localhost:3000/api
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     ports:
-      - "3001:80"
+      - "${WEB_PORT:-5173}:${WEB_INTERNAL_PORT:-5173}"
+    networks:
+      - frontend
     depends_on:
       - app
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '${WEB_CPU_LIMIT:-1}'
+          memory: ${WEB_MEMORY_LIMIT:-2G}
 
+  # ==================== Monitoring Services (Profile: monitoring) ====================
   prometheus:
     image: prom/prometheus:latest
+    profiles: ["monitoring"]
+    restart: unless-stopped
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - backend
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   grafana:
     image: grafana/grafana:latest
+    profiles: ["monitoring"]
+    restart: unless-stopped
     environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_INSTALL_PLUGINS: redis-datasource
+      GF_USERS_ALLOW_SIGN_UP: false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     ports:
-      - "3002:3000"
+      - "${GRAFANA_PORT:-3002}:3000"
+    networks:
+      - backend
     depends_on:
       - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ==================== Production Database Backup (Profile: production) ====================
+  postgres-backup:
+    image: postgres:15-alpine
+    profiles: ["production"]
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-intellifill123}
+    volumes:
+      - ./backups:/backups
+    networks:
+      - backend
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          pg_dump -h postgres -U ${DB_USER:-intellifill} ${DB_NAME:-intellifill} > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+          find /backups -name "backup_*.sql" -mtime +7 -delete
+          sleep 86400
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
   prometheus_data:
+    driver: local
   grafana_data:
+    driver: local

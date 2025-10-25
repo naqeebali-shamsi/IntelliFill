@@ -159,6 +159,107 @@ export function createStatsRoutes(db: DatabaseService): Router {
     }
   });
 
+  // Get documents
+  router.get('/documents', optionalAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const search = req.query.search as string;
+
+      // Mock documents data for now - in real implementation, fetch from database
+      let documents = [
+        {
+          id: '1',
+          name: 'Invoice_2024_March.pdf',
+          type: 'invoice',
+          size: 245760, // in bytes
+          uploadedAt: '2024-03-15T10:30:00Z',
+          processedAt: '2024-03-15T10:31:30Z',
+          status: 'processed',
+          extractedFields: 15,
+          confidence: 98.5,
+          originalPath: '/uploads/invoice_march.pdf',
+          userId: userId || 'guest'
+        },
+        {
+          id: '2',
+          name: 'Tax_Form_1040.pdf',
+          type: 'tax_form',
+          size: 524288,
+          uploadedAt: '2024-03-15T10:15:00Z',
+          status: 'processing',
+          extractedFields: 0,
+          confidence: 0,
+          originalPath: '/uploads/tax_form.pdf',
+          userId: userId || 'guest'
+        },
+        {
+          id: '3',
+          name: 'Contract_Agreement.pdf',
+          type: 'contract',
+          size: 131072,
+          uploadedAt: '2024-03-15T09:45:00Z',
+          processedAt: '2024-03-15T09:46:45Z',
+          status: 'processed',
+          extractedFields: 23,
+          confidence: 95.2,
+          originalPath: '/uploads/contract.pdf',
+          userId: userId || 'guest'
+        },
+        {
+          id: '4',
+          name: 'Medical_Form.pdf',
+          type: 'medical',
+          size: 91136,
+          uploadedAt: '2024-03-15T09:30:00Z',
+          status: 'failed',
+          extractedFields: 0,
+          confidence: 0,
+          error: 'Invalid form structure',
+          originalPath: '/uploads/medical.pdf',
+          userId: userId || 'guest'
+        },
+        {
+          id: '5',
+          name: 'Application_Form.pdf',
+          type: 'application',
+          size: 159744,
+          uploadedAt: '2024-03-15T09:00:00Z',
+          processedAt: '2024-03-15T09:01:15Z',
+          status: 'processed',
+          extractedFields: 18,
+          confidence: 97.8,
+          originalPath: '/uploads/application.pdf',
+          userId: userId || 'guest'
+        }
+      ];
+
+      // Apply search filter if provided
+      if (search) {
+        const searchLower = search.toLowerCase();
+        documents = documents.filter(doc => 
+          doc.name.toLowerCase().includes(searchLower) ||
+          doc.type.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Apply pagination
+      const paginatedDocs = documents.slice(offset, offset + limit);
+
+      res.json({
+        documents: paginatedDocs,
+        total: documents.length,
+        limit,
+        offset,
+        hasMore: (offset + limit) < documents.length
+      });
+    } catch (error) {
+      logger.error('Error fetching documents:', error);
+      res.status(500).json({ error: 'Failed to fetch documents' });
+    }
+  });
+
   // Get templates
   router.get('/templates', optionalAuth, async (req: Request, res: Response) => {
     try {
@@ -201,6 +302,86 @@ export function createStatsRoutes(db: DatabaseService): Router {
     } catch (error) {
       logger.error('Error fetching templates:', error);
       res.status(500).json({ error: 'Failed to fetch templates' });
+    }
+  });
+
+  // Create template
+  router.post('/templates', authenticate, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { name, description, fields, config } = req.body;
+
+      // Validate required fields
+      if (!name || !description || !fields || !Array.isArray(fields)) {
+        return res.status(400).json({
+          error: 'Template name, description, and fields array are required',
+          details: {
+            name: !name ? 'Template name is required' : null,
+            description: !description ? 'Description is required' : null,
+            fields: !fields ? 'Fields array is required' : (!Array.isArray(fields) ? 'Fields must be an array' : null)
+          }
+        });
+      }
+
+      // Validate fields array
+      if (fields.length === 0) {
+        return res.status(400).json({
+          error: 'Template must have at least one field'
+        });
+      }
+
+      // Validate each field structure
+      for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        if (!field.name || !field.type) {
+          return res.status(400).json({
+            error: `Field ${i + 1} must have 'name' and 'type' properties`,
+            details: {
+              fieldIndex: i,
+              fieldName: field.name || null,
+              fieldType: field.type || null
+            }
+          });
+        }
+      }
+
+      // Generate new template ID (in real implementation, this would be done by database)
+      const templateId = `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const newTemplate = {
+        id: templateId,
+        name: name.trim(),
+        description: description.trim(),
+        fields: fields.map((field: any) => ({
+          name: field.name.trim(),
+          type: field.type.trim(),
+          required: field.required || false,
+          defaultValue: field.defaultValue || null,
+          validation: field.validation || null
+        })),
+        config: config || {},
+        usage: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: userId || 'anonymous',
+        isActive: true
+      };
+
+      // In real implementation, save to database here
+      logger.info(`New template created: ${name} by user: ${userId}`);
+
+      res.status(201).json({
+        success: true,
+        message: 'Template created successfully',
+        data: {
+          template: newTemplate
+        }
+      });
+    } catch (error) {
+      logger.error('Error creating template:', error);
+      res.status(500).json({ 
+        error: 'Failed to create template. Please try again.' 
+      });
     }
   });
 

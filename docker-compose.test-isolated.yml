@@ -1,0 +1,126 @@
+# Isolated test environment - completely separate from development
+version: '3.8'
+
+services:
+  # Test database - isolated
+  test-db:
+    image: postgres:15-alpine
+    container_name: quikadmin-test-db
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "54321:5432"  # Different port from dev
+    networks:
+      - test-isolated
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+
+  # Test Redis - isolated
+  test-redis:
+    image: redis:7-alpine
+    container_name: quikadmin-test-redis
+    command: redis-server --appendonly no --save ""
+    ports:
+      - "63791:6379"  # Different port from dev
+    networks:
+      - test-isolated
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Wait for dependencies
+  test-wait:
+    image: busybox:latest
+    container_name: quikadmin-test-wait
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    command: echo "Dependencies ready"
+    networks:
+      - test-isolated
+
+  # Test application
+  test-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: quikadmin-test-app
+    environment:
+      NODE_ENV: test
+      PORT: 3002  # Different port
+      DATABASE_URL: postgresql://test_user:test_pass@test-db:5432/test_db
+      REDIS_URL: redis://test-redis:6379
+      REDIS_HOST: test-redis
+      REDIS_PORT: 6379
+      JWT_SECRET: test-jwt-secret-minimum-64-chars-for-testing-purposes-only-not-production
+      JWT_REFRESH_SECRET: test-refresh-secret-minimum-64-chars-for-testing-purposes-only
+      JWT_ISSUER: test-issuer
+      JWT_AUDIENCE: test-audience
+      LOG_LEVEL: error
+      ENABLE_METRICS: false
+    ports:
+      - "3002:3002"  # Different port from dev
+    depends_on:
+      test-wait:
+        condition: service_completed_successfully
+    networks:
+      - test-isolated
+    volumes:
+      - ./src:/app/src:ro
+      - ./tests:/app/tests:ro
+      - ./coverage:/app/coverage
+    command: sh -c "npm start & sleep 10 && npm test"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  # Test runner - executes tests
+  test-runner:
+    image: node:18-alpine
+    container_name: quikadmin-test-runner
+    depends_on:
+      test-app:
+        condition: service_healthy
+    environment:
+      API_URL: http://test-app:3002
+      NODE_ENV: test
+    networks:
+      - test-isolated
+    volumes:
+      - ./tests:/tests:ro
+      - ./test-results:/results
+    command: sh -c "
+      cd /tests &&
+      npm install axios supertest jest &&
+      echo 'Waiting for app to be ready...' &&
+      sleep 5 &&
+      echo 'Running tests...' &&
+      node docker-test.js &&
+      echo 'Tests completed!'
+      "
+
+networks:
+  test-isolated:
+    driver: bridge
+    name: quikadmin-test-network
+
+volumes:
+  test-db-data:
+    driver: local

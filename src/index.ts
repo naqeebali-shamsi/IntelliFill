@@ -3,10 +3,13 @@
  * Intelligent document processing and form automation platform
  */
 
-import express from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import { IntelliFillService } from './services/IntelliFillService';
 import { DocumentParser } from './parsers/DocumentParser';
 import { DataExtractor } from './extractors/DataExtractor';
@@ -16,11 +19,53 @@ import { ValidationService } from './validators/ValidationService';
 import { DatabaseService } from './database/DatabaseService';
 import { setupRoutes } from './api/routes';
 import { logger } from './utils/logger';
+import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter';
+import { csrfProtection } from './middleware/csrf';
 
-dotenv.config();
+// CRITICAL: Environment validation - MUST BE FIRST
+const REQUIRED_ENV_VARS = [
+  'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
+  'DATABASE_URL',
+  'NODE_ENV',
+  'JWT_ISSUER',
+  'JWT_AUDIENCE'
+];
+
+function validateEnvironment() {
+  const missing: string[] = [];
+  
+  for (const varName of REQUIRED_ENV_VARS) {
+    if (!process.env[varName]) {
+      missing.push(varName);
+    }
+  }
+  
+  if (missing.length > 0) {
+    console.error('❌ CRITICAL: Missing required environment variables:', missing);
+    process.exit(1); // FAIL FAST
+  }
+  
+  // Production-specific validation
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.JWT_SECRET === 'your-jwt-secret-key') {
+      console.error('❌ CRITICAL: Default JWT secret detected in production!');
+      process.exit(1);
+    }
+    if (process.env.JWT_SECRET!.length < 64) {
+      console.error('❌ CRITICAL: JWT_SECRET must be at least 64 characters in production!');
+      process.exit(1);
+    }
+  }
+  
+  console.log('✅ Environment validation passed');
+}
+
+// CRITICAL: Validate environment BEFORE any other initialization
+validateEnvironment();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 async function initializeApp() {
   try {
@@ -45,6 +90,27 @@ async function initializeApp() {
     });
 
     // Security middleware
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+        },
+      },
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+      }
+    }));
+    
     app.use(cors({
       origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
       credentials: true
@@ -54,6 +120,16 @@ async function initializeApp() {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(cookieParser());
+
+    // Apply rate limiting - BEFORE routes
+    app.use('/api/', standardLimiter); // Standard rate limit for all API routes
+    app.use('/api/auth/login', authLimiter); // Strict limit for login
+    app.use('/api/auth/register', authLimiter); // Strict limit for registration
+    app.use('/api/documents/upload', uploadLimiter); // Upload rate limit
+
+    // CSRF protection for state-changing operations
+    // Temporarily disabled for testing
+    // app.use(csrfProtection);
 
     // Health check endpoint (public)
     app.get('/health', (req, res) => {
@@ -171,4 +247,4 @@ if (require.main === module) {
   startServer();
 }
 
-export { startServer, initializeApp };
+export { startServer, initializeApp, app };

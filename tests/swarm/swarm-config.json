@@ -1,0 +1,255 @@
+{
+  "name": "QuikAdmin Comprehensive Test Suite",
+  "version": "1.0.0",
+  "description": "Multi-agent swarm configuration for comprehensive testing",
+  "orchestration": {
+    "mode": "hierarchical",
+    "maxAgents": 8,
+    "parallel": true,
+    "monitoring": true,
+    "strategy": "testing"
+  },
+  "agents": [
+    {
+      "id": "coordinator",
+      "type": "orchestrator",
+      "name": "Test Coordinator",
+      "role": "Master coordinator for all testing activities",
+      "responsibilities": [
+        "Coordinate test execution across all agents",
+        "Aggregate and analyze test results",
+        "Generate comprehensive test reports",
+        "Manage test dependencies and sequencing"
+      ],
+      "config": {
+        "priority": 1,
+        "parallel": false
+      }
+    },
+    {
+      "id": "unit-tester",
+      "type": "tester",
+      "name": "Unit Test Specialist",
+      "role": "Execute and validate unit tests",
+      "responsibilities": [
+        "Test individual functions and methods",
+        "Validate business logic",
+        "Test edge cases and error handling",
+        "Mock external dependencies"
+      ],
+      "testPatterns": [
+        "tests/unit/**/*.test.ts",
+        "tests/unit/**/*.test.js"
+      ],
+      "config": {
+        "framework": "jest",
+        "coverage": true,
+        "parallel": true
+      }
+    },
+    {
+      "id": "integration-tester",
+      "type": "tester",
+      "name": "Integration Test Specialist",
+      "role": "Test component interactions and data flow",
+      "responsibilities": [
+        "Test API endpoints",
+        "Validate database operations",
+        "Test service integrations",
+        "Verify middleware functionality"
+      ],
+      "testPatterns": [
+        "tests/integration/**/*.test.ts",
+        "tests/backend/**/*.test.js"
+      ],
+      "config": {
+        "framework": "jest",
+        "database": "test",
+        "parallel": false
+      }
+    },
+    {
+      "id": "e2e-tester",
+      "type": "tester",
+      "name": "E2E Test Specialist",
+      "role": "Execute end-to-end user journey tests",
+      "responsibilities": [
+        "Test complete user workflows",
+        "Validate UI interactions",
+        "Test cross-browser compatibility",
+        "Verify real-world scenarios"
+      ],
+      "testPatterns": [
+        "tests/e2e/**/*.test.ts",
+        "tests/e2e/**/*.test.js"
+      ],
+      "config": {
+        "framework": "puppeteer",
+        "headless": true,
+        "browsers": ["chrome", "firefox"],
+        "parallel": false
+      }
+    },
+    {
+      "id": "api-tester",
+      "type": "tester",
+      "name": "API Test Specialist",
+      "role": "Comprehensive API testing",
+      "responsibilities": [
+        "Test all API endpoints",
+        "Validate request/response schemas",
+        "Test authentication and authorization",
+        "Test rate limiting and error handling"
+      ],
+      "endpoints": {
+        "auth": "/api/auth/*",
+        "documents": "/api/documents/*",
+        "templates": "/api/templates/*",
+        "health": "/health"
+      },
+      "config": {
+        "framework": "supertest",
+        "parallel": true,
+        "rateLimit": {
+          "delay": 100,
+          "maxConcurrent": 3
+        }
+      }
+    },
+    {
+      "id": "performance-tester",
+      "type": "tester",
+      "name": "Performance Test Specialist",
+      "role": "Load testing and performance analysis",
+      "responsibilities": [
+        "Measure response times",
+        "Test system under load",
+        "Identify bottlenecks",
+        "Memory leak detection"
+      ],
+      "scenarios": [
+        {
+          "name": "normal-load",
+          "users": 10,
+          "duration": "1m"
+        },
+        {
+          "name": "peak-load",
+          "users": 100,
+          "duration": "5m"
+        },
+        {
+          "name": "stress-test",
+          "users": 500,
+          "duration": "10m"
+        }
+      ],
+      "config": {
+        "framework": "k6",
+        "parallel": false
+      }
+    },
+    {
+      "id": "security-tester",
+      "type": "tester",
+      "name": "Security Test Specialist",
+      "role": "Security vulnerability testing",
+      "responsibilities": [
+        "Test authentication mechanisms",
+        "Check for SQL injection vulnerabilities",
+        "Test XSS protection",
+        "Validate JWT implementation",
+        "Test rate limiting",
+        "Check for sensitive data exposure"
+      ],
+      "checks": [
+        "owasp-top-10",
+        "jwt-security",
+        "input-validation",
+        "rate-limiting",
+        "cors-policy"
+      ],
+      "config": {
+        "framework": "custom",
+        "parallel": false
+      }
+    },
+    {
+      "id": "data-validator",
+      "type": "tester",
+      "name": "Data Validation Specialist",
+      "role": "Database and data integrity testing",
+      "responsibilities": [
+        "Validate Prisma schema",
+        "Test database migrations",
+        "Verify data constraints",
+        "Test transaction integrity"
+      ],
+      "config": {
+        "framework": "prisma",
+        "database": "test",
+        "parallel": false
+      }
+    }
+  ],
+  "execution": {
+    "phases": [
+      {
+        "name": "setup",
+        "agents": ["coordinator"],
+        "tasks": [
+          "Initialize test environment",
+          "Setup test database",
+          "Clear previous test data"
+        ]
+      },
+      {
+        "name": "unit-tests",
+        "agents": ["unit-tester"],
+        "parallel": true,
+        "continueOnFailure": true
+      },
+      {
+        "name": "integration-tests",
+        "agents": ["integration-tester", "api-tester", "data-validator"],
+        "parallel": true,
+        "continueOnFailure": true
+      },
+      {
+        "name": "e2e-tests",
+        "agents": ["e2e-tester"],
+        "parallel": false,
+        "continueOnFailure": true
+      },
+      {
+        "name": "performance-tests",
+        "agents": ["performance-tester"],
+        "parallel": false,
+        "continueOnFailure": true
+      },
+      {
+        "name": "security-tests",
+        "agents": ["security-tester"],
+        "parallel": false,
+        "continueOnFailure": true
+      },
+      {
+        "name": "reporting",
+        "agents": ["coordinator"],
+        "tasks": [
+          "Aggregate all test results",
+          "Generate comprehensive report",
+          "Calculate coverage metrics",
+          "Identify critical issues"
+        ]
+      }
+    ]
+  },
+  "reporting": {
+    "formats": ["json", "html", "markdown"],
+    "outputDir": "tests/reports",
+    "includeMetrics": true,
+    "includeCoverage": true,
+    "includeScreenshots": true
+  }
+}
