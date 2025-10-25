@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 import { toJobStatusDTO } from '../dto/DocumentDTO';
 import Joi from 'joi';
 import { validate } from '../middleware/validation';
-import { dualAuthenticate } from '../middleware/dualAuth';
+import { authenticateSupabase } from '../middleware/supabaseAuth';
 
 const router = Router();
 
@@ -38,8 +38,8 @@ router.get('/jobs/:id/status', async (req: Request, res: Response) => {
 });
 
 // Cancel a job
-// Phase 4 SDK Migration: Added authentication - users can only cancel their own jobs
-router.post('/jobs/:id/cancel', dualAuthenticate, async (req: Request, res: Response) => {
+// Phase 6 Complete: Users can only cancel their own jobs (Supabase auth)
+router.post('/jobs/:id/cancel', authenticateSupabase, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -65,8 +65,8 @@ router.post('/jobs/:id/cancel', dualAuthenticate, async (req: Request, res: Resp
 });
 
 // Retry a failed job
-// Phase 4 SDK Migration: Added authentication - users can only retry their own jobs
-router.post('/jobs/:id/retry', dualAuthenticate, async (req: Request, res: Response) => {
+// Phase 6 Complete: Users can only retry their own jobs (Supabase auth)
+router.post('/jobs/:id/retry', authenticateSupabase, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -137,8 +137,8 @@ router.get('/jobs/queue/stats', async (req: Request, res: Response) => {
 });
 
 // Get recent jobs for current user
-// Phase 4 SDK Migration: Added authentication - users can only see their own jobs
-router.get('/jobs/recent', dualAuthenticate, async (req: Request, res: Response) => {
+// Phase 6 Complete: Users can only see their own jobs (Supabase auth)
+router.get('/jobs/recent', authenticateSupabase, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
 

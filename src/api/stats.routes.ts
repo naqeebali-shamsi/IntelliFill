@@ -1,15 +1,14 @@
 import express, { Router, Request, Response } from 'express';
 import { DatabaseService } from '../database/DatabaseService';
-import { authenticate, optionalAuth } from '../middleware/auth';
-import { dualAuthenticate, optionalDualAuth } from '../middleware/dualAuth';
+import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 
 export function createStatsRoutes(db: DatabaseService): Router {
   const router = Router();
 
   // Get dashboard statistics
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/statistics', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/statistics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
       
@@ -39,8 +38,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get processing jobs
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/jobs', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/jobs', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -115,8 +114,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get single job status
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/jobs/:jobId', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/jobs/:jobId', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
 
@@ -143,8 +142,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get job status
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/jobs/:jobId/status', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/jobs/:jobId/status', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
 
@@ -165,8 +164,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get documents
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/documents', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/documents', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
       const limit = parseInt(req.query.limit as string) || 10;
@@ -267,8 +266,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get templates
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/templates', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/templates', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const templates = [
         {
@@ -313,8 +312,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Create template
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
-  router.post('/templates', dualAuthenticate, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only authentication
+  router.post('/templates', authenticateSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
       const { name, description, fields, config } = req.body;
@@ -394,8 +393,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get queue metrics
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
-  router.get('/queue/metrics', optionalDualAuth, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only optional authentication
+  router.get('/queue/metrics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const metrics = {
         waiting: 8,
@@ -416,8 +415,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Extract data endpoint
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
-  router.post('/extract', dualAuthenticate, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only authentication
+  router.post('/extract', authenticateSupabase, async (req: Request, res: Response) => {
     try {
       // This would normally extract data from the uploaded document
       const extractedData = {
@@ -441,8 +440,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Validate form endpoint
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
-  router.post('/validate/form', dualAuthenticate, async (req: Request, res: Response) => {
+  // Phase 6 Complete: Uses Supabase-only authentication
+  router.post('/validate/form', authenticateSupabase, async (req: Request, res: Response) => {
     try {
       const validationResult = {
         data: {

@@ -5,14 +5,12 @@ import { PrismaClient } from '@prisma/client';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
 import { ValidationRule } from '../validators/ValidationService';
-import { createAuthRoutes } from './auth.routes';
 import { createSupabaseAuthRoutes } from './supabase-auth.routes';
 import { createStatsRoutes } from './stats.routes';
 import { neonAuthRouter } from './neon-auth.routes';
 import { createDocumentRoutes } from './documents.routes';
 import { DatabaseService } from '../database/DatabaseService';
-import { authenticate, optionalAuth } from '../middleware/auth';
-import { dualAuthenticate, optionalDualAuth } from '../middleware/dualAuth';
+import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
 import { validateFilePath } from '../utils/encryption';
 
@@ -47,18 +45,13 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Setup authentication routes
   if (db) {
-    // Legacy JWT auth routes (Phase 3 SDK Migration - will be deprecated)
-    // Mounted at /api/auth for backwards compatibility
-    const authRoutes = createAuthRoutes({ db });
-    app.use('/api/auth', authRoutes);
-
-    // Supabase auth routes (Phase 3 SDK Migration - new preferred auth)
-    // Mounted at /api/auth/v2 for gradual migration
-    // These routes use Supabase Auth SDK for all authentication operations
+    // Supabase auth routes (Phase 6 - Production Ready)
+    // Mounted at /api/auth/v2
+    // All authentication uses Supabase Auth SDK
     const supabaseAuthRoutes = createSupabaseAuthRoutes();
     app.use('/api/auth/v2', supabaseAuthRoutes);
 
-    // Setup Neon auth routes
+    // Setup Neon auth routes (multi-tenant feature)
     app.use('/api/neon-auth', neonAuthRouter);
 
     // Setup stats and dashboard routes
@@ -136,9 +129,9 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   });
 
   // Process single document and form (protected route)
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
+  // Phase 6 Complete: Uses Supabase-only authentication
   router.post('/process/single',
-    dualAuthenticate,
+    authenticateSupabase,
     upload.fields([
       { name: 'document', maxCount: 1 },
       { name: 'form', maxCount: 1 }
@@ -235,9 +228,9 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   );
 
   // Process multiple documents and single form
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
+  // Phase 6 Complete: Uses Supabase-only authentication
   router.post('/process/multiple',
-    dualAuthenticate,
+    authenticateSupabase,
     upload.fields([
       { name: 'documents', maxCount: 10 },
       { name: 'form', maxCount: 1 }
@@ -288,9 +281,9 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   );
 
   // Batch process with different forms for each document
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
+  // Phase 6 Complete: Uses Supabase-only authentication
   router.post('/process/batch',
-    dualAuthenticate,
+    authenticateSupabase,
     upload.fields([
       { name: 'documents', maxCount: 20 },
       { name: 'forms', maxCount: 20 }
@@ -334,9 +327,9 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   );
 
   // Get form fields
-  // Phase 4 SDK Migration: Uses optionalDualAuth to support both Supabase and legacy JWT tokens
+  // Phase 6 Complete: Uses Supabase-only optional authentication
   router.post('/form/fields',
-    optionalDualAuth,
+    optionalAuthSupabase,
     upload.single('form'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -360,9 +353,9 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   );
 
   // Validate document data
-  // Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
+  // Phase 6 Complete: Uses Supabase-only authentication
   router.post('/validate',
-    dualAuthenticate,
+    authenticateSupabase,
     upload.single('document'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
