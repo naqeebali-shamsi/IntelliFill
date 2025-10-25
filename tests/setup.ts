@@ -12,10 +12,12 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key-1234567890';
 
 // Set other required environment variables
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret-key-with-sufficient-length-for-security-requirements';
-process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-with-sufficient-length-for-security';
+process.env.JWT_SECRET = 'test-jwt-secret-key-with-sufficient-length-for-security-requirements-and-more';
+process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-with-sufficient-length-for-security-requirements';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 process.env.REDIS_URL = 'redis://localhost:6379';
+process.env.JWT_ISSUER = 'test-issuer';
+process.env.JWT_AUDIENCE = 'test-audience';
 
 // Mock express-rate-limit to bypass rate limiting in tests
 jest.mock('express-rate-limit', () => {

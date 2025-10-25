@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
 import { authenticate } from '../middleware/auth';
+import { dualAuthenticate } from '../middleware/dualAuth';
 import { decryptFile, decryptExtractedData, encryptExtractedData } from '../middleware/encryptionMiddleware';
 import { FieldMapper } from '../mappers/FieldMapper';
 import { FormFiller } from '../fillers/FormFiller';
@@ -30,8 +31,9 @@ export function createDocumentRoutes(): Router {
 
   /**
    * GET /api/documents - List user's documents
+   * Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
    */
-  router.get('/', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/', dualAuthenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const { type, search, limit = 50 } = req.query;
@@ -69,8 +71,9 @@ export function createDocumentRoutes(): Router {
 
   /**
    * GET /api/documents/:id - Get single document details
+   * Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
    */
-  router.get('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/:id', dualAuthenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const { id } = req.params;
@@ -103,8 +106,9 @@ export function createDocumentRoutes(): Router {
 
   /**
    * GET /api/documents/:id/data - Get extracted data only (for form filling)
+   * Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
    */
-  router.get('/:id/data', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/:id/data', dualAuthenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const { id } = req.params;
@@ -138,9 +142,10 @@ export function createDocumentRoutes(): Router {
 
   /**
    * POST /api/documents/:id/fill - Fill a new form using stored document data
+   * Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
    */
   router.post('/:id/fill',
-    authenticate,
+    dualAuthenticate,
     upload.single('form'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -218,8 +223,9 @@ export function createDocumentRoutes(): Router {
 
   /**
    * GET /api/documents/:id/download - Download filled PDF
+   * Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
    */
-  router.get('/:id/download', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/:id/download', dualAuthenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const { id } = req.params;
@@ -253,8 +259,9 @@ export function createDocumentRoutes(): Router {
 
   /**
    * DELETE /api/documents/:id - Delete document and file
+   * Phase 4 SDK Migration: Uses dualAuthenticate to support both Supabase and legacy JWT tokens
    */
-  router.delete('/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+  router.delete('/:id', dualAuthenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
       const { id } = req.params;
