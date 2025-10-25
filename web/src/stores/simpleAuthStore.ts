@@ -1,5 +1,6 @@
 /**
  * Simplified AuthStore without complex middleware for better TypeScript compatibility
+ * Migrated to Supabase Auth SDK for modern authentication
  */
 
 import { create } from 'zustand';
@@ -7,6 +8,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
 import { User, AuthTokens, AppError } from './types';
+import { supabase } from '@/lib/supabase';
+import type { Session } from '@supabase/supabase-js';
+import api from '@/services/api';
 
 interface LoginCredentials {
   email: string;
@@ -25,7 +29,6 @@ interface RegisterData {
   acceptTerms?: boolean;
   marketingConsent?: boolean;
 }
-import api from '@/services/api';
 
 // =================== STORE INTERFACES ===================
 
@@ -33,9 +36,10 @@ interface AuthState {
   // Core authentication state
   user: User | null;
   tokens: AuthTokens | null;
+  session: Session | null; // Supabase session
   isAuthenticated: boolean;
   isInitialized: boolean;
-  
+
   // Company context
   company: {
     id: string;
@@ -44,11 +48,11 @@ interface AuthState {
     tier: string;
     creditsRemaining: number;
   } | null;
-  
+
   // Loading and error states
   isLoading: boolean;
   error: AppError | null;
-  
+
   // Security features
   loginAttempts: number;
   isLocked: boolean;
@@ -56,7 +60,7 @@ interface AuthState {
   sessionExpiry: number | null;
   lastActivity: number;
   rememberMe: boolean;
-  
+
   // Session management
   deviceId: string | null;
   ipAddress: string | null;
@@ -96,6 +100,7 @@ type AuthStore = AuthState & AuthActions;
 const initialState: AuthState = {
   user: null,
   tokens: null,
+  session: null,
   isAuthenticated: false,
   isInitialized: false,
   company: null,
@@ -118,10 +123,37 @@ function generateDeviceId(): string {
   return 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
 }
 
+/**
+ * Maps Supabase user to our User type
+ */
+function mapSupabaseUserToUser(supabaseUser: any): User {
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email!,
+    name: supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || supabaseUser.email!,
+    full_name: supabaseUser.user_metadata?.full_name,
+    role: supabaseUser.user_metadata?.role || 'user',
+    avatar: supabaseUser.user_metadata?.avatar_url,
+    preferences: {
+      theme: 'system',
+      notifications: {
+        email: true,
+        desktop: true,
+        processing: true,
+        errors: true,
+      },
+      autoSave: true,
+      retentionDays: 30,
+    },
+    createdAt: supabaseUser.created_at,
+    lastLoginAt: supabaseUser.last_sign_in_at,
+  };
+}
+
 function createAuthError(error: any): AppError {
   const status = error.response?.status;
-  const serverMessage = error.response?.data?.message;
-  const serverCode = error.response?.data?.code;
+  const serverMessage = error.response?.data?.message || error.message;
+  const serverCode = error.response?.data?.code || error.code;
 
   let code = 'AUTH_ERROR';
   let message = 'Authentication error';
@@ -144,15 +176,24 @@ function createAuthError(error: any): AppError {
       message = 'An account with this email already exists';
       break;
     default:
-      message = serverMessage || error.message || message;
-      code = serverCode || code;
+      // Handle Supabase errors
+      if (error.status === 400 && serverMessage?.includes('Invalid login credentials')) {
+        code = 'INVALID_CREDENTIALS';
+        message = 'Invalid email or password';
+      } else if (error.status === 422 && serverMessage?.includes('Email already registered')) {
+        code = 'EMAIL_EXISTS';
+        message = 'An account with this email already exists';
+      } else {
+        message = serverMessage || error.message || message;
+        code = serverCode || code;
+      }
   }
 
   return {
     id: `auth_error_${Date.now()}`,
     code,
     message,
-    details: error.response?.data?.details,
+    details: error.response?.data?.details || error.details,
     timestamp: Date.now(),
     severity: 'medium',
     component: 'auth',
@@ -177,19 +218,23 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           try {
-            // Try Neon auth first if company slug provided
-            if (credentials.companySlug) {
-              // First authenticate with regular auth
-              const authResponse = await api.post('/auth/login', {
-                email: credentials.email,
-                password: credentials.password,
-                rememberMe: credentials.rememberMe,
-                deviceId: get().deviceId || generateDeviceId(),
-              });
+            // Authenticate with Supabase
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+              email: credentials.email,
+              password: credentials.password,
+            });
 
-              const authData = authResponse.data.data || authResponse.data;
-              
-              // Then get Neon context
+            if (authError) {
+              throw authError;
+            }
+
+            if (!authData.session || !authData.user) {
+              throw new Error('No session returned from Supabase');
+            }
+
+            // If company slug provided, get Neon context
+            if (credentials.companySlug) {
+              // Get Neon context using Supabase user ID
               const neonResponse = await api.post('/neon-auth/login', {
                 authId: authData.user.id,
               });
@@ -199,13 +244,14 @@ export const useAuthStore = create<AuthStore>()(
               set((state) => {
                 state.user = user;
                 state.company = company;
-                state.tokens = { 
-                  accessToken: neonToken, 
-                  refreshToken: authData.tokens.refreshToken,
-                  expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+                state.session = authData.session;
+                state.tokens = {
+                  accessToken: authData.session.access_token,
+                  refreshToken: authData.session.refresh_token,
+                  expiresAt: authData.session.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000),
                 };
                 state.isAuthenticated = true;
-                state.sessionExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
+                state.sessionExpiry = authData.session.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000);
                 state.lastActivity = Date.now();
                 state.rememberMe = credentials.rememberMe || false;
                 state.loginAttempts = 0;
@@ -215,22 +261,19 @@ export const useAuthStore = create<AuthStore>()(
                 state.isLoading = false;
               });
             } else {
-              // Regular auth flow for legacy users
-              const response = await api.post('/auth/login', {
-                email: credentials.email,
-                password: credentials.password,
-                rememberMe: credentials.rememberMe,
-                deviceId: get().deviceId || generateDeviceId(),
-              });
-
-              const responseData = response.data.data || response.data;
-              const { user, tokens } = responseData;
+              // Regular Supabase auth flow
+              const user = mapSupabaseUserToUser(authData.user);
 
               set((state) => {
                 state.user = user;
-                state.tokens = tokens;
+                state.session = authData.session;
+                state.tokens = {
+                  accessToken: authData.session.access_token,
+                  refreshToken: authData.session.refresh_token,
+                  expiresAt: authData.session.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000),
+                };
                 state.isAuthenticated = true;
-                state.sessionExpiry = Date.now() + (tokens.expiresIn * 1000);
+                state.sessionExpiry = authData.session.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000);
                 state.lastActivity = Date.now();
                 state.rememberMe = credentials.rememberMe || false;
                 state.loginAttempts = 0;
@@ -242,18 +285,18 @@ export const useAuthStore = create<AuthStore>()(
             }
           } catch (error: any) {
             const authError = createAuthError(error);
-            
+
             set((state) => {
               state.error = authError;
               state.isLoading = false;
               state.loginAttempts += 1;
-              
+
               if (state.loginAttempts >= 5) {
                 state.isLocked = true;
                 state.lockExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes
               }
             });
-            
+
             throw authError;
           }
         },
@@ -265,19 +308,28 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           try {
+            // Register with Supabase
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+              email: data.email,
+              password: data.password,
+              options: {
+                data: {
+                  full_name: data.fullName || data.name,
+                },
+              },
+            });
+
+            if (authError) {
+              throw authError;
+            }
+
+            if (!authData.user) {
+              throw new Error('No user returned from Supabase signup');
+            }
+
             // If company data provided, use Neon signup
             if (data.companyName && data.companySlug) {
-              // First register with regular auth
-              const authResponse = await api.post('/auth/register', {
-                email: data.email,
-                password: data.password,
-                fullName: data.fullName || data.name,
-                deviceId: get().deviceId || generateDeviceId(),
-              });
-
-              const authData = authResponse.data.data;
-
-              // Then create company in Neon
+              // Create company in Neon
               const neonResponse = await api.post('/neon-auth/signup', {
                 companyName: data.companyName,
                 companySlug: data.companySlug,
@@ -291,56 +343,57 @@ export const useAuthStore = create<AuthStore>()(
               set((state) => {
                 state.user = user;
                 state.company = company;
-                state.tokens = { 
-                  accessToken: neonToken, 
-                  refreshToken: authData.tokens.refreshToken,
-                  expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
-                };
-                state.isAuthenticated = true;
-                state.sessionExpiry = Date.now() + (7 * 24 * 60 * 60 * 1000);
+                state.session = authData.session;
+                state.tokens = authData.session ? {
+                  accessToken: authData.session.access_token,
+                  refreshToken: authData.session.refresh_token,
+                  expiresAt: authData.session.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000),
+                } : null;
+                state.isAuthenticated = !!authData.session;
+                state.sessionExpiry = authData.session?.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000);
                 state.lastActivity = Date.now();
-                state.rememberMe = data.acceptTerms;
+                state.rememberMe = data.acceptTerms || false;
                 state.deviceId = state.deviceId || generateDeviceId();
                 state.isLoading = false;
               });
             } else {
-              // Regular registration for legacy users
-              const response = await api.post('/auth/register', {
-                ...data,
-                deviceId: get().deviceId || generateDeviceId(),
-              });
-
-              const { user, tokens } = response.data.data;
+              // Regular Supabase registration
+              const user = mapSupabaseUserToUser(authData.user);
 
               set((state) => {
                 state.user = user;
-                state.tokens = tokens;
-                state.isAuthenticated = true;
-                state.sessionExpiry = tokens.expiresAt;
+                state.session = authData.session;
+                state.tokens = authData.session ? {
+                  accessToken: authData.session.access_token,
+                  refreshToken: authData.session.refresh_token,
+                  expiresAt: authData.session.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000),
+                } : null;
+                state.isAuthenticated = !!authData.session;
+                state.sessionExpiry = authData.session?.expires_at ? authData.session.expires_at * 1000 : Date.now() + (3600 * 1000);
                 state.lastActivity = Date.now();
-                state.rememberMe = data.acceptTerms;
+                state.rememberMe = data.acceptTerms || false;
                 state.deviceId = state.deviceId || generateDeviceId();
                 state.isLoading = false;
               });
             }
           } catch (error: any) {
             const authError = createAuthError(error);
-            
+
             set((state) => {
               state.error = authError;
               state.isLoading = false;
             });
-            
+
             throw authError;
           }
         },
 
         logout: async () => {
           try {
-            if (get().tokens?.refreshToken) {
-              await api.post('/auth/logout', {
-                refreshToken: get().tokens?.refreshToken,
-              });
+            // Sign out from Supabase
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+              console.warn('Supabase logout error:', error);
             }
           } catch (error) {
             console.warn('Logout request failed:', error);
@@ -348,10 +401,12 @@ export const useAuthStore = create<AuthStore>()(
 
           // Clear localStorage FIRST to prevent rehydration
           localStorage.removeItem('intellifill-auth');
+          localStorage.removeItem('intellifill-supabase-auth');
 
           set((state) => {
             state.user = null;
             state.tokens = null;
+            state.session = null;
             state.company = null;
             state.isAuthenticated = false;
             state.sessionExpiry = null;
@@ -361,23 +416,27 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         refreshToken: async () => {
-          const { tokens } = get();
-          if (!tokens?.refreshToken) {
-            throw new Error('No refresh token available');
-          }
-
           try {
-            const response = await api.post('/auth/refresh', {
-              refreshToken: tokens.refreshToken,
-            });
+            // Supabase handles token refresh automatically
+            // This function exists for backward compatibility
+            const { data, error } = await supabase.auth.refreshSession();
 
-            const newTokens = response.data.data.tokens;
+            if (error) {
+              throw error;
+            }
 
-            set((state) => {
-              state.tokens = newTokens;
-              state.sessionExpiry = newTokens.expiresAt;
-              state.lastActivity = Date.now();
-            });
+            if (data.session) {
+              set((state) => {
+                state.session = data.session;
+                state.tokens = {
+                  accessToken: data.session.access_token,
+                  refreshToken: data.session.refresh_token,
+                  expiresAt: data.session.expires_at ? data.session.expires_at * 1000 : Date.now() + (3600 * 1000),
+                };
+                state.sessionExpiry = data.session.expires_at ? data.session.expires_at * 1000 : Date.now() + (3600 * 1000);
+                state.lastActivity = Date.now();
+              });
+            }
           } catch (error: any) {
             await get().logout();
             throw createAuthError(error);
@@ -392,26 +451,67 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           try {
-            const state = get();
-            
-            if (state.tokens?.accessToken) {
-              // Validate existing session
-              const isValid = get().checkSession();
-              if (isValid) {
-                set((draft) => {
-                  draft.isAuthenticated = true;
-                  draft.isInitialized = true;
-                  draft.isLoading = false;
-                });
-                return;
-              }
+            // Get session from Supabase
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (error) {
+              console.error('Session initialization error:', error);
+              set((state) => {
+                state.isInitialized = true;
+                state.isLoading = false;
+              });
+              return;
             }
 
-            // No valid session
-            set((state) => {
-              state.isInitialized = true;
-              state.isLoading = false;
-            });
+            if (session && session.user) {
+              // Valid session exists, restore auth state
+              const user = mapSupabaseUserToUser(session.user);
+
+              set((state) => {
+                state.user = user;
+                state.session = session;
+                state.tokens = {
+                  accessToken: session.access_token,
+                  refreshToken: session.refresh_token,
+                  expiresAt: session.expires_at ? session.expires_at * 1000 : Date.now() + (3600 * 1000),
+                };
+                state.isAuthenticated = true;
+                state.sessionExpiry = session.expires_at ? session.expires_at * 1000 : Date.now() + (3600 * 1000);
+                state.isInitialized = true;
+                state.isLoading = false;
+              });
+
+              // Set up auth state change listener
+              supabase.auth.onAuthStateChange((event, session) => {
+                console.log('Auth state changed:', event);
+                if (event === 'SIGNED_OUT') {
+                  set((state) => {
+                    state.user = null;
+                    state.tokens = null;
+                    state.session = null;
+                    state.company = null;
+                    state.isAuthenticated = false;
+                    state.sessionExpiry = null;
+                  });
+                } else if (event === 'TOKEN_REFRESHED' && session) {
+                  set((state) => {
+                    state.session = session;
+                    state.tokens = {
+                      accessToken: session.access_token,
+                      refreshToken: session.refresh_token,
+                      expiresAt: session.expires_at ? session.expires_at * 1000 : Date.now() + (3600 * 1000),
+                    };
+                    state.sessionExpiry = session.expires_at ? session.expires_at * 1000 : Date.now() + (3600 * 1000);
+                  });
+                }
+              });
+            } else {
+              // No valid session
+              set((state) => {
+                state.isInitialized = true;
+                state.isLoading = false;
+              });
+            }
           } catch (error) {
             console.error('Auth initialization error:', error);
             set((state) => {
@@ -422,28 +522,19 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         checkSession: () => {
-          const { tokens, sessionExpiry } = get();
+          const { session, sessionExpiry, isAuthenticated } = get();
 
-          if (!tokens?.accessToken || !sessionExpiry) {
+          // If not authenticated or no session, return false
+          if (!isAuthenticated || !session) {
             return false;
           }
 
-          // Check if token is expired
-          if (Date.now() >= sessionExpiry) {
-            // Clear localStorage FIRST to prevent Zustand persist rehydration race
-            localStorage.removeItem('intellifill-auth');
-
-            // Then clear session state immediately (synchronous)
-            set((state) => {
-              state.user = null;
-              state.tokens = null;
-              state.company = null;
-              state.isAuthenticated = false;
-              state.sessionExpiry = null;
-              state.error = null;
-              state.deviceId = null;
-            });
-            return false;
+          // Check if session is expired (with 60 second buffer for refresh)
+          if (sessionExpiry && Date.now() >= (sessionExpiry - 60000)) {
+            // Session is about to expire or expired
+            // Supabase will handle refresh automatically
+            // We just check if we still have a valid session
+            return !!session.access_token;
           }
 
           return true;
@@ -552,6 +643,7 @@ export const useAuthStore = create<AuthStore>()(
         partialize: (state) => ({
           user: state.user,
           tokens: state.tokens,
+          session: state.session,
           company: state.company,
           isAuthenticated: state.isAuthenticated,
           sessionExpiry: state.sessionExpiry,
@@ -559,15 +651,17 @@ export const useAuthStore = create<AuthStore>()(
           deviceId: state.deviceId,
           lastActivity: state.lastActivity,
         }),
-        version: 1,
+        version: 2, // Incremented for Supabase migration
         // Validate persisted data before rehydration
         onRehydrateStorage: () => (state) => {
           if (state?.sessionExpiry && Date.now() >= state.sessionExpiry) {
             // Session expired - clear localStorage immediately
             localStorage.removeItem('intellifill-auth');
+            localStorage.removeItem('intellifill-supabase-auth');
             // Reset to initial state
             state.user = null;
             state.tokens = null;
+            state.session = null;
             state.company = null;
             state.isAuthenticated = false;
             state.sessionExpiry = null;

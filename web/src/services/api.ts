@@ -1,5 +1,6 @@
 import axios, { AxiosProgressEvent } from 'axios';
 import { useAuthStore } from '@/stores/simpleAuthStore';
+import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 
@@ -14,12 +15,21 @@ const api = axios.create({
 let refreshPromise: Promise<string | null> | null = null;
 
 // Add auth token and company context to requests
-api.interceptors.request.use((config) => {
-  // Get token from Zustand store instead of localStorage
-  const { tokens, company } = useAuthStore.getState();
+api.interceptors.request.use(async (config) => {
+  // Get token from Zustand store (synced with Supabase)
+  const { tokens, company, session } = useAuthStore.getState();
 
   if (tokens?.accessToken) {
     config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+  } else if (session?.access_token) {
+    // Fallback: get token from Supabase session if Zustand not synced
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  } else {
+    // Final fallback: get fresh session from Supabase
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    if (freshSession?.access_token) {
+      config.headers.Authorization = `Bearer ${freshSession.access_token}`;
+    }
   }
 
   // Add company context for multi-tenant requests
@@ -31,6 +41,8 @@ api.interceptors.request.use((config) => {
 });
 
 // Handle auth errors and token refresh
+// Note: Token refresh is now handled by Supabase automatically,
+// but we keep this interceptor for backward compatibility and edge cases
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -45,11 +57,18 @@ api.interceptors.response.use(
           refreshPromise = (async () => {
             try {
               const authStore = useAuthStore.getState();
-              if (!authStore.tokens?.refreshToken) {
-                return null;
+
+              // Try Supabase session refresh first
+              const { data, error: refreshError } = await supabase.auth.refreshSession();
+
+              if (refreshError || !data.session) {
+                // Fallback to auth store refresh (which also uses Supabase internally)
+                if (!authStore.tokens?.refreshToken && !authStore.session?.refresh_token) {
+                  return null;
+                }
+                await authStore.refreshToken();
               }
 
-              await authStore.refreshToken();
               const newToken = useAuthStore.getState().tokens?.accessToken;
               return newToken || null;
             } catch (err) {
