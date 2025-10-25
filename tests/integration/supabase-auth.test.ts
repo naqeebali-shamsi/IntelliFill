@@ -23,9 +23,45 @@ import { supabase, supabaseAdmin } from '../../src/utils/supabase';
 import { prisma } from '../../src/utils/prisma';
 import { authenticateSupabase } from '../../src/middleware/supabaseAuth';
 
-// Mock dependencies
-jest.mock('../../src/utils/supabase');
-jest.mock('../../src/utils/prisma');
+// Mock Supabase with proper structure
+jest.mock('../../src/utils/supabase', () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: jest.fn(),
+      signOut: jest.fn(),
+      refreshSession: jest.fn(),
+      getUser: jest.fn()
+    }
+  },
+  supabaseAdmin: {
+    auth: {
+      getUser: jest.fn(),
+      admin: {
+        createUser: jest.fn(),
+        deleteUser: jest.fn(),
+        updateUserById: jest.fn(),
+        signOut: jest.fn()
+      }
+    }
+  },
+  verifySupabaseToken: jest.fn()
+}));
+
+// Mock Prisma with proper structure
+jest.mock('../../src/utils/prisma', () => ({
+  prisma: {
+    user: {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      findMany: jest.fn(),
+      delete: jest.fn()
+    },
+    $disconnect: jest.fn()
+  }
+}));
+
+// Mock authentication middleware
 jest.mock('../../src/middleware/supabaseAuth');
 
 // Test app setup
@@ -89,10 +125,33 @@ describe('Supabase Authentication Routes', () => {
     };
 
     it('should register a new user successfully', async () => {
+      const newUser = {
+        ...mockUser,
+        email: registerPayload.email.toLowerCase(),
+        firstName: 'New',
+        lastName: 'User',
+        role: 'USER'
+      };
+
+      const newSupabaseUser = {
+        ...mockSupabaseUser,
+        email: registerPayload.email.toLowerCase(),
+        user_metadata: {
+          firstName: 'New',
+          lastName: 'User',
+          role: 'USER'
+        }
+      };
+
+      const newSession = {
+        ...mockSession,
+        user: newSupabaseUser
+      };
+
       // Mock Supabase admin.createUser
       (supabaseAdmin.auth.admin.createUser as jest.Mock).mockResolvedValue({
         data: {
-          user: mockSupabaseUser
+          user: newSupabaseUser
         },
         error: null
       });
@@ -100,14 +159,14 @@ describe('Supabase Authentication Routes', () => {
       // Mock Supabase signInWithPassword
       (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
         data: {
-          session: mockSession,
-          user: mockSupabaseUser
+          session: newSession,
+          user: newSupabaseUser
         },
         error: null
       });
 
       // Mock Prisma user create
-      (prisma.user.create as jest.Mock).mockResolvedValue(mockUser);
+      (prisma.user.create as jest.Mock).mockResolvedValue(newUser);
 
       const response = await request(app)
         .post('/api/auth/v2/register')
