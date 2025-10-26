@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:25-alpine
 
 # Install build tools for native dependencies
 RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev

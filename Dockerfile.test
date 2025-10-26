@@ -1,5 +1,5 @@
 # Test-specific Dockerfile
-FROM node:18-alpine AS test
+FROM node:25-alpine AS test
 
 # Install system dependencies
 RUN apk add --no-cache python3 make g++ curl bash
