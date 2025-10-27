@@ -51,7 +51,7 @@ jobs:
           CYPRESS_BASE_URL: http://localhost:5173
       
       - name: Upload screenshots on failure
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: cypress-screenshots
