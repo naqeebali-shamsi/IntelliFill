@@ -1,0 +1,325 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-01-XX",
+  "structure": "numbered-prefix",
+  "documents": [
+    {
+      "id": "ai-agent-setup",
+      "path": "00-quick-start/ai-agent-setup.md",
+      "title": "AI Agent Setup Guide",
+      "status": "active",
+      "phase": "current",
+      "priority": "critical",
+      "category": "guide",
+      "tags": ["ai-agents", "onboarding", "setup"],
+      "dependencies": [],
+      "related": ["project-overview", "arch-quick-reference"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "project-overview",
+      "path": "00-quick-start/project-overview.md",
+      "title": "Project Overview",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "guide",
+      "tags": ["overview", "introduction"],
+      "dependencies": [],
+      "related": ["ai-agent-setup", "arch-quick-reference"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "arch-system-overview",
+      "path": "01-current-state/architecture/system-overview.md",
+      "title": "System Architecture Overview",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "architecture",
+      "tags": ["architecture", "system-design", "current-state"],
+      "dependencies": [],
+      "related": ["arch-quick-reference", "arch-security", "arch-auth-flow"],
+      "last_verified": "2025-01-10"
+    },
+    {
+      "id": "arch-quick-reference",
+      "path": "01-current-state/architecture/quick-reference.md",
+      "title": "Architecture Quick Reference",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "architecture",
+      "tags": ["architecture", "quick-reference"],
+      "dependencies": [],
+      "related": ["arch-system-overview"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "arch-security",
+      "path": "01-current-state/architecture/security.md",
+      "title": "Security Architecture",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "architecture",
+      "tags": ["security", "architecture", "current-state"],
+      "dependencies": [],
+      "related": ["arch-system-overview", "arch-auth-flow"],
+      "last_verified": "2025-01-10"
+    },
+    {
+      "id": "arch-auth-flow",
+      "path": "01-current-state/architecture/auth-flow.md",
+      "title": "Authentication Flow Architecture",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "architecture",
+      "tags": ["authentication", "security", "jwt", "architecture"],
+      "dependencies": [],
+      "related": ["arch-security", "arch-system-overview", "api-authentication"],
+      "last_verified": "2025-01-11"
+    },
+    {
+      "id": "api-authentication",
+      "path": "01-current-state/api/endpoints/authentication.md",
+      "title": "Authentication API Reference",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "api",
+      "tags": ["api", "authentication", "endpoints", "jwt", "supabase"],
+      "dependencies": [],
+      "related": ["arch-auth-flow", "arch-security"],
+      "last_verified": "2025-01-11"
+    },
+    {
+      "id": "vision-system-architecture",
+      "path": "04-future-vision/architecture/system-architecture.md",
+      "title": "Future System Architecture",
+      "status": "active",
+      "phase": "vision",
+      "priority": "low",
+      "category": "architecture",
+      "tags": ["vision", "enterprise", "microservices"],
+      "dependencies": [],
+      "related": ["arch-system-overview"],
+      "last_verified": "N/A",
+      "warning": "NOT IMPLEMENTED - This is future vision only"
+    },
+    {
+      "id": "meta-documentation-maintenance",
+      "path": ".meta/DOCUMENTATION_MAINTENANCE.md",
+      "title": "Documentation Maintenance Guide",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "meta",
+      "tags": ["maintenance", "workflow", "commits", "redundancy"],
+      "dependencies": [],
+      "related": ["meta-frequent-commit-guide", "meta-redundancy-check", "meta-commit-instructions"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "meta-frequent-commit-guide",
+      "path": ".meta/FREQUENT_COMMIT_GUIDE.md",
+      "title": "Frequent Commit Guide",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "meta",
+      "tags": ["commits", "workflow", "git"],
+      "dependencies": [],
+      "related": ["meta-documentation-maintenance", "meta-commit-instructions"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "meta-commit-instructions",
+      "path": ".meta/COMMIT_INSTRUCTIONS.md",
+      "title": "Commit Instructions Quick Reference",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "meta",
+      "tags": ["commits", "quick-reference"],
+      "dependencies": [],
+      "related": ["meta-frequent-commit-guide", "meta-documentation-maintenance"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "meta-redundancy-check",
+      "path": ".meta/REDUNDANCY_CHECK.md",
+      "title": "Redundancy Check Guide",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "meta",
+      "tags": ["redundancy", "quality", "maintenance"],
+      "dependencies": [],
+      "related": ["meta-documentation-maintenance", "meta-redundancy-summary"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "meta-redundancy-summary",
+      "path": ".meta/REDUNDANCY_SUMMARY.md",
+      "title": "Redundancy Summary",
+      "status": "active",
+      "phase": "current",
+      "priority": "medium",
+      "category": "meta",
+      "tags": ["redundancy", "summary", "status"],
+      "dependencies": [],
+      "related": ["meta-redundancy-check", "meta-redundancy-fixes"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "meta-redundancy-fixes",
+      "path": ".meta/REDUNDANCY_FIXES.md",
+      "title": "Redundancy Fixes Applied",
+      "status": "active",
+      "phase": "current",
+      "priority": "medium",
+      "category": "meta",
+      "tags": ["redundancy", "fixes", "changelog"],
+      "dependencies": [],
+      "related": ["meta-redundancy-summary", "meta-redundancy-check"],
+      "last_verified": "2025-01-XX"
+    },
+    {
+      "id": "meta-maintenance-workflow",
+      "path": ".meta/MAINTENANCE_WORKFLOW.md",
+      "title": "Maintenance Workflow",
+      "status": "active",
+      "phase": "current",
+      "priority": "high",
+      "category": "meta",
+      "tags": ["workflow", "maintenance", "daily"],
+      "dependencies": [],
+      "related": ["meta-documentation-maintenance", "meta-frequent-commit-guide"],
+      "last_verified": "2025-01-XX"
+    }
+  ],
+  "relationships": {
+    "ai-agent-setup": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["project-overview", "arch-quick-reference"]
+    },
+    "project-overview": {
+      "depends_on": [],
+      "required_by": ["ai-agent-setup"],
+      "related_to": ["ai-agent-setup", "arch-quick-reference"]
+    },
+    "arch-system-overview": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["arch-quick-reference", "arch-security", "arch-auth-flow"]
+    },
+    "arch-quick-reference": {
+      "depends_on": [],
+      "required_by": ["ai-agent-setup", "project-overview"],
+      "related_to": ["arch-system-overview"]
+    },
+    "arch-security": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["arch-system-overview", "arch-auth-flow"]
+    },
+    "arch-auth-flow": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["arch-security", "arch-system-overview", "api-authentication"]
+    },
+    "api-authentication": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["arch-auth-flow", "arch-security"]
+    },
+    "meta-documentation-maintenance": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["meta-frequent-commit-guide", "meta-redundancy-check", "meta-commit-instructions"]
+    },
+    "meta-frequent-commit-guide": {
+      "depends_on": [],
+      "required_by": ["meta-documentation-maintenance"],
+      "related_to": ["meta-commit-instructions", "meta-maintenance-workflow"]
+    },
+    "meta-commit-instructions": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["meta-frequent-commit-guide"]
+    },
+    "meta-redundancy-check": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["meta-redundancy-summary", "meta-redundancy-fixes"]
+    },
+    "meta-redundancy-summary": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["meta-redundancy-check", "meta-redundancy-fixes"]
+    },
+    "meta-redundancy-fixes": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["meta-redundancy-summary"]
+    },
+    "meta-maintenance-workflow": {
+      "depends_on": [],
+      "required_by": [],
+      "related_to": ["meta-documentation-maintenance"]
+    }
+  },
+  "sections": {
+    "00-quick-start": {
+      "priority": "critical",
+      "description": "Onboarding and quick start guides",
+      "documents": ["ai-agent-setup", "project-overview"]
+    },
+    "01-current-state": {
+      "priority": "high",
+      "description": "What EXISTS in the codebase (reality)",
+      "subsections": {
+        "architecture": {
+          "documents": ["arch-system-overview", "arch-quick-reference", "arch-security", "arch-auth-flow"]
+        },
+        "api": {
+          "documents": ["api-authentication"]
+        }
+      }
+    },
+    "02-guides": {
+      "priority": "medium",
+      "description": "How-to guides and procedures"
+    },
+    "03-reference": {
+      "priority": "medium",
+      "description": "Technical reference documentation"
+    },
+    "04-future-vision": {
+      "priority": "low",
+      "description": "Future plans (NOT implemented)",
+      "warning": "Features documented here do NOT exist in code",
+      "subsections": {
+        "architecture": {
+          "documents": ["vision-system-architecture"]
+        }
+      }
+    },
+    "05-decisions": {
+      "priority": "low",
+      "description": "Architecture Decision Records (ADRs)"
+    },
+    "06-archive": {
+      "priority": "low",
+      "description": "Deprecated and archived documentation"
+    },
+    ".meta": {
+      "priority": "high",
+      "description": "Documentation metadata and maintenance guides",
+      "documents": ["meta-documentation-maintenance", "meta-frequent-commit-guide", "meta-commit-instructions", "meta-redundancy-check", "meta-redundancy-summary", "meta-redundancy-fixes", "meta-maintenance-workflow"]
+    }
+  }
+}
