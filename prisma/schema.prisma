@@ -11,100 +11,326 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(uuid())
-  email           String    @unique
-  password        String
-  firstName       String?
-  lastName        String?
-  role            UserRole  @default(USER)
-  isActive        Boolean   @default(true)
-  emailVerified   Boolean   @default(false)
-  supabaseUserId  String?   @unique
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  lastLogin       DateTime?
-  refreshTokens   RefreshToken[]
-  documents       Document[]
-  sessions        Session[]
-  templates       Template[]
-  mappings        FieldMapping[]
+  id             String         @id @default(uuid())
+  email          String         @unique
+  password       String
+  firstName      String?
+  lastName       String?
+  role           UserRole       @default(USER)
+  isActive       Boolean        @default(true)
+  emailVerified  Boolean        @default(false)
+  supabaseUserId String?        @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  lastLogin      DateTime?
+  refreshTokens  RefreshToken[]
+  documents      Document[]
+  sessions       Session[]
+  templates      Template[]
+  mappings       FieldMapping[]
+  jobs           Job[]
+  settings       UserSettings?
+  profile        UserProfile?
+  apiUsage       ApiUsage[]
+  auditLogs      AuditLog[]
+  clients        Client[]
 
   @@map("users")
 }
 
 model RefreshToken {
-  id          String   @id @default(uuid())
-  token       String   @unique
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
   @@map("refresh_tokens")
 }
 
 model Session {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token       String   @unique
-  ipAddress   String?
-  userAgent   String?
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
   @@map("sessions")
 }
 
+// Client entity - the core of the client-centric architecture
+// Every document, profile, and form belongs to a client
+model Client {
+  id        String       @id @default(uuid())
+  userId    String       @map("user_id")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  type      ClientType   @default(INDIVIDUAL)
+  status    ClientStatus @default(ACTIVE)
+  notes     String?
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  documents     ClientDocument[]
+  profile       ClientProfile?
+  filledForms   FilledForm[]
+  extractedData ExtractedData[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([name])
+  @@map("clients")
+}
+
+// ClientProfile - unified extracted data from all client documents
+// This is what gets used when filling forms
+model ClientProfile {
+  id           String   @id @default(uuid())
+  clientId     String   @unique @map("client_id")
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Unified client data from all documents (JSON)
+  data         Json     @default("{}")
+
+  // Track which document each field came from (JSON)
+  // Format: { fieldName: { documentId, extractedAt, manuallyEdited } }
+  fieldSources Json     @default("{}") @map("field_sources")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([clientId])
+  @@map("client_profiles")
+}
+
+// ClientDocument - documents belonging to a specific client
+model ClientDocument {
+  id            String               @id @default(uuid())
+  clientId      String               @map("client_id")
+  client        Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId        String               @map("user_id") // Owner tracking
+
+  fileName      String               @map("file_name")
+  fileType      String               @map("file_type") // MIME type
+  fileSize      Int                  @map("file_size")
+  storageUrl    String               @map("storage_url")
+
+  // Document categorization
+  category      DocumentCategory?
+
+  // Processing status
+  status        ClientDocumentStatus @default(UPLOADED)
+
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+
+  // Relations
+  extractedData ExtractedData?
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@map("client_documents")
+}
+
+// ExtractedData - OCR output from a document
+model ExtractedData {
+  id           String              @id @default(uuid())
+  documentId   String              @unique @map("document_id")
+  document     ClientDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  clientId     String              @map("client_id")
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Full OCR text
+  rawText      String?             @map("raw_text")
+
+  // Structured extracted fields (JSON)
+  // Format: { fieldName: { value, confidence, source } }
+  fields       Json                @default("{}")
+
+  status       ExtractionStatus    @default(PENDING)
+  extractedAt  DateTime?           @map("extracted_at")
+  reviewedAt   DateTime?           @map("reviewed_at")
+
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@index([clientId])
+  @@index([documentId])
+  @@index([status])
+  @@map("extracted_data")
+}
+
+// FormTemplate - reusable form templates with field mappings
+model FormTemplate {
+  id            String              @id @default(uuid())
+  userId        String              @map("user_id")
+
+  name          String
+  description   String?
+  category      FormCategory?
+
+  // The blank PDF form file URL
+  fileUrl       String              @map("file_url")
+
+  // Map form fields to client profile fields (JSON)
+  // Format: { formFieldName: profileFieldName }
+  fieldMappings Json                @default("{}") @map("field_mappings")
+
+  // Detected form field names from PDF (JSON array)
+  detectedFields Json               @default("[]") @map("detected_fields")
+
+  isActive      Boolean             @default(true) @map("is_active")
+
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  filledForms   FilledForm[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([isActive])
+  @@map("form_templates")
+}
+
+// FilledForm - generated/filled forms history
+model FilledForm {
+  id           String       @id @default(uuid())
+  clientId     String       @map("client_id")
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  templateId   String       @map("template_id")
+  template     FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  userId       String       @map("user_id") // Who generated it
+
+  // The generated filled PDF file URL
+  fileUrl      String       @map("file_url")
+
+  // Snapshot of data used at generation time (for audit)
+  dataSnapshot Json         @map("data_snapshot")
+
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([clientId])
+  @@index([templateId])
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("filled_forms")
+}
+
+enum ClientType {
+  COMPANY
+  INDIVIDUAL
+}
+
+enum ClientStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+// Document categories for client documents
+enum DocumentCategory {
+  PASSPORT
+  EMIRATES_ID
+  TRADE_LICENSE
+  VISA
+  LABOR_CARD
+  ESTABLISHMENT_CARD
+  MOA // Memorandum of Association
+  BANK_STATEMENT
+  OTHER
+}
+
+// Status for client documents
+enum ClientDocumentStatus {
+  UPLOADED
+  PROCESSING
+  EXTRACTED
+  FAILED
+}
+
+// Status for extracted data
+enum ExtractionStatus {
+  PENDING
+  COMPLETED
+  REVIEWED
+  FAILED
+}
+
+// Form template categories
+enum FormCategory {
+  VISA
+  COMPANY_FORMATION
+  LABOR
+  IMMIGRATION
+  BANKING
+  GOVERNMENT
+  OTHER
+}
+
 model Document {
-  id              String    @id @default(uuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fileName        String
-  fileType        String
-  fileSize        Int
-  storageUrl      String
-  status          DocumentStatus @default(PENDING)
-  extractedText   String?
-  extractedData   Json?
-  confidence      Float?
-  templateId      String?
-  template        Template?  @relation(fields: [templateId], references: [id])
-  processedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  id                 String         @id @default(uuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName           String
+  fileType           String
+  fileSize           Int
+  storageUrl         String
+  status             DocumentStatus @default(PENDING)
+  extractedText      String?
+  extractedData      Json?
+  confidence         Float?
+  templateId         String?
+  template           Template?      @relation(fields: [templateId], references: [id])
+  processedAt        DateTime?
+  reprocessCount     Int            @default(0) @map("reprocess_count")
+  lastReprocessedAt  DateTime?      @map("last_reprocessed_at")
+  reprocessingHistory Json?         @map("reprocessing_history")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
   @@map("documents")
 }
 
 model Template {
-  id              String    @id @default(uuid())
-  name            String
-  description     String?
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fieldMappings   Json
-  documentType    String
-  isActive        Boolean   @default(true)
-  documents       Document[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  formType      String     // W2, I9, PASSPORT, JOB_APPLICATION, CUSTOM
+  fieldMappings String     // Encrypted JSON with field mappings
+  isPublic      Boolean    @default(false) // For marketplace
+  usageCount    Int        @default(0)
+  isActive      Boolean    @default(true)
+  documents     Document[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([formType])
+  @@index([isPublic])
   @@map("templates")
 }
 
 model FieldMapping {
-  id              String    @id @default(uuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourceField     String
-  targetField     String
-  transformRules  Json?
-  confidence      Float     @default(1.0)
-  isActive        Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceField    String
+  targetField    String
+  transformRules Json?
+  confidence     Float    @default(1.0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
   @@map("field_mappings")
 }
 
@@ -117,7 +343,157 @@ enum UserRole {
 enum DocumentStatus {
   PENDING
   PROCESSING
+  REPROCESSING
   COMPLETED
   FAILED
   ARCHIVED
+}
+
+enum JobStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum JobType {
+  single
+  multiple
+  batch
+}
+
+// Jobs table for batch processing
+model Job {
+  id                String              @id
+  type              JobType
+  status            JobStatus           @default(pending)
+  userId            String?
+  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  documentsCount    Int                 @map("documents_count")
+  priority          Int                 @default(0)
+  startedAt         DateTime?           @map("started_at")
+  completedAt       DateTime?           @map("completed_at")
+  failedAt          DateTime?           @map("failed_at")
+  result            Json?
+  error             String?
+  metadata          Json?
+  retryCount        Int                 @default(0) @map("retry_count")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  processingHistory ProcessingHistory[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([type, status])
+  @@map("jobs")
+}
+
+// Processing history for tracking form filling operations
+model ProcessingHistory {
+  id             Int      @id @default(autoincrement())
+  jobId          String   @map("job_id")
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  formPath       String   @map("form_path")
+  documentPaths  String[] @map("document_paths")
+  outputPath     String   @map("output_path")
+  filledFields   String[] @default([]) @map("filled_fields")
+  confidence     Decimal? @db.Decimal(3, 2)
+  processingTime Int?     @map("processing_time")
+  ocrApplied     Boolean  @default(false) @map("ocr_applied")
+  mlEnhanced     Boolean  @default(false) @map("ml_enhanced")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@index([createdAt(sort: Desc)])
+  @@map("processing_history")
+}
+
+// User settings and preferences
+model UserSettings {
+  userId                 String   @id @map("user_id")
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultValidationRules Json?    @map("default_validation_rules")
+  preferredLanguage      String   @default("en") @map("preferred_language") @db.VarChar(10)
+  emailNotifications     Boolean  @default(true) @map("email_notifications")
+  webhookUrl             String?  @map("webhook_url")
+  autoOcr                Boolean  @default(false) @map("auto_ocr")
+  autoMlEnhancement      Boolean  @default(true) @map("auto_ml_enhancement")
+  defaultOutputFormat    String   @default("pdf") @map("default_output_format") @db.VarChar(20)
+  timezone               String   @default("UTC") @db.VarChar(50)
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("user_settings")
+}
+
+// User profile aggregated from all uploaded documents
+model UserProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileData    Json     @map("profile_data") // Encrypted JSON with key-value pairs
+  lastAggregated DateTime @default(now()) @map("last_aggregated")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("user_profiles")
+}
+
+// API usage tracking
+model ApiUsage {
+  id           Int      @id @default(autoincrement())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint     String   @db.VarChar(255)
+  method       String   @db.VarChar(10)
+  statusCode   Int?     @map("status_code")
+  responseTime Int?     @map("response_time")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@index([endpoint])
+  @@map("api_usage")
+}
+
+// ML model versions
+model MlModel {
+  id              Int      @id @default(autoincrement())
+  modelName       String   @map("model_name") @db.VarChar(255)
+  version         String   @db.VarChar(50)
+  accuracy        Decimal? @db.Decimal(3, 2)
+  precisionScore  Decimal? @map("precision_score") @db.Decimal(3, 2)
+  recallScore     Decimal? @map("recall_score") @db.Decimal(3, 2)
+  f1Score         Decimal? @map("f1_score") @db.Decimal(3, 2)
+  trainingSamples Int?     @map("training_samples")
+  modelPath       String?  @map("model_path")
+  isActive        Boolean  @default(false) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([modelName, version])
+  @@map("ml_models")
+}
+
+// Audit log for security and compliance
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     String?  @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(255)
+  entityType String?  @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.VarChar(255)
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_log")
 }

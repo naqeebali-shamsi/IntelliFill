@@ -6,6 +6,9 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Import config module FIRST (auto-validates on import)
+import { config } from './config';
+
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -22,60 +25,24 @@ import { logger } from './utils/logger';
 import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter';
 import { csrfProtection } from './middleware/csrf';
 
-// CRITICAL: Environment validation - MUST BE FIRST
-const REQUIRED_ENV_VARS = [
-  'JWT_SECRET',
-  'JWT_REFRESH_SECRET',
-  'DATABASE_URL',
-  'NODE_ENV',
-  'JWT_ISSUER',
-  'JWT_AUDIENCE'
+// Config validation happens automatically on import
+console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
+console.log(`   Server: http://localhost:${config.server.port}`);
+console.log(`   Database: ${config.database.url.split('@')[1]?.split('/')[0] || 'configured'}`);
+console.log(`   Redis: ${config.redis.host}:${config.redis.port}`);
+
+// Optional environment variable warnings
+const RECOMMENDED_ENV_VARS = [
+  'REDIS_PASSWORD',
+  'DB_POOL_MAX',
+  'DB_POOL_MIN'
 ];
 
-function validateEnvironment() {
-  const missing: string[] = [];
-  
-  for (const varName of REQUIRED_ENV_VARS) {
-    if (!process.env[varName]) {
-      missing.push(varName);
-    }
+for (const varName of RECOMMENDED_ENV_VARS) {
+  if (!process.env[varName]) {
+    console.warn(`⚠️  ${varName} not set - using default value`);
   }
-  
-  if (missing.length > 0) {
-    console.error('❌ CRITICAL: Missing required environment variables:', missing);
-    process.exit(1); // FAIL FAST
-  }
-  
-  // Production-specific validation
-  if (process.env.NODE_ENV === 'production') {
-    if (process.env.JWT_SECRET === 'your-jwt-secret-key') {
-      console.error('❌ CRITICAL: Default JWT secret detected in production!');
-      process.exit(1);
-    }
-    if (process.env.JWT_SECRET!.length < 64) {
-      console.error('❌ CRITICAL: JWT_SECRET must be at least 64 characters in production!');
-      process.exit(1);
-    }
-  }
-
-  // Supabase Configuration (Phase 4 Migration)
-  if (!process.env.SUPABASE_URL) {
-    console.warn('⚠️  SUPABASE_URL not set - Supabase Auth will not work');
-  }
-
-  if (!process.env.SUPABASE_ANON_KEY) {
-    console.warn('⚠️  SUPABASE_ANON_KEY not set - Supabase Auth will not work');
-  }
-
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - Admin operations will fail');
-  }
-
-  console.log('✅ Environment validation passed');
 }
-
-// CRITICAL: Validate environment BEFORE any other initialization
-validateEnvironment();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -84,8 +51,20 @@ async function initializeApp() {
   try {
     // Initialize database
     const db = new DatabaseService();
+    // Enhanced connection with retry logic
     await db.connect();
-    logger.info('Database connected successfully');
+
+    // Verify Prisma connection as well
+    const { ensureDbConnection, startKeepalive } = await import('./utils/prisma');
+    const prismaConnected = await ensureDbConnection();
+    if (!prismaConnected) {
+      throw new Error('Failed to establish Prisma database connection after retries');
+    }
+    
+    // Start database keepalive to prevent Neon idle disconnection
+    startKeepalive();
+    
+    logger.info('Database connected successfully (keepalive enabled)');
 
     // Initialize services
     const documentParser = new DocumentParser();
@@ -239,8 +218,13 @@ async function startServer() {
     });
 
     // Handle server shutdown
-    process.on('SIGTERM', () => {
+    process.on('SIGTERM', async () => {
       logger.info('SIGTERM received, closing HTTP server');
+      
+      // Stop keepalive before shutdown
+      const { stopKeepalive } = await import('./utils/prisma');
+      stopKeepalive();
+      
       server.close(async () => {
         logger.info('HTTP server closed');
         await db.disconnect();

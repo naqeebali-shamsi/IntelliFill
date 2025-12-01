@@ -2,31 +2,91 @@ import express, { Router, Request, Response } from 'express';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
+import { prisma } from '../utils/prisma';
 
 export function createStatsRoutes(db: DatabaseService): Router {
   const router = Router();
 
   // Get dashboard statistics
-  // Phase 6 Complete: Uses Supabase-only optional authentication
   router.get('/statistics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
-      
-      // Get statistics from database or calculate them
+
+      // Get real statistics from database
+      const [
+        totalJobs,
+        completedJobs,
+        failedJobs,
+        inProgressJobs,
+        totalClients,
+        totalDocuments
+      ] = await Promise.all([
+        prisma.job.count({ where: userId ? { userId } : undefined }),
+        prisma.job.count({ where: { status: 'completed', ...(userId ? { userId } : {}) } }),
+        prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } }),
+        prisma.job.count({ where: { status: 'processing', ...(userId ? { userId } : {}) } }),
+        prisma.client.count({ where: userId ? { userId } : undefined }),
+        prisma.document.count({ where: userId ? { userId } : undefined })
+      ]);
+
+      // Calculate today's processed count
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const processedToday = await prisma.job.count({
+        where: {
+          status: 'completed',
+          completedAt: { gte: today },
+          ...(userId ? { userId } : {})
+        }
+      });
+
+      // Calculate average processing time (in seconds)
+      const completedJobsWithTime = await prisma.job.findMany({
+        where: {
+          status: 'completed',
+          startedAt: { not: null },
+          completedAt: { not: null },
+          ...(userId ? { userId } : {})
+        },
+        select: {
+          startedAt: true,
+          completedAt: true
+        },
+        take: 100 // Last 100 completed jobs
+      });
+
+      let averageProcessingTime = 0;
+      if (completedJobsWithTime.length > 0) {
+        const totalTime = completedJobsWithTime.reduce((acc, job) => {
+          if (job.startedAt && job.completedAt) {
+            return acc + (job.completedAt.getTime() - job.startedAt.getTime());
+          }
+          return acc;
+        }, 0);
+        averageProcessingTime = (totalTime / completedJobsWithTime.length) / 1000; // Convert to seconds
+      }
+
+      // Calculate success rate
+      const successRate = totalJobs > 0
+        ? Math.round((completedJobs / totalJobs) * 1000) / 10
+        : 0;
+
       const stats = {
-        totalJobs: 1284,
-        completedJobs: 1226,
-        failedJobs: 3,
-        inProgress: 12,
-        processedToday: 45,
-        averageProcessingTime: 2.4,
-        averageConfidence: 96.8,
-        successRate: 96.8,
+        totalJobs,
+        completedJobs,
+        failedJobs,
+        inProgress: inProgressJobs,
+        processedToday,
+        averageProcessingTime: Math.round(averageProcessingTime * 10) / 10,
+        averageConfidence: 0, // Will be calculated from processing history when available
+        successRate,
+        totalClients,
+        totalDocuments,
         trends: {
-          documents: { value: 1284, change: 12.5, trend: 'up' },
-          processedToday: { value: 45, change: 8.2, trend: 'up' },
-          inProgress: { value: 12, change: -2.4, trend: 'down' },
-          failed: { value: 3, change: -18.3, trend: 'down' }
+          documents: { value: totalDocuments, change: 0, trend: 'stable' as const },
+          processedToday: { value: processedToday, change: 0, trend: 'stable' as const },
+          inProgress: { value: inProgressJobs, change: 0, trend: 'stable' as const },
+          failed: { value: failedJobs, change: 0, trend: 'stable' as const }
         }
       };
 
@@ -37,76 +97,57 @@ export function createStatsRoutes(db: DatabaseService): Router {
     }
   });
 
-  // Get processing jobs
-  // Phase 6 Complete: Uses Supabase-only optional authentication
+  // Get processing jobs (real data from database)
   router.get('/jobs', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = parseInt(req.query.offset as string) || 0;
+      const status = req.query.status as string;
 
-      // Mock jobs data for now
-      const jobs = [
-        {
-          id: '1',
-          type: 'single',
-          name: 'Invoice_2024_March.pdf',
-          template: 'Invoice Template',
-          status: 'completed',
-          progress: 100,
-          createdAt: '2024-03-15T10:30:00Z',
-          completedAt: '2024-03-15T10:31:30Z',
-          result: { filledFields: 15, confidence: 98.5 },
-          size: '245 KB'
-        },
-        {
-          id: '2',
-          type: 'single',
-          name: 'Tax_Form_1040.pdf',
-          template: 'Tax Form',
-          status: 'processing',
-          progress: 65,
-          createdAt: '2024-03-15T10:15:00Z',
-          size: '512 KB'
-        },
-        {
-          id: '3',
-          type: 'single',
-          name: 'Contract_Agreement.pdf',
-          template: 'Contract Template',
-          status: 'completed',
-          progress: 100,
-          createdAt: '2024-03-15T09:45:00Z',
-          completedAt: '2024-03-15T09:46:45Z',
-          result: { filledFields: 23, confidence: 95.2 },
-          size: '128 KB'
-        },
-        {
-          id: '4',
-          type: 'single',
-          name: 'Medical_Form.pdf',
-          template: 'Medical Form',
-          status: 'failed',
-          progress: 0,
-          createdAt: '2024-03-15T09:30:00Z',
-          error: 'Invalid form structure',
-          size: '89 KB'
-        },
-        {
-          id: '5',
-          type: 'single',
-          name: 'Application_Form.pdf',
-          template: 'Application',
-          status: 'completed',
-          progress: 100,
-          createdAt: '2024-03-15T09:00:00Z',
-          completedAt: '2024-03-15T09:01:15Z',
-          result: { filledFields: 18, confidence: 97.8 },
-          size: '156 KB'
-        }
-      ];
+      const whereClause: any = userId ? { userId } : {};
+      if (status) {
+        whereClause.status = status;
+      }
 
-      res.json(jobs.slice(offset, offset + limit));
+      const [jobs, total] = await Promise.all([
+        prisma.job.findMany({
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+          include: {
+            processingHistory: {
+              orderBy: { createdAt: 'desc' },
+              take: 1
+            }
+          }
+        }),
+        prisma.job.count({ where: whereClause })
+      ]);
+
+      const formattedJobs = jobs.map(job => ({
+        id: job.id,
+        type: job.type,
+        status: job.status,
+        progress: job.status === 'completed' ? 100 : (job.status === 'processing' ? 50 : 0),
+        createdAt: job.createdAt.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        failedAt: job.failedAt?.toISOString(),
+        error: job.error,
+        result: job.result,
+        metadata: job.metadata,
+        documentsCount: job.documentsCount
+      }));
+
+      res.json({
+        jobs: formattedJobs,
+        total,
+        limit,
+        offset,
+        hasMore: (offset + limit) < total
+      });
     } catch (error) {
       logger.error('Error fetching jobs:', error);
       res.status(500).json({ error: 'Failed to fetch jobs' });
@@ -114,27 +155,42 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get single job status
-  // Phase 6 Complete: Uses Supabase-only optional authentication
   router.get('/jobs/:jobId', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
+      const userId = (req as any).user?.id;
 
-      // Mock job data
-      const job = {
-        id: jobId,
-        type: 'single',
-        status: 'completed',
-        progress: 100,
-        createdAt: '2024-03-15T10:30:00Z',
-        completedAt: '2024-03-15T10:31:30Z',
-        result: {
-          filledFields: 15,
-          confidence: 98.5,
-          outputPath: `/outputs/filled_${jobId}.pdf`
+      const job = await prisma.job.findFirst({
+        where: {
+          id: jobId,
+          ...(userId ? { userId } : {})
+        },
+        include: {
+          processingHistory: {
+            orderBy: { createdAt: 'desc' }
+          }
         }
-      };
+      });
 
-      res.json(job);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      res.json({
+        id: job.id,
+        type: job.type,
+        status: job.status,
+        progress: job.status === 'completed' ? 100 : (job.status === 'processing' ? 50 : 0),
+        createdAt: job.createdAt.toISOString(),
+        startedAt: job.startedAt?.toISOString(),
+        completedAt: job.completedAt?.toISOString(),
+        failedAt: job.failedAt?.toISOString(),
+        error: job.error,
+        result: job.result,
+        metadata: job.metadata,
+        documentsCount: job.documentsCount,
+        processingHistory: job.processingHistory
+      });
     } catch (error) {
       logger.error('Error fetching job:', error);
       res.status(500).json({ error: 'Failed to fetch job' });
@@ -142,269 +198,177 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Get job status
-  // Phase 6 Complete: Uses Supabase-only optional authentication
   router.get('/jobs/:jobId/status', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
+      const userId = (req as any).user?.id;
 
-      const status = {
-        status: 'completed',
-        progress: 100,
-        result: {
-          filledFields: 15,
-          confidence: 98.5
+      const job = await prisma.job.findFirst({
+        where: {
+          id: jobId,
+          ...(userId ? { userId } : {})
+        },
+        select: {
+          status: true,
+          result: true,
+          error: true,
+          completedAt: true
         }
-      };
+      });
 
-      res.json(status);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      res.json({
+        status: job.status,
+        progress: job.status === 'completed' ? 100 : (job.status === 'processing' ? 50 : 0),
+        result: job.result,
+        error: job.error
+      });
     } catch (error) {
       logger.error('Error fetching job status:', error);
       res.status(500).json({ error: 'Failed to fetch job status' });
     }
   });
 
-  // Get documents
-  // Phase 6 Complete: Uses Supabase-only optional authentication
-  router.get('/documents', optionalAuthSupabase, async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).user?.id;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const offset = parseInt(req.query.offset as string) || 0;
-      const search = req.query.search as string;
-
-      // Mock documents data for now - in real implementation, fetch from database
-      let documents = [
-        {
-          id: '1',
-          name: 'Invoice_2024_March.pdf',
-          type: 'invoice',
-          size: 245760, // in bytes
-          uploadedAt: '2024-03-15T10:30:00Z',
-          processedAt: '2024-03-15T10:31:30Z',
-          status: 'processed',
-          extractedFields: 15,
-          confidence: 98.5,
-          originalPath: '/uploads/invoice_march.pdf',
-          userId: userId || 'guest'
-        },
-        {
-          id: '2',
-          name: 'Tax_Form_1040.pdf',
-          type: 'tax_form',
-          size: 524288,
-          uploadedAt: '2024-03-15T10:15:00Z',
-          status: 'processing',
-          extractedFields: 0,
-          confidence: 0,
-          originalPath: '/uploads/tax_form.pdf',
-          userId: userId || 'guest'
-        },
-        {
-          id: '3',
-          name: 'Contract_Agreement.pdf',
-          type: 'contract',
-          size: 131072,
-          uploadedAt: '2024-03-15T09:45:00Z',
-          processedAt: '2024-03-15T09:46:45Z',
-          status: 'processed',
-          extractedFields: 23,
-          confidence: 95.2,
-          originalPath: '/uploads/contract.pdf',
-          userId: userId || 'guest'
-        },
-        {
-          id: '4',
-          name: 'Medical_Form.pdf',
-          type: 'medical',
-          size: 91136,
-          uploadedAt: '2024-03-15T09:30:00Z',
-          status: 'failed',
-          extractedFields: 0,
-          confidence: 0,
-          error: 'Invalid form structure',
-          originalPath: '/uploads/medical.pdf',
-          userId: userId || 'guest'
-        },
-        {
-          id: '5',
-          name: 'Application_Form.pdf',
-          type: 'application',
-          size: 159744,
-          uploadedAt: '2024-03-15T09:00:00Z',
-          processedAt: '2024-03-15T09:01:15Z',
-          status: 'processed',
-          extractedFields: 18,
-          confidence: 97.8,
-          originalPath: '/uploads/application.pdf',
-          userId: userId || 'guest'
-        }
-      ];
-
-      // Apply search filter if provided
-      if (search) {
-        const searchLower = search.toLowerCase();
-        documents = documents.filter(doc => 
-          doc.name.toLowerCase().includes(searchLower) ||
-          doc.type.toLowerCase().includes(searchLower)
-        );
-      }
-
-      // Apply pagination
-      const paginatedDocs = documents.slice(offset, offset + limit);
-
-      res.json({
-        documents: paginatedDocs,
-        total: documents.length,
-        limit,
-        offset,
-        hasMore: (offset + limit) < documents.length
-      });
-    } catch (error) {
-      logger.error('Error fetching documents:', error);
-      res.status(500).json({ error: 'Failed to fetch documents' });
-    }
-  });
-
-  // Get templates
-  // Phase 6 Complete: Uses Supabase-only optional authentication
+  // Get templates (real data from database)
   router.get('/templates', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
-      const templates = [
-        {
-          id: '1',
-          name: 'Invoice Template',
-          description: 'Standard invoice processing template',
-          usage: 342,
-          lastUsed: '2024-03-15T08:00:00Z',
-          fields: ['invoice_number', 'date', 'amount', 'vendor', 'items']
-        },
-        {
-          id: '2',
-          name: 'Tax Form',
-          description: 'IRS tax form template',
-          usage: 128,
-          lastUsed: '2024-03-15T07:00:00Z',
-          fields: ['ssn', 'name', 'address', 'income', 'deductions']
-        },
-        {
-          id: '3',
-          name: 'Contract Template',
-          description: 'Legal contract template',
-          usage: 89,
-          lastUsed: '2024-03-14T10:00:00Z',
-          fields: ['party1', 'party2', 'date', 'terms', 'signatures']
-        },
-        {
-          id: '4',
-          name: 'Medical Form',
-          description: 'Patient medical form template',
-          usage: 67,
-          lastUsed: '2024-03-13T10:00:00Z',
-          fields: ['patient_name', 'dob', 'medical_history', 'medications']
-        }
-      ];
+      const userId = (req as any).user?.id;
 
-      res.json(templates);
+      // Get templates from the old Template model
+      const templates = await prisma.template.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { isPublic: true },
+            ...(userId ? [{ userId }] : [])
+          ]
+        },
+        orderBy: { usageCount: 'desc' },
+        take: 20
+      });
+
+      const formattedTemplates = templates.map(template => ({
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        formType: template.formType,
+        usage: template.usageCount,
+        isPublic: template.isPublic,
+        createdAt: template.createdAt.toISOString(),
+        updatedAt: template.updatedAt.toISOString()
+      }));
+
+      res.json(formattedTemplates);
     } catch (error) {
       logger.error('Error fetching templates:', error);
       res.status(500).json({ error: 'Failed to fetch templates' });
     }
   });
 
-  // Create template
-  // Phase 6 Complete: Uses Supabase-only authentication
+  // Create template (stores in database)
   router.post('/templates', authenticateSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;
-      const { name, description, fields, config } = req.body;
+      const { name, description, formType, fields, isPublic } = req.body;
 
       // Validate required fields
-      if (!name || !description || !fields || !Array.isArray(fields)) {
+      if (!name || !formType) {
         return res.status(400).json({
-          error: 'Template name, description, and fields array are required',
+          error: 'Template name and formType are required',
           details: {
             name: !name ? 'Template name is required' : null,
-            description: !description ? 'Description is required' : null,
-            fields: !fields ? 'Fields array is required' : (!Array.isArray(fields) ? 'Fields must be an array' : null)
+            formType: !formType ? 'Form type is required' : null
           }
         });
       }
 
-      // Validate fields array
-      if (fields.length === 0) {
-        return res.status(400).json({
-          error: 'Template must have at least one field'
-        });
-      }
-
-      // Validate each field structure
-      for (let i = 0; i < fields.length; i++) {
-        const field = fields[i];
-        if (!field.name || !field.type) {
-          return res.status(400).json({
-            error: `Field ${i + 1} must have 'name' and 'type' properties`,
-            details: {
-              fieldIndex: i,
-              fieldName: field.name || null,
-              fieldType: field.type || null
-            }
-          });
+      const newTemplate = await prisma.template.create({
+        data: {
+          name: name.trim(),
+          description: description?.trim() || null,
+          formType: formType.trim(),
+          fieldMappings: JSON.stringify(fields || []),
+          isPublic: isPublic || false,
+          userId
         }
-      }
+      });
 
-      // Generate new template ID (in real implementation, this would be done by database)
-      const templateId = `template_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      const newTemplate = {
-        id: templateId,
-        name: name.trim(),
-        description: description.trim(),
-        fields: fields.map((field: any) => ({
-          name: field.name.trim(),
-          type: field.type.trim(),
-          required: field.required || false,
-          defaultValue: field.defaultValue || null,
-          validation: field.validation || null
-        })),
-        config: config || {},
-        usage: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: userId || 'anonymous',
-        isActive: true
-      };
-
-      // In real implementation, save to database here
       logger.info(`New template created: ${name} by user: ${userId}`);
 
       res.status(201).json({
         success: true,
         message: 'Template created successfully',
         data: {
-          template: newTemplate
+          template: {
+            id: newTemplate.id,
+            name: newTemplate.name,
+            description: newTemplate.description,
+            formType: newTemplate.formType,
+            isPublic: newTemplate.isPublic,
+            createdAt: newTemplate.createdAt.toISOString()
+          }
         }
       });
     } catch (error) {
       logger.error('Error creating template:', error);
-      res.status(500).json({ 
-        error: 'Failed to create template. Please try again.' 
+      res.status(500).json({
+        error: 'Failed to create template. Please try again.'
       });
     }
   });
 
-  // Get queue metrics
-  // Phase 6 Complete: Uses Supabase-only optional authentication
+  // Get queue metrics (real data from Bull queue if available, otherwise from database)
   router.get('/queue/metrics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
+      const userId = (req as any).user?.id;
+
+      // Get metrics from database job counts
+      const [waiting, active, completed, failed] = await Promise.all([
+        prisma.job.count({ where: { status: 'pending', ...(userId ? { userId } : {}) } }),
+        prisma.job.count({ where: { status: 'processing', ...(userId ? { userId } : {}) } }),
+        prisma.job.count({ where: { status: 'completed', ...(userId ? { userId } : {}) } }),
+        prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } })
+      ]);
+
+      // Calculate average processing time from recent completed jobs
+      const recentJobs = await prisma.job.findMany({
+        where: {
+          status: 'completed',
+          startedAt: { not: null },
+          completedAt: { not: null },
+          ...(userId ? { userId } : {})
+        },
+        select: {
+          startedAt: true,
+          completedAt: true
+        },
+        orderBy: { completedAt: 'desc' },
+        take: 50
+      });
+
+      let averageProcessingTime = 0;
+      if (recentJobs.length > 0) {
+        const totalTime = recentJobs.reduce((acc, job) => {
+          if (job.startedAt && job.completedAt) {
+            return acc + (job.completedAt.getTime() - job.startedAt.getTime());
+          }
+          return acc;
+        }, 0);
+        averageProcessingTime = (totalTime / recentJobs.length) / 1000; // Convert to seconds
+      }
+
       const metrics = {
-        waiting: 8,
-        active: 4,
-        completed: 1226,
-        failed: 3,
-        delayed: 0,
-        queueLength: 12,
-        averageWaitTime: 1.2,
-        averageProcessingTime: 2.4
+        waiting,
+        active,
+        completed,
+        failed,
+        delayed: 0, // Not tracked in current schema
+        queueLength: waiting + active,
+        averageWaitTime: 0, // Would need queue integration for accurate value
+        averageProcessingTime: Math.round(averageProcessingTime * 10) / 10
       };
 
       res.json(metrics);
@@ -414,49 +378,96 @@ export function createStatsRoutes(db: DatabaseService): Router {
     }
   });
 
-  // Extract data endpoint
-  // Phase 6 Complete: Uses Supabase-only authentication
+  // Extract data endpoint - delegates to document processing service
   router.post('/extract', authenticateSupabase, async (req: Request, res: Response) => {
     try {
-      // This would normally extract data from the uploaded document
-      const extractedData = {
-        data: {
-          invoice_number: 'INV-2024-001',
-          date: '2024-03-15',
-          amount: 1250.00,
-          vendor: 'Acme Corp',
-          items: [
-            { description: 'Service A', amount: 500 },
-            { description: 'Service B', amount: 750 }
-          ]
-        }
-      };
+      const userId = (req as any).user?.id;
+      const { documentId } = req.body;
 
-      res.json(extractedData);
+      if (!documentId) {
+        return res.status(400).json({ error: 'Document ID is required' });
+      }
+
+      // Verify document belongs to user
+      const document = await prisma.document.findFirst({
+        where: {
+          id: documentId,
+          userId
+        }
+      });
+
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Return existing extracted data if available
+      if (document.extractedData) {
+        return res.json({
+          data: document.extractedData,
+          confidence: document.confidence,
+          status: document.status
+        });
+      }
+
+      // Return pending status if not yet extracted
+      res.json({
+        data: null,
+        status: 'pending',
+        message: 'Document has not been processed yet. Use /api/documents/:id/extract to trigger extraction.'
+      });
     } catch (error) {
       logger.error('Error extracting data:', error);
       res.status(500).json({ error: 'Failed to extract data' });
     }
   });
 
-  // Validate form endpoint
-  // Phase 6 Complete: Uses Supabase-only authentication
+  // Validate form endpoint - validates PDF form structure
   router.post('/validate/form', authenticateSupabase, async (req: Request, res: Response) => {
     try {
-      const validationResult = {
-        data: {
-          fields: ['invoice_number', 'date', 'amount', 'vendor', 'items'],
-          fieldTypes: {
-            invoice_number: 'text',
-            date: 'date',
-            amount: 'number',
-            vendor: 'text',
-            items: 'array'
-          }
-        }
-      };
+      const { templateId } = req.body;
 
-      res.json(validationResult);
+      if (!templateId) {
+        return res.status(400).json({ error: 'Template ID is required' });
+      }
+
+      // Get template to validate
+      const template = await prisma.template.findUnique({
+        where: { id: templateId }
+      });
+
+      if (!template) {
+        return res.status(404).json({ error: 'Template not found' });
+      }
+
+      // Parse field mappings
+      let fields: string[] = [];
+      let fieldTypes: Record<string, string> = {};
+
+      try {
+        const mappings = JSON.parse(template.fieldMappings);
+        if (Array.isArray(mappings)) {
+          fields = mappings.map((m: any) => m.name || m);
+          mappings.forEach((m: any) => {
+            if (typeof m === 'object' && m.name) {
+              fieldTypes[m.name] = m.type || 'text';
+            }
+          });
+        }
+      } catch {
+        // Field mappings might be in different format
+        fields = [];
+      }
+
+      res.json({
+        data: {
+          templateId: template.id,
+          templateName: template.name,
+          formType: template.formType,
+          fields,
+          fieldTypes,
+          isValid: fields.length > 0
+        }
+      });
     } catch (error) {
       logger.error('Error validating form:', error);
       res.status(500).json({ error: 'Failed to validate form' });

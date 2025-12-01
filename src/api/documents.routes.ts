@@ -8,6 +8,8 @@ import { decryptFile, decryptExtractedData, encryptExtractedData } from '../midd
 import { FieldMapper } from '../mappers/FieldMapper';
 import { FormFiller } from '../fillers/FormFiller';
 import { logger } from '../utils/logger';
+import { getOCRJobStatus, getOCRQueueHealth } from '../queues/ocrQueue';
+import { getJobStatus } from '../queues/documentQueue';
 
 const prisma = new PrismaClient();
 
@@ -257,6 +259,77 @@ export function createDocumentRoutes(): Router {
   });
 
   /**
+   * GET /api/documents/:id/status - Get document processing status
+   * Returns status of document processing job including OCR progress
+   */
+  router.get('/:id/status', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { id } = req.params;
+
+      // Get document from database
+      const document = await prisma.document.findFirst({
+        where: { id, userId },
+        select: {
+          id: true,
+          fileName: true,
+          status: true,
+          confidence: true,
+          processedAt: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Try to find associated job status
+      let jobStatus = null;
+      let queueHealth = null;
+
+      try {
+        // Check document queue for job status
+        const docJobStatus = await getJobStatus(id);
+        if (docJobStatus) {
+          jobStatus = docJobStatus;
+        } else {
+          // Check OCR queue specifically
+          const ocrJobStatus = await getOCRJobStatus(id);
+          if (ocrJobStatus) {
+            jobStatus = ocrJobStatus;
+          }
+        }
+
+        // Get queue health for monitoring
+        queueHealth = await getOCRQueueHealth();
+      } catch (queueError) {
+        logger.warn('Failed to fetch queue status:', queueError);
+        // Continue without job status if queue is unavailable
+      }
+
+      res.json({
+        success: true,
+        document: {
+          id: document.id,
+          fileName: document.fileName,
+          status: document.status,
+          confidence: document.confidence,
+          processedAt: document.processedAt,
+          createdAt: document.createdAt,
+          updatedAt: document.updatedAt
+        },
+        job: jobStatus,
+        queue: queueHealth
+      });
+    } catch (error) {
+      logger.error('Status check error:', error);
+      next(error);
+    }
+  });
+
+    /**
    * DELETE /api/documents/:id - Delete document and file
    * Phase 6 Complete: Uses Supabase-only authentication
    */
@@ -290,5 +363,114 @@ export function createDocumentRoutes(): Router {
     }
   });
 
+  /**
+   * POST /api/documents/:id/reprocess - Reprocess single document with higher quality OCR
+   */
+  router.post('/:id/reprocess', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { id } = req.params;
+
+      const { DocumentService } = await import('../services/DocumentService');
+      const documentService = new DocumentService();
+
+      const job = await documentService.reprocessDocument(id, userId);
+
+      res.json({
+        success: true,
+        message: 'Document queued for reprocessing',
+        jobId: job.id,
+        documentId: id,
+        statusUrl: `/api/documents/${id}/status`
+      });
+    } catch (error) {
+      logger.error('Reprocess document error:', error);
+      next(error);
+    }
+  });
+
+  /**
+   * POST /api/documents/reprocess/batch - Batch reprocess multiple documents
+   */
+  router.post('/reprocess/batch', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { documentIds } = req.body;
+
+      if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ error: 'documentIds array is required' });
+      }
+
+      const { DocumentService } = await import('../services/DocumentService');
+      const documentService = new DocumentService();
+
+      const jobs = await documentService.batchReprocess(documentIds, userId);
+
+      res.json({
+        success: true,
+        message: `${jobs.length} documents queued for reprocessing`,
+        jobs: jobs.map(job => ({
+          jobId: job.id,
+          documentId: job.data.documentId
+        })),
+        totalQueued: jobs.length
+      });
+    } catch (error) {
+      logger.error('Batch reprocess error:', error);
+      next(error);
+    }
+  });
+
+  /**
+   * GET /api/documents/low-confidence - Get documents with confidence below threshold
+   */
+  router.get('/low-confidence', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { threshold = 0.7 } = req.query;
+
+      const { DocumentService } = await import('../services/DocumentService');
+      const documentService = new DocumentService();
+
+      const documents = await documentService.getLowConfidenceDocuments(
+        userId,
+        parseFloat(threshold as string)
+      );
+
+      res.json({
+        success: true,
+        documents,
+        count: documents.length
+      });
+    } catch (error) {
+      logger.error('Get low confidence documents error:', error);
+      next(error);
+    }
+  });
+
+  /**
+   * GET /api/documents/:id/reprocessing-history - Get reprocessing history for a document
+   */
+  router.get('/:id/reprocessing-history', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { id } = req.params;
+
+      const { DocumentService } = await import('../services/DocumentService');
+      const documentService = new DocumentService();
+
+      const history = await documentService.getReprocessingHistory(id, userId);
+
+      res.json({
+        success: true,
+        ...history
+      });
+    } catch (error) {
+      logger.error('Get reprocessing history error:', error);
+      next(error);
+    }
+  });
+
   return router;
 }
+

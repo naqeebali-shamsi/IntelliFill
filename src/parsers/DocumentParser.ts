@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync';
 import { logger } from '../utils/logger';
 
 export interface ParsedDocument {
-  type: 'pdf' | 'docx' | 'txt' | 'csv';
+  type: 'pdf' | 'docx' | 'txt' | 'csv' | 'image';
   content: string;
   metadata: Record<string, any>;
   structuredData?: Record<string, any>;
@@ -25,6 +25,12 @@ export class DocumentParser {
         return this.parseTXT(filePath);
       case 'csv':
         return this.parseCSV(filePath);
+      case 'jpeg':
+      case 'jpg':
+      case 'png':
+      case 'gif':
+      case 'webp':
+        return this.parseImage(filePath, extension);
       default:
         throw new Error(`Unsupported file type: ${extension}`);
     }
@@ -117,6 +123,28 @@ export class DocumentParser {
     } catch (error) {
       logger.error('CSV parsing error:', error);
       throw new Error(`Failed to parse CSV: ${error}`);
+    }
+  }
+
+  private async parseImage(filePath: string, extension: string): Promise<ParsedDocument> {
+    try {
+      const stats = await fs.stat(filePath);
+
+      // For images, we return metadata about the image
+      // Actual OCR would be done by a separate OCR service (Tesseract.js)
+      return {
+        type: 'image',
+        content: `[Image file: ${extension.toUpperCase()}]`,
+        metadata: {
+          format: extension,
+          size: stats.size,
+          path: filePath,
+          requiresOCR: true
+        }
+      };
+    } catch (error) {
+      logger.error('Image parsing error:', error);
+      throw new Error(`Failed to parse image: ${error}`);
     }
   }
 

@@ -48,7 +48,7 @@ export class DatabaseService {
       connectionString: this.connectionString,
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 15000, // Increased to 15s for Neon cold-start
     });
 
     this.pool.on('error', (err) => {

@@ -7,8 +7,12 @@ import { logger } from '../utils/logger';
 import { ValidationRule } from '../validators/ValidationService';
 import { createSupabaseAuthRoutes } from './supabase-auth.routes';
 import { createStatsRoutes } from './stats.routes';
-import { neonAuthRouter } from './neon-auth.routes';
 import { createDocumentRoutes } from './documents.routes';
+import { createUserRoutes } from './users.routes';
+import { createTemplateRoutes } from './template.routes';
+import { createClientRoutes } from './clients.routes';
+import { createFormTemplateRoutes } from './form-template.routes';
+import { createFilledFormRoutes } from './filled-forms.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
@@ -16,13 +20,24 @@ import { validateFilePath } from '../utils/encryption';
 
 const prisma = new PrismaClient();
 
+// Configure multer storage to preserve file extensions
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    // Generate unique filename but preserve extension
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${uniqueSuffix}${ext}`);
+  }
+});
+
 const upload = multer({
-  dest: 'uploads/',
+  storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv'];
+    const allowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv', '.jpeg', '.jpg', '.png', '.gif', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
 
     try {
@@ -51,9 +66,6 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
     const supabaseAuthRoutes = createSupabaseAuthRoutes();
     app.use('/api/auth/v2', supabaseAuthRoutes);
 
-    // Setup Neon auth routes (multi-tenant feature)
-    app.use('/api/neon-auth', neonAuthRouter);
-
     // Setup stats and dashboard routes
     const statsRoutes = createStatsRoutes(db);
     app.use('/api', statsRoutes);
@@ -62,6 +74,26 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   // Setup document management routes
   const documentRoutes = createDocumentRoutes();
   app.use('/api/documents', documentRoutes);
+
+  // Setup user routes (Phase 4B - User data aggregation)
+  const userRoutes = createUserRoutes();
+  app.use('/api/users', userRoutes);
+
+  // Setup template routes (Task 7 - Template Save/Load System)
+  const templateRoutes = createTemplateRoutes();
+  app.use('/api/templates', templateRoutes);
+
+  // Setup client routes (Task 6 - Client CRUD)
+  const clientRoutes = createClientRoutes();
+  app.use('/api/clients', clientRoutes);
+
+  // Setup form template routes (Task 10 - Form Templates with field mappings)
+  const formTemplateRoutes = createFormTemplateRoutes();
+  app.use('/api/form-templates', formTemplateRoutes);
+
+  // Setup filled forms routes (Task 11 - Form Generation)
+  const filledFormRoutes = createFilledFormRoutes();
+  app.use('/api/filled-forms', filledFormRoutes);
 
   // Health check
   router.get('/health', (req: Request, res: Response) => {
@@ -101,8 +133,16 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
         logger.error('Filesystem health check failed:', error);
       }
 
-      // TODO: Add Redis check when implemented
-      checks.redis = true; // Placeholder for now
+      // Check Redis
+      try {
+        const { connected, client } = require('../middleware/rateLimiter').getRedisHealth();
+        if (connected && client) {
+          await client.ping();
+          checks.redis = true;
+        }
+      } catch (error) {
+        logger.error('Redis health check failed:', error);
+      }
 
       const allHealthy = Object.values(checks).every(check => check === true);
       
@@ -130,13 +170,14 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Process single document and form (protected route)
   // Phase 6 Complete: Uses Supabase-only authentication
+  // Note: Files are NOT encrypted during processing to allow PDF parsing
+  // Only the extracted data stored in the database is encrypted
   router.post('/process/single',
     authenticateSupabase,
     upload.fields([
       { name: 'document', maxCount: 1 },
       { name: 'form', maxCount: 1 }
     ]),
-    encryptUploadedFiles, // Encrypt files after upload
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = (req as any).user?.id;

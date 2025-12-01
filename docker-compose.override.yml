@@ -41,28 +41,31 @@ services:
       - ./tsconfig.json:/app/tsconfig.json:delegated
       - /app/node_modules
 
-  # Override web for development with Vite hot module replacement using Bun
+  # Override web for development with Vite hot module replacement
   web:
-    command: bun run dev -- --host 0.0.0.0
+    build:
+      context: ../quikadmin-web
+      dockerfile: Dockerfile.dev
+    command: npx vite --host 0.0.0.0
     environment:
       NODE_ENV: development
       BUN_JSC_forceRAMSize: 2147483648  # 2GB memory limit for Bun
+      VITE_API_URL: http://app:3001/api
     volumes:
       # Mount source code for hot reloading
-      - ./web/src:/app/src:delegated
-      - ./web/public:/app/public:delegated
-      - ./web/index.html:/app/index.html:delegated
-      - ./web/package.json:/app/package.json:delegated
-      - ./web/bun.lockb:/app/bun.lockb:delegated
-      - ./web/vite.config.ts:/app/vite.config.ts:delegated
-      - ./web/tsconfig.json:/app/tsconfig.json:delegated
-      - ./web/tsconfig.node.json:/app/tsconfig.node.json:delegated
-      - ./web/postcss.config.js:/app/postcss.config.js:delegated
-      - ./web/tailwind.config.js:/app/tailwind.config.js:delegated
-      - /app/node_modules
+      - ../quikadmin-web/src:/app/src:delegated
+      - ../quikadmin-web/public:/app/public:delegated
+      - ../quikadmin-web/index.html:/app/index.html:delegated
+      - ../quikadmin-web/package.json:/app/package.json:delegated
+      - ../quikadmin-web/bun.lockb:/app/bun.lockb:delegated
+      - ../quikadmin-web/vite.config.ts:/app/vite.config.ts:delegated
+      - ../quikadmin-web/tsconfig.json:/app/tsconfig.json:delegated
+      - ../quikadmin-web/tsconfig.node.json:/app/tsconfig.node.json:delegated
+      - ../quikadmin-web/postcss.config.js:/app/postcss.config.js:delegated
+      - ../quikadmin-web/tailwind.config.js:/app/tailwind.config.js:delegated
       - /app/.vite
     ports:
-      - "5173:5173"  # Vite dev server port
+      - "8080:5173"  # Vite dev server port (mapped to 8080 to match your config)
 
   # Development database with exposed port for direct access
   postgres:

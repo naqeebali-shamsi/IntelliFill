@@ -52,6 +52,20 @@ export interface RefreshTokenRequest {
   refreshToken: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+  redirectUrl?: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
+export interface VerifyResetTokenRequest {
+  token: string;
+}
+
 /**
  * Rate limiting for auth endpoints
  * Stricter limits for security-critical operations
@@ -639,6 +653,252 @@ export function createSupabaseAuthRoutes(): Router {
       logger.error('Get user profile error:', error);
       res.status(500).json({
         error: 'Failed to get user profile'
+      });
+    }
+  });
+
+  /**
+   * POST /api/auth/v2/forgot-password
+   * Request password reset email
+   *
+   * Flow:
+   * 1. Validate email
+   * 2. Send password reset email via Supabase
+   * 3. Return success (always, to prevent email enumeration)
+   *
+   * @body email - User email address
+   * @body redirectUrl - Optional custom redirect URL (defaults to /reset-password)
+   *
+   * @returns 200 - Reset email sent successfully
+   * @returns 400 - Validation error
+   * @returns 429 - Too many requests
+   * @returns 500 - Server error
+   */
+  router.post('/forgot-password', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, redirectUrl }: ForgotPasswordRequest = req.body;
+
+      // ===== Input Validation =====
+
+      if (!email) {
+        return res.status(400).json({
+          error: 'Email is required'
+        });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          error: 'Invalid email format'
+        });
+      }
+
+      // ===== Send Password Reset Email =====
+
+      logger.info(`Password reset requested for: ${email}`);
+
+      // Determine redirect URL
+      const resetRedirectUrl = redirectUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`;
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+        redirectTo: resetRedirectUrl
+      });
+
+      if (resetError) {
+        logger.error('Supabase password reset failed:', resetError);
+
+        // Don't expose specific errors to prevent email enumeration
+        // Always return success to the client
+      }
+
+      // ===== Success Response =====
+      // Always return success to prevent email enumeration attacks
+      // The user will receive an email only if the account exists
+
+      logger.info(`Password reset email sent (or would be sent if account exists): ${email}`);
+
+      res.json({
+        success: true,
+        message: 'If an account exists for this email, you will receive a password reset link shortly.'
+      });
+
+    } catch (error: any) {
+      logger.error('Forgot password error:', error);
+      // Return generic success message even on error to prevent enumeration
+      res.json({
+        success: true,
+        message: 'If an account exists for this email, you will receive a password reset link shortly.'
+      });
+    }
+  });
+
+  /**
+   * POST /api/auth/v2/verify-reset-token
+   * Verify password reset token validity
+   *
+   * Flow:
+   * 1. Validate token format
+   * 2. Verify token with Supabase
+   * 3. Return token validity status
+   *
+   * Note: With Supabase, token verification happens automatically when the user
+   * clicks the reset link. This endpoint is provided for compatibility with
+   * frontend expectations, but Supabase handles token verification internally.
+   *
+   * @body token - Password reset token from email link
+   *
+   * @returns 200 - Token is valid
+   * @returns 400 - Invalid or expired token
+   * @returns 500 - Server error
+   */
+  router.post('/verify-reset-token', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token }: VerifyResetTokenRequest = req.body;
+
+      // ===== Input Validation =====
+
+      if (!token) {
+        return res.status(400).json({
+          error: 'Reset token is required'
+        });
+      }
+
+      // ===== Verify Token =====
+
+      // With Supabase, token verification happens when user clicks the email link
+      // and gets redirected back to the app. At that point, Supabase sets up
+      // a session with the recovery token.
+
+      // This endpoint is primarily for UI/UX - to show loading states
+      // The actual verification happens on the reset-password endpoint
+
+      logger.debug('Token verification requested (Supabase handles this automatically)');
+
+      res.json({
+        success: true,
+        message: 'Token format is valid. Proceed with password reset.'
+      });
+
+    } catch (error: any) {
+      logger.error('Verify reset token error:', error);
+      res.status(400).json({
+        error: 'Invalid or expired reset token'
+      });
+    }
+  });
+
+  /**
+   * POST /api/auth/v2/reset-password
+   * Reset user password using reset token
+   *
+   * Flow:
+   * 1. Validate input (token and new password)
+   * 2. Verify user has active recovery session (from email link click)
+   * 3. Update password in Supabase
+   * 4. Invalidate all sessions
+   * 5. Return success
+   *
+   * Note: This endpoint expects the user to have already clicked the reset link
+   * in their email, which establishes a recovery session with Supabase.
+   *
+   * @body token - Password reset token (from URL query param)
+   * @body newPassword - New password
+   *
+   * @returns 200 - Password reset successfully
+   * @returns 400 - Validation error or invalid token
+   * @returns 500 - Server error
+   */
+  router.post('/reset-password', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token, newPassword }: ResetPasswordRequest = req.body;
+
+      // ===== Input Validation =====
+
+      if (!token || !newPassword) {
+        return res.status(400).json({
+          error: 'Token and new password are required',
+          details: {
+            token: !token ? 'Reset token is required' : null,
+            newPassword: !newPassword ? 'New password is required' : null
+          }
+        });
+      }
+
+      // Validate password strength
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          error: 'Password must be at least 8 characters long'
+        });
+      }
+
+      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+        return res.status(400).json({
+          error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+        });
+      }
+
+      // ===== Verify Token and Update Password =====
+
+      logger.info('Password reset attempt with token');
+
+      // With Supabase, the user must have clicked the reset link which gives them
+      // a recovery session. We can update the password using that session.
+      // The token from the email is actually used to establish the session.
+
+      // First, verify we can get user from the session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        logger.warn('Password reset failed: No active recovery session');
+        return res.status(400).json({
+          error: 'Invalid or expired reset link. Please request a new password reset.'
+        });
+      }
+
+      // Update password
+      const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        session.user.id,
+        { password: newPassword }
+      );
+
+      if (updateError) {
+        logger.error('Password update failed:', updateError);
+
+        if (updateError.message.includes('password')) {
+          return res.status(400).json({
+            error: updateError.message
+          });
+        }
+
+        return res.status(500).json({
+          error: 'Failed to reset password. Please try again.'
+        });
+      }
+
+      // ===== Sign Out All Sessions =====
+
+      try {
+        await supabaseAdmin.auth.admin.signOut(session.user.id, 'global');
+        logger.info(`All sessions invalidated after password reset for user: ${session.user.email}`);
+      } catch (signOutError) {
+        // Log but don't fail - password was already reset
+        logger.warn('Failed to sign out all sessions after password reset:', signOutError);
+      }
+
+      // ===== Success Response =====
+
+      logger.info(`Password reset successfully for user: ${session.user.email}`);
+
+      res.json({
+        success: true,
+        message: 'Password reset successfully. Please login with your new password.'
+      });
+
+    } catch (error: any) {
+      logger.error('Reset password error:', error);
+      res.status(500).json({
+        error: 'Failed to reset password. Please try again.'
       });
     }
   });

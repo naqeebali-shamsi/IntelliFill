@@ -2,6 +2,9 @@ import Tesseract from 'tesseract.js';
 import { PDFDocument } from 'pdf-lib';
 import * as fs from 'fs/promises';
 import sharp from 'sharp';
+import { fromPath } from 'pdf2pic';
+import * as path from 'path';
+import * as os from 'os';
 import { logger } from '../utils/logger';
 
 export interface OCRResult {
@@ -18,6 +21,16 @@ export interface OCRResult {
     pageCount: number;
   };
 }
+
+export interface OCRProgress {
+  currentPage: number;
+  totalPages: number;
+  stage: 'converting' | 'preprocessing' | 'recognizing' | 'complete';
+  progress: number; // 0-100
+  message: string;
+}
+
+export type ProgressCallback = (progress: OCRProgress) => void;
 
 export class OCRService {
   private worker: Tesseract.Worker | null = null;
@@ -50,15 +63,18 @@ export class OCRService {
     }
   }
 
-  async processPDF(pdfPath: string): Promise<OCRResult> {
+  async processPDF(pdfPath: string, onProgress?: ProgressCallback): Promise<OCRResult> {
     const startTime = Date.now();
     await this.initialize();
+
+    // Create temporary directory for PDF conversion
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ocr-'));
 
     try {
       const pdfBytes = await fs.readFile(pdfPath);
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const pageCount = pdfDoc.getPageCount();
-      
+
       const pages: OCRResult['pages'] = [];
       let fullText = '';
       let totalConfidence = 0;
@@ -66,19 +82,46 @@ export class OCRService {
       logger.info(`Starting OCR processing for ${pageCount} pages`);
 
       for (let i = 0; i < pageCount; i++) {
-        const page = pdfDoc.getPage(i);
-        
+        const pageNum = i + 1;
+
+        // Progress: Converting
+        onProgress?.({
+          currentPage: pageNum,
+          totalPages: pageCount,
+          stage: 'converting',
+          progress: (i / pageCount) * 100,
+          message: `Converting page ${pageNum}/${pageCount} to image...`
+        });
+
         // Convert PDF page to image
-        const imageBuffer = await this.pdfPageToImage(pdfBytes, i);
-        
+        const imageBuffer = await this.pdfPageToImage(pdfPath, i, tempDir);
+
+        // Progress: Preprocessing
+        onProgress?.({
+          currentPage: pageNum,
+          totalPages: pageCount,
+          stage: 'preprocessing',
+          progress: ((i + 0.3) / pageCount) * 100,
+          message: `Preprocessing page ${pageNum}/${pageCount}...`
+        });
+
         // Preprocess image for better OCR
         const processedImage = await this.preprocessImage(imageBuffer);
-        
+
+        // Progress: Recognizing
+        onProgress?.({
+          currentPage: pageNum,
+          totalPages: pageCount,
+          stage: 'recognizing',
+          progress: ((i + 0.5) / pageCount) * 100,
+          message: `Recognizing text on page ${pageNum}/${pageCount}...`
+        });
+
         // Perform OCR
         const result = await this.worker!.recognize(processedImage);
-        
+
         pages.push({
-          pageNumber: i + 1,
+          pageNumber: pageNum,
           text: result.data.text,
           confidence: result.data.confidence
         });
@@ -86,10 +129,24 @@ export class OCRService {
         fullText += result.data.text + '\n\n';
         totalConfidence += result.data.confidence;
 
-        logger.debug(`Processed page ${i + 1}/${pageCount} with confidence ${result.data.confidence}%`);
+        logger.debug(`Processed page ${pageNum}/${pageCount} with confidence ${result.data.confidence}%`);
+
+        // Clean up page image to free memory
+        if (imageBuffer) {
+          // Buffer will be garbage collected
+        }
       }
 
       const processingTime = Date.now() - startTime;
+
+      // Progress: Complete
+      onProgress?.({
+        currentPage: pageCount,
+        totalPages: pageCount,
+        stage: 'complete',
+        progress: 100,
+        message: `OCR complete. Processed ${pageCount} pages in ${(processingTime / 1000).toFixed(1)}s`
+      });
 
       return {
         text: fullText.trim(),
@@ -104,6 +161,14 @@ export class OCRService {
     } catch (error) {
       logger.error('OCR processing error:', error);
       throw new Error(`Failed to process PDF with OCR: ${error}`);
+    } finally {
+      // Clean up temporary directory
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+        logger.debug(`Cleaned up temporary directory: ${tempDir}`);
+      } catch (cleanupError) {
+        logger.warn('Failed to clean up temporary directory:', cleanupError);
+      }
     }
   }
 
@@ -159,17 +224,38 @@ export class OCRService {
     }
   }
 
-  private async pdfPageToImage(pdfBytes: Buffer, pageIndex: number): Promise<Buffer> {
-    // This is a simplified version - in production, use pdf2pic or similar
-    // For now, we'll return a placeholder that would be replaced with actual PDF rendering
-    const placeholderImage = Buffer.from('placeholder');
-    
-    // In production, you would use:
-    // - pdf2pic for PDF to image conversion
-    // - or pdfjs with canvas for rendering
-    
-    logger.warn(`PDF page ${pageIndex} conversion simplified - use pdf2pic in production`);
-    return placeholderImage;
+  private async pdfPageToImage(pdfPath: string, pageIndex: number, tempDir: string): Promise<Buffer> {
+    try {
+      const pageNum = pageIndex + 1;
+
+      // Configure pdf2pic for high-quality conversion
+      const options = {
+        density: 300, // 300 DPI for high quality OCR
+        saveFilename: `page-${pageNum}`,
+        savePath: tempDir,
+        format: 'png',
+        width: 2480, // A4 at 300 DPI
+        height: 3508, // A4 at 300 DPI
+        compression: 'jpeg', // Use JPEG compression to save memory
+        quality: 90 // High quality but compressed
+      };
+
+      const convert = fromPath(pdfPath, options);
+
+      // Convert specific page (pdf2pic uses 1-based indexing)
+      const result = await convert(pageNum, { responseType: 'buffer' });
+
+      if (!result || !result.buffer) {
+        throw new Error(`Failed to convert page ${pageNum} to image`);
+      }
+
+      logger.debug(`Converted PDF page ${pageNum} to image (${result.buffer.length} bytes)`);
+
+      return result.buffer as Buffer;
+    } catch (error) {
+      logger.error(`Failed to convert PDF page ${pageIndex + 1} to image:`, error);
+      throw new Error(`PDF page ${pageIndex + 1} conversion failed: ${error}`);
+    }
   }
 
   async extractStructuredData(text: string): Promise<Record<string, any>> {

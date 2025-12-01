@@ -129,12 +129,12 @@ services:
 
   web:
     build:
-      context: ./web
+      context: ../quikadmin-web
       dockerfile: ${WEB_DOCKERFILE:-Dockerfile.dev}
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+      VITE_API_URL: ${VITE_API_URL:-http://app:3001/api}
     ports:
       - "${WEB_PORT:-5173}:${WEB_INTERNAL_PORT:-5173}"
     networks:

@@ -30,8 +30,29 @@ export class QueueService {
     this.intelliFillService = intelliFillService;
     this.databaseService = databaseService;
 
+    let redisConfig: any;
+
+    // Check if Redis Sentinel is enabled
+    if (process.env.REDIS_SENTINEL_ENABLED === 'true') {
+      const sentinelHosts = process.env.REDIS_SENTINEL_HOSTS?.split(',').map(host => {
+        const [hostName, port] = host.trim().split(':');
+        return { host: hostName, port: parseInt(port || '26379') };
+      }) || [];
+
+      redisConfig = {
+        sentinels: sentinelHosts,
+        name: process.env.REDIS_SENTINEL_MASTER_NAME || 'mymaster',
+        password: process.env.REDIS_PASSWORD
+      };
+    } else {
+      // Standard Redis connection
+      redisConfig = process.env.REDIS_PASSWORD
+        ? `${redisUrl}?password=${encodeURIComponent(process.env.REDIS_PASSWORD)}`
+        : redisUrl;
+    }
+
     // Initialize queues
-    this.processingQueue = new Bull('pdf-processing', redisUrl, {
+    this.processingQueue = new Bull('pdf-processing', redisConfig, {
       defaultJobOptions: {
         removeOnComplete: 100,
         removeOnFail: 500,
@@ -43,7 +64,7 @@ export class QueueService {
       }
     });
 
-    this.ocrQueue = new Bull('ocr-processing', redisUrl, {
+    this.ocrQueue = new Bull('ocr-processing', redisConfig, {
       defaultJobOptions: {
         removeOnComplete: 50,
         removeOnFail: 100,
@@ -51,7 +72,7 @@ export class QueueService {
       }
     });
 
-    this.mlTrainingQueue = new Bull('ml-training', redisUrl, {
+    this.mlTrainingQueue = new Bull('ml-training', redisConfig, {
       defaultJobOptions: {
         removeOnComplete: 10,
         removeOnFail: 50,
