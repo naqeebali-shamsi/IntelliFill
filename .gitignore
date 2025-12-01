@@ -30,21 +30,36 @@ out/
 *.d.ts
 !src/**/*.d.ts
 
-# Environment files
+# Environment files - comprehensive patterns
+# Root level env files
 .env
 .env.*
 !.env.example
-.env.local
-.env.development
-.env.development.local
-.env.test
-.env.test.local
-.env.production
-.env.production.local
-.env.neon
 *.env
-!.env.example
+!*.env.example
+
+# Specific env file names (any location)
+**/.env
+**/.env.local
+**/.env.development
+**/.env.development.local
+**/.env.test
+**/.env.test.local
+**/.env.production
+**/.env.production.local
+**/.env.neon
+**/.env.staging
+
+# Allow .env.example files everywhere
+!**/.env.example
+
+# Cypress environment files (may contain secrets)
+**/cypress.env.json
 cypress.env.json
+
+# Any file ending in .env (except .env.example)
+**/*.env
+!**/*.env.example
 
 # Logs
 logs/
@@ -154,4 +169,4 @@ scripts/*.temp
 
 # Startup & runtime logs
 startup.log
-dev-debug.log 
+dev-debug.log
