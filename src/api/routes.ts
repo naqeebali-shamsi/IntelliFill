@@ -11,6 +11,7 @@ import { createDocumentRoutes } from './documents.routes';
 import { createUserRoutes } from './users.routes';
 import { createTemplateRoutes } from './template.routes';
 import { createClientRoutes } from './clients.routes';
+import { createClientDocumentRoutes } from './client-documents.routes';
 import { createFormTemplateRoutes } from './form-template.routes';
 import { createFilledFormRoutes } from './filled-forms.routes';
 import { DatabaseService } from '../database/DatabaseService';
@@ -86,6 +87,12 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   // Setup client routes (Task 6 - Client CRUD)
   const clientRoutes = createClientRoutes();
   app.use('/api/clients', clientRoutes);
+
+  // Setup client document routes (Task 7 - Client-Scoped Document Endpoints)
+  // Mounted as nested route under clients for client-scoped document management
+  const clientDocumentRoutes = createClientDocumentRoutes();
+  app.use('/api/clients/:clientId/documents', clientDocumentRoutes);
+
 
   // Setup form template routes (Task 10 - Form Templates with field mappings)
   const formTemplateRoutes = createFormTemplateRoutes();
