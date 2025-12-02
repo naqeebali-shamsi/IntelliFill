@@ -1,0 +1,466 @@
+# IntelliFill - Cursor IDE Rules
+
+# Project-wide conventions and standards for AI-assisted development
+
+## Project Overview
+
+IntelliFill is a monorepo containing:
+- `quikadmin/` - Backend API (Express + TypeScript)
+- `quikadmin-web/` - Frontend UI (React + Vite + TypeScript)
+- `extension/` - Browser extension
+- `docs/` - Unified Diátaxis documentation
+
+## Package Managers
+
+- **Backend (quikadmin/)**: Use `npm` for all operations
+- **Frontend (quikadmin-web/)**: Use `bun` exclusively - NEVER use npm or yarn
+
+## TypeScript Standards
+
+### General Rules
+
+- Enable strict mode in all TypeScript projects
+- Never use `any` type - use `unknown` or proper types
+- Prefer `interface` over `type` for object shapes
+- Always specify explicit return types for functions
+- Use template literals for string interpolation
+
+### Good Examples
+
+```typescript
+// ✅ DO: Explicit types and interfaces
+interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'user';
+  createdAt: Date;
+}
+
+async function getUser(id: string): Promise<User | null> {
+  const user = await db.user.findUnique({ where: { id } });
+  return user;
+}
+
+// ✅ DO: Proper error handling
+async function fetchData(): Promise<Result<Data, Error>> {
+  try {
+    const response = await api.get('/data');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+```
+
+### Bad Examples
+
+```typescript
+// ❌ DON'T: Use any type
+function processData(data: any) { ... }
+
+// ❌ DON'T: Implicit return types
+async function getUser(id) { ... }
+
+// ❌ DON'T: String concatenation
+const message = 'Hello ' + name + '!';
+```
+
+## Backend Patterns (quikadmin/)
+
+### API Route Structure
+
+```typescript
+// ✅ DO: Follow this route pattern
+import { Router, Request, Response } from 'express';
+import { validateRequest } from '../middleware/validation';
+import { authMiddleware } from '../middleware/supabaseAuth';
+import { schema } from '../validators/schemas';
+
+const router = Router();
+
+router.post(
+  '/endpoint',
+  authMiddleware,
+  validateRequest(schema),
+  async (req: Request, res: Response) => {
+    try {
+      // Implementation
+      res.json({ success: true, data: result });
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+export default router;
+```
+
+### Service Layer Pattern
+
+```typescript
+// ✅ DO: Use class-based services
+export class UserService {
+  private prisma: PrismaClient;
+
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
+  }
+
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  async create(data: CreateUserDto): Promise<User> {
+    return this.prisma.user.create({ data });
+  }
+}
+```
+
+### Validation Schemas
+
+```typescript
+// ✅ DO: Use Zod for validation
+import { z } from 'zod';
+
+export const createUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(2).max(100),
+});
+
+export type CreateUserDto = z.infer<typeof createUserSchema>;
+```
+
+### Error Handling
+
+```typescript
+// ✅ DO: Consistent error responses
+interface ApiError {
+  error: string;
+  code?: string;
+  details?: unknown;
+}
+
+function handleError(res: Response, error: unknown): void {
+  if (error instanceof ValidationError) {
+    res.status(400).json({ error: error.message, code: 'VALIDATION_ERROR' });
+  } else if (error instanceof NotFoundError) {
+    res.status(404).json({ error: error.message, code: 'NOT_FOUND' });
+  } else {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+```
+
+## Frontend Patterns (quikadmin-web/)
+
+### Component Structure
+
+```typescript
+// ✅ DO: Functional components with TypeScript
+interface ButtonProps {
+  variant: 'primary' | 'secondary' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
+  disabled?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}
+
+export function Button({
+  variant,
+  size = 'md',
+  disabled = false,
+  onClick,
+  children,
+}: ButtonProps): JSX.Element {
+  return (
+    <button
+      className={cn(buttonVariants({ variant, size }))}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+### Zustand Store Pattern
+
+```typescript
+// ✅ DO: Use immer middleware for complex state
+import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
+
+interface DocumentState {
+  documents: Document[];
+  loading: boolean;
+  error: string | null;
+  fetchDocuments: () => Promise<void>;
+  addDocument: (doc: Document) => void;
+  removeDocument: (id: string) => void;
+}
+
+export const useDocumentStore = create<DocumentState>()(
+  immer((set) => ({
+    documents: [],
+    loading: false,
+    error: null,
+
+    fetchDocuments: async () => {
+      set({ loading: true, error: null });
+      try {
+        const response = await api.get('/documents');
+        set({ documents: response.data, loading: false });
+      } catch (error) {
+        set({ error: 'Failed to fetch documents', loading: false });
+      }
+    },
+
+    addDocument: (doc) => {
+      set((state) => {
+        state.documents.push(doc);
+      });
+    },
+
+    removeDocument: (id) => {
+      set((state) => {
+        state.documents = state.documents.filter((d) => d.id !== id);
+      });
+    },
+  }))
+);
+```
+
+### Custom Hooks Pattern
+
+```typescript
+// ✅ DO: Extract reusable logic to hooks
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+```
+
+### API Service Pattern
+
+```typescript
+// ✅ DO: Centralized API services
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
+});
+
+export const documentService = {
+  getAll: () => api.get<Document[]>('/documents'),
+  getById: (id: string) => api.get<Document>(`/documents/${id}`),
+  create: (data: CreateDocumentDto) => api.post<Document>('/documents', data),
+  delete: (id: string) => api.delete(`/documents/${id}`),
+};
+```
+
+## Styling Guidelines
+
+### TailwindCSS Usage
+
+```typescript
+// ✅ DO: Use cn() utility for conditional classes
+import { cn } from '@/lib/utils';
+
+<div className={cn(
+  'flex items-center justify-between p-4',
+  isActive && 'bg-primary text-primary-foreground',
+  disabled && 'opacity-50 cursor-not-allowed'
+)} />
+
+// ✅ DO: Use design system tokens
+<button className="bg-primary hover:bg-primary/90 text-primary-foreground" />
+
+// ❌ DON'T: Use arbitrary values when tokens exist
+<button className="bg-[#3b82f6]" /> // Use bg-blue-500 or semantic token
+```
+
+### Component Variants (CVA)
+
+```typescript
+// ✅ DO: Use class-variance-authority for variants
+import { cva, type VariantProps } from 'class-variance-authority';
+
+const buttonVariants = cva(
+  'inline-flex items-center justify-center rounded-md font-medium transition-colors',
+  {
+    variants: {
+      variant: {
+        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        outline: 'border border-input bg-background hover:bg-accent',
+      },
+      size: {
+        default: 'h-10 px-4 py-2',
+        sm: 'h-9 px-3',
+        lg: 'h-11 px-8',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'default',
+    },
+  }
+);
+```
+
+## Testing Standards
+
+### Backend Tests (Jest)
+
+```typescript
+// ✅ DO: Descriptive test names
+describe('UserService', () => {
+  describe('findById', () => {
+    it('should return user when valid ID is provided', async () => {
+      const user = await userService.findById('valid-id');
+      expect(user).toBeDefined();
+      expect(user?.email).toBe('test@example.com');
+    });
+
+    it('should return null when user does not exist', async () => {
+      const user = await userService.findById('invalid-id');
+      expect(user).toBeNull();
+    });
+  });
+});
+```
+
+### Frontend Tests (Vitest)
+
+```typescript
+// ✅ DO: Test user interactions
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Button } from './Button';
+
+describe('Button', () => {
+  it('should call onClick when clicked', () => {
+    const handleClick = vi.fn();
+    render(<Button onClick={handleClick}>Click me</Button>);
+    
+    fireEvent.click(screen.getByText('Click me'));
+    
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('should be disabled when disabled prop is true', () => {
+    render(<Button disabled>Click me</Button>);
+    
+    expect(screen.getByText('Click me')).toBeDisabled();
+  });
+});
+```
+
+## File Organization
+
+### Naming Conventions
+
+- **Files**: `kebab-case.ts` for utilities, `PascalCase.tsx` for components
+- **Directories**: `kebab-case/`
+- **Types/Interfaces**: `PascalCase`
+- **Functions**: `camelCase`
+- **Constants**: `SCREAMING_SNAKE_CASE`
+
+### Import Order
+
+```typescript
+// 1. React imports
+import { useState, useEffect } from 'react';
+
+// 2. Third-party imports
+import axios from 'axios';
+import { z } from 'zod';
+
+// 3. Internal imports (aliased)
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
+
+// 4. Relative imports
+import { localHelper } from './helpers';
+import type { LocalType } from './types';
+```
+
+## Git Commit Messages
+
+```
+type(scope): description
+
+Types: feat, fix, docs, refactor, test, chore, perf
+Scopes: api, web, docs, db, auth, ocr, pdf, ui
+
+Examples:
+feat(api): add document reprocessing endpoint
+fix(web): resolve login redirect issue
+docs(api): update authentication documentation
+refactor(db): optimize user query performance
+test(web): add unit tests for Button component
+```
+
+## Security Guidelines
+
+- Never commit secrets or API keys
+- Use environment variables for all sensitive data
+- Validate all user inputs
+- Sanitize output to prevent XSS
+- Use parameterized queries (Prisma handles this)
+- Apply rate limiting to all endpoints
+- Use HTTPS in production
+
+## Documentation Requirements (MANDATORY)
+
+This is a **living documentation system**. Documentation updates are required with code changes.
+
+See `docs/MAINTENANCE.md` for complete guidelines.
+
+### Required Updates by Change Type
+
+| Code Change | Documentation Update |
+|-------------|---------------------|
+| API endpoint | `docs/reference/api/endpoints.md` |
+| Environment variable | `docs/reference/configuration/environment.md` |
+| Database schema | `docs/reference/database/schema.md` |
+| New feature | Appropriate tutorial or how-to |
+| Fixed known issue | Remove from `CLAUDE.local.md` |
+| New known issue | Add to `CLAUDE.local.md` |
+| Architecture change | `docs/explanation/` |
+
+### Documentation Checklist
+
+Before completing work, verify:
+- [ ] All affected docs updated
+- [ ] Code examples in docs still work
+- [ ] Cross-references valid
+- [ ] `lastUpdated` timestamps updated
+
+## AI Agent Instructions
+
+1. Always read context files before making changes
+2. Follow existing patterns in the codebase
+3. Write tests for new functionality
+4. **Update documentation with every code change** (see `docs/MAINTENANCE.md`)
+5. Use TypeScript strict mode features
+6. Handle errors gracefully with proper types
+7. Consider cross-project impacts for API changes
+8. Update `CLAUDE.local.md` when finding/fixing known issues
+
+## Related Files
+
+- [CLAUDE.local.md](./CLAUDE.local.md) - Local development context
+- [AGENTS.md](./AGENTS.md) - Agent integration guide
+- [quikadmin/CLAUDE.md](./quikadmin/CLAUDE.md) - Backend context
+- [quikadmin-web/CLAUDE.md](./quikadmin-web/CLAUDE.md) - Frontend context
+

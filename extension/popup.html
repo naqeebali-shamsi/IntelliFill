@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IntelliFill - Smart Form Autofill</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 2L7 8H3L8 12L6 18L12 14L18 18L16 12L21 8H17L15 2H9Z" fill="currentColor"/>
+        </svg>
+        <h1>IntelliFill</h1>
+      </div>
+    </div>
+
+    <!-- Login Form (shown when not authenticated) -->
+    <div id="loginView" class="view">
+      <div class="section">
+        <h2>Sign In</h2>
+        <p class="subtitle">Sign in to start auto-filling forms with your profile data</p>
+
+        <form id="loginForm" class="form">
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="you@example.com" required>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+          </div>
+
+          <div id="loginError" class="error" style="display: none;"></div>
+
+          <button type="submit" class="btn btn-primary" id="loginButton">
+            <span>Sign In</span>
+            <div class="spinner" style="display: none;"></div>
+          </button>
+        </form>
+
+        <div class="divider"></div>
+
+        <div class="info-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <p>Don't have an account? Visit the IntelliFill web app to sign up and upload your documents.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main View (shown when authenticated) -->
+    <div id="mainView" class="view" style="display: none;">
+      <!-- Status Section -->
+      <div class="section">
+        <div class="status-card">
+          <div class="status-header">
+            <div class="status-indicator" id="statusIndicator">
+              <div class="status-dot"></div>
+              <span id="statusText">Active</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="enableToggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="status-subtitle">Extension is ready to auto-fill forms</p>
+        </div>
+      </div>
+
+      <!-- User Info Section -->
+      <div class="section">
+        <h3>Profile</h3>
+        <div class="profile-card">
+          <div class="profile-avatar">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="profile-info">
+            <div class="profile-name" id="userName">Loading...</div>
+            <div class="profile-email" id="userEmail"></div>
+          </div>
+          <button class="btn-icon" id="refreshButton" title="Refresh profile">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21.5 2V8M21.5 8H15.5M21.5 8L18 4.5C16.5 3 14.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C16.5 22 20.5 19 21.5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Profile Stats -->
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-value" id="fieldCount">0</div>
+            <div class="stat-label">Profile Fields</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="documentCount">0</div>
+            <div class="stat-label">Documents</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div class="section">
+        <h3>Settings</h3>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">API Endpoint</div>
+            <div class="setting-description">Backend server URL</div>
+          </div>
+          <input type="text" id="apiEndpoint" class="input-small" value="http://localhost:3000/api" readonly>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3>Keyboard Shortcuts</h3>
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd>
+            <span>Show suggestions</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>
+            <span>Refresh profile</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>↑</kbd> <kbd>↓</kbd>
+            <span>Navigate suggestions</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Enter</kbd>
+            <span>Select suggestion</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Esc</kbd>
+            <span>Close suggestions</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="section">
+        <button class="btn btn-secondary" id="logoutButton">
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

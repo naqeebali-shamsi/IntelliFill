@@ -1,0 +1,269 @@
+/**
+ * IntelliFill Content Script Styles
+ *
+ * Styles for injected autocomplete dropdown
+ */
+
+/* Dropdown Container */
+.intellifill-autocomplete-dropdown {
+  position: absolute;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  z-index: 999999;
+  animation: intellifillFadeIn 0.15s ease-out;
+}
+
+@keyframes intellifillFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dropdown Item */
+.intellifill-autocomplete-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.intellifill-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.intellifill-autocomplete-item:hover,
+.intellifill-autocomplete-item.intellifill-active {
+  background-color: #f3f4f6;
+}
+
+.intellifill-autocomplete-item.intellifill-active {
+  background-color: #ede9fe;
+}
+
+/* Item Content */
+.intellifill-autocomplete-item-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intellifill-autocomplete-item-value {
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+/* Item Meta */
+.intellifill-autocomplete-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Badge */
+.intellifill-autocomplete-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.intellifill-autocomplete-badge-high {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.intellifill-autocomplete-badge-medium {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.intellifill-autocomplete-badge-low {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Source Count */
+.intellifill-autocomplete-source-count {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* Scrollbar Styling */
+.intellifill-autocomplete-dropdown::-webkit-scrollbar {
+  width: 8px;
+}
+
+.intellifill-autocomplete-dropdown::-webkit-scrollbar-track {
+  background: #f9fafb;
+}
+
+.intellifill-autocomplete-dropdown::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.intellifill-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Notification */
+.intellifill-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #1f2937;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-size: 14px;
+  z-index: 999999;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.intellifill-notification-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Loading Indicator */
+.intellifill-autocomplete-loading {
+  padding: 12px 14px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.intellifill-autocomplete-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: intellifillSpin 0.8s linear infinite;
+}
+
+@keyframes intellifillSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Empty State */
+.intellifill-autocomplete-empty {
+  padding: 16px 14px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+/* Branding */
+.intellifill-autocomplete-branding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid #f3f4f6;
+  background: #fafafa;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.intellifill-autocomplete-branding svg {
+  width: 14px;
+  height: 14px;
+  color: #667eea;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .intellifill-autocomplete-dropdown {
+    max-height: 180px;
+  }
+
+  .intellifill-autocomplete-item {
+    padding: 8px 12px;
+  }
+
+  .intellifill-autocomplete-item-value {
+    font-size: 13px;
+  }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  .intellifill-autocomplete-dropdown {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .intellifill-autocomplete-item {
+    border-bottom-color: #374151;
+  }
+
+  .intellifill-autocomplete-item:hover,
+  .intellifill-autocomplete-item.intellifill-active {
+    background-color: #374151;
+  }
+
+  .intellifill-autocomplete-item-value {
+    color: #f9fafb;
+  }
+
+  .intellifill-autocomplete-source-count {
+    color: #9ca3af;
+  }
+
+  .intellifill-autocomplete-empty,
+  .intellifill-autocomplete-loading {
+    color: #6b7280;
+  }
+
+  .intellifill-autocomplete-branding {
+    background: #111827;
+    border-top-color: #374151;
+  }
+
+  .intellifill-autocomplete-dropdown::-webkit-scrollbar-track {
+    background: #111827;
+  }
+
+  .intellifill-autocomplete-dropdown::-webkit-scrollbar-thumb {
+    background: #4b5563;
+  }
+
+  .intellifill-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+  }
+}

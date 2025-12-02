@@ -1,65 +1,30 @@
-# AI Agent Tools & Configs
-.claude/
-.claude-flow/
-.cursor/
-.gemini/
-.taskmaster/
-.swarm/
-.hive-mind/
-.roo/
-.roomodes
-CLAUDE.md
-claude-flow*
-*.claude
-*.swarm
-config/mcp.config.json
-.mcp.json
-memory/
-coordination/
-
 # Dependencies
 node_modules/
-bower_components/
-jspm_packages/
+.pnp
+.pnp.js
 
 # Build outputs
 dist/
 build/
-out/
-*.js.map
-*.d.ts
-!src/**/*.d.ts
+*.tsbuildinfo
 
-# Environment files - comprehensive patterns
-# Root level env files
+# Environment files
 .env
-.env.*
-!.env.example
+.env.local
+.env.development
+.env.test
+.env.production
 *.env
-!*.env.example
 
-# Specific env file names (any location)
-**/.env
-**/.env.local
-**/.env.development
-**/.env.development.local
-**/.env.test
-**/.env.test.local
-**/.env.production
-**/.env.production.local
-**/.env.neon
-**/.env.staging
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Allow .env.example files everywhere
-!**/.env.example
-
-# Cypress environment files (may contain secrets)
-**/cypress.env.json
-cypress.env.json
-
-# Any file ending in .env (except .env.example)
-**/*.env
-!**/*.env.example
+# OS
+.DS_Store
+Thumbs.db
 
 # Logs
 logs/
@@ -67,106 +32,17 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-
-# OS Files
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
-# IDE & Editor
-.idea/
-.vscode/
-.cursor/
-*.sublime-*
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-chrome-debug-profile/
 
 # Test coverage
 coverage/
-*.lcov
-.nyc_output/
 
-# Docker volumes (local data)
-postgres_data/
-redis_data/
-prometheus_data/
-grafana_data/
+# Cypress test credentials
+cypress.env.json
 
-# Application specific
-uploads/
-outputs/
-temp/
-tmp/
-cache/
-sessions/
-web.archived/
+# Misc
+*.traineddata
+.claude/settings.local.json
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv
-
-# Package files
-*.tar
-*.tar.gz
-*.zip
-*.7z
-*.rar
-
-# Backup files
-*.bak
-*.backup
-*.old
-*.orig
-
-# Database
-*.sqlite
-*.sqlite3
-*.db
-*.db-wal
-*.db-shm
-
-# Lock files (keep package-lock.json)
-yarn.lock
-pnpm-lock.yaml
-
-# Models (if they're large ML models)
-models/*.pkl
-models/*.h5
-models/*.pb
-models/*.onnx
-
-# Reports and documentation artifacts
-CLEANUP_REPORT.md
-TODO.md
-NOTES.md
-docs-archive/
-docs/.meta/CLEANUP_*.md
-docs/.meta/*COMPLETION*.md
-docs/.meta/ROOT_*.md
-docs/.meta/FINAL_*.md
-docs/.meta/DOCUMENTATION_REORGANIZATION_REPORT.md
-phase*-prd.txt
-startup.log
-
-# Scripts (keep the scripts folder, but ignore temp scripts)
-scripts/*.tmp
-scripts/*.temp
-
-# Startup & runtime logs
-startup.log
-dev-debug.log
+# Temp files
+*.tmp
+*.temp

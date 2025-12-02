@@ -1,0 +1,273 @@
+{
+  "auth": {
+    "loginSuccess": {
+      "statusCode": 200,
+      "body": {
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        "refreshToken": "refresh_token_123",
+        "user": {
+          "id": "user_123",
+          "email": "test@company.com",
+          "name": "Test User",
+          "role": "admin"
+        },
+        "company": {
+          "id": "company_123",
+          "name": "Test Company",
+          "slug": "test-company",
+          "plan": "professional"
+        }
+      }
+    },
+    "loginFailure": {
+      "statusCode": 401,
+      "body": {
+        "error": "Invalid credentials",
+        "code": "INVALID_CREDENTIALS"
+      }
+    },
+    "accountLocked": {
+      "statusCode": 423,
+      "body": {
+        "error": "Account locked",
+        "code": "ACCOUNT_LOCKED",
+        "lockExpiry": "{{futureTimestamp}}"
+      }
+    }
+  },
+  "documents": {
+    "uploadSuccess": {
+      "statusCode": 200,
+      "body": {
+        "documentId": "doc_{{randomId}}",
+        "status": "uploaded",
+        "fileName": "{{fileName}}",
+        "fileSize": "{{fileSize}}",
+        "pages": "{{pageCount}}",
+        "uploadedAt": "{{currentTimestamp}}"
+      }
+    },
+    "processSuccess": {
+      "statusCode": 200,
+      "body": {
+        "jobId": "job_{{randomId}}",
+        "status": "processing",
+        "estimatedTime": 30,
+        "creditsDeducted": 3
+      }
+    },
+    "processComplete": {
+      "statusCode": 200,
+      "body": {
+        "status": "completed",
+        "result": {
+          "extractedFields": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john@example.com",
+            "phone": "555-0123",
+            "address": "123 Main St",
+            "city": "Anytown",
+            "state": "CA",
+            "zipCode": "12345"
+          },
+          "confidence": {
+            "firstName": 0.98,
+            "lastName": 0.95,
+            "email": 0.92,
+            "phone": 0.88,
+            "address": 0.85,
+            "city": 0.90,
+            "state": 0.95,
+            "zipCode": 0.87
+          },
+          "processingTime": 2500,
+          "pages": 2
+        }
+      }
+    },
+    "processingFailed": {
+      "statusCode": 422,
+      "body": {
+        "status": "failed",
+        "error": "Document format not supported",
+        "code": "UNSUPPORTED_FORMAT"
+      }
+    }
+  },
+  "credits": {
+    "balance": {
+      "statusCode": 200,
+      "body": {
+        "available": 85,
+        "total": 100,
+        "used": 15,
+        "type": "trial",
+        "expiresAt": "{{futureTimestamp}}",
+        "plan": "trial"
+      }
+    },
+    "lowBalance": {
+      "statusCode": 200,
+      "body": {
+        "available": 5,
+        "total": 100,
+        "used": 95,
+        "warningThreshold": 10,
+        "type": "trial"
+      }
+    },
+    "insufficientCredits": {
+      "statusCode": 402,
+      "body": {
+        "error": "Insufficient credits",
+        "code": "INSUFFICIENT_CREDITS",
+        "required": 5,
+        "available": 2
+      }
+    }
+  },
+  "team": {
+    "inviteSuccess": {
+      "statusCode": 201,
+      "body": {
+        "invitationId": "inv_{{randomId}}",
+        "email": "{{email}}",
+        "role": "{{role}}",
+        "status": "pending",
+        "expiresAt": "{{futureTimestamp}}"
+      }
+    },
+    "inviteFailure": {
+      "statusCode": 409,
+      "body": {
+        "error": "User already invited or exists",
+        "code": "DUPLICATE_INVITATION"
+      }
+    },
+    "membersList": {
+      "statusCode": 200,
+      "body": {
+        "members": [
+          {
+            "id": "user_1",
+            "name": "Admin User",
+            "email": "admin@company.com",
+            "role": "admin",
+            "status": "active",
+            "joinedAt": "{{pastTimestamp}}"
+          },
+          {
+            "id": "user_2", 
+            "name": "Manager User",
+            "email": "manager@company.com",
+            "role": "manager",
+            "status": "active",
+            "joinedAt": "{{pastTimestamp}}"
+          },
+          {
+            "id": "user_3",
+            "name": "Regular User", 
+            "email": "user@company.com",
+            "role": "user",
+            "status": "active",
+            "joinedAt": "{{pastTimestamp}}"
+          }
+        ],
+        "total": 3
+      }
+    }
+  },
+  "errors": {
+    "serverError": {
+      "statusCode": 500,
+      "body": {
+        "error": "Internal server error",
+        "code": "SERVER_ERROR",
+        "requestId": "req_{{randomId}}"
+      }
+    },
+    "rateLimited": {
+      "statusCode": 429,
+      "body": {
+        "error": "Rate limit exceeded",
+        "code": "RATE_LIMIT_EXCEEDED",
+        "retryAfter": 60,
+        "limit": 100,
+        "remaining": 0
+      }
+    },
+    "forbidden": {
+      "statusCode": 403,
+      "body": {
+        "error": "Insufficient permissions",
+        "code": "FORBIDDEN",
+        "requiredRole": "admin"
+      }
+    },
+    "notFound": {
+      "statusCode": 404,
+      "body": {
+        "error": "Resource not found",
+        "code": "NOT_FOUND"
+      }
+    },
+    "validationError": {
+      "statusCode": 400,
+      "body": {
+        "error": "Validation failed",
+        "code": "VALIDATION_ERROR",
+        "details": [
+          {
+            "field": "email",
+            "message": "Please enter a valid email address"
+          }
+        ]
+      }
+    }
+  },
+  "analytics": {
+    "usage": {
+      "statusCode": 200,
+      "body": {
+        "dailyUsage": [
+          {"date": "2024-01-01", "credits": 15},
+          {"date": "2024-01-02", "credits": 12},
+          {"date": "2024-01-03", "credits": 18},
+          {"date": "2024-01-04", "credits": 10},
+          {"date": "2024-01-05", "credits": 22}
+        ],
+        "usageByOperation": {
+          "PDF Processing": 45,
+          "OCR Processing": 25,
+          "AI Extraction": 30
+        },
+        "averageDailyUsage": 15.4,
+        "projectedMonthlyUsage": 462,
+        "topDocumentTypes": [
+          {"type": "PDF", "count": 45, "percentage": 60},
+          {"type": "DOCX", "count": 20, "percentage": 27},
+          {"type": "Image", "count": 10, "percentage": 13}
+        ]
+      }
+    },
+    "teamPerformance": {
+      "statusCode": 200,
+      "body": {
+        "documentsProcessed": 150,
+        "averageProcessingTime": 2.5,
+        "teamEfficiency": 87,
+        "topPerformers": [
+          {"name": "Jane Manager", "documentsProcessed": 45, "averageTime": 2.1},
+          {"name": "John User", "documentsProcessed": 38, "averageTime": 2.8},
+          {"name": "Mary User", "documentsProcessed": 32, "averageTime": 2.3}
+        ],
+        "collaborationMetrics": {
+          "sharedDocuments": 85,
+          "commentsAdded": 120,
+          "reviewsCompleted": 67
+        }
+      }
+    }
+  }
+}

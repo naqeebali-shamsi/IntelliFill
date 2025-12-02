@@ -1,0 +1,30 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "N:\\IntelliFill\\logs\\.7da3c386c0b910dd9cf62e7505987010ca56ccc7-audit.json",
+    "files": [
+        {
+            "date": 1764270053818,
+            "name": "N:\\IntelliFill\\logs\\mcp-puppeteer-2025-11-27.log",
+            "hash": "1510caa9c34d40bc02b589ca8d04c41c6228cc655aaf0054de624444828af889"
+        },
+        {
+            "date": 1764276290083,
+            "name": "N:\\IntelliFill\\logs\\mcp-puppeteer-2025-11-28.log",
+            "hash": "7866e6909da8b34b8941f7755e2fde0a3d6349c01d3dae0e83e597f71031850d"
+        },
+        {
+            "date": 1764585479659,
+            "name": "N:\\IntelliFill\\logs\\mcp-puppeteer-2025-12-01.log",
+            "hash": "815331cc682b519cc5c688a59e2d5f1f1dfffa682f68073032c380bd3ada3edf"
+        },
+        {
+            "date": 1764661595287,
+            "name": "N:\\IntelliFill\\logs\\mcp-puppeteer-2025-12-02.log",
+            "hash": "ca953197f2beb5c775f0177921e117c4902ad291331badee1f96ef7a3d345548"
+        }
+    ],
+    "hashType": "sha256"
+}

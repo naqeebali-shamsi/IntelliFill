@@ -1,0 +1,19 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files and config files needed for dependency installation
+COPY package*.json ./
+COPY vite.config.ts tsconfig.json tsconfig.node.json ./
+COPY postcss.config.js tailwind.config.js ./
+
+# Install dependencies with npm (including dev dependencies)
+RUN npm install --include=dev
+
+# The source code will be mounted as volume
+# so we don't copy it here, but config files are already copied above
+
+EXPOSE 8080
+
+# Use Node.js to run Vite (more compatible with vite.config.ts)
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "8080"]

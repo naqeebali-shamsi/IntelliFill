@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>IntelliFill Icon Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .icon-preview { margin: 20px 0; }
+    canvas { border: 1px solid #ccc; margin: 10px; }
+  </style>
+</head>
+<body>
+  <h1>IntelliFill Icon Generator</h1>
+  <p>Right-click each icon to save it</p>
+  
+  <div class="icon-preview">
+    <h2>16x16</h2>
+    <canvas id="icon16" width="16" height="16"></canvas>
+  </div>
+  
+  <div class="icon-preview">
+    <h2>48x48</h2>
+    <canvas id="icon48" width="48" height="48"></canvas>
+  </div>
+  
+  <div class="icon-preview">
+    <h2>128x128</h2>
+    <canvas id="icon128" width="128" height="128"></canvas>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, size, size);
+      
+      // Create gradient background
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      
+      // Draw rounded rectangle background
+      const radius = size * 0.15;
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(size - radius, 0);
+      ctx.quadraticCurveTo(size, 0, size, radius);
+      ctx.lineTo(size, size - radius);
+      ctx.quadraticCurveTo(size, size, size - radius, size);
+      ctx.lineTo(radius, size);
+      ctx.quadraticCurveTo(0, size, 0, size - radius);
+      ctx.lineTo(0, radius);
+      ctx.quadraticCurveTo(0, 0, radius, 0);
+      ctx.fill();
+      
+      // Draw sparkles/stars icon
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = size * 0.04;
+      
+      // Center position
+      const cx = size / 2;
+      const cy = size / 2;
+      
+      // Draw star
+      const starSize = size * 0.35;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = (Math.PI * 2 * i) / 8 - Math.PI / 2;
+        const radius = i % 2 === 0 ? starSize : starSize * 0.4;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw smaller stars
+      if (size >= 48) {
+        // Top right small star
+        const smallSize = size * 0.12;
+        const sx1 = cx + size * 0.25;
+        const sy1 = cy - size * 0.3;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const angle = (Math.PI * 2 * i) / 8 - Math.PI / 2;
+          const radius = i % 2 === 0 ? smallSize : smallSize * 0.4;
+          const x = sx1 + Math.cos(angle) * radius;
+          const y = sy1 + Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        // Bottom left small star
+        const sx2 = cx - size * 0.28;
+        const sy2 = cy + size * 0.25;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const angle = (Math.PI * 2 * i) / 8 - Math.PI / 2;
+          const radius = i % 2 === 0 ? smallSize : smallSize * 0.4;
+          const x = sx2 + Math.cos(angle) * radius;
+          const y = sy2 + Math.sin(angle) * radius;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // Generate all icons
+    drawIcon(document.getElementById('icon16'));
+    drawIcon(document.getElementById('icon48'));
+    drawIcon(document.getElementById('icon128'));
+    
+    // Enable download on click
+    ['icon16', 'icon48', 'icon128'].forEach(id => {
+      const canvas = document.getElementById(id);
+      canvas.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = `${id}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+      });
+      canvas.style.cursor = 'pointer';
+    });
+  </script>
+</body>
+</html>

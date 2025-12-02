@@ -1,0 +1,122 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Frontend: Profile Detail Page",
+        "description": "Create a dedicated page at /profiles/:id to view and edit a single profile with all its stored data fields. Include sections for basic info, stored field data, and form fill history. Use React Hook Form + Zod for editing.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T15:34:20.546Z"
+      },
+      {
+        "id": "2",
+        "title": "Frontend: Profile Selection for Form Fill",
+        "description": "Update the form fill workflow to allow users to select which profile to use when auto-filling. Add a profile selector dropdown/modal that shows available profiles with preview of key data fields.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T15:39:02.743Z"
+      },
+      {
+        "id": "3",
+        "title": "Frontend: Data Field Management UI",
+        "description": "Create UI components to manage extracted/stored data fields for each profile. Allow users to view, edit, add, and delete field values. Group fields by category (personal, address, financial, etc.).",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T15:43:54.382Z"
+      },
+      {
+        "id": "4",
+        "title": "Frontend: Form Fill History",
+        "description": "Track and display which forms were filled using which profile. Show history on both the profile detail page and a dedicated history view. Include date, form name, and fields used.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": [
+          "1",
+          "2"
+        ],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T15:47:35.818Z"
+      },
+      {
+        "id": "5",
+        "title": "Test: Profile Detail Page",
+        "description": "Write comprehensive tests for the ProfileDetail page component including unit tests and integration tests.",
+        "details": "Test requirements:\n1. Unit tests for ProfileDetail.tsx:\n   - Renders loading state correctly\n   - Renders error state when profile fetch fails\n   - Renders not-found state for invalid profile ID\n   - Displays profile basic info (name, type, status, dates)\n   - Edit mode toggles correctly\n   - Form validation works (name required, min/max length)\n   - Save/cancel buttons work in edit mode\n   - Archive/restore functionality\n   - Delete with confirmation\n   - Back navigation works\n2. Test profile data fetching with mocked profilesService\n3. Test React Hook Form + Zod validation integration\n4. Run with: bun run test",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T16:05:01.932Z"
+      },
+      {
+        "id": "6",
+        "title": "Test: Profile Selector Component",
+        "description": "Write tests for the ProfileSelector component used in the form fill workflow.",
+        "details": "Test requirements:\n1. Unit tests for profile-selector.tsx:\n   - Renders loading state while fetching profiles\n   - Displays list of user's profiles correctly\n   - Shows profile type icons (User for Personal, Building for Business)\n   - Handles profile selection callback\n   - Auto-selects first profile when none selected\n   - Shows empty state when user has no profiles\n   - 'Create Profile' button navigates to /profiles\n   - Selected profile displays correctly with change option\n2. Mock profilesService.getProfiles()\n3. Test integration with parent form components",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T16:08:21.780Z"
+      },
+      {
+        "id": "7",
+        "title": "Test: Profile Fields Manager",
+        "description": "Write tests for the ProfileFieldsManager component that handles data field CRUD operations.",
+        "details": "Test requirements:\n1. Unit tests for profile-fields-manager.tsx:\n   - Renders field categories correctly (Personal, Contact, Employment, etc.)\n   - Expands/collapses category sections\n   - Displays fields with correct values and source badges\n   - Inline edit mode activates on edit button click\n   - Field value updates correctly\n   - Add new field dialog opens\n   - New field validation (name required, category required)\n   - Delete field with confirmation\n   - Save changes calls onSave with updated fields\n   - Discard changes reverts to original state\n   - Shows empty state when no fields exist\n2. Test field categorization logic\n3. Test unsaved changes warning",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T16:13:47.630Z"
+      },
+      {
+        "id": "8",
+        "title": "Test: Form Fill History Card",
+        "description": "Write tests for the FormFillHistoryCard component that displays form fill history entries.",
+        "details": "Test requirements:\n1. Unit tests for form-fill-history-card.tsx:\n   - Renders form name and date correctly\n   - Displays field count and confidence percentage\n   - Shows correct status badge (completed, partial, failed)\n   - Renders profile info when showProfile=true\n   - Download button triggers onDownload callback\n   - View button triggers onView callback\n   - Compact mode renders correctly\n   - Full mode shows additional details\n   - Handles missing optional fields gracefully\n2. Test date formatting\n3. Test confidence score display",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": [],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T16:15:00.563Z"
+      },
+      {
+        "id": "9",
+        "title": "Test: Integration - Profile to Form Fill Flow",
+        "description": "Write integration tests for the complete flow from profile selection to form filling.",
+        "details": "Test requirements:\n1. Integration test for SimpleFillForm with ProfileSelector:\n   - Profile selector appears before form upload\n   - Cannot proceed without selecting profile\n   - Selected profile data is passed to form fill logic\n   - Changing profile updates the form context\n2. Test navigation flow:\n   - /profiles list -> click profile -> /profiles/:id detail\n   - /profiles/:id -> edit -> save -> updates reflected\n   - /fill-form -> select profile -> upload form -> fill\n3. Mock API calls appropriately\n4. Consider Cypress E2E test for critical path",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": [
+          "5",
+          "6",
+          "7",
+          "8"
+        ],
+        "subtasks": [],
+        "updatedAt": "2025-12-01T16:16:52.384Z"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2025-12-01T16:16:52.385Z",
+      "taskCount": 9,
+      "completedCount": 9,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}

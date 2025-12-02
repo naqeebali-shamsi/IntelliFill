@@ -1,0 +1,38 @@
+# Frontend .gitignore
+
+# Package manager lockfiles (we use Bun)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.vite/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
