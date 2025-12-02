@@ -18,7 +18,7 @@ COPY nodemon.json ./
 # The source code will be mounted as volume, so we don't copy it here
 
 # Expose app port and debug port
-EXPOSE 3000 9229
+EXPOSE 3002 9229
 
 # Default command (can be overridden in docker-compose)
 CMD ["npm", "run", "dev"]

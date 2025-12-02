@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
-import * as pdfParse from 'pdf-parse';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParse = require('pdf-parse') as (buffer: Buffer) => Promise<{ text: string; numpages: number; info?: Record<string, unknown> }>;
 import { logger } from '../utils/logger';
 
 /**

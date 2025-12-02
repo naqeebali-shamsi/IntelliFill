@@ -13,8 +13,12 @@ export interface OCRProcessingJob {
   documentId: string;
   userId: string;
   filePath: string;
+  isReprocessing?: boolean;
+  reprocessReason?: string;
   options?: {
     language?: string;
+    dpi?: number;
+    enhancedPreprocessing?: boolean;
   };
 }
 
