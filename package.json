@@ -20,6 +20,7 @@
     "typecheck:frontend": "cd quikadmin-web && bun run typecheck"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.1",
     "prettier": "^3.4.2"
@@ -27,11 +28,11 @@
   "lint-staged": {
     "quikadmin/**/*.{ts,tsx}": [
       "prettier --write",
-      "eslint --fix --max-warnings=0"
+      "eslint --fix"
     ],
     "quikadmin-web/**/*.{ts,tsx}": [
       "prettier --write",
-      "eslint --fix --max-warnings=0"
+      "eslint --fix"
     ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"
