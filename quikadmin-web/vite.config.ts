@@ -43,10 +43,20 @@ export default defineConfig({
     port: Number(process.env.PORT) || 8080,
     host: '0.0.0.0',
     strictPort: true,
+    // Allow Docker container hostnames for E2E testing
+    allowedHosts: ['localhost', 'frontend-test', '.local'],
     hmr: {
       host: 'localhost',
       port: Number(process.env.PORT) || 8080,
       protocol: 'ws'
+    },
+    // Proxy API requests to backend (works in dev and E2E Docker)
+    proxy: {
+      '/api': {
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:3002',
+        changeOrigin: true,
+        secure: false,
+      }
     }
   },
   build: {

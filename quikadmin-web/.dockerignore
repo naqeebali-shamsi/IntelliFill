@@ -1,19 +1,48 @@
-node_modules
-npm-debug.log
-.npm
+# Dependencies - installed in container
+node_modules/
+.npm/
 .node_repl_history
-*.log
-dist
-.vite
+
+# Build outputs
+dist/
+.vite/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+cypress/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Development files
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Environment files (passed via docker-compose)
 .env
 .env.local
 .env.*.local
-coverage
-.nyc_output
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
 .DS_Store
 Thumbs.db
-*.swp
-*.swo
-.idea
-.vscode
-*.sublime-*

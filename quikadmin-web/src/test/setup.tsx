@@ -50,6 +50,41 @@ vi.mock('@/lib/toast', () => {
   }
 })
 
+// Mock @radix-ui/react-slider for tests
+vi.mock('@radix-ui/react-slider', () => ({
+  Root: ({ children, value, onValueChange, min, max, step, className, ...props }: any) => (
+    React.createElement('div', { 'data-testid': 'slider-root', className, ...props },
+      React.createElement('input', {
+        type: 'range',
+        value: value?.[0] || 0,
+        onChange: (e: any) => onValueChange?.([Number(e.target.value)]),
+        min,
+        max,
+        step,
+      }),
+      children
+    )
+  ),
+  Track: ({ children, className }: any) => React.createElement('div', { 'data-testid': 'slider-track', className }, children),
+  Range: ({ className }: any) => React.createElement('div', { 'data-testid': 'slider-range', className }),
+  Thumb: ({ className }: any) => React.createElement('div', { 'data-testid': 'slider-thumb', className }),
+}))
+
+// Mock @radix-ui/react-switch for tests
+vi.mock('@radix-ui/react-switch', () => ({
+  Root: ({ checked, onCheckedChange, className, ...props }: any) => (
+    React.createElement('button', {
+      role: 'switch',
+      'aria-checked': checked || false,
+      'data-state': checked ? 'checked' : 'unchecked',
+      onClick: () => onCheckedChange?.(!checked),
+      className,
+      ...props,
+    })
+  ),
+  Thumb: ({ className }: any) => React.createElement('span', { 'data-testid': 'switch-thumb', className }),
+}))
+
 afterEach(() => {
   cleanup()
 })

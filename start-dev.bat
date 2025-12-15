@@ -44,10 +44,10 @@ start /B npm run dev > ..\logs\backend.log 2>&1
 cd ..
 timeout /t 3 /nobreak >nul
 
-REM Start Frontend Server
+REM Start Frontend Server (using bun)
 echo [2/3] Starting Frontend UI Server (port 8080)...
 cd quikadmin-web
-start /B npm run dev > ..\logs\frontend.log 2>&1
+start /B bun run dev > ..\logs\frontend.log 2>&1
 cd ..
 timeout /t 2 /nobreak >nul
 

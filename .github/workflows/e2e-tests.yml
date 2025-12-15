@@ -1,0 +1,159 @@
+# GitHub Actions Workflow for E2E Tests
+#
+# Runs the complete E2E test suite on push and pull requests.
+# Uses Docker Compose to spin up isolated test environment.
+
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  # Use GitHub Container Registry for caching
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  e2e-tests:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Start test infrastructure
+        run: |
+          docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from playwright
+        env:
+          # Ensure CI mode is enabled
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 30
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: e2e/screenshots/
+          retention-days: 7
+
+      - name: Upload videos
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: videos
+          path: e2e/videos/
+          retention-days: 7
+
+      - name: Upload test results JSON
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: e2e/test-results/
+          retention-days: 30
+
+      - name: Clean up Docker
+        if: always()
+        run: |
+          docker-compose -f docker-compose.e2e.yml down -v
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## E2E Test Results\n\n';
+
+            try {
+              const results = JSON.parse(fs.readFileSync('e2e/test-results/results.json', 'utf8'));
+              const passed = results.stats.expected || 0;
+              const failed = results.stats.unexpected || 0;
+              const total = passed + failed;
+
+              if (failed === 0) {
+                comment += `✅ All ${total} tests passed!\n\n`;
+              } else {
+                comment += `❌ ${failed} out of ${total} tests failed.\n\n`;
+              }
+
+              comment += `[View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+            } catch (error) {
+              comment += '⚠️ Could not parse test results.\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Optional: Run tests on multiple OS
+  e2e-tests-matrix:
+    name: E2E Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'workflow_dispatch' # Only on manual trigger
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: docker/setup-buildx-action@v2
+
+      - name: Set up Docker (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Docker Desktop should be pre-installed on GitHub runners
+          docker version
+
+      - name: Run E2E tests
+        run: |
+          docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from playwright
+        shell: bash
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report-${{ matrix.os }}
+          path: e2e/playwright-report/
+          retention-days: 7
+
+      - name: Clean up
+        if: always()
+        run: docker-compose -f docker-compose.e2e.yml down -v
+        shell: bash

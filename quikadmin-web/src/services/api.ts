@@ -43,7 +43,10 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip token refresh for auth endpoints - they handle their own 401 errors
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -81,13 +84,15 @@ api.interceptors.response.use(
         console.error('Refresh error:', refreshError);
       }
 
-      // Refresh failed, logout user
+      // Only logout if we actually had a session (had tokens)
       const authStore = getAuthStore();
-      await authStore.logout();
+      if (authStore.tokens?.accessToken) {
+        await authStore.logout();
 
-      // Only redirect if we're not already on the login page
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+        // Only redirect if we're not already on the login page
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
     return Promise.reject(error);

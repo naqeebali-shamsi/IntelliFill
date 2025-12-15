@@ -177,6 +177,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.user = user;
               state.tokens = tokens;
               state.isAuthenticated = true;
+              state.isInitialized = true; // Mark as initialized after successful login
               state.lastActivity = Date.now();
               state.rememberMe = credentials.rememberMe || false;
               state.loginAttempts = 0;
@@ -225,6 +226,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.user = user;
               state.tokens = tokens;
               state.isAuthenticated = !!tokens;
+              state.isInitialized = true; // Mark as initialized after successful registration
               state.lastActivity = Date.now();
               state.isLoading = false;
             });

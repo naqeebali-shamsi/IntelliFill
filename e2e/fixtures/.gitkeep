@@ -1,0 +1,10 @@
+# Fixtures Directory
+
+Place test files here:
+- sample-document.pdf
+- sample-document-2.pdf
+- large-document.pdf
+- oversized-document.pdf
+- invalid-file.txt
+
+These files are used by E2E tests for upload and processing scenarios.

@@ -1,0 +1,361 @@
+{
+  "metadata": {
+    "prdReference": "docs/prd/PRD-vector-search-implementation-v2.md",
+    "feature": "Vector Search & Document Intelligence",
+    "createdAt": "2025-12-11",
+    "totalTasks": 35,
+    "estimatedPhases": 6
+  },
+  "tasks": [
+    {
+      "id": "100",
+      "title": "Phase 0: Verify/Add Organization Model",
+      "description": "Ensure Organization model exists in Prisma schema with proper relationships to User, DocumentSource, and DocumentChunk entities.",
+      "details": "Critical prerequisite identified in Architecture Review (ARCH-002).\n\nRequirements:\n1. Check if Organization model exists in quikadmin/prisma/schema.prisma\n2. If missing, add Organization model with:\n   - id (UUID)\n   - name (String)\n   - status (String, default 'active')\n   - createdAt, updatedAt timestamps\n3. Update User model to include organizationId foreign key\n4. Add relations to DocumentSource and DocumentChunk (to be created later)\n5. Create migration: npx prisma migrate dev --name add_organization_model\n6. Update seed.ts to create test organizations\n\nFiles to modify:\n- quikadmin/prisma/schema.prisma\n- quikadmin/prisma/seed.ts",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "subtasks": []
+    },
+    {
+      "id": "101",
+      "title": "Phase 0: Create File Validation Service",
+      "description": "Implement comprehensive file validation service with security checks for magic numbers, path traversal prevention, and malicious content detection.",
+      "details": "Critical security requirement from Security Review (VULN-002).\n\nImplement at: quikadmin/src/services/fileValidation.service.ts\n\nRequirements:\n1. Magic number validation using 'file-type' package\n2. Filename sanitization to prevent path traversal\n3. PDF validation to detect malicious JavaScript\n4. Decompression limits for zip bomb prevention\n5. File size validation (10MB max)\n\nInterface:\n```typescript\ninterface FileValidationResult {\n  isValid: boolean;\n  sanitizedFilename: string;\n  detectedMimeType: string;\n  securityFlags: string[];\n}\n```\n\nDependencies to install: npm install file-type",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "subtasks": []
+    },
+    {
+      "id": "102",
+      "title": "Phase 0: Create VectorStorageService Abstraction",
+      "description": "Create abstraction layer for pgvector operations that handles raw SQL queries with proper parameterization and mandatory organization filtering.",
+      "details": "Critical architecture requirement from Architecture Review (ARCH-001) and Security Review (VULN-005).\n\nImplement at: quikadmin/src/services/vectorStorage.service.ts\n\nRequirements:\n1. insertChunk() - Insert chunk with embedding using parameterized SQL\n2. searchSimilar() - Vector search with MANDATORY organizationId filter\n3. hybridSearch() - Combined vector + full-text search\n4. deleteChunks() - Cascade delete for source\n5. validateEmbedding() - Validate 768-dim vector format\n6. toPgVector() - Convert array to pgvector string format\n7. Set RLS context before queries\n\nSecurity:\n- ALL methods must require organizationId parameter\n- Use Prisma $queryRaw with tagged templates only\n- Never concatenate user input into SQL strings",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["100"],
+      "subtasks": []
+    },
+    {
+      "id": "103",
+      "title": "Phase 0: Implement Memory Manager",
+      "description": "Create memory management service with heap monitoring, upload slot management, and circuit breaker pattern.",
+      "details": "Critical performance requirement from Performance Review (PERF-001).\n\nImplement at: quikadmin/src/services/memoryManager.service.ts\n\nRequirements:\n1. checkMemory() - Monitor heap usage, warn at 75%, reject at 85%\n2. acquireUploadSlot() - Limit concurrent uploads to 5\n3. releaseUploadSlot() - Release slot after processing\n4. Circuit breaker with 5 failure threshold, 60s reset\n\nIntegration:\n- Use in document upload endpoints\n- Use in queue workers\n- Add metrics for monitoring",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "subtasks": []
+    },
+    {
+      "id": "104",
+      "title": "Phase 0: Set Up Audit Logging Infrastructure",
+      "description": "Create audit logging system for all vector search operations with anomaly detection capabilities.",
+      "details": "Security requirement from Security Review (VULN-003).\n\nImplement:\n1. AuditLog Prisma model\n2. auditLogger middleware at quikadmin/src/middleware/auditLogger.ts\n3. Anomaly detection for suspicious patterns\n\nAuditLog fields:\n- userId, organizationId\n- action (upload, search, delete)\n- entityType, entityId\n- metadata (JSON)\n- ipAddress, userAgent\n- timestamp\n\nAnomaly detection:\n- Flag >50 searches/minute per user\n- Flag cross-tenant access attempts\n- Alert admin on suspicious patterns",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["100"],
+      "subtasks": []
+    },
+    {
+      "id": "105",
+      "title": "Phase 0: Design Document vs DocumentSource Relationship",
+      "description": "Document and implement the relationship between existing Document model (form-filling) and new DocumentSource model (knowledge base).",
+      "details": "Architecture clarification from Review.\n\nDecision needed:\nOption A: Unify models (Document gains vector capabilities)\nOption B: Keep separate with optional link (recommended)\n\nIf Option B:\n1. DocumentSource gets optional linkedDocumentId field\n2. Allows knowledge base docs to be independent\n3. Allows linking form-fill documents to knowledge base\n\nDocument this decision in:\n- Update PRD with final decision\n- Add comments in schema.prisma\n- Update CLAUDE.md with architecture notes",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["100"],
+      "subtasks": []
+    },
+    {
+      "id": "110",
+      "title": "Phase 1: Enable pgvector Extension on Neon",
+      "description": "Enable the pgvector extension on the Neon PostgreSQL database for vector similarity search capabilities.",
+      "details": "Requirements:\n1. Connect to Neon database using psql or Prisma Studio\n2. Run: CREATE EXTENSION IF NOT EXISTS vector;\n3. Verify extension is active: SELECT * FROM pg_extension WHERE extname = 'vector';\n4. Document the extension version\n\nNote: Neon supports pgvector on all plans. No additional cost.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["100", "102"],
+      "subtasks": []
+    },
+    {
+      "id": "111",
+      "title": "Phase 1: Create Database Migration for Vector Tables",
+      "description": "Create Prisma migration for DocumentSource, DocumentChunk, and ProcessingCheckpoint tables with pgvector columns and indexes.",
+      "details": "Create migration at: quikadmin/prisma/migrations/[timestamp]_add_vector_search/\n\nTables to create:\n1. document_sources - Source document metadata\n2. document_chunks - Text chunks with vector embeddings\n3. processing_checkpoints - For recovery\n\nIndexes:\n- HNSW index on embedding column (m=32, ef_construction=128)\n- GIN index for full-text search\n- Composite indexes for common queries\n\nRow-Level Security:\n- Enable RLS on document_sources and document_chunks\n- Create org_isolation policies\n\nNote: Use raw SQL migration for vector columns since Prisma doesn't support pgvector natively.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["110"],
+      "subtasks": []
+    },
+    {
+      "id": "112",
+      "title": "Phase 1: Add Prisma Schema for Vector Models",
+      "description": "Add DocumentSource, DocumentChunk, and ProcessingCheckpoint models to Prisma schema with proper relations.",
+      "details": "Update: quikadmin/prisma/schema.prisma\n\nModels to add:\n1. DocumentSource:\n   - id, organizationId, userId\n   - title, filename, mimeType, fileSize, pageCount\n   - status, errorMessage\n   - chunkCount, processingTimeMs\n   - linkedDocumentId (optional FK to Document)\n   - timestamps, soft delete\n\n2. DocumentChunk:\n   - id, sourceId, organizationId\n   - text, tokenCount, textHash\n   - chunkIndex, pageNumber, sectionHeader\n   - embeddingModel, metadata (JSONB)\n   - Note: embedding column managed via raw SQL\n\n3. ProcessingCheckpoint:\n   - id, sourceId\n   - stage, lastCompletedChunkIndex, totalChunks\n   - extractedText, chunksJson\n   - timestamps\n\nRun: npx prisma generate after schema update",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["111"],
+      "subtasks": []
+    },
+    {
+      "id": "113",
+      "title": "Phase 1: Implement Document Extraction Service",
+      "description": "Create service for extracting text from PDF, DOCX, and TXT files with security validation integration.",
+      "details": "Implement at: quikadmin/src/services/documentExtraction.service.ts\n\nRequirements:\n1. Integrate with FileValidationService (Task 101)\n2. PDF extraction using pdf-parse\n3. DOCX extraction using mammoth\n4. Image OCR using existing Tesseract.js\n5. Text file reading with UTF-8 encoding\n6. Page-by-page processing for memory efficiency\n7. Extract metadata (pageCount, language detection)\n\nInterface:\n```typescript\ninterface ExtractionResult {\n  text: string;\n  pages: PageContent[];\n  metadata: DocumentMetadata;\n  confidence: number;\n}\n```\n\nDependencies: npm install pdf-parse mammoth",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["101"],
+      "subtasks": []
+    },
+    {
+      "id": "114",
+      "title": "Phase 1: Implement Chunking Service",
+      "description": "Create service for splitting documents into semantic chunks with configurable strategies and overlap.",
+      "details": "Implement at: quikadmin/src/services/chunking.service.ts\n\nRequirements:\n1. Hybrid chunking strategy (semantic + fixed fallback)\n2. Character-based token estimation (4 chars/token)\n3. Target: 400 tokens, max: 800 tokens, min: 100 tokens\n4. 15% overlap (60 tokens)\n5. Preserve sentence boundaries\n6. Document-type-specific configurations\n7. Attach metadata (pageNumber, sectionHeader)\n8. Text hash generation for deduplication\n\nInterface:\n```typescript\ninterface ChunkResult {\n  text: string;\n  tokenCount: number;\n  chunkIndex: number;\n  pageNumber?: number;\n  sectionHeader?: string;\n  textHash: string;\n}\n```",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["113"],
+      "subtasks": []
+    },
+    {
+      "id": "115",
+      "title": "Phase 1: Unit Tests for Foundation Services",
+      "description": "Write comprehensive unit tests for FileValidation, DocumentExtraction, and Chunking services.",
+      "details": "Test files:\n- quikadmin/src/services/__tests__/fileValidation.service.test.ts\n- quikadmin/src/services/__tests__/documentExtraction.service.test.ts\n- quikadmin/src/services/__tests__/chunking.service.test.ts\n\nTest scenarios:\n1. FileValidation:\n   - Magic number validation (PDF, DOCX, TXT)\n   - Path traversal prevention\n   - File size limits\n   - Invalid file rejection\n\n2. DocumentExtraction:\n   - PDF text extraction\n   - DOCX text extraction\n   - Metadata extraction\n   - Error handling\n\n3. Chunking:\n   - Correct chunk sizes\n   - Overlap calculation\n   - Sentence boundary preservation\n   - Edge cases (short docs, single page)\n\nRun: npm test",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["113", "114"],
+      "subtasks": []
+    },
+    {
+      "id": "120",
+      "title": "Phase 2: Implement Embedding Service",
+      "description": "Create service for generating embeddings using Google text-embedding-004 API with batch processing and rate limiting.",
+      "details": "Implement at: quikadmin/src/services/embedding.service.ts\n\nRequirements:\n1. Google Generative AI integration (@google/generative-ai)\n2. generateEmbedding(text) - Single embedding\n3. generateBatch(texts) - Batch with 3 concurrent batches\n4. Rate limiting with adaptive delays\n5. Exponential backoff retry (3 attempts)\n6. API key rotation support\n7. Per-organization daily quota tracking\n8. Embedding validation (768 dimensions)\n9. Caching with integrity validation\n\nConfig:\n- Model: text-embedding-004\n- Dimensions: 768\n- Batch size: 100\n- Max concurrent: 3\n- Daily limit: 10,000 per org\n\nDependencies: npm install @google/generative-ai",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["115"],
+      "subtasks": []
+    },
+    {
+      "id": "121",
+      "title": "Phase 2: Implement Embedding Cache Service",
+      "description": "Create Redis-based caching layer for embeddings with integrity validation and TTL management.",
+      "details": "Implement at: quikadmin/src/services/embeddingCache.service.ts\n\nRequirements:\n1. Cache query embeddings in Redis\n2. 24-hour TTL by default\n3. Cache key: SHA-256 hash of text\n4. Integrity validation on retrieval\n5. Cache statistics tracking\n6. Common query pre-warming\n\nInterface:\n```typescript\nclass EmbeddingCache {\n  async get(text: string): Promise<number[] | null>;\n  async set(text: string, embedding: number[], ttl?: number): Promise<void>;\n  async warmup(commonQueries: string[]): Promise<void>;\n  async getStats(): Promise<CacheStats>;\n}\n```\n\nIntegrate with existing Redis configuration.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["120"],
+      "subtasks": []
+    },
+    {
+      "id": "122",
+      "title": "Phase 2: Create Knowledge Processing Queue",
+      "description": "Extend existing Bull queue infrastructure with knowledge processing jobs for async document processing.",
+      "details": "Implement at: quikadmin/src/queues/knowledgeQueue.ts\n\nRequirements:\n1. Extend existing Bull queue patterns (see ocrQueue.ts)\n2. Job types: processDocument, generateEmbeddings, reprocessChunks\n3. Progress reporting via job.progress()\n4. Checkpointing for recovery\n5. Retry with exponential backoff (3 attempts)\n6. Job timeout: 10 minutes\n7. Concurrent jobs: 2 per worker\n8. Integration with MemoryManager\n\nJob data:\n```typescript\ninterface KnowledgeProcessingJob {\n  sourceId: string;\n  organizationId: string;\n  filePath: string;\n  mimeType: string;\n}\n```",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["103", "120"],
+      "subtasks": []
+    },
+    {
+      "id": "123",
+      "title": "Phase 2: Create Knowledge Processing Worker",
+      "description": "Implement Bull queue worker that processes documents through the full pipeline: extract -> chunk -> embed -> store.",
+      "details": "Implement at: quikadmin/src/workers/knowledgeProcessor.ts\n\nPipeline stages:\n1. Extract text (DocumentExtractionService)\n2. Chunk text (ChunkingService)\n3. Generate embeddings (EmbeddingService) - batched\n4. Store vectors (VectorStorageService)\n5. Update source status\n\nCheckpointing:\n- Save progress after each stage\n- Resume from last checkpoint on retry\n- Clean up checkpoints on completion\n\nMemory management:\n- Process pages incrementally for large docs\n- Allow GC between pages\n- Monitor memory usage\n\nError handling:\n- Log errors with context\n- Update source status on failure\n- Notify on repeated failures",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["122", "114", "120", "102"],
+      "subtasks": []
+    },
+    {
+      "id": "124",
+      "title": "Phase 2: Integration Tests for Processing Pipeline",
+      "description": "Write integration tests for the complete document processing pipeline with multi-tenant isolation verification.",
+      "details": "Test file: quikadmin/src/__tests__/integration/knowledgeProcessing.test.ts\n\nTest scenarios:\n1. Full pipeline test:\n   - Upload PDF -> Extract -> Chunk -> Embed -> Store\n   - Verify chunks created with correct embeddings\n   - Verify source status updated\n\n2. Multi-tenant isolation:\n   - Process doc for Org A\n   - Verify Org B cannot access chunks\n   - Test RLS policies\n\n3. Error recovery:\n   - Simulate embedding API failure\n   - Verify checkpoint saved\n   - Resume and complete\n\n4. Memory management:\n   - Process large document (50 pages)\n   - Verify no memory leaks\n   - Verify incremental processing\n\nMock: Google Embedding API",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["123"],
+      "subtasks": []
+    },
+    {
+      "id": "130",
+      "title": "Phase 3: Create Knowledge API Routes",
+      "description": "Implement REST API routes for document source management and search endpoints with proper authentication and validation.",
+      "details": "Implement at: quikadmin/src/api/knowledge.routes.ts\n\nEndpoints:\n1. POST /api/knowledge/sources/upload\n   - Multer file upload\n   - File validation\n   - Queue processing job\n   - Return sourceId for polling\n\n2. GET /api/knowledge/sources\n   - List sources for organization\n   - Pagination, filtering, sorting\n\n3. GET /api/knowledge/sources/:id\n   - Get source details with chunk count\n   - IDOR protection (check ownership)\n\n4. DELETE /api/knowledge/sources/:id\n   - Soft delete source and chunks\n   - Audit log entry\n\n5. GET /api/knowledge/sources/:id/status\n   - Processing status polling\n\nMiddleware chain:\n- authenticateSupabase\n- validateOrganization\n- rateLimiter\n- auditLogger",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["123", "104"],
+      "subtasks": []
+    },
+    {
+      "id": "131",
+      "title": "Phase 3: Implement Semantic Search Endpoint",
+      "description": "Create search API endpoint with vector similarity search, input validation, and result formatting.",
+      "details": "Endpoint: POST /api/knowledge/search\n\nRequest validation (Zod):\n- query: 3-1000 chars, safe characters only\n- topK: 1-50, default 5\n- minScore: 0-1, default 0.5\n- filters: sourceIds, dateRange, pageNumbers\n\nImplementation:\n1. Validate input with searchSchema\n2. Check rate limit (20/min)\n3. Get query embedding (check cache first)\n4. Call VectorStorageService.searchSimilar()\n5. Format results with source info\n6. Log search for analytics\n7. Return results with queryTime\n\nResponse:\n```typescript\n{\n  results: SearchResult[],\n  totalResults: number,\n  queryTime: number // ms\n}\n```",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["130", "121"],
+      "subtasks": []
+    },
+    {
+      "id": "132",
+      "title": "Phase 3: Implement Hybrid Search Endpoint",
+      "description": "Create hybrid search endpoint combining vector similarity with full-text keyword search.",
+      "details": "Endpoint: POST /api/knowledge/search/hybrid\n\nAdditional parameters:\n- hybridMode: 'vector' | 'keyword' | 'both'\n- hybridWeight: 0-1 (vector weight, default 0.7)\n\nImplementation:\n1. Generate query embedding\n2. Vector search with cosine similarity\n3. Full-text search with ts_rank\n4. Merge and re-rank results\n5. Apply hybridWeight to combine scores\n\nRanking formula:\nfinalScore = (vectorScore * weight) + (keywordScore * (1 - weight))\n\nRequires:\n- tsvector column on document_chunks\n- GIN index for full-text search\n- Merge algorithm for deduplication",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["131"],
+      "subtasks": []
+    },
+    {
+      "id": "133",
+      "title": "Phase 3: Implement Search Result Caching",
+      "description": "Add Redis caching layer for search results with intelligent cache invalidation.",
+      "details": "Implement at: quikadmin/src/services/searchCache.service.ts\n\nRequirements:\n1. Cache search results by query + org + filters\n2. TTL: 5 minutes (frequent updates expected)\n3. Invalidate on new document upload\n4. Invalidate on document deletion\n5. Cache key: SHA-256 of normalized query + filters\n\nInvalidation triggers:\n- Document processed -> invalidate org cache\n- Document deleted -> invalidate org cache\n- Chunk reprocessed -> invalidate org cache\n\nInterface:\n```typescript\nclass SearchCache {\n  async get(key: string): Promise<SearchResponse | null>;\n  async set(key: string, response: SearchResponse): Promise<void>;\n  async invalidateOrg(organizationId: string): Promise<void>;\n}\n```",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["131"],
+      "subtasks": []
+    },
+    {
+      "id": "134",
+      "title": "Phase 3: Implement Rate Limiting for Search",
+      "description": "Configure rate limiting specifically for search endpoints with per-organization limits.",
+      "details": "Update: quikadmin/src/middleware/rateLimiter.ts\n\nConfiguration:\n- search: 20 requests/minute per organization\n- suggest: 30 requests/minute per organization\n- upload: 10 requests/minute per organization\n\nImplementation:\n1. Create searchLimiter middleware\n2. Use organization ID as rate limit key\n3. Return 429 with retry-after header\n4. Log rate limit violations\n5. Alert on sustained limit hits\n\nIntegration:\n- Apply to POST /api/knowledge/search\n- Apply to POST /api/knowledge/search/hybrid\n- Apply to POST /api/knowledge/suggest",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["130"],
+      "subtasks": []
+    },
+    {
+      "id": "135",
+      "title": "Phase 3: API Tests for Search Endpoints",
+      "description": "Write comprehensive API tests for search endpoints including validation, rate limiting, and multi-tenant scenarios.",
+      "details": "Test file: quikadmin/src/__tests__/api/knowledge.routes.test.ts\n\nTest scenarios:\n1. Upload endpoint:\n   - Valid file upload queues job\n   - Invalid file type rejected\n   - File too large rejected\n   - Unauthenticated request rejected\n\n2. Search endpoint:\n   - Valid search returns results\n   - Query too short rejected\n   - Invalid characters rejected\n   - Rate limiting works\n   - Empty results handled\n\n3. Multi-tenant:\n   - Org A cannot search Org B data\n   - Org filter enforced\n\n4. Source management:\n   - List returns only user's sources\n   - Delete removes chunks\n   - IDOR protected",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["131", "132"],
+      "subtasks": []
+    },
+    {
+      "id": "140",
+      "title": "Phase 4: Implement Form Suggestion Service",
+      "description": "Create service that suggests values for form fields based on semantic search of user's knowledge base.",
+      "details": "Implement at: quikadmin/src/services/formSuggestion.service.ts\n\nRequirements:\n1. Accept form field names and context\n2. Generate semantic queries from field names\n3. Search knowledge base for relevant chunks\n4. Extract potential values from chunks\n5. Rank suggestions by confidence\n6. Return top N suggestions per field\n\nInterface:\n```typescript\ninterface SuggestRequest {\n  formId: string;\n  fieldNames: string[];\n  context?: string;\n  maxSuggestions?: number;\n}\n\ninterface FieldSuggestion {\n  fieldName: string;\n  suggestions: {\n    value: string;\n    confidence: number;\n    sourceChunkId: string;\n    sourceTitle: string;\n  }[];\n}\n```\n\nValue extraction:\n- Use regex patterns for common fields (email, phone, date)\n- Use NLP for name extraction\n- Return raw chunk text if no pattern match",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["131"],
+      "subtasks": []
+    },
+    {
+      "id": "141",
+      "title": "Phase 4: Create Suggestion API Endpoint",
+      "description": "Implement REST endpoint for form field suggestions with integration to existing form fill workflow.",
+      "details": "Endpoint: POST /api/knowledge/suggest\n\nRequest:\n```typescript\n{\n  formId: string,\n  fieldNames: ['full_name', 'email', 'phone'],\n  context: 'Passport application form',\n  maxSuggestions: 3\n}\n```\n\nResponse:\n```typescript\n{\n  suggestions: FieldSuggestion[],\n  queryTime: number\n}\n```\n\nIntegration with existing form fill:\n1. Call suggest API when form is uploaded\n2. Display suggestions in UI\n3. User can accept/reject suggestions\n4. Track suggestion acceptance rate for analytics",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["140"],
+      "subtasks": []
+    },
+    {
+      "id": "142",
+      "title": "Phase 4: Frontend - Knowledge Base UI",
+      "description": "Create frontend UI for managing document sources in the knowledge base.",
+      "details": "Implement at: quikadmin-web/src/pages/KnowledgeBase.tsx\n\nComponents:\n1. KnowledgeBasePage - Main page with source list\n2. DocumentUploader - File upload with progress\n3. SourceCard - Display source info and status\n4. SourceDetail - View chunks and metadata\n\nFeatures:\n- Drag-and-drop file upload\n- Real-time processing status\n- Source list with search/filter\n- Delete with confirmation\n- View extracted chunks\n\nRoutes:\n- /knowledge - List view\n- /knowledge/:id - Detail view\n\nIntegrate with:\n- knowledgeService.ts (new)\n- Use existing component patterns\n- Use bun as package manager",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["130"],
+      "subtasks": []
+    },
+    {
+      "id": "143",
+      "title": "Phase 4: Frontend - Search Interface",
+      "description": "Create search interface for semantic search with result display and filtering.",
+      "details": "Implement at: quikadmin-web/src/components/knowledge/SearchInterface.tsx\n\nComponents:\n1. SearchBar - Query input with suggestions\n2. SearchFilters - Source, date range filters\n3. SearchResults - Result cards with highlights\n4. SearchResultCard - Individual result display\n\nFeatures:\n- Debounced search input\n- Filter by source, date\n- Result highlighting\n- Click to view source context\n- Copy text to clipboard\n\nIntegration:\n- Add to Dashboard or dedicated search page\n- Use React Query for caching\n- Show loading states",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["142"],
+      "subtasks": []
+    },
+    {
+      "id": "144",
+      "title": "Phase 4: Frontend - Form Fill Suggestions",
+      "description": "Integrate knowledge base suggestions into the form fill workflow UI.",
+      "details": "Update: quikadmin-web/src/pages/SimpleFillForm.tsx (or equivalent)\n\nFeatures:\n1. Show suggestions badge on form fields\n2. Click badge to see suggestions\n3. Display confidence score\n4. Show source document reference\n5. Accept/reject suggestion\n6. Track suggestion usage\n\nUI Pattern:\n- Small lightbulb icon on fields with suggestions\n- Popover with suggestion list\n- Click to auto-fill field\n- Link to source document\n\nIntegrate with:\n- Existing form fill logic\n- ProfileSelector (existing)\n- Use suggestions as secondary source after profile data",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["141", "143"],
+      "subtasks": []
+    },
+    {
+      "id": "145",
+      "title": "Phase 4: Frontend Tests",
+      "description": "Write component tests for Knowledge Base UI, Search Interface, and Form Fill Suggestions.",
+      "details": "Test files:\n- quikadmin-web/src/__tests__/pages/KnowledgeBase.test.tsx\n- quikadmin-web/src/__tests__/components/SearchInterface.test.tsx\n- quikadmin-web/src/__tests__/components/SuggestionPopover.test.tsx\n\nTest scenarios:\n1. KnowledgeBase:\n   - Renders source list\n   - Upload triggers API call\n   - Delete shows confirmation\n   - Status updates in real-time\n\n2. SearchInterface:\n   - Search triggers API on debounce\n   - Results render correctly\n   - Filters work\n   - Empty state handled\n\n3. Suggestions:\n   - Suggestions display on hover\n   - Click fills field\n   - Confidence shown correctly\n\nRun: bun run test",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["142", "143", "144"],
+      "subtasks": []
+    },
+    {
+      "id": "150",
+      "title": "Phase 5: Security Penetration Testing",
+      "description": "Conduct security testing focused on multi-tenant isolation, IDOR vulnerabilities, and SQL injection in vector queries.",
+      "details": "Testing areas:\n\n1. Multi-tenant isolation:\n   - Try to access Org B data from Org A\n   - Test RLS policy bypass attempts\n   - Test organization_id parameter manipulation\n\n2. IDOR testing:\n   - Enumerate source IDs\n   - Try to access deleted sources\n   - Test chunk ID access\n\n3. SQL injection:\n   - Test query parameter injection\n   - Test filter parameter injection\n   - Test embedding array injection\n\n4. File upload:\n   - Test path traversal\n   - Test malicious PDF\n   - Test oversized files\n\n5. Rate limiting:\n   - Test bypass attempts\n   - Test distributed attacks\n\nDocument all findings and remediation.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["135", "145"],
+      "subtasks": []
+    },
+    {
+      "id": "151",
+      "title": "Phase 5: Load Testing",
+      "description": "Conduct performance testing with 100K+ vectors to verify search latency and system stability.",
+      "details": "Testing scenarios:\n\n1. Data setup:\n   - Seed database with 100K chunks\n   - Multiple organizations with varying sizes\n\n2. Search performance:\n   - Measure p50, p95, p99 latency\n   - Target: <100ms p95\n   - Test with concurrent users (10, 50, 100)\n\n3. Upload performance:\n   - Test concurrent uploads (5 simultaneous)\n   - Measure processing time per page\n   - Target: <30s/page\n\n4. Memory testing:\n   - Process 50-page PDF\n   - Monitor memory usage\n   - Verify no memory leaks\n\n5. Database performance:\n   - Monitor connection pool\n   - Check for slow queries\n   - Verify index usage\n\nTools: k6, Artillery, or custom scripts",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": ["150"],
+      "subtasks": []
+    },
+    {
+      "id": "152",
+      "title": "Phase 5: Performance Optimization",
+      "description": "Implement performance optimizations based on load testing results.",
+      "details": "Potential optimizations:\n\n1. Index tuning:\n   - Adjust HNSW m and ef_construction based on benchmarks\n   - Add covering indexes for common queries\n\n2. Query optimization:\n   - Add query plan analysis\n   - Optimize JOIN operations\n   - Consider materialized views\n\n3. Caching improvements:\n   - Increase cache hit rate\n   - Add query result caching\n   - Pre-warm common queries\n\n4. Batch processing:\n   - Optimize batch sizes\n   - Add parallel processing where possible\n\n5. Memory optimization:\n   - Reduce chunk memory footprint\n   - Implement streaming for large docs\n\nDocument all optimizations with before/after metrics.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["151"],
+      "subtasks": []
+    },
+    {
+      "id": "153",
+      "title": "Phase 5: Implement Anomaly Detection",
+      "description": "Add anomaly detection for suspicious search patterns and potential data exfiltration attempts.",
+      "details": "Implement at: quikadmin/src/services/anomalyDetection.service.ts\n\nDetection rules:\n1. High search frequency (>50/min per user)\n2. Unusual query patterns\n3. Cross-tenant access attempts\n4. Large result set downloads\n5. Sequential ID enumeration\n\nActions:\n- Log suspicious activity\n- Alert admin via email/Slack\n- Temporarily throttle user\n- Block on severe violations\n\nIntegration:\n- Call from auditLogger middleware\n- Store metrics in Redis for speed\n- Batch process for analytics",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["104", "150"],
+      "subtasks": []
+    },
+    {
+      "id": "154",
+      "title": "Phase 5: Monitoring & Alerting Setup",
+      "description": "Set up monitoring dashboards and alerting for vector search health metrics.",
+      "details": "Metrics to track:\n1. Processing metrics:\n   - documents.uploaded (counter)\n   - documents.processed (counter)\n   - documents.failed (counter)\n   - processing.duration (histogram)\n\n2. Search metrics:\n   - search.queries (counter)\n   - search.latency (histogram)\n   - search.results.count (histogram)\n\n3. Embedding metrics:\n   - embeddings.generated (counter)\n   - embeddings.api.latency (histogram)\n   - embeddings.api.errors (counter)\n\nAlerts:\n- Processing failure rate >5%\n- Search latency p95 >500ms\n- Embedding API error rate >1%\n- Storage usage >80%\n\nImplement using existing logging infrastructure or add Prometheus/Grafana.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": ["151"],
+      "subtasks": []
+    },
+    {
+      "id": "155",
+      "title": "Phase 5: Documentation & Runbooks",
+      "description": "Create comprehensive documentation for the vector search feature including API docs, architecture diagrams, and operational runbooks.",
+      "details": "Documentation to create:\n\n1. API Documentation:\n   - OpenAPI/Swagger spec for all endpoints\n   - Request/response examples\n   - Error codes and handling\n\n2. Architecture Documentation:\n   - System architecture diagram\n   - Data flow diagram\n   - Database schema documentation\n\n3. Operational Runbooks:\n   - How to monitor system health\n   - How to handle embedding API failures\n   - How to reprocess failed documents\n   - How to investigate multi-tenant issues\n   - How to rotate API keys\n\n4. Developer Guide:\n   - Local development setup\n   - Testing guide\n   - Deployment checklist\n\nLocations:\n- docs/reference/api/knowledge-endpoints.md\n- docs/explanation/vector-search-architecture.md\n- docs/how-to/vector-search-operations.md",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": ["152", "153", "154"],
+      "subtasks": []
+    }
+  ]
+}

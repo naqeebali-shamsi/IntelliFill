@@ -1,34 +1,35 @@
-# Test-specific Dockerfile
-FROM node:18-alpine AS test
+# syntax=docker/dockerfile:1.4
+# IntelliFill Backend Test Dockerfile
+# Optimized for fast test runs with BuildKit caching
+
+FROM node:20-alpine AS test
 
 # Install system dependencies
-RUN apk add --no-cache python3 make g++ curl bash
+RUN apk add --no-cache python3 make g++ curl bash cairo-dev jpeg-dev pango-dev giflib-dev
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files first for better caching
+COPY package.json package-lock.json ./
+
+# Install all dependencies with cache mount
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --ignore-scripts
+
+# Copy Prisma schema and generate client
 COPY prisma ./prisma/
-
-# Install dependencies
-RUN npm ci --only=production && \
-    npm install --save-dev \
-    @types/jest \
-    jest \
-    ts-jest \
-    supertest \
-    @types/supertest
-
-# Generate Prisma client
 RUN npx prisma generate
 
-# Copy application code
-COPY tsconfig.json ./
-COPY src ./src/
-# Copy tests if they exist, otherwise create empty dir
-COPY tests* ./tests/
+# Copy config files
+COPY tsconfig.json jest.config.js* ./
 
-# Build application
+# Copy source code
+COPY src ./src/
+
+# Copy tests
+COPY tests ./tests/
+
+# Build application (optional for tests, but validates TypeScript)
 RUN npm run build || true
 
 # Health check

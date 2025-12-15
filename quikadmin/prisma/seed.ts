@@ -1,15 +1,52 @@
 import { PrismaClient } from '@prisma/client';
 import { encryptJSON } from '../src/utils/encryption';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Starting database seeding...');
 
+  // ============================================================================
+  // ORGANIZATIONS - Required for multi-tenancy and Vector Search
+  // ============================================================================
+
+  // Create default organization for existing users
+  const defaultOrg = await prisma.organization.upsert({
+    where: { id: 'default-organization' },
+    update: {},
+    create: {
+      id: 'default-organization',
+      name: 'Default Organization',
+      status: 'ACTIVE'
+    }
+  });
+
+  console.log('Default organization created:', defaultOrg.id);
+
+  // Create test organization for development/testing
+  const testOrg = await prisma.organization.upsert({
+    where: { id: 'test-organization' },
+    update: {},
+    create: {
+      id: 'test-organization',
+      name: 'Test Organization',
+      status: 'ACTIVE'
+    }
+  });
+
+  console.log('Test organization created:', testOrg.id);
+
+  // ============================================================================
+  // USERS
+  // ============================================================================
+
   // Create a system user for public templates
   const systemUser = await prisma.user.upsert({
     where: { email: 'system@intellifill.app' },
-    update: {},
+    update: {
+      organizationId: defaultOrg.id
+    },
     create: {
       email: 'system@intellifill.app',
       password: 'system-generated-password-not-used',
@@ -17,11 +54,81 @@ async function main() {
       lastName: 'System',
       role: 'ADMIN',
       isActive: true,
-      emailVerified: true
+      emailVerified: true,
+      organizationId: defaultOrg.id
     }
   });
 
   console.log('System user created:', systemUser.id);
+
+  // Create demo user for testing
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+  const demoUser = await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {
+      password: hashedPassword,
+      isActive: true,
+      emailVerified: true,
+      organizationId: defaultOrg.id
+    },
+    create: {
+      email: 'admin@example.com',
+      password: hashedPassword,
+      firstName: 'Demo',
+      lastName: 'Admin',
+      role: 'ADMIN',
+      isActive: true,
+      emailVerified: true,
+      organizationId: defaultOrg.id
+    }
+  });
+
+  console.log('Demo user created:', demoUser.email, '(password: admin123)');
+
+  // Create E2E test users (for docker-compose.e2e.yml)
+  const testPassword = await bcrypt.hash('Test123!@#', 10);
+  const testUser = await prisma.user.upsert({
+    where: { email: 'test@intellifill.local' },
+    update: {
+      password: testPassword,
+      isActive: true,
+      emailVerified: true,
+      organizationId: testOrg.id
+    },
+    create: {
+      email: 'test@intellifill.local',
+      password: testPassword,
+      firstName: 'Test',
+      lastName: 'User',
+      role: 'USER',
+      isActive: true,
+      emailVerified: true,
+      organizationId: testOrg.id
+    }
+  });
+  console.log('Test user created:', testUser.email, '(password: Test123!@#)');
+
+  const adminPassword = await bcrypt.hash('Admin123!@#', 10);
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@intellifill.local' },
+    update: {
+      password: adminPassword,
+      isActive: true,
+      emailVerified: true,
+      organizationId: testOrg.id
+    },
+    create: {
+      email: 'admin@intellifill.local',
+      password: adminPassword,
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'ADMIN',
+      isActive: true,
+      emailVerified: true,
+      organizationId: testOrg.id
+    }
+  });
+  console.log('Admin user created:', adminUser.email, '(password: Admin123!@#)');
 
   // Define pre-loaded templates
   const templates = [

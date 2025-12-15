@@ -1,0 +1,43 @@
+{
+  "name": "intellifill-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "IntelliFill - Intelligent document processing and form automation platform",
+  "workspaces": [
+    "quikadmin",
+    "quikadmin-web"
+  ],
+  "scripts": {
+    "dev": "start-dev.bat",
+    "prepare": "husky",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd quikadmin && npm run lint",
+    "lint:frontend": "cd quikadmin-web && bun run lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "typecheck:backend": "cd quikadmin && npm run typecheck",
+    "typecheck:frontend": "cd quikadmin-web && bun run typecheck"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.1",
+    "prettier": "^3.4.2"
+  },
+  "lint-staged": {
+    "quikadmin/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix --max-warnings=0"
+    ],
+    "quikadmin-web/**/*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix --max-warnings=0"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

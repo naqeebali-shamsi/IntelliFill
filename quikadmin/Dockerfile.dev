@@ -1,21 +1,41 @@
-FROM node:18-alpine
+# syntax=docker/dockerfile:1.4
+# IntelliFill Backend Development Dockerfile
+# Optimized for fast rebuilds with BuildKit caching
 
-# Install build tools for native dependencies
+FROM node:20-alpine
+
+# Install build tools for native dependencies (sharp, tensorflow, etc.)
 RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Create non-root user for security
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
 
-# Install all dependencies (including devDependencies)
-RUN npm ci
+# Copy package files first (changes less frequently = better caching)
+COPY --chown=appuser:appgroup package.json package-lock.json ./
 
-# Copy TypeScript config
-COPY tsconfig.json ./
-COPY nodemon.json ./
+# Install dependencies with BuildKit cache mount
+# Cache npm downloads and node_modules across builds
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --ignore-scripts && \
+    npm cache clean --force
 
-# The source code will be mounted as volume, so we don't copy it here
+# Copy config files (changes occasionally)
+COPY --chown=appuser:appgroup tsconfig.json nodemon.json ./
+
+# Copy Prisma schema (needed for generate)
+COPY --chown=appuser:appgroup prisma/schema.prisma ./prisma/
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Create directories for mounted volumes
+RUN mkdir -p src uploads outputs logs && chown -R appuser:appgroup .
+
+# Switch to non-root user
+USER appuser
 
 # Expose app port and debug port
 EXPOSE 3002 9229

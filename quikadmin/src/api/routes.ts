@@ -14,6 +14,7 @@ import { createClientRoutes } from './clients.routes';
 import { createClientDocumentRoutes } from './client-documents.routes';
 import { createFormTemplateRoutes } from './form-template.routes';
 import { createFilledFormRoutes } from './filled-forms.routes';
+import { createKnowledgeRoutes } from './knowledge.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
@@ -101,6 +102,7 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   // Setup filled forms routes (Task 11 - Form Generation)
   const filledFormRoutes = createFilledFormRoutes();
   app.use('/api/filled-forms', filledFormRoutes);
+// Setup knowledge base routes (Vector Search - Phase 3)  // Mounted at /api/knowledge for vector search and document source management  const knowledgeRoutes = createKnowledgeRoutes();  app.use('/api/knowledge', knowledgeRoutes);
 
   // Health check
   router.get('/health', (req: Request, res: Response) => {

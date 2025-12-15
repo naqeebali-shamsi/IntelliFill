@@ -1,11 +1,19 @@
 # IntelliFill - Full Stack Docker Compose
+# Optimized for fast builds and developer experience
 #
 # Usage:
-#   Start all services:     docker-compose up
-#   Start in background:    docker-compose up -d
-#   View logs:              docker-compose logs -f
-#   Stop all:               docker-compose down
-#   Rebuild:                docker-compose up --build
+#   1. Copy .env.docker.example to .env.docker and fill in values
+#   2. Start all services:        docker-compose --env-file .env.docker up
+#   3. Start infrastructure only: docker-compose --env-file .env.docker --profile infra up
+#   4. Start in background:       docker-compose --env-file .env.docker up -d
+#   5. View logs:                 docker-compose logs -f
+#   6. Stop all:                  docker-compose down
+#   7. Rebuild single service:    docker-compose --env-file .env.docker up --build backend
+#   8. Rebuild all:               docker-compose --env-file .env.docker build
+#
+# Profiles:
+#   - infra: postgres + redis only (for local node dev)
+#   - full:  all services (default when no profile specified)
 #
 # Services:
 #   - postgres:  PostgreSQL database (port 5432)
@@ -18,26 +26,29 @@ services:
   postgres:
     image: postgres:15-alpine
     restart: unless-stopped
+    profiles: ["infra", "full"]
     environment:
-      POSTGRES_DB: intellifill
-      POSTGRES_USER: intellifill
-      POSTGRES_PASSWORD: intellifill123
+      POSTGRES_DB: ${POSTGRES_DB:-intellifill}
+      POSTGRES_USER: ${POSTGRES_USER:-intellifill}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - intellifill
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U intellifill"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-intellifill}"]
+      interval: 5s
+      timeout: 3s
       retries: 5
+      start_period: 5s
 
   # ==================== Cache/Queue ====================
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    profiles: ["infra", "full"]
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
@@ -47,38 +58,50 @@ services:
       - intellifill
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
+      start_period: 3s
 
   # ==================== Backend API ====================
   backend:
     build:
       context: ./quikadmin
       dockerfile: Dockerfile.dev
+      # Enable BuildKit inline cache for faster rebuilds
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache/backend
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache/backend,mode=max
+    profiles: ["full"]
     restart: unless-stopped
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3002
-      DATABASE_URL: postgresql://intellifill:intellifill123@postgres:5432/intellifill
-      DIRECT_URL: postgresql://intellifill:intellifill123@postgres:5432/intellifill
+      DATABASE_URL: postgresql://${POSTGRES_USER:-intellifill}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-intellifill}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-intellifill}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-intellifill}
       REDIS_URL: redis://redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
-      LOG_LEVEL: debug
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
     volumes:
+      # Source code (hot-reload)
       - ./quikadmin/src:/app/src
       - ./quikadmin/prisma:/app/prisma
+      # Persistent volumes
       - ./quikadmin/uploads:/app/uploads
       - ./quikadmin/outputs:/app/outputs
       - ./quikadmin/logs:/app/logs
+      # Named volume for node_modules (prevents overwrites from bind mounts)
+      - backend_node_modules:/app/node_modules
     ports:
-      - "3002:3002"
+      - "${BACKEND_PORT:-3002}:3002"
+      - "9229:9229"  # Debug port
     networks:
       - intellifill
     depends_on:
@@ -86,23 +109,51 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # ==================== Frontend ====================
   frontend:
     build:
       context: ./quikadmin-web
       dockerfile: Dockerfile.dev
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache/frontend
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache/frontend,mode=max
+    profiles: ["full"]
     restart: unless-stopped
     environment:
-      NODE_ENV: development
-      VITE_API_URL: http://localhost:3002/api
-      VITE_USE_BACKEND_AUTH: "true"
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3002/api}
+      VITE_USE_BACKEND_AUTH: ${VITE_USE_BACKEND_AUTH:-true}
+      VITE_SUPABASE_URL: ${SUPABASE_URL:-}
+      VITE_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      # For hot reload on Windows
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      # Source code (hot-reload)
+      - ./quikadmin-web/src:/app/src
+      - ./quikadmin-web/public:/app/public
+      # Named volume for node_modules
+      - frontend_node_modules:/app/node_modules
     ports:
-      - "8080:8080"
+      - "${FRONTEND_PORT:-8080}:8080"
     networks:
       - intellifill
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 networks:
   intellifill:
@@ -111,3 +162,6 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  # Named volumes for node_modules - persists across rebuilds
+  backend_node_modules:
+  frontend_node_modules:

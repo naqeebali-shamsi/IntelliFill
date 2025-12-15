@@ -1,0 +1,16 @@
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+The quick brown fox jumps over the lazy dog. This is a sample document for testing text extraction and chunking functionality. It contains multiple paragraphs with varying content to simulate real-world document processing scenarios.
+
+IntelliFill is an intelligent PDF form automation platform that uses OCR, AI, and machine learning to automatically extract data from documents and fill PDF forms. This sample text helps verify that the chunking service can properly segment documents into meaningful chunks while preserving context and sentence boundaries.
+
+Key features being tested:
+1. Sentence boundary detection
+2. Paragraph preservation
+3. Token estimation
+4. Chunk overlap handling
+5. Metadata extraction
+
+This document should be small enough to process quickly but contain enough variety to test different chunking scenarios effectively.

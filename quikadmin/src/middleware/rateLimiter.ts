@@ -130,7 +130,7 @@ const store = new RedisStore(redisClient);
 // Standard API rate limiter
 export const standardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // Higher limit for dev
+  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 10000 : 100, // Higher limit for dev/test
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
@@ -147,7 +147,7 @@ export const standardLimiter = rateLimit({
 // Strict auth rate limiter for login attempts
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 100 : 5, // Higher limit for dev
+  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 1000 : 5, // Higher limit for dev/test
   message: 'Too many authentication attempts, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
@@ -188,5 +188,89 @@ export const uploadLimiter = rateLimit({
 process.on('SIGTERM', async () => {
   if (redisClient && redisConnected) {
     await redisClient.quit();
+  }
+});
+// ============================================================================
+// Knowledge Base Rate Limiters (Task #134)
+// Organization-scoped rate limiting for vector search endpoints
+// ============================================================================
+
+/**
+ * Knowledge search rate limiter
+ * 20 requests per minute per organization
+ */
+export const knowledgeSearchLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 200 : 20,
+  message: {
+    error: 'Search rate limit exceeded',
+    message: 'Too many search requests. Please wait before trying again.',
+    retryAfter: 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('knowledge:search:' + key),
+    decrement: async (key: string) => store.decrement('knowledge:search:' + key),
+    resetKey: async (key: string) => store.resetKey('knowledge:search:' + key)
+  } as any,
+  keyGenerator: (req: Request) => {
+    // Use organization ID for rate limiting (extracted by middleware)
+    const organizationId = (req as any).organizationId;
+    const userId = (req as any).user?.id;
+    // Fall back to user ID + IP if org not available
+    return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
+  }
+});
+
+/**
+ * Knowledge suggest rate limiter
+ * 30 requests per minute per organization (higher for autocomplete)
+ */
+export const knowledgeSuggestLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 300 : 30,
+  message: {
+    error: 'Suggestion rate limit exceeded',
+    message: 'Too many suggestion requests. Please wait before trying again.',
+    retryAfter: 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('knowledge:suggest:' + key),
+    decrement: async (key: string) => store.decrement('knowledge:suggest:' + key),
+    resetKey: async (key: string) => store.resetKey('knowledge:suggest:' + key)
+  } as any,
+  keyGenerator: (req: Request) => {
+    const organizationId = (req as any).organizationId;
+    const userId = (req as any).user?.id;
+    return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
+  }
+});
+
+/**
+ * Knowledge upload rate limiter
+ * 10 uploads per minute per organization
+ */
+export const knowledgeUploadLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 100 : 10,
+  message: {
+    error: 'Upload rate limit exceeded',
+    message: 'Too many document uploads. Please wait before uploading more.',
+    retryAfter: 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('knowledge:upload:' + key),
+    decrement: async (key: string) => store.decrement('knowledge:upload:' + key),
+    resetKey: async (key: string) => store.resetKey('knowledge:upload:' + key)
+  } as any,
+  keyGenerator: (req: Request) => {
+    const organizationId = (req as any).organizationId;
+    const userId = (req as any).user?.id;
+    return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
   }
 });

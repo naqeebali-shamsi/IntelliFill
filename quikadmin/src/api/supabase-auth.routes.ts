@@ -20,10 +20,17 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { supabaseAdmin, supabase } from '../utils/supabase';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+
+// Test mode configuration
+const isTestMode = process.env.NODE_ENV === 'test';
+const JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test_jwt_refresh_secret_for_e2e_testing_environment_must_be_64_chars_minimum';
 
 /**
  * Request interfaces
@@ -72,7 +79,7 @@ export interface VerifyResetTokenRequest {
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' ? 100 : 5,
+  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 1000 : 5,
   message: {
     error: 'Too many authentication attempts. Please try again later.',
     retryAfter: '15 minutes'
@@ -90,7 +97,7 @@ const authLimiter = rateLimit({
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // max 3 registrations per hour
+  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 100 : 3, // Higher limit for dev/test
   message: {
     error: 'Too many registration attempts. Please try again later.',
     retryAfter: '1 hour'
@@ -357,9 +364,111 @@ export function createSupabaseAuthRoutes(): Router {
         });
       }
 
-      // ===== Authenticate with Supabase =====
+      logger.info(`Login attempt for user: ${email} (test mode: ${isTestMode})`);
 
-      logger.info(`Login attempt for user: ${email}`);
+      // ===== TEST MODE: Authenticate with Prisma/bcrypt =====
+      // In test mode (E2E tests), we authenticate directly against Prisma
+      // since Supabase Auth is not available in the Docker test environment
+      if (isTestMode) {
+        logger.info(`[TEST MODE] Authenticating ${email} via Prisma/bcrypt`);
+
+        // Find user in Prisma
+        const user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+          select: {
+            id: true,
+            email: true,
+            password: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+            emailVerified: true,
+            createdAt: true,
+            lastLogin: true
+          }
+        });
+
+        if (!user) {
+          logger.warn(`[TEST MODE] User not found: ${email}`);
+          return res.status(401).json({
+            error: 'Invalid email or password'
+          });
+        }
+
+        // Verify password with bcrypt
+        const passwordValid = await bcrypt.compare(password, user.password);
+        if (!passwordValid) {
+          logger.warn(`[TEST MODE] Invalid password for user: ${email}`);
+          return res.status(401).json({
+            error: 'Invalid email or password'
+          });
+        }
+
+        // Check if account is active
+        if (!user.isActive) {
+          logger.warn(`[TEST MODE] Inactive user attempted login: ${email}`);
+          return res.status(403).json({
+            error: 'Account is deactivated. Please contact support.',
+            code: 'ACCOUNT_DEACTIVATED'
+          });
+        }
+
+        // Generate test JWT tokens
+        const accessToken = jwt.sign(
+          {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+            aud: 'authenticated',
+            iss: 'test-mode'
+          },
+          JWT_SECRET,
+          { expiresIn: '1h' }
+        );
+
+        const refreshToken = jwt.sign(
+          {
+            sub: user.id,
+            type: 'refresh'
+          },
+          JWT_REFRESH_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        // Update last login
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLogin: new Date() }
+        });
+
+        logger.info(`[TEST MODE] User logged in successfully: ${email}`);
+
+        return res.json({
+          success: true,
+          message: 'Login successful',
+          data: {
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role.toLowerCase(),
+              emailVerified: user.emailVerified,
+              lastLogin: user.lastLogin,
+              createdAt: user.createdAt
+            },
+            tokens: {
+              accessToken,
+              refreshToken,
+              expiresIn: 3600,
+              tokenType: 'Bearer'
+            }
+          }
+        });
+      }
+
+      // ===== PRODUCTION MODE: Authenticate with Supabase =====
 
       const { data: sessionData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase(),

@@ -1,0 +1,32 @@
+{
+  "name": "intellifill-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for IntelliFill using Playwright",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:chrome": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:parallel": "playwright test --workers=4",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen",
+    "docker:build": "docker-compose -f ../docker-compose.e2e.yml build",
+    "docker:test": "docker-compose -f ../docker-compose.e2e.yml up --build --abort-on-container-exit",
+    "docker:clean": "docker-compose -f ../docker-compose.e2e.yml down -v"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.40.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

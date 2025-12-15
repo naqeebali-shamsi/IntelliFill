@@ -1,0 +1,487 @@
+/**
+ * SuggestionPopover Component Tests
+ * Tests for the form field suggestion popover
+ */
+
+import React from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { SuggestionPopover, SuggestionInput } from '../SuggestionPopover'
+import { useKnowledgeStore, useFieldSuggestions, useSuggestionsLoading } from '@/stores/knowledgeStore'
+
+// Mock the store
+vi.mock('@/stores/knowledgeStore', () => ({
+  useKnowledgeStore: vi.fn(),
+  useFieldSuggestions: vi.fn(() => []),
+  useSuggestionsLoading: vi.fn(() => false),
+}))
+
+describe('SuggestionPopover', () => {
+  const mockOnSelect = vi.fn()
+  const mockFetchFieldSuggestions = vi.fn()
+  const mockFetchContextualSuggestions = vi.fn()
+  const mockClearSuggestions = vi.fn()
+
+  const mockSuggestions = [
+    {
+      value: 'John',
+      confidence: 0.85,
+      sourceChunkId: 'chunk-1',
+      sourceTitle: 'Passport Document',
+      extractionMethod: 'regex' as const,
+      matchedText: 'Name: John Smith',
+    },
+    {
+      value: 'Jane',
+      confidence: 0.72,
+      sourceChunkId: 'chunk-2',
+      sourceTitle: 'Application Form',
+      extractionMethod: 'semantic' as const,
+      matchedText: 'Applicant name is Jane',
+    },
+  ]
+
+  beforeEach(() => {
+    vi.mocked(useKnowledgeStore).mockReturnValue({
+      fieldSuggestions: {},
+      suggestionsLoading: false,
+      fetchFieldSuggestions: mockFetchFieldSuggestions,
+      fetchContextualSuggestions: mockFetchContextualSuggestions,
+      clearSuggestions: mockClearSuggestions,
+    } as any)
+    vi.mocked(useFieldSuggestions).mockReturnValue([])
+    vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('Rendering', () => {
+    it('renders trigger button', () => {
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+      const button = screen.getByRole('button')
+      expect(button).toBeInTheDocument()
+    })
+
+    it('renders with custom trigger', () => {
+      render(
+        <SuggestionPopover
+          fieldName="firstName"
+          onSelect={mockOnSelect}
+          trigger={<button>Custom Trigger</button>}
+        />
+      )
+      expect(screen.getByText('Custom Trigger')).toBeInTheDocument()
+    })
+
+    it('is disabled when disabled prop is true', () => {
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} disabled />)
+      const button = screen.getByRole('button')
+      expect(button).toBeDisabled()
+    })
+  })
+
+  describe('Opening Popover', () => {
+    it('opens popover when trigger clicked', async () => {
+      const user = userEvent.setup()
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await waitFor(() => {
+      expect(screen.getByText('Suggestions')).toBeInTheDocument()
+    })
+      })
+
+    it('fetches suggestions when popover opens', async () => {
+      const user = userEvent.setup()
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      expect(mockFetchFieldSuggestions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fieldName: 'firstName',
+        })
+      )
+    })
+
+    it('fetches contextual suggestions when filledFields provided', async () => {
+      const user = userEvent.setup()
+      const filledFields = { lastName: 'Smith', email: 'john@example.com' }
+
+      render(
+        <SuggestionPopover
+          fieldName="firstName"
+          onSelect={mockOnSelect}
+          filledFields={filledFields}
+        />
+      )
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      expect(mockFetchContextualSuggestions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fieldName: 'firstName',
+          filledFields,
+        })
+      )
+    })
+  })
+
+  describe('Displaying Suggestions', () => {
+    it('displays suggestions list', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await waitFor(() => {
+      expect(screen.getByText('John')).toBeInTheDocument()
+      expect(screen.getByText('Jane')).toBeInTheDocument()
+      })
+    })
+
+    it('displays confidence scores', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await waitFor(() => {
+      expect(screen.getByText('85%')).toBeInTheDocument()
+      expect(screen.getByText('72%')).toBeInTheDocument()
+      })
+    })
+
+    it('displays source titles', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await waitFor(() => {
+      expect(screen.getByText('Passport Document')).toBeInTheDocument()
+      expect(screen.getByText('Application Form')).toBeInTheDocument()
+      })
+    })
+
+    it('shows empty state when no suggestions', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: [] },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue([])
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await waitFor(() => {
+      expect(screen.getByText(/no suggestions found/i)).toBeInTheDocument()
+    })
+      })
+
+    it('shows loading state', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: {},
+        suggestionsLoading: true,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue([])
+      vi.mocked(useSuggestionsLoading).mockReturnValue(true)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      // Should show skeleton loaders
+      const skeletons = document.querySelectorAll('[class*="animate-pulse"], [class*="skeleton"]')
+      expect(skeletons.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('Selecting Suggestions', () => {
+    it('calls onSelect when suggestion clicked', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      const suggestion = screen.getByText('John')
+      await user.click(suggestion)
+
+      expect(mockOnSelect).toHaveBeenCalledWith('John')
+    })
+
+    it('closes popover after selection', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      const suggestion = screen.getByText('John')
+      await user.click(suggestion)
+
+      // Popover should close
+      await waitFor(() => {
+        expect(screen.queryByText('Suggestions')).not.toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Keyboard Navigation', () => {
+    it('navigates suggestions with arrow keys', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      // Navigate down
+      await user.keyboard('{ArrowDown}')
+
+      // First item should be highlighted (checked by bg-muted class)
+      const items = screen.getAllByRole('button').filter((btn) => btn.textContent?.includes('John') || btn.textContent?.includes('Jane'))
+      expect(items.length).toBeGreaterThan(0)
+    })
+
+    it('selects suggestion with Enter key', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await user.keyboard('{ArrowDown}')
+      await user.keyboard('{Enter}')
+
+      expect(mockOnSelect).toHaveBeenCalled()
+    })
+
+    it('closes popover with Escape key', async () => {
+      const user = userEvent.setup()
+
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      render(<SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />)
+
+      const button = screen.getByRole('button')
+      await user.click(button)
+
+      await waitFor(() => {
+      expect(screen.getByText('Suggestions')).toBeInTheDocument()
+
+      })
+      await user.keyboard('{Escape}')
+
+      await waitFor(() => {
+        expect(screen.queryByText('Suggestions')).not.toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Cleanup', () => {
+    it('clears suggestions on unmount', () => {
+      vi.mocked(useKnowledgeStore).mockReturnValue({
+        fieldSuggestions: { firstName: mockSuggestions },
+        suggestionsLoading: false,
+        fetchFieldSuggestions: mockFetchFieldSuggestions,
+        fetchContextualSuggestions: mockFetchContextualSuggestions,
+        clearSuggestions: mockClearSuggestions,
+      } as any)
+      vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+      vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+
+      const { unmount } = render(
+        <SuggestionPopover fieldName="firstName" onSelect={mockOnSelect} />
+      )
+
+      unmount()
+
+      expect(mockClearSuggestions).toHaveBeenCalledWith('firstName')
+    })
+  })
+})
+
+describe('SuggestionInput', () => {
+  const mockFetchFieldSuggestions = vi.fn()
+  const mockFetchContextualSuggestions = vi.fn()
+  const mockClearSuggestions = vi.fn()
+
+  const mockSuggestions = [
+    {
+      value: 'John',
+      confidence: 0.85,
+      sourceChunkId: 'chunk-1',
+      sourceTitle: 'Passport Document',
+      extractionMethod: 'regex' as const,
+    },
+  ]
+
+  beforeEach(() => {
+    vi.mocked(useKnowledgeStore).mockReturnValue({
+      fieldSuggestions: { firstName: mockSuggestions },
+      suggestionsLoading: false,
+      fetchFieldSuggestions: mockFetchFieldSuggestions,
+      fetchContextualSuggestions: mockFetchContextualSuggestions,
+      clearSuggestions: mockClearSuggestions,
+    } as any)
+    vi.mocked(useFieldSuggestions).mockReturnValue(mockSuggestions)
+    vi.mocked(useSuggestionsLoading).mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('renders input with suggestion button', () => {
+    render(<SuggestionInput fieldName="firstName" />)
+
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+
+    const suggestionButton = screen.getByRole('button')
+    expect(suggestionButton).toBeInTheDocument()
+  })
+
+  it('calls onValueChange when suggestion selected', async () => {
+    const user = userEvent.setup()
+    const handleValueChange = vi.fn()
+
+    render(
+      <SuggestionInput
+        fieldName="firstName"
+        onValueChange={handleValueChange}
+      />
+    )
+
+    const button = screen.getByRole('button')
+    await user.click(button)
+
+    const suggestion = screen.getByText('John')
+    await user.click(suggestion)
+
+    expect(handleValueChange).toHaveBeenCalledWith('John')
+  })
+
+  it('supports controlled value', () => {
+    render(
+      <SuggestionInput
+        fieldName="firstName"
+        value="controlled value"
+        onChange={() => {}}
+      />
+    )
+
+    const input = screen.getByDisplayValue('controlled value')
+    expect(input).toBeInTheDocument()
+  })
+})

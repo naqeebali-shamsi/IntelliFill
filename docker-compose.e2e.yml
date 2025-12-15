@@ -1,0 +1,251 @@
+# syntax=docker/dockerfile:1.4
+# IntelliFill E2E Test Infrastructure
+# Optimized for fast builds and test execution
+#
+# Complete isolated test environment with:
+#   - PostgreSQL with pgvector extension
+#   - Redis for caching and queues
+#   - Backend API in test mode
+#   - Frontend UI in test mode
+#   - Playwright test runner
+#
+# Usage:
+#   # Run all e2e tests
+#   docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+#
+#   # Clean up after tests
+#   docker-compose -f docker-compose.e2e.yml down -v
+#
+#   # Rebuild specific service
+#   docker-compose -f docker-compose.e2e.yml build backend-test
+
+services:
+  # ==================== Test Database ====================
+  postgres-test:
+    image: pgvector/pgvector:pg15
+    container_name: intellifill-postgres-test
+    environment:
+      POSTGRES_DB: intellifill_test
+      POSTGRES_USER: intellifill_test
+      POSTGRES_PASSWORD: test_password_123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # Mount init script to set up database schema
+      - ./e2e/docker/init-test-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      # Use tmpfs for test data (fast, auto-cleanup)
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+    networks:
+      - intellifill-e2e
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intellifill_test -d intellifill_test"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
+    mem_limit: 512m
+    mem_reservation: 256m
+
+  # ==================== Test Cache/Queue ====================
+  redis-test:
+    image: redis:7-alpine
+    container_name: intellifill-redis-test
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save ""
+    networks:
+      - intellifill-e2e
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+      start_period: 3s
+    mem_limit: 256m
+    mem_reservation: 128m
+
+  # ==================== Backend API (Test Mode) ====================
+  backend-test:
+    build:
+      context: ./quikadmin
+      dockerfile: Dockerfile.dev
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache/backend-test
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache/backend-test,mode=max
+    container_name: intellifill-backend-test
+    environment:
+      # Core settings
+      NODE_ENV: test
+      PORT: 3002
+      LOG_LEVEL: error
+
+      # Database
+      DATABASE_URL: postgresql://intellifill_test:test_password_123@postgres-test:5432/intellifill_test
+      DIRECT_URL: postgresql://intellifill_test:test_password_123@postgres-test:5432/intellifill_test
+
+      # Redis
+      REDIS_URL: redis://redis-test:6379
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+
+      # JWT (test keys - must be at least 64 characters)
+      JWT_SECRET: test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here
+      JWT_REFRESH_SECRET: test_jwt_refresh_secret_for_e2e_testing_environment_must_be_64_chars_minimum
+
+      # Supabase - placeholder values for test mode (not actually used)
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key-placeholder-for-e2e-environment
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key-placeholder-for-e2e-environment
+
+      # Test flags
+      DISABLE_AUTH: "false"
+      SKIP_MIGRATIONS: "false"
+    volumes:
+      - ./quikadmin/src:/app/src:ro
+      - ./quikadmin/prisma:/app/prisma:ro
+      # Named volumes for isolation (no host bind for uploads/outputs)
+      - backend_test_uploads:/app/uploads
+      - backend_test_outputs:/app/outputs
+      # Use cached node_modules from build
+      - backend_test_node_modules:/app/node_modules
+    networks:
+      - intellifill-e2e
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        npx prisma generate &&
+        npx prisma db push --force-reset &&
+        npx prisma db seed &&
+        echo 'Starting backend server...' &&
+        npm run dev
+      "
+    mem_limit: 2g
+    mem_reservation: 1g
+
+  # ==================== Frontend (Test Mode) ====================
+  frontend-test:
+    build:
+      context: ./quikadmin-web
+      dockerfile: Dockerfile.dev
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache/frontend-test
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache/frontend-test,mode=max
+    container_name: intellifill-frontend-test
+    environment:
+      NODE_ENV: test
+      VITE_API_URL: /api
+      VITE_BACKEND_URL: http://backend-test:3002
+      VITE_USE_BACKEND_AUTH: "true"
+      # Disable HMR polling for tests (faster)
+      CHOKIDAR_USEPOLLING: "false"
+    volumes:
+      - ./quikadmin-web/src:/app/src:ro
+      - ./quikadmin-web/public:/app/public:ro
+      - ./quikadmin-web/index.html:/app/index.html:ro
+      - ./quikadmin-web/vite.config.ts:/app/vite.config.ts:ro
+      # Use cached node_modules from build
+      - frontend_test_node_modules:/app/node_modules
+    networks:
+      - intellifill-e2e
+    depends_on:
+      backend-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/login || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: 1g
+    mem_reservation: 512m
+
+  # ==================== Playwright Test Runner ====================
+  playwright:
+    build:
+      context: ./e2e
+      dockerfile: Dockerfile
+      cache_from:
+        - type=local,src=/tmp/.buildx-cache/playwright
+      cache_to:
+        - type=local,dest=/tmp/.buildx-cache/playwright,mode=max
+    container_name: intellifill-playwright
+    environment:
+      # Test configuration
+      BASE_URL: http://frontend-test:8080
+      API_URL: http://backend-test:3002/api
+
+      # Playwright settings
+      CI: "true"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+
+      # Test user credentials (created by seed script)
+      TEST_USER_EMAIL: test@intellifill.local
+      TEST_USER_PASSWORD: Test123!@#
+      TEST_ADMIN_EMAIL: admin@intellifill.local
+      TEST_ADMIN_PASSWORD: Admin123!@#
+
+      # Parallel execution
+      WORKERS: 4
+
+      # Timeouts
+      TEST_TIMEOUT: 30000
+      EXPECT_TIMEOUT: 5000
+
+      # Screenshots and videos
+      SCREENSHOT_ON_FAILURE: "true"
+      VIDEO_ON_FAILURE: "true"
+      TRACE_ON_FAILURE: "true"
+    volumes:
+      # Test files (read-only)
+      - ./e2e/tests:/app/tests:ro
+      - ./e2e/playwright.config.ts:/app/playwright.config.ts:ro
+      - ./e2e/fixtures:/app/fixtures:ro
+      - ./e2e/utils:/app/utils:ro
+
+      # Test results (writable)
+      - ./e2e/test-results:/app/test-results
+      - ./e2e/playwright-report:/app/playwright-report
+      - ./e2e/screenshots:/app/screenshots
+      - ./e2e/videos:/app/videos
+    networks:
+      - intellifill-e2e
+    depends_on:
+      frontend-test:
+        condition: service_healthy
+      backend-test:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 10 &&
+        echo 'Verifying frontend accessibility...' &&
+        for i in 1 2 3 4 5; do wget -q --spider http://frontend-test:8080/login && break || sleep 3; done &&
+        echo 'Running Playwright tests...' &&
+        npx playwright test --reporter=list,html
+      "
+    mem_limit: 4g
+    mem_reservation: 2g
+    shm_size: 2gb
+
+networks:
+  intellifill-e2e:
+    driver: bridge
+    name: intellifill-e2e-network
+
+# Named volumes for test isolation (cleaned up with docker-compose down -v)
+volumes:
+  backend_test_uploads:
+  backend_test_outputs:
+  backend_test_node_modules:
+  frontend_test_node_modules:

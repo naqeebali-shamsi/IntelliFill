@@ -1,19 +1,40 @@
-FROM node:20-alpine
+# syntax=docker/dockerfile:1.4
+# IntelliFill Frontend Development Dockerfile
+# Optimized for fast rebuilds with Bun and BuildKit caching
+
+FROM oven/bun:1-alpine
+
+# Install tools for Vite HMR
+RUN apk add --no-cache git
 
 WORKDIR /app
 
-# Copy package files and config files needed for dependency installation
-COPY package*.json ./
-COPY vite.config.ts tsconfig.json tsconfig.node.json ./
-COPY postcss.config.js tailwind.config.js ./
+# Create non-root user for security
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
 
-# Install dependencies with npm (including dev dependencies)
-RUN npm install --include=dev
+# Copy lockfile first (changes rarely = better caching)
+COPY --chown=appuser:appgroup bun.lock* ./
 
-# The source code will be mounted as volume
-# so we don't copy it here, but config files are already copied above
+# Copy package.json (changes occasionally)
+COPY --chown=appuser:appgroup package.json ./
+
+# Install dependencies with BuildKit cache mount
+# Cache bun downloads across builds
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    bun install --ignore-scripts
+
+# Copy config files (changes occasionally)
+COPY --chown=appuser:appgroup vite.config.ts tsconfig.json tsconfig.node.json ./
+COPY --chown=appuser:appgroup postcss.config.js tailwind.config.js ./
+
+# Create directories for mounted volumes
+RUN mkdir -p src public && chown -R appuser:appgroup .
+
+# Switch to non-root user
+USER appuser
 
 EXPOSE 8080
 
-# Use Node.js to run Vite (more compatible with vite.config.ts)
-CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "8080"]
+# Use Bun to run Vite with host binding for Docker access
+CMD ["bun", "run", "vite", "--host", "0.0.0.0", "--port", "8080"]

@@ -1,0 +1,33 @@
+# Build outputs
+dist/
+build/
+.next/
+
+# Dependencies
+node_modules/
+
+# Package manager files
+bun.lock
+package-lock.json
+yarn.lock
+
+# Coverage
+coverage/
+
+# Generated files
+*.min.js
+*.min.css
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Test artifacts
+cypress/screenshots/
+cypress/videos/
+
+# Prisma
+prisma/migrations/

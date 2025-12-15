@@ -44,5 +44,7 @@ module.exports = {
   // Force exit after tests complete to avoid hanging
   forceExit: true,
   // Max workers for parallel execution
-  maxWorkers: '50%'
+  maxWorkers: 1,
+  // Memory limit per worker to prevent OOM crashes
+  workerIdleMemoryLimit: '1GB'
 };
