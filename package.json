@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "start-dev.bat",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd quikadmin && npm run lint",
     "lint:frontend": "cd quikadmin-web && bun run lint",
