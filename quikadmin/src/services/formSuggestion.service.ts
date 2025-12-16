@@ -18,7 +18,11 @@
 
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
-import { VectorStorageService, SearchResult, createVectorStorageService } from './vectorStorage.service';
+import {
+  VectorStorageService,
+  SearchResult,
+  createVectorStorageService,
+} from './vectorStorage.service';
 import { EmbeddingService, getEmbeddingService } from './embedding.service';
 import { SearchCacheService, getSearchCacheService } from './searchCache.service';
 
@@ -102,83 +106,81 @@ const MIN_SIMILARITY_SCORE = 0.5;
  */
 const FIELD_QUERY_MAPPINGS: Record<string, string[]> = {
   // Personal Information
-  'firstName': ['first name', 'given name', 'forename'],
-  'lastName': ['last name', 'surname', 'family name'],
-  'fullName': ['full name', 'complete name', 'name'],
-  'middleName': ['middle name', 'middle initial'],
-  'dateOfBirth': ['date of birth', 'DOB', 'birth date', 'birthday'],
-  'dob': ['date of birth', 'DOB', 'birth date'],
-  'birthDate': ['date of birth', 'birth date', 'birthday'],
-  'age': ['age', 'years old'],
-  'gender': ['gender', 'sex'],
+  firstName: ['first name', 'given name', 'forename'],
+  lastName: ['last name', 'surname', 'family name'],
+  fullName: ['full name', 'complete name', 'name'],
+  middleName: ['middle name', 'middle initial'],
+  dateOfBirth: ['date of birth', 'DOB', 'birth date', 'birthday'],
+  dob: ['date of birth', 'DOB', 'birth date'],
+  birthDate: ['date of birth', 'birth date', 'birthday'],
+  age: ['age', 'years old'],
+  gender: ['gender', 'sex'],
 
   // Contact Information
-  'email': ['email', 'e-mail', 'email address'],
-  'phone': ['phone', 'telephone', 'phone number', 'mobile'],
-  'mobile': ['mobile', 'cell phone', 'mobile number'],
-  'fax': ['fax', 'fax number'],
+  email: ['email', 'e-mail', 'email address'],
+  phone: ['phone', 'telephone', 'phone number', 'mobile'],
+  mobile: ['mobile', 'cell phone', 'mobile number'],
+  fax: ['fax', 'fax number'],
 
   // Address
-  'address': ['address', 'street address', 'residential address'],
-  'street': ['street', 'street address', 'address line'],
-  'addressLine1': ['address line 1', 'street address', 'address'],
-  'addressLine2': ['address line 2', 'apartment', 'suite', 'unit'],
-  'city': ['city', 'town', 'municipality'],
-  'state': ['state', 'province', 'region'],
-  'zipCode': ['zip code', 'postal code', 'zip'],
-  'postalCode': ['postal code', 'zip code', 'postcode'],
-  'country': ['country', 'nation'],
+  address: ['address', 'street address', 'residential address'],
+  street: ['street', 'street address', 'address line'],
+  addressLine1: ['address line 1', 'street address', 'address'],
+  addressLine2: ['address line 2', 'apartment', 'suite', 'unit'],
+  city: ['city', 'town', 'municipality'],
+  state: ['state', 'province', 'region'],
+  zipCode: ['zip code', 'postal code', 'zip'],
+  postalCode: ['postal code', 'zip code', 'postcode'],
+  country: ['country', 'nation'],
 
   // Identification
-  'ssn': ['social security number', 'SSN', 'social security'],
-  'socialSecurityNumber': ['social security number', 'SSN'],
-  'taxId': ['tax ID', 'tax identification number', 'TIN', 'EIN'],
-  'driverLicense': ['driver license', 'drivers license', 'DL number'],
-  'passportNumber': ['passport number', 'passport'],
-  'nationalId': ['national ID', 'ID number', 'identification number'],
+  ssn: ['social security number', 'SSN', 'social security'],
+  socialSecurityNumber: ['social security number', 'SSN'],
+  taxId: ['tax ID', 'tax identification number', 'TIN', 'EIN'],
+  driverLicense: ['driver license', 'drivers license', 'DL number'],
+  passportNumber: ['passport number', 'passport'],
+  nationalId: ['national ID', 'ID number', 'identification number'],
 
   // Employment
-  'employer': ['employer', 'company', 'organization', 'workplace'],
-  'occupation': ['occupation', 'job title', 'position', 'profession'],
-  'jobTitle': ['job title', 'position', 'role'],
-  'department': ['department', 'division', 'unit'],
-  'employeeId': ['employee ID', 'employee number', 'staff ID'],
-  'salary': ['salary', 'income', 'wages', 'compensation'],
-  'annualIncome': ['annual income', 'yearly salary', 'annual salary'],
+  employer: ['employer', 'company', 'organization', 'workplace'],
+  occupation: ['occupation', 'job title', 'position', 'profession'],
+  jobTitle: ['job title', 'position', 'role'],
+  department: ['department', 'division', 'unit'],
+  employeeId: ['employee ID', 'employee number', 'staff ID'],
+  salary: ['salary', 'income', 'wages', 'compensation'],
+  annualIncome: ['annual income', 'yearly salary', 'annual salary'],
 
   // Financial
-  'bankName': ['bank name', 'financial institution', 'bank'],
-  'accountNumber': ['account number', 'bank account', 'account no'],
-  'routingNumber': ['routing number', 'ABA number', 'routing'],
-  'creditCardNumber': ['credit card number', 'card number'],
+  bankName: ['bank name', 'financial institution', 'bank'],
+  accountNumber: ['account number', 'bank account', 'account no'],
+  routingNumber: ['routing number', 'ABA number', 'routing'],
+  creditCardNumber: ['credit card number', 'card number'],
 
   // Insurance
-  'policyNumber': ['policy number', 'insurance policy', 'policy ID'],
-  'groupNumber': ['group number', 'group ID'],
-  'memberId': ['member ID', 'membership number', 'subscriber ID'],
+  policyNumber: ['policy number', 'insurance policy', 'policy ID'],
+  groupNumber: ['group number', 'group ID'],
+  memberId: ['member ID', 'membership number', 'subscriber ID'],
 
   // Medical
-  'diagnosis': ['diagnosis', 'medical condition', 'condition'],
-  'medication': ['medication', 'prescription', 'medicine', 'drug'],
-  'allergies': ['allergies', 'allergy', 'allergic to'],
-  'bloodType': ['blood type', 'blood group'],
-  'physician': ['physician', 'doctor', 'healthcare provider'],
+  diagnosis: ['diagnosis', 'medical condition', 'condition'],
+  medication: ['medication', 'prescription', 'medicine', 'drug'],
+  allergies: ['allergies', 'allergy', 'allergic to'],
+  bloodType: ['blood type', 'blood group'],
+  physician: ['physician', 'doctor', 'healthcare provider'],
 
   // Education
-  'school': ['school', 'university', 'college', 'institution'],
-  'degree': ['degree', 'qualification', 'certification'],
-  'graduationDate': ['graduation date', 'graduated', 'completion date'],
-  'major': ['major', 'field of study', 'specialization'],
-  'gpa': ['GPA', 'grade point average', 'grades'],
+  school: ['school', 'university', 'college', 'institution'],
+  degree: ['degree', 'qualification', 'certification'],
+  graduationDate: ['graduation date', 'graduated', 'completion date'],
+  major: ['major', 'field of study', 'specialization'],
+  gpa: ['GPA', 'grade point average', 'grades'],
 };
 
 /**
  * Extraction patterns for common field types
  */
 const EXTRACTION_PATTERNS: Record<string, ExtractionPattern[]> = {
-  email: [
-    { pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi },
-  ],
+  email: [{ pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi }],
   phone: [
     { pattern: /\b(?:\+1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b/g },
     { pattern: /\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/g },
@@ -186,25 +188,23 @@ const EXTRACTION_PATTERNS: Record<string, ExtractionPattern[]> = {
   date: [
     { pattern: /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g },
     { pattern: /\b\d{4}-\d{2}-\d{2}\b/g },
-    { pattern: /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\b/gi },
-    { pattern: /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\b/gi },
+    {
+      pattern:
+        /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\b/gi,
+    },
+    {
+      pattern:
+        /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\b/gi,
+    },
   ],
-  ssn: [
-    { pattern: /\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g },
-  ],
-  zipCode: [
-    { pattern: /\b\d{5}(?:-\d{4})?\b/g },
-  ],
-  number: [
-    { pattern: /\b\d+(?:,\d{3})*(?:\.\d+)?\b/g },
-  ],
+  ssn: [{ pattern: /\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g }],
+  zipCode: [{ pattern: /\b\d{5}(?:-\d{4})?\b/g }],
+  number: [{ pattern: /\b\d+(?:,\d{3})*(?:\.\d+)?\b/g }],
   currency: [
     { pattern: /\$\s*\d+(?:,\d{3})*(?:\.\d{2})?\b/g },
     { pattern: /\b\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:USD|dollars?)\b/gi },
   ],
-  percentage: [
-    { pattern: /\b\d+(?:\.\d+)?%/g },
-  ],
+  percentage: [{ pattern: /\b\d+(?:\.\d+)?%/g }],
 };
 
 // ============================================================================
@@ -269,11 +269,7 @@ export class FormSuggestionService {
         );
 
         // Extract values from search results
-        const suggestions = this.extractSuggestions(
-          searchResults,
-          fieldName,
-          fieldType
-        );
+        const suggestions = this.extractSuggestions(searchResults, fieldName, fieldType);
 
         allSuggestions.push(...suggestions);
       } catch (error) {
@@ -335,9 +331,9 @@ export class FormSuggestionService {
       const cacheKey = this.generateCacheKey(organizationId, fieldName, fieldType, context);
       const cached = await this.searchCache.get(cacheKey);
 
-      if (cached && Array.isArray(cached)) {
+      if (cached && cached.results) {
         cacheHits++;
-        return { fieldName, suggestions: cached as FieldSuggestion[] };
+        return { fieldName, suggestions: cached.results as FieldSuggestion[] };
       }
 
       const result = await this.getFieldSuggestions(
@@ -347,7 +343,12 @@ export class FormSuggestionService {
       );
 
       // Cache the results
-      await this.searchCache.set(cacheKey, result.suggestions);
+      await this.searchCache.set(cacheKey, {
+        query: cacheKey,
+        results: result.suggestions,
+        totalResults: result.suggestions.length,
+        searchParams: { fieldName, fieldType, context },
+      });
 
       return { fieldName, suggestions: result.suggestions };
     });
@@ -416,11 +417,7 @@ export class FormSuggestionService {
           SEMANTIC_SEARCH_TOP_K
         );
 
-        const suggestions = this.extractSuggestions(
-          searchResults,
-          fieldName,
-          undefined
-        );
+        const suggestions = this.extractSuggestions(searchResults, fieldName, undefined);
 
         allSuggestions.push(...suggestions);
       } catch (error) {
@@ -460,9 +457,7 @@ export class FormSuggestionService {
     const normalizedName = this.normalizeFieldName(fieldName);
 
     // Get predefined mappings
-    const mappings = FIELD_QUERY_MAPPINGS[normalizedName] ||
-                     FIELD_QUERY_MAPPINGS[fieldName] ||
-                     [];
+    const mappings = FIELD_QUERY_MAPPINGS[normalizedName] || FIELD_QUERY_MAPPINGS[fieldName] || [];
 
     // Add mapped queries
     queries.push(...mappings);
@@ -502,7 +497,7 @@ export class FormSuggestionService {
   private normalizeFieldName(fieldName: string): string {
     // Convert various formats to camelCase
     return fieldName
-      .replace(/[-_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : '')
+      .replace(/[-_\s]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ''))
       .replace(/^(.)/, (c) => c.toLowerCase());
   }
 
@@ -510,14 +505,16 @@ export class FormSuggestionService {
    * Convert field name to human-readable format
    */
   private humanizeFieldName(fieldName: string): string {
-    return fieldName
-      // Insert space before capitals
-      .replace(/([A-Z])/g, ' $1')
-      // Replace underscores and hyphens with spaces
-      .replace(/[-_]+/g, ' ')
-      // Trim and lowercase
-      .trim()
-      .toLowerCase();
+    return (
+      fieldName
+        // Insert space before capitals
+        .replace(/([A-Z])/g, ' $1')
+        // Replace underscores and hyphens with spaces
+        .replace(/[-_]+/g, ' ')
+        // Trim and lowercase
+        .trim()
+        .toLowerCase()
+    );
   }
 
   /**
@@ -555,10 +552,7 @@ export class FormSuggestionService {
     topK: number
   ): Promise<SearchResult[]> {
     // Generate embedding for query
-    const embeddingResult = await this.embeddingService.generateEmbedding(
-      query,
-      organizationId
-    );
+    const embeddingResult = await this.embeddingService.generateEmbedding(query, organizationId);
 
     // Search vector storage
     const results = await this.vectorStorage.searchSimilar(
@@ -604,10 +598,7 @@ export class FormSuggestionService {
   /**
    * Extract values using regex patterns
    */
-  private extractByPattern(
-    result: SearchResult,
-    fieldType?: string
-  ): FieldSuggestion[] {
+  private extractByPattern(result: SearchResult, fieldType?: string): FieldSuggestion[] {
     const suggestions: FieldSuggestion[] = [];
 
     if (!fieldType || !EXTRACTION_PATTERNS[fieldType]) {
@@ -621,9 +612,8 @@ export class FormSuggestionService {
 
       if (matches) {
         for (const match of matches) {
-          let value = extractGroup !== undefined
-            ? match.replace(pattern, `$${extractGroup}`)
-            : match;
+          let value =
+            extractGroup !== undefined ? match.replace(pattern, `$${extractGroup}`) : match;
 
           if (postProcess) {
             value = postProcess(value);
@@ -650,10 +640,7 @@ export class FormSuggestionService {
   /**
    * Extract values using semantic understanding
    */
-  private extractBySemantic(
-    result: SearchResult,
-    fieldName: string
-  ): FieldSuggestion[] {
+  private extractBySemantic(result: SearchResult, fieldName: string): FieldSuggestion[] {
     const suggestions: FieldSuggestion[] = [];
     const humanizedField = this.humanizeFieldName(fieldName);
 
@@ -689,16 +676,16 @@ export class FormSuggestionService {
   /**
    * Extract values using context clues
    */
-  private extractByContext(
-    result: SearchResult,
-    fieldName: string
-  ): FieldSuggestion[] {
+  private extractByContext(result: SearchResult, fieldName: string): FieldSuggestion[] {
     const suggestions: FieldSuggestion[] = [];
     const normalizedName = this.normalizeFieldName(fieldName);
 
     // Common field-value associations
     const contextPatterns: Record<string, RegExp[]> = {
-      firstName: [/(?:Mr|Mrs|Ms|Miss|Dr)\.?\s+(\w+)/gi, /(?:first\s+name|given\s+name)[:\s]+(\w+)/gi],
+      firstName: [
+        /(?:Mr|Mrs|Ms|Miss|Dr)\.?\s+(\w+)/gi,
+        /(?:first\s+name|given\s+name)[:\s]+(\w+)/gi,
+      ],
       lastName: [/(\w+)\s+(?:family|surname)/gi, /(?:last\s+name|surname)[:\s]+(\w+)/gi],
       city: [/(?:city\s+of\s+|in\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/g],
       state: [/,\s*([A-Z]{2})\s+\d{5}/g, /(?:state)[:\s]+([A-Za-z\s]+)/gi],
@@ -784,12 +771,7 @@ export class FormSuggestionService {
     fieldType?: string,
     context?: string
   ): string {
-    const parts = [
-      'suggest',
-      organizationId,
-      fieldName.toLowerCase(),
-      fieldType || 'any',
-    ];
+    const parts = ['suggest', organizationId, fieldName.toLowerCase(), fieldType || 'any'];
 
     if (context) {
       // Hash context for shorter keys

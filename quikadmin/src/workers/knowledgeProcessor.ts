@@ -38,7 +38,10 @@ import {
   VectorStorageService,
   createVectorStorageService,
 } from '../services/vectorStorage.service';
-import { MemoryManager, getMemoryManager } from '../services/memoryManager.service';
+import {
+  MemoryManagerService,
+  memoryManager as memoryManagerInstance,
+} from '../services/memoryManager.service';
 import { prisma } from '../utils/prisma';
 
 // ============================================================================
@@ -51,7 +54,7 @@ interface ProcessorDependencies {
   embeddingService: EmbeddingService;
   cacheService: EmbeddingCacheService | null;
   vectorStorage: VectorStorageService;
-  memoryManager: MemoryManager;
+  memoryManager: MemoryManagerService;
 }
 
 interface ChunkWithEmbedding extends DocumentChunk {
@@ -106,7 +109,7 @@ async function initializeDependencies(): Promise<ProcessorDependencies> {
   }
 
   const vectorStorage = createVectorStorageService(prisma);
-  const memoryManager = getMemoryManager();
+  const memoryManager = memoryManagerInstance;
 
   dependencies = {
     extractionService,
@@ -153,16 +156,10 @@ async function processJob(job: Job<KnowledgeJob>): Promise<KnowledgeJobResult> {
         result = await processDocumentJob(job as Job<ProcessDocumentJob>, deps);
         break;
       case 'generateEmbeddings':
-        result = await processGenerateEmbeddingsJob(
-          job as Job<GenerateEmbeddingsJob>,
-          deps
-        );
+        result = await processGenerateEmbeddingsJob(job as Job<GenerateEmbeddingsJob>, deps);
         break;
       case 'reprocessChunks':
-        result = await processReprocessChunksJob(
-          job as Job<ReprocessChunksJob>,
-          deps
-        );
+        result = await processReprocessChunksJob(job as Job<ReprocessChunksJob>, deps);
         break;
       default:
         throw new Error(`Unknown job type: ${(job.data as any).type}`);
@@ -196,14 +193,7 @@ async function processDocumentJob(
   job: Job<ProcessDocumentJob>,
   deps: ProcessorDependencies
 ): Promise<KnowledgeJobResult> {
-  const {
-    sourceId,
-    organizationId,
-    filePath,
-    filename,
-    mimeType,
-    options = {},
-  } = job.data;
+  const { sourceId, organizationId, filePath, filename, mimeType, options = {} } = job.data;
 
   const reporter = createProgressReporter(job);
 
@@ -225,14 +215,17 @@ async function processDocumentJob(
     } else {
       await reporter.extraction(0, 0, 1);
 
-      extractionResult = await deps.extractionService.extractFromFile(filePath, {
-        mimeType,
+      extractionResult = await deps.extractionService.extractFromPath(filePath, {
         ocrEnabled: options.ocrEnabled ?? true,
         language: options.language,
         preserveFormatting: true,
       });
 
-      await reporter.extraction(100, extractionResult.metadata.pageCount, extractionResult.metadata.pageCount);
+      await reporter.extraction(
+        100,
+        extractionResult.metadata.pageCount,
+        extractionResult.metadata.pageCount
+      );
 
       // Save extraction checkpoint
       await saveCheckpoint({
@@ -260,10 +253,7 @@ async function processDocumentJob(
       // Detect document type for optimized chunking
       const documentType = detectDocumentType(filename, mimeType);
 
-      const chunkingResult = deps.chunkingService.chunkDocument(
-        extractionResult,
-        documentType
-      );
+      const chunkingResult = deps.chunkingService.chunkDocument(extractionResult, documentType);
 
       chunks = chunkingResult.chunks;
 
@@ -303,10 +293,7 @@ async function processDocumentJob(
       const batchTexts = batchChunks.map((c) => c.text);
 
       if (!options.skipEmbeddings) {
-        const batchResult = await deps.embeddingService.generateBatch(
-          batchTexts,
-          organizationId
-        );
+        const batchResult = await deps.embeddingService.generateBatch(batchTexts, organizationId);
 
         for (let j = 0; j < batchChunks.length; j++) {
           if (batchResult.embeddings[j]) {
@@ -473,10 +460,7 @@ async function processGenerateEmbeddingsJob(
     const batchChunks = chunks.slice(i, i + batchSize);
     const batchTexts = batchChunks.map((c) => c.text);
 
-    const batchResult = await deps.embeddingService.generateBatch(
-      batchTexts,
-      organizationId
-    );
+    const batchResult = await deps.embeddingService.generateBatch(batchTexts, organizationId);
 
     for (let j = 0; j < batchChunks.length; j++) {
       if (batchResult.embeddings[j]) {
@@ -580,11 +564,14 @@ function detectDocumentType(filename: string, mimeType: string): DocumentType {
     return 'DRIVERS_LICENSE';
   if (lowerFilename.includes('bank') || lowerFilename.includes('statement'))
     return 'BANK_STATEMENT';
-  if (lowerFilename.includes('tax') || lowerFilename.includes('w2') || lowerFilename.includes('1099'))
+  if (
+    lowerFilename.includes('tax') ||
+    lowerFilename.includes('w2') ||
+    lowerFilename.includes('1099')
+  )
     return 'TAX_FORM';
   if (lowerFilename.includes('invoice')) return 'INVOICE';
-  if (lowerFilename.includes('contract') || lowerFilename.includes('agreement'))
-    return 'CONTRACT';
+  if (lowerFilename.includes('contract') || lowerFilename.includes('agreement')) return 'CONTRACT';
 
   return 'DEFAULT';
 }

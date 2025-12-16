@@ -17,6 +17,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { createClient } from 'redis';
@@ -47,7 +48,12 @@ export interface AnomalyDetectionConfig {
 }
 
 export interface AnomalyAlert {
-  type: 'HIGH_FREQUENCY_SEARCH' | 'HIGH_FREQUENCY_UPLOAD' | 'CROSS_TENANT_ATTEMPT' | 'BULK_DELETE' | 'SUSPICIOUS_PATTERN';
+  type:
+    | 'HIGH_FREQUENCY_SEARCH'
+    | 'HIGH_FREQUENCY_UPLOAD'
+    | 'CROSS_TENANT_ATTEMPT'
+    | 'BULK_DELETE'
+    | 'SUSPICIOUS_PATTERN';
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   userId: string;
   organizationId: string | null;
@@ -173,9 +179,9 @@ export class AuditLoggerService {
           action: entry.action,
           entityType: entry.entityType,
           entityId: entry.entityId,
-          oldValue: entry.oldValue || undefined,
-          newValue: entry.newValue || undefined,
-          metadata: entry.metadata || undefined,
+          oldValue: (entry.oldValue || undefined) as Prisma.InputJsonValue | undefined,
+          newValue: (entry.newValue || undefined) as Prisma.InputJsonValue | undefined,
+          metadata: (entry.metadata || undefined) as Prisma.InputJsonValue | undefined,
           ipAddress: entry.ipAddress,
           userAgent: entry.userAgent,
         },
@@ -391,8 +397,8 @@ export class AuditLoggerService {
             alertType: alert.type,
             severity: alert.severity,
             message: alert.message,
-            context: alert.context,
-          },
+            context: alert.context as Prisma.InputJsonValue,
+          } as Prisma.InputJsonValue,
           ipAddress: null,
           userAgent: null,
         },
@@ -493,12 +499,18 @@ export const auditLoggerService = new AuditLoggerService();
  * @param options - Middleware options
  * @returns Express middleware function
  */
-export function createAuditMiddleware(options: {
-  excludePaths?: string[];
-  includeRequestBody?: boolean;
-  includeResponseBody?: boolean;
-} = {}) {
-  const { excludePaths = ['/health', '/metrics'], includeRequestBody = false, includeResponseBody = false } = options;
+export function createAuditMiddleware(
+  options: {
+    excludePaths?: string[];
+    includeRequestBody?: boolean;
+    includeResponseBody?: boolean;
+  } = {}
+) {
+  const {
+    excludePaths = ['/health', '/metrics'],
+    includeRequestBody = false,
+    includeResponseBody = false,
+  } = options;
 
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Skip excluded paths
@@ -507,7 +519,7 @@ export function createAuditMiddleware(options: {
     }
 
     const startTime = Date.now();
-    const requestId = req.headers['x-request-id'] as string || crypto.randomUUID();
+    const requestId = (req.headers['x-request-id'] as string) || crypto.randomUUID();
 
     // Capture original res.json for response logging
     const originalJson = res.json.bind(res);
@@ -538,16 +550,19 @@ export function createAuditMiddleware(options: {
         entityType,
         entityId,
         oldValue: null,
-        newValue: includeRequestBody && ['POST', 'PUT', 'PATCH'].includes(req.method)
-          ? sanitizeBody(req.body)
-          : null,
+        newValue:
+          includeRequestBody && ['POST', 'PUT', 'PATCH'].includes(req.method)
+            ? sanitizeBody(req.body)
+            : null,
         metadata: {
           requestId,
           method: req.method,
           path: req.path,
           statusCode: res.statusCode,
           duration,
-          ...(responseBody && includeResponseBody ? { responseBody: sanitizeBody(responseBody) } : {}),
+          ...(responseBody && includeResponseBody
+            ? { responseBody: sanitizeBody(responseBody) }
+            : {}),
         },
         ipAddress: getClientIp(req),
         userAgent: req.headers['user-agent'] || null,
@@ -614,7 +629,10 @@ function mapRequestToAction(method: string, path: string): string {
 /**
  * Extract entity type and ID from request path
  */
-function extractEntityFromPath(path: string): { entityType: string | null; entityId: string | null } {
+function extractEntityFromPath(path: string): {
+  entityType: string | null;
+  entityId: string | null;
+} {
   const segments = path.split('/').filter(Boolean);
 
   // Look for UUID pattern in path
@@ -655,7 +673,15 @@ function singularize(word: string): string {
 function sanitizeBody(body: any): any {
   if (!body || typeof body !== 'object') return body;
 
-  const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization', 'cookie', 'embedding'];
+  const sensitiveFields = [
+    'password',
+    'token',
+    'secret',
+    'key',
+    'authorization',
+    'cookie',
+    'embedding',
+  ];
   const sanitized = { ...body };
 
   for (const field of sensitiveFields) {
