@@ -1,0 +1,86 @@
+# Render.com Blueprint
+# https://render.com/docs/blueprint-spec
+#
+# Deploy: Connect GitHub repo to Render and select this blueprint
+# Or use: render blueprint launch
+
+services:
+  # ==================== Backend API ====================
+  - type: web
+    name: intellifill-api
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: quikadmin
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      # Core
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3002
+
+      # Database (Neon) - Set in Render Dashboard
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+
+      # Redis (Upstash) - Set in Render Dashboard
+      - key: REDIS_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+
+      # Authentication - Set in Render Dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+
+      # Supabase (Optional) - Set in Render Dashboard
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # Cloudflare R2 Storage - Set in Render Dashboard
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: intellifill-files
+
+      # Google AI (Embeddings) - Set in Render Dashboard
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      # Monitoring - Set in Render Dashboard
+      - key: SENTRY_DSN
+        sync: false
+
+      # CORS - Update with your Vercel domain
+      - key: CORS_ORIGINS
+        value: https://intellifill.vercel.app,https://intellifill.app
+
+      # Logging
+      - key: LOG_LEVEL
+        value: info
+
+# Note: Render free tier limitations
+# - Spins down after 15 minutes of inactivity
+# - Cold starts take 30-60 seconds
+# - 750 free instance hours per month
+#
+# Recommendation: Set up UptimeRobot to ping /api/health every 10 minutes
+# to prevent spin-down during business hours
