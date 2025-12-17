@@ -43,6 +43,14 @@ for (const varName of RECOMMENDED_ENV_VARS) {
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+// Trust proxy for deployments behind reverse proxies (Render, Heroku, etc.)
+// Using 1 = trust only the immediate proxy hop (safer than 'true')
+// This enables correct client IP detection for rate limiting and logging
+if (config.server.nodeEnv === 'production') {
+  app.set('trust proxy', 1);
+  console.log('   Trust proxy: enabled (production mode)');
+}
+
 async function initializeApp() {
   try {
     // Initialize database

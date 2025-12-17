@@ -29,8 +29,12 @@ import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supaba
 
 // Test mode configuration
 const isTestMode = process.env.NODE_ENV === 'test';
-const JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test_jwt_refresh_secret_for_e2e_testing_environment_must_be_64_chars_minimum';
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
+const JWT_REFRESH_SECRET =
+  process.env.JWT_REFRESH_SECRET ||
+  'test_jwt_refresh_secret_for_e2e_testing_environment_must_be_64_chars_minimum';
 
 /**
  * Request interfaces
@@ -73,6 +77,11 @@ export interface VerifyResetTokenRequest {
   token: string;
 }
 
+export interface VerifyEmailRequest {
+  email: string;
+  token: string;
+}
+
 /**
  * Rate limiting for auth endpoints
  * Stricter limits for security-critical operations
@@ -82,7 +91,7 @@ const authLimiter = rateLimit({
   max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 1000 : 5,
   message: {
     error: 'Too many authentication attempts. Please try again later.',
-    retryAfter: '15 minutes'
+    retryAfter: '15 minutes',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -90,9 +99,9 @@ const authLimiter = rateLimit({
     logger.warn(`Auth rate limit exceeded for IP: ${req.ip}`);
     res.status(429).json({
       error: 'Too many authentication attempts. Please try again later.',
-      retryAfter: '15 minutes'
+      retryAfter: '15 minutes',
     });
-  }
+  },
 });
 
 const registerLimiter = rateLimit({
@@ -100,10 +109,10 @@ const registerLimiter = rateLimit({
   max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 100 : 3, // Higher limit for dev/test
   message: {
     error: 'Too many registration attempts. Please try again later.',
-    retryAfter: '1 hour'
+    retryAfter: '1 hour',
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 
 /**
@@ -131,202 +140,211 @@ export function createSupabaseAuthRoutes(): Router {
    * @returns 400 - Validation error or user already exists
    * @returns 500 - Server error
    */
-  router.post('/register', registerLimiter, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { email, password, fullName, role = 'user' }: RegisterRequest = req.body;
-
-      // ===== Input Validation =====
-
-      // Validate required fields
-      if (!email || !password || !fullName) {
-        return res.status(400).json({
-          error: 'Email, password, and full name are required',
-          details: {
-            email: !email ? 'Email is required' : null,
-            password: !password ? 'Password is required' : null,
-            fullName: !fullName ? 'Full name is required' : null
-          }
-        });
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          error: 'Invalid email format'
-        });
-      }
-
-      // Validate password strength
-      if (password.length < 8) {
-        return res.status(400).json({
-          error: 'Password must be at least 8 characters long'
-        });
-      }
-
-      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
-        return res.status(400).json({
-          error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-        });
-      }
-
-      // Validate role if provided
-      const validRoles = ['user', 'admin'];
-      if (role && !validRoles.includes(role.toLowerCase())) {
-        return res.status(400).json({
-          error: `Invalid role. Must be one of: ${validRoles.join(', ')}`
-        });
-      }
-
-      // Parse full name into first and last name
-      const nameParts = fullName.trim().split(' ');
-      const firstName = nameParts[0];
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // ===== Create User in Supabase Auth =====
-
-      logger.info(`Attempting to register user with Supabase: ${email}`);
-
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: email.toLowerCase(),
-        password,
-        email_confirm: process.env.NODE_ENV === 'development', // Auto-confirm in dev, require verification in prod
-        user_metadata: {
-          firstName,
-          lastName,
-          role: role.toUpperCase()
-        }
-      });
-
-      if (authError) {
-        logger.error('Supabase user creation failed:', authError);
-
-        // Handle specific Supabase errors
-        if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
-          return res.status(409).json({
-            error: 'User with this email already exists'
-          });
-        }
-
-        if (authError.message.includes('password')) {
-          return res.status(400).json({
-            error: authError.message
-          });
-        }
-
-        return res.status(400).json({
-          error: 'Registration failed. Please try again.'
-        });
-      }
-
-      if (!authData.user) {
-        logger.error('Supabase user creation returned no user data');
-        return res.status(500).json({
-          error: 'Registration failed. Please try again.'
-        });
-      }
-
-      // ===== Create User Profile in Prisma =====
-
+  router.post(
+    '/register',
+    registerLimiter,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const user = await prisma.user.create({
-          data: {
-            id: authData.user.id, // CRITICAL: Use Supabase user ID as primary key
-            email: email.toLowerCase(),
-            password: '', // Empty string for now (Supabase manages passwords)
+        const { email, password, fullName, role = 'user' }: RegisterRequest = req.body;
+
+        // ===== Input Validation =====
+
+        // Validate required fields
+        if (!email || !password || !fullName) {
+          return res.status(400).json({
+            error: 'Email, password, and full name are required',
+            details: {
+              email: !email ? 'Email is required' : null,
+              password: !password ? 'Password is required' : null,
+              fullName: !fullName ? 'Full name is required' : null,
+            },
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            error: 'Invalid email format',
+          });
+        }
+
+        // Validate password strength
+        if (password.length < 8) {
+          return res.status(400).json({
+            error: 'Password must be at least 8 characters long',
+          });
+        }
+
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) {
+          return res.status(400).json({
+            error:
+              'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+          });
+        }
+
+        // Validate role if provided
+        const validRoles = ['user', 'admin'];
+        if (role && !validRoles.includes(role.toLowerCase())) {
+          return res.status(400).json({
+            error: `Invalid role. Must be one of: ${validRoles.join(', ')}`,
+          });
+        }
+
+        // Parse full name into first and last name
+        const nameParts = fullName.trim().split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // ===== Create User in Supabase Auth =====
+
+        logger.info(`Attempting to register user with Supabase: ${email}`);
+
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: email.toLowerCase(),
+          password,
+          email_confirm: process.env.NODE_ENV === 'development', // Auto-confirm in dev, require verification in prod
+          user_metadata: {
             firstName,
             lastName,
-            role: role.toUpperCase() as any,
-            isActive: true,
-            emailVerified: process.env.NODE_ENV === 'development', // Match Supabase email_confirm setting
-            supabaseUserId: authData.user.id // Track Supabase user ID for migration
+            role: role.toUpperCase(),
+          },
+        });
+
+        if (authError) {
+          logger.error('Supabase user creation failed:', authError);
+
+          // Handle specific Supabase errors
+          if (
+            authError.message.includes('already registered') ||
+            authError.message.includes('already exists')
+          ) {
+            return res.status(409).json({
+              error: 'User with this email already exists',
+            });
           }
-        });
 
-        logger.info(`User profile created in Prisma: ${email}`);
+          if (authError.message.includes('password')) {
+            return res.status(400).json({
+              error: authError.message,
+            });
+          }
 
-        // ===== Generate Session Tokens =====
+          return res.status(400).json({
+            error: 'Registration failed. Please try again.',
+          });
+        }
 
-        // Sign in immediately to get session tokens
-        const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
-          email: email.toLowerCase(),
-          password
-        });
+        if (!authData.user) {
+          logger.error('Supabase user creation returned no user data');
+          return res.status(500).json({
+            error: 'Registration failed. Please try again.',
+          });
+        }
 
-        if (sessionError || !sessionData.session) {
-          logger.warn('Failed to generate session after registration:', sessionError?.message);
+        // ===== Create User Profile in Prisma =====
 
-          // Return success but without tokens (user needs to login manually)
-          return res.status(201).json({
+        try {
+          const user = await prisma.user.create({
+            data: {
+              id: authData.user.id, // CRITICAL: Use Supabase user ID as primary key
+              email: email.toLowerCase(),
+              password: '', // Empty string for now (Supabase manages passwords)
+              firstName,
+              lastName,
+              role: role.toUpperCase() as any,
+              isActive: true,
+              emailVerified: process.env.NODE_ENV === 'development', // Match Supabase email_confirm setting
+              supabaseUserId: authData.user.id, // Track Supabase user ID for migration
+            },
+          });
+
+          logger.info(`User profile created in Prisma: ${email}`);
+
+          // ===== Generate Session Tokens =====
+
+          // Sign in immediately to get session tokens
+          const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword(
+            {
+              email: email.toLowerCase(),
+              password,
+            }
+          );
+
+          if (sessionError || !sessionData.session) {
+            logger.warn('Failed to generate session after registration:', sessionError?.message);
+
+            // Return success but without tokens (user needs to login manually)
+            return res.status(201).json({
+              success: true,
+              message:
+                'User registered successfully. Please check your email to verify your account.',
+              data: {
+                user: {
+                  id: user.id,
+                  email: user.email,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  role: user.role.toLowerCase(),
+                },
+                tokens: null,
+              },
+            });
+          }
+
+          // ===== Success Response =====
+
+          logger.info(`New user registered successfully: ${email}`);
+
+          res.status(201).json({
             success: true,
-            message: 'User registered successfully. Please check your email to verify your account.',
+            message: 'User registered successfully',
             data: {
               user: {
                 id: user.id,
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                role: user.role.toLowerCase()
+                role: user.role.toLowerCase(),
+                emailVerified: user.emailVerified,
               },
-              tokens: null
-            }
-          });
-        }
-
-        // ===== Success Response =====
-
-        logger.info(`New user registered successfully: ${email}`);
-
-        res.status(201).json({
-          success: true,
-          message: 'User registered successfully',
-          data: {
-            user: {
-              id: user.id,
-              email: user.email,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              role: user.role.toLowerCase(),
-              emailVerified: user.emailVerified
+              tokens: {
+                accessToken: sessionData.session.access_token,
+                refreshToken: sessionData.session.refresh_token,
+                expiresIn: sessionData.session.expires_in || 3600,
+                tokenType: 'Bearer',
+              },
             },
-            tokens: {
-              accessToken: sessionData.session.access_token,
-              refreshToken: sessionData.session.refresh_token,
-              expiresIn: sessionData.session.expires_in || 3600,
-              tokenType: 'Bearer'
-            }
+          });
+        } catch (prismaError: any) {
+          // Rollback: Delete user from Supabase if Prisma creation fails
+          logger.error('Prisma user creation failed, rolling back Supabase user:', prismaError);
+
+          try {
+            await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+            logger.info('Supabase user rollback successful');
+          } catch (deleteError) {
+            logger.error('Supabase user rollback failed:', deleteError);
           }
-        });
 
-      } catch (prismaError: any) {
-        // Rollback: Delete user from Supabase if Prisma creation fails
-        logger.error('Prisma user creation failed, rolling back Supabase user:', prismaError);
+          if (prismaError.code === 'P2002') {
+            return res.status(409).json({
+              error: 'User with this email already exists',
+            });
+          }
 
-        try {
-          await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-          logger.info('Supabase user rollback successful');
-        } catch (deleteError) {
-          logger.error('Supabase user rollback failed:', deleteError);
-        }
-
-        if (prismaError.code === 'P2002') {
-          return res.status(409).json({
-            error: 'User with this email already exists'
+          return res.status(500).json({
+            error: 'Registration failed. Please try again.',
           });
         }
-
-        return res.status(500).json({
-          error: 'Registration failed. Please try again.'
+      } catch (error: any) {
+        logger.error('Registration error:', error);
+        res.status(500).json({
+          error: 'Registration failed. Please try again.',
         });
       }
-
-    } catch (error: any) {
-      logger.error('Registration error:', error);
-      res.status(500).json({
-        error: 'Registration failed. Please try again.'
-      });
     }
-  });
+  );
 
   /**
    * POST /api/auth/v2/login
@@ -359,8 +377,8 @@ export function createSupabaseAuthRoutes(): Router {
           error: 'Email and password are required',
           details: {
             email: !email ? 'Email is required' : null,
-            password: !password ? 'Password is required' : null
-          }
+            password: !password ? 'Password is required' : null,
+          },
         });
       }
 
@@ -385,14 +403,14 @@ export function createSupabaseAuthRoutes(): Router {
             isActive: true,
             emailVerified: true,
             createdAt: true,
-            lastLogin: true
-          }
+            lastLogin: true,
+          },
         });
 
         if (!user) {
           logger.warn(`[TEST MODE] User not found: ${email}`);
           return res.status(401).json({
-            error: 'Invalid email or password'
+            error: 'Invalid email or password',
           });
         }
 
@@ -401,7 +419,7 @@ export function createSupabaseAuthRoutes(): Router {
         if (!passwordValid) {
           logger.warn(`[TEST MODE] Invalid password for user: ${email}`);
           return res.status(401).json({
-            error: 'Invalid email or password'
+            error: 'Invalid email or password',
           });
         }
 
@@ -410,7 +428,7 @@ export function createSupabaseAuthRoutes(): Router {
           logger.warn(`[TEST MODE] Inactive user attempted login: ${email}`);
           return res.status(403).json({
             error: 'Account is deactivated. Please contact support.',
-            code: 'ACCOUNT_DEACTIVATED'
+            code: 'ACCOUNT_DEACTIVATED',
           });
         }
 
@@ -421,7 +439,7 @@ export function createSupabaseAuthRoutes(): Router {
             email: user.email,
             role: user.role,
             aud: 'authenticated',
-            iss: 'test-mode'
+            iss: 'test-mode',
           },
           JWT_SECRET,
           { expiresIn: '1h' }
@@ -430,7 +448,7 @@ export function createSupabaseAuthRoutes(): Router {
         const refreshToken = jwt.sign(
           {
             sub: user.id,
-            type: 'refresh'
+            type: 'refresh',
           },
           JWT_REFRESH_SECRET,
           { expiresIn: '7d' }
@@ -439,7 +457,7 @@ export function createSupabaseAuthRoutes(): Router {
         // Update last login
         await prisma.user.update({
           where: { id: user.id },
-          data: { lastLogin: new Date() }
+          data: { lastLogin: new Date() },
         });
 
         logger.info(`[TEST MODE] User logged in successfully: ${email}`);
@@ -456,15 +474,15 @@ export function createSupabaseAuthRoutes(): Router {
               role: user.role.toLowerCase(),
               emailVerified: user.emailVerified,
               lastLogin: user.lastLogin,
-              createdAt: user.createdAt
+              createdAt: user.createdAt,
             },
             tokens: {
               accessToken,
               refreshToken,
               expiresIn: 3600,
-              tokenType: 'Bearer'
-            }
-          }
+              tokenType: 'Bearer',
+            },
+          },
         });
       }
 
@@ -472,13 +490,13 @@ export function createSupabaseAuthRoutes(): Router {
 
       const { data: sessionData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase(),
-        password
+        password,
       });
 
       if (authError || !sessionData.session || !sessionData.user) {
         logger.warn(`Login failed for ${email}:`, authError?.message || 'No session returned');
         return res.status(401).json({
-          error: 'Invalid email or password'
+          error: 'Invalid email or password',
         });
       }
 
@@ -495,15 +513,17 @@ export function createSupabaseAuthRoutes(): Router {
           isActive: true,
           emailVerified: true,
           createdAt: true,
-          lastLogin: true
-        }
+          lastLogin: true,
+        },
       });
 
       if (!user) {
         // User exists in Supabase but not in Prisma - data sync issue
-        logger.error(`User ${sessionData.user.id} authenticated with Supabase but not found in database`);
+        logger.error(
+          `User ${sessionData.user.id} authenticated with Supabase but not found in database`
+        );
         return res.status(401).json({
-          error: 'User not found. Please contact support.'
+          error: 'User not found. Please contact support.',
         });
       }
 
@@ -512,7 +532,7 @@ export function createSupabaseAuthRoutes(): Router {
         logger.warn(`Inactive user attempted login: ${email}`);
         return res.status(403).json({
           error: 'Account is deactivated. Please contact support.',
-          code: 'ACCOUNT_DEACTIVATED'
+          code: 'ACCOUNT_DEACTIVATED',
         });
       }
 
@@ -520,7 +540,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { lastLogin: new Date() }
+        data: { lastLogin: new Date() },
       });
 
       // ===== Success Response =====
@@ -539,21 +559,20 @@ export function createSupabaseAuthRoutes(): Router {
             role: user.role.toLowerCase(),
             emailVerified: user.emailVerified,
             lastLogin: user.lastLogin,
-            createdAt: user.createdAt
+            createdAt: user.createdAt,
           },
           tokens: {
             accessToken: sessionData.session.access_token,
             refreshToken: sessionData.session.refresh_token,
             expiresIn: sessionData.session.expires_in || 3600,
-            tokenType: 'Bearer'
-          }
-        }
+            tokenType: 'Bearer',
+          },
+        },
       });
-
     } catch (error: any) {
       logger.error('Login error:', error);
       res.status(500).json({
-        error: 'Login failed. Please try again.'
+        error: 'Login failed. Please try again.',
       });
     }
   });
@@ -572,38 +591,41 @@ export function createSupabaseAuthRoutes(): Router {
    * @returns 200 - Logout successful
    * @returns 401 - Not authenticated
    */
-  router.post('/logout', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user?.id;
-      const email = req.user?.email;
+  router.post(
+    '/logout',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user?.id;
+        const email = req.user?.email;
 
-      // Sign out from Supabase (global scope - invalidates all sessions for this user)
-      // Note: We use supabaseAdmin to ensure we can sign out the user even if their token is expired
-      if (userId) {
-        try {
-          await supabaseAdmin.auth.admin.signOut(userId, 'global');
-          logger.info(`User logged out: ${email}`);
-        } catch (signOutError) {
-          // Log but don't fail - logout should be idempotent
-          logger.warn(`Supabase sign out failed for ${email}:`, signOutError);
+        // Sign out from Supabase (global scope - invalidates all sessions for this user)
+        // Note: We use supabaseAdmin to ensure we can sign out the user even if their token is expired
+        if (userId) {
+          try {
+            await supabaseAdmin.auth.admin.signOut(userId, 'global');
+            logger.info(`User logged out: ${email}`);
+          } catch (signOutError) {
+            // Log but don't fail - logout should be idempotent
+            logger.warn(`Supabase sign out failed for ${email}:`, signOutError);
+          }
         }
+
+        // Always return success for logout (idempotent operation)
+        res.json({
+          success: true,
+          message: 'Logout successful',
+        });
+      } catch (error: any) {
+        logger.error('Logout error:', error);
+        // Return success even if logout fails to prevent client-side issues
+        res.json({
+          success: true,
+          message: 'Logout successful',
+        });
       }
-
-      // Always return success for logout (idempotent operation)
-      res.json({
-        success: true,
-        message: 'Logout successful'
-      });
-
-    } catch (error: any) {
-      logger.error('Logout error:', error);
-      // Return success even if logout fails to prevent client-side issues
-      res.json({
-        success: true,
-        message: 'Logout successful'
-      });
     }
-  });
+  );
 
   /**
    * POST /api/auth/v2/refresh
@@ -630,7 +652,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       if (!refreshToken) {
         return res.status(400).json({
-          error: 'Refresh token is required'
+          error: 'Refresh token is required',
         });
       }
 
@@ -639,13 +661,13 @@ export function createSupabaseAuthRoutes(): Router {
       logger.debug('Attempting to refresh session');
 
       const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession({
-        refresh_token: refreshToken
+        refresh_token: refreshToken,
       });
 
       if (refreshError || !sessionData.session || !sessionData.user) {
         logger.warn('Token refresh failed:', refreshError?.message || 'No session returned');
         return res.status(401).json({
-          error: 'Invalid or expired refresh token'
+          error: 'Invalid or expired refresh token',
         });
       }
 
@@ -654,7 +676,7 @@ export function createSupabaseAuthRoutes(): Router {
       try {
         await prisma.user.update({
           where: { id: sessionData.user.id },
-          data: { lastLogin: new Date() }
+          data: { lastLogin: new Date() },
         });
       } catch (updateError) {
         // Log but don't fail if Prisma update fails
@@ -673,15 +695,14 @@ export function createSupabaseAuthRoutes(): Router {
             accessToken: sessionData.session.access_token,
             refreshToken: sessionData.session.refresh_token,
             expiresIn: sessionData.session.expires_in || 3600,
-            tokenType: 'Bearer'
-          }
-        }
+            tokenType: 'Bearer',
+          },
+        },
       });
-
     } catch (error: any) {
       logger.error('Token refresh error:', error);
       res.status(401).json({
-        error: 'Invalid or expired refresh token'
+        error: 'Invalid or expired refresh token',
       });
     }
   });
@@ -702,69 +723,72 @@ export function createSupabaseAuthRoutes(): Router {
    * @returns 404 - User not found
    * @returns 500 - Server error
    */
-  router.get('/me', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      if (!req.user?.id) {
-        return res.status(401).json({
-          error: 'Authentication required'
+  router.get(
+    '/me',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        if (!req.user?.id) {
+          return res.status(401).json({
+            error: 'Authentication required',
+          });
+        }
+
+        // ===== Get User Profile from Prisma =====
+
+        const user = await prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+            emailVerified: true,
+            createdAt: true,
+            updatedAt: true,
+            lastLogin: true,
+            supabaseUserId: true,
+          },
+        });
+
+        if (!user) {
+          logger.error(`Authenticated user ${req.user.id} not found in database`);
+          return res.status(404).json({
+            error: 'User not found',
+          });
+        }
+
+        // ===== Success Response =====
+
+        res.json({
+          success: true,
+          data: {
+            user: {
+              id: user.id,
+              email: user.email,
+              full_name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role.toLowerCase(),
+              is_active: user.isActive,
+              email_verified: user.emailVerified || req.supabaseUser?.email_confirmed_at !== null,
+              created_at: user.createdAt,
+              updated_at: user.updatedAt,
+              last_login: user.lastLogin,
+              supabase_user_id: user.supabaseUserId,
+            },
+          },
+        });
+      } catch (error: any) {
+        logger.error('Get user profile error:', error);
+        res.status(500).json({
+          error: 'Failed to get user profile',
         });
       }
-
-      // ===== Get User Profile from Prisma =====
-
-      const user = await prisma.user.findUnique({
-        where: { id: req.user.id },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          isActive: true,
-          emailVerified: true,
-          createdAt: true,
-          updatedAt: true,
-          lastLogin: true,
-          supabaseUserId: true
-        }
-      });
-
-      if (!user) {
-        logger.error(`Authenticated user ${req.user.id} not found in database`);
-        return res.status(404).json({
-          error: 'User not found'
-        });
-      }
-
-      // ===== Success Response =====
-
-      res.json({
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            full_name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role.toLowerCase(),
-            is_active: user.isActive,
-            email_verified: user.emailVerified || req.supabaseUser?.email_confirmed_at !== null,
-            created_at: user.createdAt,
-            updated_at: user.updatedAt,
-            last_login: user.lastLogin,
-            supabase_user_id: user.supabaseUserId
-          }
-        }
-      });
-
-    } catch (error: any) {
-      logger.error('Get user profile error:', error);
-      res.status(500).json({
-        error: 'Failed to get user profile'
-      });
     }
-  });
+  );
 
   /**
    * POST /api/auth/v2/forgot-password
@@ -783,64 +807,73 @@ export function createSupabaseAuthRoutes(): Router {
    * @returns 429 - Too many requests
    * @returns 500 - Server error
    */
-  router.post('/forgot-password', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { email, redirectUrl }: ForgotPasswordRequest = req.body;
+  router.post(
+    '/forgot-password',
+    authLimiter,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { email, redirectUrl }: ForgotPasswordRequest = req.body;
 
-      // ===== Input Validation =====
+        // ===== Input Validation =====
 
-      if (!email) {
-        return res.status(400).json({
-          error: 'Email is required'
+        if (!email) {
+          return res.status(400).json({
+            error: 'Email is required',
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            error: 'Invalid email format',
+          });
+        }
+
+        // ===== Send Password Reset Email =====
+
+        logger.info(`Password reset requested for: ${email}`);
+
+        // Determine redirect URL
+        const resetRedirectUrl =
+          redirectUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`;
+
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          email.toLowerCase(),
+          {
+            redirectTo: resetRedirectUrl,
+          }
+        );
+
+        if (resetError) {
+          logger.error('Supabase password reset failed:', resetError);
+
+          // Don't expose specific errors to prevent email enumeration
+          // Always return success to the client
+        }
+
+        // ===== Success Response =====
+        // Always return success to prevent email enumeration attacks
+        // The user will receive an email only if the account exists
+
+        logger.info(`Password reset email sent (or would be sent if account exists): ${email}`);
+
+        res.json({
+          success: true,
+          message:
+            'If an account exists for this email, you will receive a password reset link shortly.',
+        });
+      } catch (error: any) {
+        logger.error('Forgot password error:', error);
+        // Return generic success message even on error to prevent enumeration
+        res.json({
+          success: true,
+          message:
+            'If an account exists for this email, you will receive a password reset link shortly.',
         });
       }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          error: 'Invalid email format'
-        });
-      }
-
-      // ===== Send Password Reset Email =====
-
-      logger.info(`Password reset requested for: ${email}`);
-
-      // Determine redirect URL
-      const resetRedirectUrl = redirectUrl || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`;
-
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
-        redirectTo: resetRedirectUrl
-      });
-
-      if (resetError) {
-        logger.error('Supabase password reset failed:', resetError);
-
-        // Don't expose specific errors to prevent email enumeration
-        // Always return success to the client
-      }
-
-      // ===== Success Response =====
-      // Always return success to prevent email enumeration attacks
-      // The user will receive an email only if the account exists
-
-      logger.info(`Password reset email sent (or would be sent if account exists): ${email}`);
-
-      res.json({
-        success: true,
-        message: 'If an account exists for this email, you will receive a password reset link shortly.'
-      });
-
-    } catch (error: any) {
-      logger.error('Forgot password error:', error);
-      // Return generic success message even on error to prevent enumeration
-      res.json({
-        success: true,
-        message: 'If an account exists for this email, you will receive a password reset link shortly.'
-      });
     }
-  });
+  );
 
   /**
    * POST /api/auth/v2/verify-reset-token
@@ -869,7 +902,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       if (!token) {
         return res.status(400).json({
-          error: 'Reset token is required'
+          error: 'Reset token is required',
         });
       }
 
@@ -886,13 +919,12 @@ export function createSupabaseAuthRoutes(): Router {
 
       res.json({
         success: true,
-        message: 'Token format is valid. Proceed with password reset.'
+        message: 'Token format is valid. Proceed with password reset.',
       });
-
     } catch (error: any) {
       logger.error('Verify reset token error:', error);
       res.status(400).json({
-        error: 'Invalid or expired reset token'
+        error: 'Invalid or expired reset token',
       });
     }
   });
@@ -918,99 +950,106 @@ export function createSupabaseAuthRoutes(): Router {
    * @returns 400 - Validation error or invalid token
    * @returns 500 - Server error
    */
-  router.post('/reset-password', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { token, newPassword }: ResetPasswordRequest = req.body;
+  router.post(
+    '/reset-password',
+    authLimiter,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { token, newPassword }: ResetPasswordRequest = req.body;
 
-      // ===== Input Validation =====
+        // ===== Input Validation =====
 
-      if (!token || !newPassword) {
-        return res.status(400).json({
-          error: 'Token and new password are required',
-          details: {
-            token: !token ? 'Reset token is required' : null,
-            newPassword: !newPassword ? 'New password is required' : null
-          }
-        });
-      }
-
-      // Validate password strength
-      if (newPassword.length < 8) {
-        return res.status(400).json({
-          error: 'Password must be at least 8 characters long'
-        });
-      }
-
-      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-        return res.status(400).json({
-          error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-        });
-      }
-
-      // ===== Verify Token and Update Password =====
-
-      logger.info('Password reset attempt with token');
-
-      // With Supabase, the user must have clicked the reset link which gives them
-      // a recovery session. We can update the password using that session.
-      // The token from the email is actually used to establish the session.
-
-      // First, verify we can get user from the session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        logger.warn('Password reset failed: No active recovery session');
-        return res.status(400).json({
-          error: 'Invalid or expired reset link. Please request a new password reset.'
-        });
-      }
-
-      // Update password
-      const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        session.user.id,
-        { password: newPassword }
-      );
-
-      if (updateError) {
-        logger.error('Password update failed:', updateError);
-
-        if (updateError.message.includes('password')) {
+        if (!token || !newPassword) {
           return res.status(400).json({
-            error: updateError.message
+            error: 'Token and new password are required',
+            details: {
+              token: !token ? 'Reset token is required' : null,
+              newPassword: !newPassword ? 'New password is required' : null,
+            },
           });
         }
 
-        return res.status(500).json({
-          error: 'Failed to reset password. Please try again.'
+        // Validate password strength
+        if (newPassword.length < 8) {
+          return res.status(400).json({
+            error: 'Password must be at least 8 characters long',
+          });
+        }
+
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+          return res.status(400).json({
+            error:
+              'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+          });
+        }
+
+        // ===== Verify Token and Update Password =====
+
+        logger.info('Password reset attempt with token');
+
+        // With Supabase, the user must have clicked the reset link which gives them
+        // a recovery session. We can update the password using that session.
+        // The token from the email is actually used to establish the session.
+
+        // First, verify we can get user from the session
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          logger.warn('Password reset failed: No active recovery session');
+          return res.status(400).json({
+            error: 'Invalid or expired reset link. Please request a new password reset.',
+          });
+        }
+
+        // Update password
+        const { data: updateData, error: updateError } =
+          await supabaseAdmin.auth.admin.updateUserById(session.user.id, { password: newPassword });
+
+        if (updateError) {
+          logger.error('Password update failed:', updateError);
+
+          if (updateError.message.includes('password')) {
+            return res.status(400).json({
+              error: updateError.message,
+            });
+          }
+
+          return res.status(500).json({
+            error: 'Failed to reset password. Please try again.',
+          });
+        }
+
+        // ===== Sign Out All Sessions =====
+
+        try {
+          await supabaseAdmin.auth.admin.signOut(session.user.id, 'global');
+          logger.info(
+            `All sessions invalidated after password reset for user: ${session.user.email}`
+          );
+        } catch (signOutError) {
+          // Log but don't fail - password was already reset
+          logger.warn('Failed to sign out all sessions after password reset:', signOutError);
+        }
+
+        // ===== Success Response =====
+
+        logger.info(`Password reset successfully for user: ${session.user.email}`);
+
+        res.json({
+          success: true,
+          message: 'Password reset successfully. Please login with your new password.',
+        });
+      } catch (error: any) {
+        logger.error('Reset password error:', error);
+        res.status(500).json({
+          error: 'Failed to reset password. Please try again.',
         });
       }
-
-      // ===== Sign Out All Sessions =====
-
-      try {
-        await supabaseAdmin.auth.admin.signOut(session.user.id, 'global');
-        logger.info(`All sessions invalidated after password reset for user: ${session.user.email}`);
-      } catch (signOutError) {
-        // Log but don't fail - password was already reset
-        logger.warn('Failed to sign out all sessions after password reset:', signOutError);
-      }
-
-      // ===== Success Response =====
-
-      logger.info(`Password reset successfully for user: ${session.user.email}`);
-
-      res.json({
-        success: true,
-        message: 'Password reset successfully. Please login with your new password.'
-      });
-
-    } catch (error: any) {
-      logger.error('Reset password error:', error);
-      res.status(500).json({
-        error: 'Failed to reset password. Please try again.'
-      });
     }
-  });
+  );
 
   /**
    * POST /api/auth/v2/change-password
@@ -1032,105 +1071,219 @@ export function createSupabaseAuthRoutes(): Router {
    * @returns 401 - Not authenticated
    * @returns 500 - Server error
    */
-  router.post('/change-password', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      if (!req.user?.id || !req.user?.email) {
-        return res.status(401).json({
-          error: 'Authentication required'
-        });
-      }
-
-      const { currentPassword, newPassword }: ChangePasswordRequest = req.body;
-
-      // ===== Input Validation =====
-
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({
-          error: 'Current password and new password are required',
-          details: {
-            currentPassword: !currentPassword ? 'Current password is required' : null,
-            newPassword: !newPassword ? 'New password is required' : null
-          }
-        });
-      }
-
-      // Validate new password strength
-      if (newPassword.length < 8) {
-        return res.status(400).json({
-          error: 'Password must be at least 8 characters long'
-        });
-      }
-
-      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-        return res.status(400).json({
-          error: 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-        });
-      }
-
-      // ===== Verify Current Password =====
-
-      // Verify current password by attempting to sign in
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: req.user.email,
-        password: currentPassword
-      });
-
-      if (verifyError) {
-        logger.warn(`Incorrect current password for user: ${req.user.email}`);
-        return res.status(400).json({
-          error: 'Current password is incorrect'
-        });
-      }
-
-      // ===== Update Password in Supabase =====
-
-      logger.info(`Changing password for user: ${req.user.email}`);
-
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        req.user.id,
-        { password: newPassword }
-      );
-
-      if (updateError) {
-        logger.error('Password update failed:', updateError);
-
-        if (updateError.message.includes('password')) {
-          return res.status(400).json({
-            error: updateError.message
+  router.post(
+    '/change-password',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        if (!req.user?.id || !req.user?.email) {
+          return res.status(401).json({
+            error: 'Authentication required',
           });
         }
 
-        return res.status(500).json({
-          error: 'Failed to change password. Please try again.'
+        const { currentPassword, newPassword }: ChangePasswordRequest = req.body;
+
+        // ===== Input Validation =====
+
+        if (!currentPassword || !newPassword) {
+          return res.status(400).json({
+            error: 'Current password and new password are required',
+            details: {
+              currentPassword: !currentPassword ? 'Current password is required' : null,
+              newPassword: !newPassword ? 'New password is required' : null,
+            },
+          });
+        }
+
+        // Validate new password strength
+        if (newPassword.length < 8) {
+          return res.status(400).json({
+            error: 'Password must be at least 8 characters long',
+          });
+        }
+
+        if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+          return res.status(400).json({
+            error:
+              'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+          });
+        }
+
+        // ===== Verify Current Password =====
+
+        // Verify current password by attempting to sign in
+        const { error: verifyError } = await supabase.auth.signInWithPassword({
+          email: req.user.email,
+          password: currentPassword,
+        });
+
+        if (verifyError) {
+          logger.warn(`Incorrect current password for user: ${req.user.email}`);
+          return res.status(400).json({
+            error: 'Current password is incorrect',
+          });
+        }
+
+        // ===== Update Password in Supabase =====
+
+        logger.info(`Changing password for user: ${req.user.email}`);
+
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
+          password: newPassword,
+        });
+
+        if (updateError) {
+          logger.error('Password update failed:', updateError);
+
+          if (updateError.message.includes('password')) {
+            return res.status(400).json({
+              error: updateError.message,
+            });
+          }
+
+          return res.status(500).json({
+            error: 'Failed to change password. Please try again.',
+          });
+        }
+
+        // ===== Sign Out All Sessions (Security Best Practice) =====
+
+        try {
+          await supabaseAdmin.auth.admin.signOut(req.user.id, 'global');
+          logger.info(`All sessions invalidated for user: ${req.user.email}`);
+        } catch (signOutError) {
+          // Log but don't fail if sign out fails
+          logger.warn('Failed to sign out all sessions after password change:', signOutError);
+        }
+
+        // ===== Success Response =====
+
+        logger.info(`Password changed successfully for user: ${req.user.email}`);
+
+        res.json({
+          success: true,
+          message: 'Password changed successfully. Please login again with your new password.',
+        });
+      } catch (error: any) {
+        logger.error('Change password error:', error);
+        res.status(500).json({
+          error: 'Failed to change password. Please try again.',
         });
       }
-
-      // ===== Sign Out All Sessions (Security Best Practice) =====
-
-      try {
-        await supabaseAdmin.auth.admin.signOut(req.user.id, 'global');
-        logger.info(`All sessions invalidated for user: ${req.user.email}`);
-      } catch (signOutError) {
-        // Log but don't fail if sign out fails
-        logger.warn('Failed to sign out all sessions after password change:', signOutError);
-      }
-
-      // ===== Success Response =====
-
-      logger.info(`Password changed successfully for user: ${req.user.email}`);
-
-      res.json({
-        success: true,
-        message: 'Password changed successfully. Please login again with your new password.'
-      });
-
-    } catch (error: any) {
-      logger.error('Change password error:', error);
-      res.status(500).json({
-        error: 'Failed to change password. Please try again.'
-      });
     }
-  });
+  );
+
+  /**
+   * POST /api/auth/v2/verify-email
+   * Verify user email using OTP code
+   *
+   * Flow:
+   * 1. Validate input (email and token)
+   * 2. Verify OTP with Supabase Auth
+   * 3. Update emailVerified field in Prisma to true
+   * 4. Return success
+   *
+   * @body email - User email address
+   * @body token - OTP verification code from email
+   *
+   * @returns 200 - Email verified successfully
+   * @returns 400 - Validation error or invalid/expired token
+   * @returns 500 - Server error
+   */
+  router.post(
+    '/verify-email',
+    authLimiter,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { email, token }: VerifyEmailRequest = req.body;
+
+        // ===== Input Validation =====
+
+        if (!email || !token) {
+          return res.status(400).json({
+            error: 'Email and verification code are required',
+            details: {
+              email: !email ? 'Email is required' : null,
+              token: !token ? 'Verification code is required' : null,
+            },
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            error: 'Invalid email format',
+          });
+        }
+
+        // Validate token format (must be exactly 6 digits)
+        const trimmedToken = token.trim();
+        if (!/^\d{6}$/.test(trimmedToken)) {
+          return res.status(400).json({
+            error: 'Verification code must be exactly 6 digits',
+          });
+        }
+
+        // ===== Verify OTP with Supabase =====
+
+        logger.info(`Email verification attempt for: ${email}`);
+
+        const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+          email: email.toLowerCase(),
+          token: trimmedToken,
+          type: 'email',
+        });
+
+        if (verifyError || !verifyData.user) {
+          // Log actual error for debugging but return generic message to client
+          logger.warn(
+            `Email verification failed for ${email}:`,
+            verifyError?.message || 'No user data returned'
+          );
+
+          // Always return generic error message to prevent information leakage
+          return res.status(400).json({
+            error: 'Invalid or expired verification code. Please request a new code.',
+          });
+        }
+
+        // ===== Update emailVerified in Prisma =====
+
+        try {
+          await prisma.user.update({
+            where: { id: verifyData.user.id },
+            data: { emailVerified: true },
+          });
+
+          logger.info(`Email verified successfully for user: ${email}`);
+        } catch (updateError: any) {
+          // Log error but still return success since Supabase verification succeeded
+          logger.error('Failed to update emailVerified in Prisma:', updateError);
+
+          // If user not found in Prisma, this is a data sync issue
+          if (updateError.code === 'P2025') {
+            logger.error(
+              `User ${verifyData.user.id} verified in Supabase but not found in database`
+            );
+          }
+        }
+
+        // ===== Success Response =====
+
+        res.json({
+          success: true,
+          message: 'Email verified successfully. You can now login.',
+        });
+      } catch (error: any) {
+        logger.error('Email verification error:', error);
+        res.status(500).json({
+          error: 'Email verification failed. Please try again.',
+        });
+      }
+    }
+  );
 
   return router;
 }
