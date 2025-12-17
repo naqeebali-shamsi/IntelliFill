@@ -36,7 +36,7 @@
     "react-query": "^3.39.3",
     "react-router-dom": "^6.30.2",
     "sonner": "^2.0.7",
-    "zod": "^4.1.13",
+    "zod": "^3.23.8",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
@@ -64,14 +64,15 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
-    "vite": "^4.5.14",
+    "vite": "^5.4.19",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.0.14"
   },
   "scripts": {
-    "dev": "bunx --bun vite --host",
-    "build": "bun run typecheck && bunx --bun vite build",
-    "preview": "bunx --bun vite preview",
+    "dev": "vite --host",
+    "build": "vite build",
+    "build:strict": "tsc --noEmit && vite build",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
