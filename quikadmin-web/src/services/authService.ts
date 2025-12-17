@@ -149,6 +149,16 @@ export async function verifyEmail(
   return response.data;
 }
 
+/**
+ * Resend verification email via backend API
+ */
+export async function resendVerification(
+  email: string
+): Promise<{ success: boolean; message?: string }> {
+  const response = await api.post('/auth/v2/resend-verification', { email });
+  return response.data;
+}
+
 export default {
   login,
   register,
@@ -160,4 +170,5 @@ export default {
   changePassword,
   verifyResetToken,
   verifyEmail,
+  resendVerification,
 };

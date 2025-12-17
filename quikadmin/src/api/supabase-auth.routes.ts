@@ -82,6 +82,10 @@ export interface VerifyEmailRequest {
   token: string;
 }
 
+export interface ResendVerificationRequest {
+  email: string;
+}
+
 /**
  * Rate limiting for auth endpoints
  * Stricter limits for security-critical operations
@@ -1280,6 +1284,121 @@ export function createSupabaseAuthRoutes(): Router {
         logger.error('Email verification error:', error);
         res.status(500).json({
           error: 'Email verification failed. Please try again.',
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /api/auth/v2/resend-verification
+   * Resend email verification OTP code
+   *
+   * Flow:
+   * 1. Validate email input
+   * 2. Check if user exists in Prisma
+   * 3. Check if already verified
+   * 4. Call Supabase resend to send new OTP
+   * 5. Return success
+   *
+   * @body email - User email address
+   *
+   * @returns 200 - Verification email sent successfully
+   * @returns 400 - Validation error or already verified
+   * @returns 404 - User not found
+   * @returns 429 - Rate limited
+   * @returns 500 - Server error
+   */
+  router.post(
+    '/resend-verification',
+    authLimiter,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { email }: ResendVerificationRequest = req.body;
+
+        // ===== Input Validation =====
+
+        if (!email) {
+          return res.status(400).json({
+            error: 'Email is required',
+          });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({
+            error: 'Invalid email format',
+          });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // ===== Check User Exists =====
+
+        const user = await prisma.user.findUnique({
+          where: { email: normalizedEmail },
+          select: {
+            id: true,
+            email: true,
+            emailVerified: true,
+          },
+        });
+
+        if (!user) {
+          // Don't reveal if user exists - return generic success message
+          logger.info(`Resend verification requested for non-existent email: ${normalizedEmail}`);
+          return res.json({
+            success: true,
+            message: 'If an account exists with this email, a verification code has been sent.',
+          });
+        }
+
+        // ===== Check If Already Verified =====
+
+        if (user.emailVerified) {
+          return res.status(400).json({
+            error: 'Email is already verified. You can login directly.',
+            code: 'ALREADY_VERIFIED',
+          });
+        }
+
+        // ===== Resend Verification Email via Supabase =====
+
+        logger.info(`Resending verification email for: ${normalizedEmail}`);
+
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'signup',
+          email: normalizedEmail,
+        });
+
+        if (resendError) {
+          logger.error(`Failed to resend verification email for ${normalizedEmail}:`, resendError);
+
+          // Handle rate limiting from Supabase
+          if (resendError.message?.includes('rate') || resendError.status === 429) {
+            return res.status(429).json({
+              error: 'Too many requests. Please wait a few minutes before trying again.',
+              code: 'RATE_LIMITED',
+            });
+          }
+
+          return res.status(500).json({
+            error: 'Failed to send verification email. Please try again later.',
+          });
+        }
+
+        // ===== Success Response =====
+
+        logger.info(`Verification email resent successfully to: ${normalizedEmail}`);
+
+        res.json({
+          success: true,
+          message: 'Verification code has been sent to your email. Please check your inbox.',
+        });
+      } catch (error: any) {
+        logger.error('Resend verification error:', error);
+        res.status(500).json({
+          error: 'Failed to resend verification email. Please try again.',
         });
       }
     }
