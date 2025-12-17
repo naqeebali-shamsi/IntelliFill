@@ -20,10 +20,14 @@
     "typecheck:frontend": "cd quikadmin-web && bun run typecheck"
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^15.14.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.1",
-    "prettier": "^3.4.2"
+    "prettier": "^3.4.2",
+    "typescript-eslint": "^8.18.0"
   },
   "lint-staged": {
     "quikadmin/**/*.{ts,tsx}": [

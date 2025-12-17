@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -419,85 +419,78 @@ export default function ProfileDetail() {
     isLoading,
     error,
     refetch,
-  } = useQuery(
-    ['profile', id],
-    () => profilesService.getWithData(id!),
-    {
-      enabled: !!id,
-      onSuccess: (data) => {
-        // Reset form when data loads
-        form.reset({
-          name: data.name,
-          type: data.type,
-          notes: data.notes,
-        });
-      },
+  } = useQuery({
+    queryKey: ['profile', id],
+    queryFn: () => profilesService.getWithData(id!),
+    enabled: !!id,
+  });
+
+  // Handle form reset when data loads (v5: onSuccess moved to useEffect)
+  React.useEffect(() => {
+    if (profileWithData) {
+      form.reset({
+        name: profileWithData.name,
+        type: profileWithData.type,
+        notes: profileWithData.notes,
+      });
     }
-  );
+  }, [profileWithData, form]);
 
   // Extract profile for easier access
   const profile = profileWithData;
 
   // Update mutation
-  const updateMutation = useMutation(
-    (data: ProfileFormData) => profilesService.update(id!, data),
-    {
-      onSuccess: (updatedProfile) => {
-        toast.success('Profile updated successfully');
-        queryClient.invalidateQueries(['profiles']);
-        queryClient.setQueryData(['profile', id], updatedProfile);
-        setIsEditing(false);
-      },
-      onError: (error: any) => {
-        toast.error(error.response?.data?.error || 'Failed to update profile');
-      },
-    }
-  );
+  const updateMutation = useMutation({
+    mutationFn: (data: ProfileFormData) => profilesService.update(id!, data),
+    onSuccess: (updatedProfile) => {
+      toast.success('Profile updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.setQueryData(['profile', id], updatedProfile);
+      setIsEditing(false);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update profile');
+    },
+  });
 
   // Delete mutation
-  const deleteMutation = useMutation(
-    () => profilesService.delete(id!),
-    {
-      onSuccess: () => {
-        toast.success('Profile deleted');
-        queryClient.invalidateQueries(['profiles']);
-        navigate('/profiles');
-      },
-      onError: () => {
-        toast.error('Failed to delete profile');
-      },
-    }
-  );
+  const deleteMutation = useMutation({
+    mutationFn: () => profilesService.delete(id!),
+    onSuccess: () => {
+      toast.success('Profile deleted');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      navigate('/profiles');
+    },
+    onError: () => {
+      toast.error('Failed to delete profile');
+    },
+  });
 
   // Archive mutation
-  const archiveMutation = useMutation(
-    () => profilesService.archive(id!),
-    {
-      onSuccess: (updatedProfile) => {
-        toast.success('Profile archived');
-        queryClient.invalidateQueries(['profiles']);
-        queryClient.setQueryData(['profile', id], updatedProfile);
-      },
-      onError: () => {
-        toast.error('Failed to archive profile');
-      },
-    }
-  );
+  const archiveMutation = useMutation({
+    mutationFn: () => profilesService.archive(id!),
+    onSuccess: (updatedProfile) => {
+      toast.success('Profile archived');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.setQueryData(['profile', id], updatedProfile);
+    },
+    onError: () => {
+      toast.error('Failed to archive profile');
+    },
+  });
 
   // Restore mutation
-  const restoreMutation = useMutation(
-    () => profilesService.restore(id!),
-    {
-      onSuccess: (updatedProfile) => {
-        toast.success('Profile restored');
-        queryClient.invalidateQueries(['profiles']);
-        queryClient.setQueryData(['profile', id], updatedProfile);
-      },
-      onError: () => {
-        toast.error('Failed to restore profile');
-      },
-    }
-  );
+  const restoreMutation = useMutation({
+    mutationFn: () => profilesService.restore(id!),
+    onSuccess: (updatedProfile) => {
+      toast.success('Profile restored');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.setQueryData(['profile', id], updatedProfile);
+    },
+    onError: () => {
+      toast.error('Failed to restore profile');
+    },
+  });
 
   const handleBack = () => {
     navigate('/profiles');
@@ -603,7 +596,7 @@ export default function ProfileDetail() {
                   <Button
                     variant="outline"
                     onClick={handleArchive}
-                    disabled={archiveMutation.isLoading}
+                    disabled={archiveMutation.isPending}
                   >
                     <Archive className="mr-2 h-4 w-4" />
                     Archive
@@ -612,7 +605,7 @@ export default function ProfileDetail() {
                   <Button
                     variant="outline"
                     onClick={handleRestore}
-                    disabled={restoreMutation.isLoading}
+                    disabled={restoreMutation.isPending}
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
                     Restore
@@ -686,7 +679,7 @@ export default function ProfileDetail() {
         isEditing={isEditing}
         form={form}
         onSave={handleSave}
-        isSaving={updateMutation.isLoading}
+        isSaving={updateMutation.isPending}
       />
 
       {/* Two-column layout for additional sections */}

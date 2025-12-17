@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -75,15 +75,18 @@ export default function ProfileSettings() {
     isLoading,
     error,
     refetch
-  } = useQuery<UserProfile>('userProfile', getProfile, {
+  } = useQuery<UserProfile>({
+    queryKey: ['userProfile'],
+    queryFn: getProfile,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Refresh profile mutation
-  const refreshMutation = useMutation(refreshProfile, {
+  const refreshMutation = useMutation({
+    mutationFn: refreshProfile,
     onSuccess: () => {
-      queryClient.invalidateQueries('userProfile');
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       toast.success('Profile Refreshed', {
         description: 'Your profile has been refreshed with the latest data.',
       });
@@ -96,9 +99,10 @@ export default function ProfileSettings() {
   });
 
   // Delete profile mutation
-  const deleteProfileMutation = useMutation(deleteProfile, {
+  const deleteProfileMutation = useMutation({
+    mutationFn: deleteProfile,
     onSuccess: () => {
-      queryClient.invalidateQueries('userProfile');
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       toast.success('Profile Deleted', {
         description: 'Your profile has been deleted successfully.',
       });
@@ -111,45 +115,41 @@ export default function ProfileSettings() {
   });
 
   // Update field mutation
-  const updateFieldMutation = useMutation(
-    ({ fieldKey, value }: { fieldKey: string; value: string }) =>
+  const updateFieldMutation = useMutation({
+    mutationFn: ({ fieldKey, value }: { fieldKey: string; value: string }) =>
       updateProfileField(fieldKey, value),
-    {
-      onMutate: ({ fieldKey }) => {
-        setUpdatingField(fieldKey);
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries('userProfile');
-      },
-      onError: (error: any) => {
-        // Error is handled in ProfileFieldEditor
-        console.error('Update field error:', error);
-      },
-      onSettled: () => {
-        setUpdatingField(null);
-      },
-    }
-  );
+    onMutate: ({ fieldKey }) => {
+      setUpdatingField(fieldKey);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    },
+    onError: (error: any) => {
+      // Error is handled in ProfileFieldEditor
+      console.error('Update field error:', error);
+    },
+    onSettled: () => {
+      setUpdatingField(null);
+    },
+  });
 
   // Delete field mutation
-  const deleteFieldMutation = useMutation(
-    (fieldKey: string) => deleteProfileField(fieldKey),
-    {
-      onMutate: (fieldKey) => {
-        setDeletingField(fieldKey);
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries('userProfile');
-      },
-      onError: (error: any) => {
-        // Error is handled in ProfileFieldEditor
-        console.error('Delete field error:', error);
-      },
-      onSettled: () => {
-        setDeletingField(null);
-      },
-    }
-  );
+  const deleteFieldMutation = useMutation({
+    mutationFn: (fieldKey: string) => deleteProfileField(fieldKey),
+    onMutate: (fieldKey) => {
+      setDeletingField(fieldKey);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    },
+    onError: (error: any) => {
+      // Error is handled in ProfileFieldEditor
+      console.error('Delete field error:', error);
+    },
+    onSettled: () => {
+      setDeletingField(null);
+    },
+  });
 
   // Add custom field form
   const {
@@ -373,9 +373,9 @@ export default function ProfileSettings() {
           <Button
             variant="outline"
             onClick={() => refreshMutation.mutate()}
-            disabled={refreshMutation.isLoading}
+            disabled={refreshMutation.isPending}
           >
-            {refreshMutation.isLoading ? (
+            {refreshMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -423,8 +423,8 @@ export default function ProfileSettings() {
                   <Button type="button" variant="outline" onClick={() => setIsAddFieldOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={updateFieldMutation.isLoading}>
-                    {updateFieldMutation.isLoading ? (
+                  <Button type="submit" disabled={updateFieldMutation.isPending}>
+                    {updateFieldMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Adding...

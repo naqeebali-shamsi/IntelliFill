@@ -3,7 +3,8 @@
  * @module hooks/useJobPolling
  */
 
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { getJobStatus } from '@/services/api';
 import { JobStatus, UseJobPollingOptions } from '@/types/upload';
 import { useUploadStore } from '@/stores/uploadStore';
@@ -34,9 +35,12 @@ export function useJobPolling(
   // Don't subscribe to files - use getState() inside callbacks to avoid re-render loops
   const getFiles = () => useUploadStore.getState().files;
 
-  return useQuery<JobStatus, Error>(
-    ['job-status', jobId],
-    async (): Promise<JobStatus> => {
+  // Track previous status to detect changes
+  const prevStatusRef = useRef<string | null>(null);
+
+  const query = useQuery<JobStatus, Error>({
+    queryKey: ['job-status', jobId],
+    queryFn: async (): Promise<JobStatus> => {
       if (!jobId) {
         throw new Error('No job ID provided');
       }
@@ -50,75 +54,90 @@ export function useJobPolling(
         error: result.error,
       };
     },
-    {
-      enabled: enabled && !!jobId,
-      refetchInterval: (data) => {
-        // Stop polling if job is completed or failed
-        if (!data) return interval;
+    enabled: enabled && !!jobId,
+    refetchInterval: (query) => {
+      // Stop polling if job is completed or failed
+      const data = query.state.data;
+      if (!data) return interval;
 
-        const isFinished = data.status === 'completed' || data.status === 'failed';
-        return isFinished ? false : interval;
-      },
-      refetchIntervalInBackground: false,
-      staleTime: 0, // Always fetch fresh data
-      cacheTime: 5 * 60 * 1000, // Cache for 5 minutes
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      onSuccess: (data) => {
-        // Find file with this jobId
-        const file = getFiles().find((f) => f.jobId === jobId);
-        if (!file) return;
+      const isFinished = data.status === 'completed' || data.status === 'failed';
+      return isFinished ? false : interval;
+    },
+    refetchIntervalInBackground: false,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 5 * 60 * 1000, // Cache for 5 minutes (renamed from cacheTime in v5)
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 
-        // Update progress
-        if (data.progress !== undefined) {
-          updateFileProgress(file.id, data.progress);
-        }
+  // Handle success callbacks (v5: moved from onSuccess to useEffect)
+  useEffect(() => {
+    const data = query.data;
+    if (!data || !jobId) return;
 
-        // Handle completion
-        if (data.status === 'completed') {
-          setFileResult(file.id, {
-            jobId: data.id,
-            status: data.status,
-            data: data.result,
-            metadata: data.metadata ? {
-              fileName: file.file.name,
-              fileSize: file.file.size,
-              ...(data.metadata as Record<string, any>),
-            } : undefined,
-          });
+    // Only process if status changed
+    if (prevStatusRef.current === data.status) return;
+    prevStatusRef.current = data.status;
 
-          toast.success(`${file.file.name} processed successfully`);
+    // Find file with this jobId
+    const file = getFiles().find((f) => f.jobId === jobId);
+    if (!file) return;
 
-          if (onComplete) {
-            onComplete(data.result);
-          }
-        }
-
-        // Handle failure
-        if (data.status === 'failed') {
-          const errorMessage = data.error || 'Processing failed';
-          setFileError(file.id, errorMessage);
-
-          toast.error(`Failed to process ${file.file.name}: ${errorMessage}`);
-
-          if (onError) {
-            onError(errorMessage);
-          }
-        }
-      },
-      onError: (error) => {
-        // Find file with this jobId
-        const file = getFiles().find((f) => f.jobId === jobId);
-        if (file) {
-          setFileError(file.id, error.message || 'Job polling failed');
-        }
-
-        if (onError) {
-          onError(error.message);
-        }
-      },
+    // Update progress
+    if (data.progress !== undefined) {
+      updateFileProgress(file.id, data.progress);
     }
-  );
+
+    // Handle completion
+    if (data.status === 'completed') {
+      setFileResult(file.id, {
+        jobId: data.id,
+        status: data.status,
+        data: data.result,
+        metadata: data.metadata ? {
+          fileName: file.file.name,
+          fileSize: file.file.size,
+          ...(data.metadata as Record<string, any>),
+        } : undefined,
+      });
+
+      toast.success(`${file.file.name} processed successfully`);
+
+      if (onComplete) {
+        onComplete(data.result);
+      }
+    }
+
+    // Handle failure
+    if (data.status === 'failed') {
+      const errorMessage = data.error || 'Processing failed';
+      setFileError(file.id, errorMessage);
+
+      toast.error(`Failed to process ${file.file.name}: ${errorMessage}`);
+
+      if (onError) {
+        onError(errorMessage);
+      }
+    }
+  }, [query.data, jobId, onComplete, onError, setFileResult, setFileError, updateFileProgress]);
+
+  // Handle error callbacks (v5: moved from onError to useEffect)
+  useEffect(() => {
+    const error = query.error;
+    if (!error || !jobId) return;
+
+    // Find file with this jobId
+    const file = getFiles().find((f) => f.jobId === jobId);
+    if (file) {
+      setFileError(file.id, error.message || 'Job polling failed');
+    }
+
+    if (onError) {
+      onError(error.message);
+    }
+  }, [query.error, jobId, onError, setFileError]);
+
+  return query;
 }
 
 /**
@@ -156,11 +175,11 @@ export function useQueueJobPolling(options: UseJobPollingOptions = {}) {
   );
 
   // Get actual job IDs using getState() to avoid subscription issues
-  const getJobIds = () => 
+  const getJobIds = () =>
     useUploadStore.getState().files
       .filter((f) => f.status === 'processing' && f.jobId)
       .map((f) => f.jobId!);
-  
+
   // Get job IDs once when count changes
   const jobIds = processingCount > 0 ? getJobIds() : [];
 

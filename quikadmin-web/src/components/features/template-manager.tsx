@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTemplates, createTemplate, deleteTemplate } from '@/services/formService';
 import type { FieldMapping, MappingTemplate } from '@/types/formFilling';
 import { toast } from 'sonner';
@@ -169,9 +169,9 @@ export function TemplateManager({ currentMappings, onLoadTemplate }: TemplateMan
               </Button>
               <Button
                 onClick={handleSaveTemplate}
-                disabled={createMutation.isLoading}
+                disabled={createMutation.isPending}
               >
-                {createMutation.isLoading ? 'Saving...' : 'Save Template'}
+                {createMutation.isPending ? 'Saving...' : 'Save Template'}
               </Button>
             </DialogFooter>
           </DialogContent>

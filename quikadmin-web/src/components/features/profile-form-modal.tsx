@@ -8,7 +8,7 @@
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Building2, User } from 'lucide-react';
 
@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/form';
 
 import { profilesService } from '@/services/profilesService';
-import type { Profile, ProfileFormData } from '@/types/profile';
+import type { Profile, ProfileFormData, CreateProfileDto } from '@/types/profile';
 import { profileFormSchema } from '@/types/profile';
 
 export interface ProfileFormModalProps {
@@ -121,39 +121,35 @@ export function ProfileFormModal({
   }, [open, profile, form]);
 
   // Create mutation
-  const createMutation = useMutation(
-    (data: ProfileFormData) => profilesService.create(data),
-    {
-      onSuccess: () => {
-        toast.success('Profile created successfully');
-        queryClient.invalidateQueries(['profiles']);
-        onOpenChange(false);
-        onSuccess?.();
-      },
-      onError: (error: any) => {
-        toast.error(error.response?.data?.error || 'Failed to create profile');
-      },
-    }
-  );
+  const createMutation = useMutation({
+    mutationFn: (data: ProfileFormData) => profilesService.create(data as CreateProfileDto),
+    onSuccess: () => {
+      toast.success('Profile created successfully');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      onOpenChange(false);
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to create profile');
+    },
+  });
 
   // Update mutation
-  const updateMutation = useMutation(
-    (data: ProfileFormData) => profilesService.update(profile!.id, data),
-    {
-      onSuccess: () => {
-        toast.success('Profile updated successfully');
-        queryClient.invalidateQueries(['profiles']);
-        queryClient.invalidateQueries(['profile', profile!.id]);
-        onOpenChange(false);
-        onSuccess?.();
-      },
-      onError: (error: any) => {
-        toast.error(error.response?.data?.error || 'Failed to update profile');
-      },
-    }
-  );
+  const updateMutation = useMutation({
+    mutationFn: (data: ProfileFormData) => profilesService.update(profile!.id, data),
+    onSuccess: () => {
+      toast.success('Profile updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['profile', profile!.id] });
+      onOpenChange(false);
+      onSuccess?.();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update profile');
+    },
+  });
 
-  const isLoading = createMutation.isLoading || updateMutation.isLoading;
+  const isLoading = createMutation.isPending || updateMutation.isPending;
 
   const onSubmit = (data: ProfileFormData) => {
     if (isEditMode) {

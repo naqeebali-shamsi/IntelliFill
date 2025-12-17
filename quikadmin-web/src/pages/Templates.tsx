@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -370,9 +370,9 @@ export default function Templates() {
                   </Button>
                   <Button
                     onClick={handleCreateTemplate}
-                    disabled={createMutation.isLoading || !newTemplateName.trim()}
+                    disabled={createMutation.isPending || !newTemplateName.trim()}
                   >
-                    {createMutation.isLoading ? (
+                    {createMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Creating...

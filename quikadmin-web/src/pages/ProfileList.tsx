@@ -7,7 +7,7 @@
 
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -194,59 +194,51 @@ export default function ProfileList() {
   }, [debouncedSearch]);
 
   // Fetch profiles
-  const { data, isLoading, error, refetch } = useQuery(
-    ['profiles', filter, page, pageSize],
-    () => profilesService.list({
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['profiles', filter, page, pageSize],
+    queryFn: () => profilesService.list({
       filter: { ...filter, search: debouncedSearch || undefined },
       limit: pageSize,
       offset: (page - 1) * pageSize,
     }),
-    {
-      keepPreviousData: true,
-    }
-  );
+    placeholderData: keepPreviousData,
+  });
 
   // Delete mutation
-  const deleteMutation = useMutation(
-    (id: string) => profilesService.delete(id),
-    {
-      onSuccess: () => {
-        toast.success('Profile deleted');
-        queryClient.invalidateQueries(['profiles']);
-      },
-      onError: () => {
-        toast.error('Failed to delete profile');
-      },
-    }
-  );
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => profilesService.delete(id),
+    onSuccess: () => {
+      toast.success('Profile deleted');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+    onError: () => {
+      toast.error('Failed to delete profile');
+    },
+  });
 
   // Archive mutation
-  const archiveMutation = useMutation(
-    (id: string) => profilesService.archive(id),
-    {
-      onSuccess: () => {
-        toast.success('Profile archived');
-        queryClient.invalidateQueries(['profiles']);
-      },
-      onError: () => {
-        toast.error('Failed to archive profile');
-      },
-    }
-  );
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => profilesService.archive(id),
+    onSuccess: () => {
+      toast.success('Profile archived');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+    onError: () => {
+      toast.error('Failed to archive profile');
+    },
+  });
 
   // Restore mutation
-  const restoreMutation = useMutation(
-    (id: string) => profilesService.restore(id),
-    {
-      onSuccess: () => {
-        toast.success('Profile restored');
-        queryClient.invalidateQueries(['profiles']);
-      },
-      onError: () => {
-        toast.error('Failed to restore profile');
-      },
-    }
-  );
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => profilesService.restore(id),
+    onSuccess: () => {
+      toast.success('Profile restored');
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+    onError: () => {
+      toast.error('Failed to restore profile');
+    },
+  });
 
   const profiles = data?.data?.profiles ?? [];
   const pagination = data?.data?.pagination;

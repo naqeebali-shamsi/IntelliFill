@@ -24,7 +24,7 @@ if ! gh auth status &> /dev/null; then
     exit 1
 fi
 
-REPO="naqeebali-shamsi/IntelliFill"
+REPO="Intellifill/IntelliFill"
 echo "Setting secrets for repository: $REPO"
 echo ""
 

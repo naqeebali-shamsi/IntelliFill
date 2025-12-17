@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Building2, User, Plus, ChevronDown, Check, RefreshCw, Users } from 'lucide-react';
 
@@ -123,28 +123,30 @@ export function ProfileSelector({
     isLoading,
     error,
     refetch,
-  } = useQuery(
-    ['profiles-for-selector'],
-    () => profilesService.list({
+  } = useQuery({
+    queryKey: ['profiles-for-selector'],
+    queryFn: () => profilesService.list({
       filter: { status: 'ACTIVE' },
       limit: 50,
     }),
-    {
-      staleTime: 60000, // Cache for 1 minute
-      onSuccess: (data) => {
-        // Auto-select first profile if none selected and profiles exist
-        if (!selectedProfile && data.data.profiles.length > 0) {
-          onProfileChange(data.data.profiles[0]);
-        }
-        // Show dialog if no profiles
-        if (data.data.profiles.length === 0) {
-          setShowNoProfilesDialog(true);
-        }
-      },
-    }
-  );
+    staleTime: 60000, // Cache for 1 minute
+  });
 
   const profiles = profilesData?.data?.profiles ?? [];
+
+  // Handle auto-select and no profiles dialog (v5: onSuccess moved to useEffect)
+  React.useEffect(() => {
+    if (profilesData) {
+      // Auto-select first profile if none selected and profiles exist
+      if (!selectedProfile && profilesData.data.profiles.length > 0) {
+        onProfileChange(profilesData.data.profiles[0]);
+      }
+      // Show dialog if no profiles
+      if (profilesData.data.profiles.length === 0) {
+        setShowNoProfilesDialog(true);
+      }
+    }
+  }, [profilesData, selectedProfile, onProfileChange]);
 
   const handleCreateProfile = () => {
     setShowNoProfilesDialog(false);

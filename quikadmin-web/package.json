@@ -33,7 +33,7 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "^7.67.0",
-    "react-query": "^3.39.3",
+    "@tanstack/react-query": "^5.62.8",
     "react-router-dom": "^6.30.2",
     "sonner": "^2.0.7",
     "zod": "^3.23.8",
@@ -49,8 +49,12 @@
     "@types/node": "^20.19.25",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
-    "@typescript-eslint/eslint-plugin": "^8.48.1",
-    "@typescript-eslint/parser": "^8.48.1",
+    "@eslint/js": "^9.17.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "typescript-eslint": "^8.18.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/ui": "^4.0.14",
     "autoprefixer": "^10.4.22",
@@ -81,6 +85,7 @@
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "test:e2e": "cypress run",
-    "test:e2e:headed": "cypress run --headed"
+    "test:e2e:headed": "cypress run --headed",
+    "lint": "eslint \"src/**/*.{ts,tsx}\""
   }
 }

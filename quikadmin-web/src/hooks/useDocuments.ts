@@ -3,7 +3,7 @@
  * @module hooks/useDocuments
  */
 
-import { useQuery, UseQueryOptions } from 'react-query';
+import { useQuery, UseQueryOptions, keepPreviousData } from '@tanstack/react-query';
 import { getDocuments } from '@/services/api';
 import {
   Document,
@@ -107,31 +107,29 @@ async function fetchDocuments(options: UseDocumentsOptions = {}): Promise<Docume
 export function useDocuments(options: UseDocumentsOptions = {}) {
   const { filter, sort, page, pageSize, queryOptions } = options;
 
-  return useQuery<DocumentListResponse, Error>(
-    ['documents', { filter, sort, page, pageSize }],
-    () => fetchDocuments(options),
-    {
-      // Cache data for 30 seconds
-      staleTime: 30000,
+  return useQuery<DocumentListResponse, Error>({
+    queryKey: ['documents', { filter, sort, page, pageSize }],
+    queryFn: () => fetchDocuments(options),
+    // Cache data for 30 seconds
+    staleTime: 30000,
 
-      // Keep cache for 5 minutes
-      cacheTime: 300000,
+    // Keep cache for 5 minutes (renamed from cacheTime in v5)
+    gcTime: 300000,
 
-      // Keep previous data during pagination for smooth transitions
-      keepPreviousData: true,
+    // Keep previous data during pagination for smooth transitions
+    placeholderData: keepPreviousData,
 
-      // Retry failed requests twice
-      retry: 2,
+    // Retry failed requests twice
+    retry: 2,
 
-      // Refetch on window focus for fresh data
-      refetchOnWindowFocus: true,
+    // Refetch on window focus for fresh data
+    refetchOnWindowFocus: true,
 
-      // Don't refetch on mount if data is fresh
-      refetchOnMount: false,
+    // Don't refetch on mount if data is fresh
+    refetchOnMount: false,
 
-      ...queryOptions,
-    }
-  );
+    ...queryOptions,
+  });
 }
 
 /**

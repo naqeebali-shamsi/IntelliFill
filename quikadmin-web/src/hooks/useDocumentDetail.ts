@@ -3,7 +3,7 @@
  * @module hooks/useDocumentDetail
  */
 
-import { useQuery, UseQueryOptions } from 'react-query';
+import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import api from '@/services/api';
 import {
   Document,
@@ -49,28 +49,26 @@ export function useDocumentDetail(
   documentId: string | null,
   options?: Omit<UseQueryOptions<Document, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<Document, Error>(
-    ['document', documentId],
-    () => fetchDocumentDetail(documentId!),
-    {
-      // Only fetch if documentId is provided
-      enabled: !!documentId,
+  return useQuery<Document, Error>({
+    queryKey: ['document', documentId],
+    queryFn: () => fetchDocumentDetail(documentId!),
+    // Only fetch if documentId is provided
+    enabled: !!documentId,
 
-      // Cache data for 1 minute
-      staleTime: 60000,
+    // Cache data for 1 minute
+    staleTime: 60000,
 
-      // Keep cache for 5 minutes
-      cacheTime: 300000,
+    // Keep cache for 5 minutes (renamed from cacheTime in v5)
+    gcTime: 300000,
 
-      // Retry failed requests once
-      retry: 1,
+    // Retry failed requests once
+    retry: 1,
 
-      // Refetch on window focus
-      refetchOnWindowFocus: true,
+    // Refetch on window focus
+    refetchOnWindowFocus: true,
 
-      ...options,
-    }
-  );
+    ...options,
+  });
 }
 
 /**
@@ -91,26 +89,24 @@ export function useDocumentData(
   documentId: string | null,
   options?: Omit<UseQueryOptions<{ fileName: string; data: Record<string, any> }, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<{ fileName: string; data: Record<string, any> }, Error>(
-    ['documentData', documentId],
-    async () => {
+  return useQuery<{ fileName: string; data: Record<string, any> }, Error>({
+    queryKey: ['documentData', documentId],
+    queryFn: async () => {
       const response = await api.get(`/documents/${documentId}/data`);
       return response.data;
     },
-    {
-      // Only fetch if documentId is provided
-      enabled: !!documentId,
+    // Only fetch if documentId is provided
+    enabled: !!documentId,
 
-      // Cache data for 5 minutes
-      staleTime: 300000,
+    // Cache data for 5 minutes
+    staleTime: 300000,
 
-      // Keep cache for 10 minutes
-      cacheTime: 600000,
+    // Keep cache for 10 minutes (renamed from cacheTime in v5)
+    gcTime: 600000,
 
-      // Retry once
-      retry: 1,
+    // Retry once
+    retry: 1,
 
-      ...options,
-    }
-  );
+    ...options,
+  });
 }

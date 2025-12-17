@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from 'react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,14 +46,12 @@ export default function SimpleFillForm() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
 
   // Fetch ALL user's aggregated data (Phase 4B - User-centric approach)
-  const { data: userData, isLoading: loadingUserData, error: userDataError } = useQuery<UserDataResponse>(
-    ['user-data'],
-    () => api.get('/users/me/data').then(res => res.data),
-    {
-      staleTime: 60000, // Cache for 1 minute
-      retry: 1
-    }
-  )
+  const { data: userData, isLoading: loadingUserData, error: userDataError } = useQuery<UserDataResponse>({
+    queryKey: ['user-data'],
+    queryFn: () => api.get('/users/me/data').then(res => res.data),
+    staleTime: 60000, // Cache for 1 minute
+    retry: 1
+  })
 
   // Handle profile selection change
   const handleProfileChange = (profile: Profile | null) => {

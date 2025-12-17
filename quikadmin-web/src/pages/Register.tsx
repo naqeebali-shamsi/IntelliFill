@@ -37,7 +37,7 @@ export default function Register() {
     password: '',
     confirmPassword: ''
   })
-  
+
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
     score: 0,
     requirements: {
@@ -57,9 +57,9 @@ export default function Register() {
       number: /\d/.test(password),
       special: /[@$!%*?&]/.test(password)
     }
-    
+
     const score = Object.values(requirements).filter(Boolean).length
-    
+
     setPasswordStrength({
       score,
       requirements
@@ -96,9 +96,20 @@ export default function Register() {
         acceptTerms: agreedToTerms,
         marketingConsent
       })
-      
-      toast.success('Registration successful! Welcome aboard!')
-      navigate('/dashboard')
+
+      // Get the auth state to check if tokens are present
+      const authState = useAuthStore.getState()
+
+      // Check if email verification is required (tokens will be null)
+      if (!authState.tokens) {
+        // Email verification required - redirect to verify-email page
+        toast.success('Registration successful! Please check your email for verification code.')
+        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`)
+      } else {
+        // Development mode or verification disabled - direct login
+        toast.success('Registration successful! Welcome aboard!')
+        navigate('/dashboard')
+      }
     } catch (err: any) {
       console.error('Registration error:', err)
       // Error is already set in the store by the register action
@@ -119,12 +130,12 @@ export default function Register() {
       ...prev,
       [name]: value
     }))
-    
+
     // Check password strength when password changes
     if (name === 'password') {
       checkPasswordStrength(value)
     }
-    
+
     // Clear error when user starts typing
     if (error) clearError()
   }
@@ -156,7 +167,7 @@ export default function Register() {
             Enter your information to get started
           </CardDescription>
         </CardHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
@@ -165,7 +176,7 @@ export default function Register() {
                 <AlertDescription>{error.message}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -181,7 +192,7 @@ export default function Register() {
                 className="w-full"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -197,7 +208,7 @@ export default function Register() {
                 className="w-full"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -226,7 +237,7 @@ export default function Register() {
                   )}
                 </button>
               </div>
-              
+
               {formData.password && (
                 <div className="space-y-2 mt-2">
                   <div className="flex gap-1">
@@ -251,7 +262,7 @@ export default function Register() {
                 </div>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
@@ -267,7 +278,7 @@ export default function Register() {
                 className="w-full"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="terms"
@@ -285,7 +296,7 @@ export default function Register() {
                 </Link>
               </label>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="marketing"
@@ -301,10 +312,10 @@ export default function Register() {
               </label>
             </div>
           </CardContent>
-          
+
           <CardFooter className="flex flex-col space-y-4">
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
               disabled={isLoading || !agreedToTerms || passwordStrength.score < 4}
             >
@@ -320,11 +331,11 @@ export default function Register() {
                 </>
               )}
             </Button>
-            
+
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               Already have an account?{' '}
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="font-medium text-primary hover:underline"
               >
                 Sign in

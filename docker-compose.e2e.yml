@@ -10,14 +10,17 @@
 #   - Playwright test runner
 #
 # Usage:
+#   # 1. Copy .env.docker.example to .env.docker (if not done already)
+#   # 2. Fill in the E2E_* variables in .env.docker
+#
 #   # Run all e2e tests
-#   docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+#   docker-compose -f docker-compose.e2e.yml --env-file .env.docker up --build --abort-on-container-exit
 #
 #   # Clean up after tests
 #   docker-compose -f docker-compose.e2e.yml down -v
 #
 #   # Rebuild specific service
-#   docker-compose -f docker-compose.e2e.yml build backend-test
+#   docker-compose -f docker-compose.e2e.yml --env-file .env.docker build backend-test
 
 services:
   # ==================== Test Database ====================
@@ -25,9 +28,9 @@ services:
     image: pgvector/pgvector:pg15
     container_name: intellifill-postgres-test
     environment:
-      POSTGRES_DB: intellifill_test
-      POSTGRES_USER: intellifill_test
-      POSTGRES_PASSWORD: test_password_123
+      POSTGRES_DB: ${E2E_POSTGRES_DB:-intellifill_test}
+      POSTGRES_USER: ${E2E_POSTGRES_USER:-intellifill_test}
+      POSTGRES_PASSWORD: ${E2E_POSTGRES_PASSWORD:?E2E_POSTGRES_PASSWORD is required}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       # Mount init script to set up database schema
@@ -38,7 +41,7 @@ services:
     networks:
       - intellifill-e2e
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U intellifill_test -d intellifill_test"]
+      test: ["CMD-SHELL", "pg_isready -U ${E2E_POSTGRES_USER:-intellifill_test} -d ${E2E_POSTGRES_DB:-intellifill_test}"]
       interval: 3s
       timeout: 2s
       retries: 10
@@ -79,8 +82,8 @@ services:
       LOG_LEVEL: error
 
       # Database
-      DATABASE_URL: postgresql://intellifill_test:test_password_123@postgres-test:5432/intellifill_test
-      DIRECT_URL: postgresql://intellifill_test:test_password_123@postgres-test:5432/intellifill_test
+      DATABASE_URL: postgresql://${E2E_POSTGRES_USER:-intellifill_test}:${E2E_POSTGRES_PASSWORD}@postgres-test:5432/${E2E_POSTGRES_DB:-intellifill_test}
+      DIRECT_URL: postgresql://${E2E_POSTGRES_USER:-intellifill_test}:${E2E_POSTGRES_PASSWORD}@postgres-test:5432/${E2E_POSTGRES_DB:-intellifill_test}
 
       # Redis
       REDIS_URL: redis://redis-test:6379
@@ -190,10 +193,10 @@ services:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
 
       # Test user credentials (created by seed script)
-      TEST_USER_EMAIL: test@intellifill.local
-      TEST_USER_PASSWORD: Test123!@#
-      TEST_ADMIN_EMAIL: admin@intellifill.local
-      TEST_ADMIN_PASSWORD: Admin123!@#
+      TEST_USER_EMAIL: ${E2E_TEST_USER_EMAIL:-test@intellifill.local}
+      TEST_USER_PASSWORD: ${E2E_TEST_USER_PASSWORD:?E2E_TEST_USER_PASSWORD is required}
+      TEST_ADMIN_EMAIL: ${E2E_TEST_ADMIN_EMAIL:-admin@intellifill.local}
+      TEST_ADMIN_PASSWORD: ${E2E_TEST_ADMIN_PASSWORD:?E2E_TEST_ADMIN_PASSWORD is required}
 
       # Parallel execution
       WORKERS: 4

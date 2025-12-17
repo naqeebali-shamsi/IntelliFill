@@ -78,7 +78,7 @@ export default defineConfig({
             '@radix-ui/react-slot'
           ],
           // State management and data fetching
-          'vendor-state': ['zustand', 'react-query', 'axios'],
+          'vendor-state': ['zustand', '@tanstack/react-query', 'axios'],
           // Form handling
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
           // Utilities

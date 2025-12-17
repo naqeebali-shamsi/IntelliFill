@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, CheckCircle, AlertCircle } from 'lucide-react';
-import { verifyEmail } from '@/services/authService';
+import { verifyEmail, resendVerification } from '@/services/authService';
 
 // Sanitize email from URL to prevent XSS
 const sanitizeEmail = (email: string | null): string => {
@@ -39,6 +39,7 @@ export default function VerifyEmail() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +115,41 @@ export default function VerifyEmail() {
 
     // Clear error when user starts typing
     if (error) setError(null);
+  };
+
+  const handleResend = async () => {
+    if (!formData.email) {
+      setError('Please enter your email first');
+      toast.error('Please enter your email first');
+      return;
+    }
+
+    setIsResending(true);
+    setError(null);
+
+    try {
+      const response = await resendVerification(formData.email);
+      if (response.success) {
+        toast.success('Verification email sent! Please check your inbox.');
+      } else {
+        throw new Error(response.message || 'Failed to resend');
+      }
+    } catch (err: any) {
+      console.error('Resend verification error:', err);
+
+      if (err.response?.status === 429) {
+        const errorMessage = 'Too many requests. Please wait before trying again.';
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const errorMessage = err.response?.data?.message || 'Failed to resend verification email';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsResending(false);
+    }
   };
 
   return (
@@ -214,9 +250,14 @@ export default function VerifyEmail() {
                 <div className="text-center text-sm text-gray-600 dark:text-gray-400">
                   <p>
                     Didn't receive the code?{' '}
-                    <Link to="/register" className="font-medium text-primary hover:underline">
-                      Resend verification email
-                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={isResending || !formData.email}
+                      className="font-medium text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isResending ? 'Sending...' : 'Resend code'}
+                    </button>
                   </p>
                   <p className="mt-2">
                     <Link to="/login" className="font-medium text-primary hover:underline">

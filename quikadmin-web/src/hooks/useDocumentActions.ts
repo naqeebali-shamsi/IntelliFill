@@ -3,7 +3,7 @@
  * @module hooks/useDocumentActions
  */
 
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deleteDocument as deleteDocumentAPI, downloadDocument as downloadDocumentAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { Document, DocumentActionResult, BulkActionResult } from '@/types/document';
@@ -21,8 +21,8 @@ import { Document, DocumentActionResult, BulkActionResult } from '@/types/docume
 export function useDocumentDelete() {
   const queryClient = useQueryClient();
 
-  return useMutation<DocumentActionResult, Error, string>(
-    async (documentId: string) => {
+  return useMutation<DocumentActionResult, Error, string>({
+    mutationFn: async (documentId: string) => {
       await deleteDocumentAPI(documentId);
       return {
         success: true,
@@ -30,22 +30,20 @@ export function useDocumentDelete() {
         message: 'Document deleted successfully',
       };
     },
-    {
-      onSuccess: (data, documentId) => {
-        // Invalidate documents query to refetch
-        queryClient.invalidateQueries(['documents']);
-        queryClient.invalidateQueries(['documentStats']);
+    onSuccess: (data, documentId) => {
+      // Invalidate documents query to refetch
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['documentStats'] });
 
-        // Remove from cache
-        queryClient.removeQueries(['document', documentId]);
+      // Remove from cache
+      queryClient.removeQueries({ queryKey: ['document', documentId] });
 
-        toast.success('Document deleted successfully');
-      },
-      onError: (error) => {
-        toast.error(`Failed to delete document: ${error.message}`);
-      },
-    }
-  );
+      toast.success('Document deleted successfully');
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete document: ${error.message}`);
+    },
+  });
 }
 
 /**
@@ -59,8 +57,8 @@ export function useDocumentDelete() {
  * ```
  */
 export function useDocumentDownload() {
-  return useMutation<void, Error, { id: string; fileName: string }>(
-    async ({ id, fileName }) => {
+  return useMutation<void, Error, { id: string; fileName: string }>({
+    mutationFn: async ({ id, fileName }) => {
       const blob = await downloadDocumentAPI(id);
 
       // Create download link
@@ -73,15 +71,13 @@ export function useDocumentDownload() {
       link.remove();
       window.URL.revokeObjectURL(url);
     },
-    {
-      onSuccess: (_, { fileName }) => {
-        toast.success(`Downloaded ${fileName}`);
-      },
-      onError: (error) => {
-        toast.error(`Download failed: ${error.message}`);
-      },
-    }
-  );
+    onSuccess: (_, { fileName }) => {
+      toast.success(`Downloaded ${fileName}`);
+    },
+    onError: (error) => {
+      toast.error(`Download failed: ${error.message}`);
+    },
+  });
 }
 
 /**
@@ -97,8 +93,8 @@ export function useDocumentDownload() {
 export function useBulkDelete() {
   const queryClient = useQueryClient();
 
-  return useMutation<BulkActionResult, Error, string[]>(
-    async (documentIds: string[]) => {
+  return useMutation<BulkActionResult, Error, string[]>({
+    mutationFn: async (documentIds: string[]) => {
       const results = await Promise.allSettled(
         documentIds.map((id) => deleteDocumentAPI(id))
       );
@@ -127,23 +123,21 @@ export function useBulkDelete() {
         message: `Deleted ${successCount} of ${documentIds.length} documents`,
       };
     },
-    {
-      onSuccess: (result) => {
-        // Invalidate queries
-        queryClient.invalidateQueries(['documents']);
-        queryClient.invalidateQueries(['documentStats']);
+    onSuccess: (result) => {
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['documentStats'] });
 
-        if (result.success) {
-          toast.success(result.message);
-        } else {
-          toast.warning(`${result.message}. ${result.failedCount} failed.`);
-        }
-      },
-      onError: (error) => {
-        toast.error(`Bulk delete failed: ${error.message}`);
-      },
-    }
-  );
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.warning(`${result.message}. ${result.failedCount} failed.`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Bulk delete failed: ${error.message}`);
+    },
+  });
 }
 
 /**
@@ -166,8 +160,8 @@ export function useBulkDownload() {
     BulkActionResult,
     Error,
     Array<{ id: string; fileName: string }>
-  >(
-    async (documents) => {
+  >({
+    mutationFn: async (documents) => {
       // Download files sequentially to avoid overwhelming the browser
       const results = [];
 
@@ -204,22 +198,20 @@ export function useBulkDownload() {
         message: `Downloaded ${successCount} of ${documents.length} documents`,
       };
     },
-    {
-      onMutate: (documents) => {
-        toast.info(`Downloading ${documents.length} documents...`);
-      },
-      onSuccess: (result) => {
-        if (result.success) {
-          toast.success(result.message);
-        } else {
-          toast.warning(`${result.message}. ${result.failedCount} failed.`);
-        }
-      },
-      onError: (error) => {
-        toast.error(`Bulk download failed: ${error.message}`);
-      },
-    }
-  );
+    onMutate: (documents) => {
+      toast.info(`Downloading ${documents.length} documents...`);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.warning(`${result.message}. ${result.failedCount} failed.`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Bulk download failed: ${error.message}`);
+    },
+  });
 }
 
 /**
@@ -246,22 +238,20 @@ export function useBulkDownload() {
 export function useDocumentReprocess() {
   const queryClient = useQueryClient();
 
-  return useMutation<{ jobId: string }, Error, string>(
-    async (documentId: string) => {
+  return useMutation<{ jobId: string }, Error, string>({
+    mutationFn: async (documentId: string) => {
       const response = await import('@/services/api').then(m => m.reprocessDocument(documentId));
       return response;
     },
-    {
-      onSuccess: (data, documentId) => {
-        queryClient.invalidateQueries(['documents']);
-        queryClient.invalidateQueries(['document', documentId]);
-        toast.success('Document queued for reprocessing');
-      },
-      onError: (error) => {
-        toast.error(`Reprocessing failed: ${error.message}`);
-      },
-    }
-  );
+    onSuccess: (data, documentId) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['document', documentId] });
+      toast.success('Document queued for reprocessing');
+    },
+    onError: (error) => {
+      toast.error(`Reprocessing failed: ${error.message}`);
+    },
+  });
 }
 
 /**
@@ -270,21 +260,19 @@ export function useDocumentReprocess() {
 export function useBulkReprocess() {
   const queryClient = useQueryClient();
 
-  return useMutation<any, Error, string[]>(
-    async (documentIds: string[]) => {
+  return useMutation<any, Error, string[]>({
+    mutationFn: async (documentIds: string[]) => {
       const response = await import('@/services/api').then(m => m.batchReprocessDocuments(documentIds));
       return response;
     },
-    {
-      onSuccess: (data) => {
-        queryClient.invalidateQueries(['documents']);
-        toast.success(`${data.totalQueued} documents queued for reprocessing`);
-      },
-      onError: (error) => {
-        toast.error(`Batch reprocessing failed: ${error.message}`);
-      },
-    }
-  );
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      toast.success(`${data.totalQueued} documents queued for reprocessing`);
+    },
+    onError: (error) => {
+      toast.error(`Batch reprocessing failed: ${error.message}`);
+    },
+  });
 }
 
 /**
@@ -300,16 +288,16 @@ export function useDocumentActions() {
 
   return {
     deleteDocument: deleteDoc.mutateAsync,
-    isDeleting: deleteDoc.isLoading,
+    isDeleting: deleteDoc.isPending,
     downloadDocument: download.mutateAsync,
-    isDownloading: download.isLoading,
+    isDownloading: download.isPending,
     bulkDelete: bulkDeleteMutation.mutateAsync,
-    isBulkDeleting: bulkDeleteMutation.isLoading,
+    isBulkDeleting: bulkDeleteMutation.isPending,
     bulkDownload: bulkDownloadMutation.mutateAsync,
-    isBulkDownloading: bulkDownloadMutation.isLoading,
+    isBulkDownloading: bulkDownloadMutation.isPending,
     reprocessDocument: reprocess.mutateAsync,
-    isReprocessing: reprocess.isLoading,
+    isReprocessing: reprocess.isPending,
     bulkReprocess: bulkReprocessMutation.mutateAsync,
-    isBulkReprocessing: bulkReprocessMutation.isLoading,
+    isBulkReprocessing: bulkReprocessMutation.isPending,
   };
 }

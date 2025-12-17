@@ -3,7 +3,7 @@
  * @module hooks/useDocumentStats
  */
 
-import { useQuery, UseQueryOptions } from 'react-query';
+import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { Document, DocumentStatistics } from '@/types/document';
 
 /**
@@ -87,22 +87,20 @@ export function useDocumentStats(
   documents: Document[],
   options?: Omit<UseQueryOptions<DocumentStatistics, Error>, 'queryKey' | 'queryFn'>
 ) {
-  return useQuery<DocumentStatistics, Error>(
-    ['documentStats', documents.length],
-    () => calculateDocumentStats(documents),
-    {
-      // Keep data fresh
-      staleTime: 0,
+  return useQuery<DocumentStatistics, Error>({
+    queryKey: ['documentStats', documents.length],
+    queryFn: () => calculateDocumentStats(documents),
+    // Keep data fresh
+    staleTime: 0,
 
-      // Calculate immediately when documents change
-      enabled: true,
+    // Calculate immediately when documents change
+    enabled: true,
 
-      // Don't retry (it's a pure computation)
-      retry: false,
+    // Don't retry (it's a pure computation)
+    retry: false,
 
-      ...options,
-    }
-  );
+    ...options,
+  });
 }
 
 /**
