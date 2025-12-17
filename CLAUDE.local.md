@@ -14,11 +14,11 @@ IntelliFill/
 
 ## Running Services
 
-| Service | Port | Command |
-|---------|------|---------|
-| Backend | 3002 | `cd quikadmin && npm run dev` |
-| Frontend | 8080 | `cd quikadmin-web && bun run dev` |
-| Prisma Studio | 5555 | `npx prisma studio` |
+| Service       | Port | Command                           |
+| ------------- | ---- | --------------------------------- |
+| Backend       | 3002 | `cd quikadmin && npm run dev`     |
+| Frontend      | 8080 | `cd quikadmin-web && bun run dev` |
+| Prisma Studio | 5555 | `npx prisma studio`               |
 
 ## Key API Endpoints
 
@@ -35,6 +35,7 @@ IntelliFill/
 ## Environment Config
 
 Backend auth mode (recommended for local dev):
+
 ```env
 # quikadmin-web/.env
 VITE_USE_BACKEND_AUTH=true
@@ -43,7 +44,9 @@ VITE_API_URL=http://localhost:3002/api
 
 ## Known Issues
 
-- **Redis**: Falls back to in-memory if localhost:6379 unavailable (OK for dev)
+- **Redis**: Required for production. Rate limiting falls back to in-memory (dev only), but queues require Redis.
+  - For production: Set up Upstash Redis (see `docs/how-to/deployment/upstash-redis-setup.md`)
+  - For local dev: `docker run -d -p 6379:6379 redis:alpine`
 - **DB Keepalive**: Auto-enabled to prevent Neon timeout after ~8min idle
 
 ## Context Optimization

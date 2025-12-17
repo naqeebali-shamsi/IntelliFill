@@ -11,6 +11,8 @@ const api = axios.create({
 
 // Shared refresh promise to prevent multiple simultaneous refresh attempts
 let refreshPromise: Promise<string | null> | null = null;
+// Shared promise for proactive refresh to prevent stampede
+let proactiveRefreshPromise: Promise<boolean> | null = null;
 
 // Use backend auth store for token management
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
@@ -21,17 +23,41 @@ function getAuthStore() {
 }
 
 // Add auth token and company context to requests
+// Also proactively refresh token if expiring soon
 api.interceptors.request.use(async (config) => {
   const authState = getAuthStore();
 
+  // Skip proactive refresh for auth endpoints
+  const isAuthEndpoint = config.url?.includes('/auth/');
+
+  // Proactively refresh token if authenticated and token is expiring soon
+  if (!isAuthEndpoint && authState.isAuthenticated && authState.tokens?.refreshToken) {
+    if (authState.isTokenExpiringSoon()) {
+      // Use shared promise to prevent multiple simultaneous refresh attempts
+      if (!proactiveRefreshPromise) {
+        proactiveRefreshPromise = (async () => {
+          try {
+            return await authState.refreshTokenIfNeeded();
+          } finally {
+            proactiveRefreshPromise = null;
+          }
+        })();
+      }
+      await proactiveRefreshPromise;
+    }
+  }
+
+  // Get fresh state after potential refresh
+  const currentAuthState = getAuthStore();
+
   // Get token from Zustand store
-  if (authState.tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${authState.tokens.accessToken}`;
+  if (currentAuthState.tokens?.accessToken) {
+    config.headers.Authorization = `Bearer ${currentAuthState.tokens.accessToken}`;
   }
 
   // Add company context for multi-tenant requests
-  if (authState.company?.id) {
-    config.headers['X-Company-ID'] = authState.company.id;
+  if (currentAuthState.company?.id) {
+    config.headers['X-Company-ID'] = currentAuthState.company.id;
   }
 
   return config;
