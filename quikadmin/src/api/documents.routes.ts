@@ -14,6 +14,8 @@ import { FormFiller } from '../fillers/FormFiller';
 import { logger } from '../utils/logger';
 import { getOCRJobStatus, getOCRQueueHealth, enqueueDocumentForOCR } from '../queues/ocrQueue';
 import { getJobStatus } from '../queues/documentQueue';
+import { DocumentDetectionService } from '../services/DocumentDetectionService';
+import { OCRService } from '../services/OCRService';
 
 const prisma = new PrismaClient();
 
@@ -142,24 +144,65 @@ export function createDocumentRoutes(): Router {
               fileName: file.originalname,
             });
           } else {
-            // OCR not needed (e.g., native PDF with text) - mark as completed
-            await prisma.document.update({
-              where: { id: document.id },
-              data: { status: 'COMPLETED' },
-            });
+            // OCR not needed (e.g., native PDF with text) - extract text directly
+            const detectionService = new DocumentDetectionService();
+            const ocrService = new OCRService();
 
-            results.push({
-              documentId: document.id,
-              fileName: file.originalname,
-              jobId: '',
-              status: 'completed',
-              statusUrl: `/api/documents/${document.id}/status`,
-            });
+            try {
+              // Extract text from native PDF
+              const extractedText = await detectionService.extractTextFromPDF(file.path);
 
-            logger.info('Document processed without OCR (native text)', {
-              documentId: document.id,
-              fileName: file.originalname,
-            });
+              // Extract structured data from text
+              const structuredData = await ocrService.extractStructuredData(extractedText);
+
+              // Encrypt and store extracted data
+              const encryptedData = encryptExtractedData(structuredData);
+
+              await prisma.document.update({
+                where: { id: document.id },
+                data: {
+                  status: 'COMPLETED',
+                  extractedText: extractedText,
+                  extractedData: encryptedData,
+                  confidence: 0.95, // High confidence for native text
+                  processedAt: new Date(),
+                },
+              });
+
+              results.push({
+                documentId: document.id,
+                fileName: file.originalname,
+                jobId: '',
+                status: 'completed',
+                statusUrl: `/api/documents/${document.id}/status`,
+              });
+
+              logger.info('Document processed without OCR (native text)', {
+                documentId: document.id,
+                fileName: file.originalname,
+                textLength: extractedText.length,
+                fieldsExtracted: Object.keys(structuredData).length,
+              });
+            } catch (extractError) {
+              logger.error('Text extraction failed for native PDF', {
+                documentId: document.id,
+                error: extractError,
+              });
+
+              // Fallback: mark as failed
+              await prisma.document.update({
+                where: { id: document.id },
+                data: { status: 'FAILED' },
+              });
+
+              results.push({
+                documentId: document.id,
+                fileName: file.originalname,
+                jobId: '',
+                status: 'failed',
+                statusUrl: `/api/documents/${document.id}/status`,
+              });
+            }
           }
         }
 
