@@ -1,15 +1,14 @@
-import React from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { 
-  FileText, 
-  Download, 
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  FileText,
+  Download,
   ArrowLeft,
   CheckCircle,
   XCircle,
@@ -20,113 +19,155 @@ import {
   Copy,
   ExternalLink,
   Calendar,
-  User,
   Hash,
   Layers,
   Activity,
-  Terminal
-} from 'lucide-react'
+  Terminal,
+  Inbox,
+} from 'lucide-react';
+import { getJob, ProcessingJob } from '@/services/api';
+import { formatDistanceToNow, format } from 'date-fns';
+import { toast } from 'sonner';
 
-interface JobField {
-  name: string
-  value: string
-  confidence: number
-  type: string
-}
-
-const mockJobData = {
-  id: 'job_12345',
-  fileName: 'Invoice_Q1_2024.pdf',
-  template: 'Invoice Template',
-  status: 'completed',
-  createdAt: '2024-01-20 14:30:00',
-  completedAt: '2024-01-20 14:30:45',
-  processingTime: '45 seconds',
-  pages: 3,
-  fileSize: '2.4 MB',
-  owner: 'john.doe@example.com',
-  extractedFields: [
-    { name: 'Invoice Number', value: 'INV-2024-001', confidence: 0.98, type: 'text' },
-    { name: 'Date', value: '2024-01-15', confidence: 0.95, type: 'date' },
-    { name: 'Due Date', value: '2024-02-15', confidence: 0.94, type: 'date' },
-    { name: 'Customer Name', value: 'Acme Corporation', confidence: 0.97, type: 'text' },
-    { name: 'Customer Address', value: '123 Business St, City, State 12345', confidence: 0.92, type: 'text' },
-    { name: 'Subtotal', value: '$4,250.00', confidence: 0.99, type: 'currency' },
-    { name: 'Tax', value: '$382.50', confidence: 0.98, type: 'currency' },
-    { name: 'Total', value: '$4,632.50', confidence: 0.99, type: 'currency' },
-    { name: 'Payment Terms', value: 'Net 30', confidence: 0.93, type: 'text' },
-    { name: 'PO Number', value: 'PO-8765', confidence: 0.91, type: 'text' },
-  ],
-  processingSteps: [
-    { step: 'File Upload', status: 'completed', timestamp: '14:30:00' },
-    { step: 'File Validation', status: 'completed', timestamp: '14:30:02' },
-    { step: 'OCR Processing', status: 'completed', timestamp: '14:30:05' },
-    { step: 'Template Matching', status: 'completed', timestamp: '14:30:10' },
-    { step: 'Field Extraction', status: 'completed', timestamp: '14:30:20' },
-    { step: 'Data Validation', status: 'completed', timestamp: '14:30:35' },
-    { step: 'Output Generation', status: 'completed', timestamp: '14:30:45' },
-  ],
-  logs: [
-    '[14:30:00] Job initiated - File: Invoice_Q1_2024.pdf',
-    '[14:30:02] File validation successful - PDF format confirmed',
-    '[14:30:05] OCR processing started - 3 pages detected',
-    '[14:30:10] Template matched: Invoice Template (confidence: 0.96)',
-    '[14:30:20] Field extraction completed - 10 fields extracted',
-    '[14:30:35] Data validation passed - All fields meet quality threshold',
-    '[14:30:45] Job completed successfully - Output ready for download',
-  ]
+interface JobData extends ProcessingJob {
+  startedAt?: string;
+  failedAt?: string;
+  metadata?: any;
+  documentsCount?: number;
+  processingHistory?: Array<{
+    id: string;
+    status: string;
+    createdAt: string;
+    completedAt?: string;
+    error?: string;
+  }>;
 }
 
 export default function JobDetails() {
-  const { jobId } = useParams()
-  const navigate = useNavigate()
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [job, setJob] = useState<JobData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (jobId) {
+      fetchJobDetails();
+    }
+  }, [jobId]);
+
+  const fetchJobDetails = async () => {
+    if (!jobId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getJob(jobId);
+      setJob(data);
+    } catch (err) {
+      console.error('Failed to fetch job details:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch job details');
+      setJob(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-600" />
+        return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'failed':
-        return <XCircle className="h-5 w-5 text-red-600" />
+        return <XCircle className="h-5 w-5 text-red-600" />;
       case 'processing':
-        return <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+        return <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />;
       default:
-        return <Clock className="h-5 w-5 text-yellow-600" />
+        return <Clock className="h-5 w-5 text-yellow-600" />;
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-green-100 text-green-700">Completed</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+            Completed
+          </Badge>
+        );
       case 'failed':
-        return <Badge className="bg-red-100 text-red-700">Failed</Badge>
+        return (
+          <Badge className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+            Failed
+          </Badge>
+        );
       case 'processing':
-        return <Badge className="bg-blue-100 text-blue-700">Processing</Badge>
+        return (
+          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+            Processing
+          </Badge>
+        );
       default:
-        return <Badge className="bg-yellow-100 text-yellow-700">Pending</Badge>
+        return (
+          <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400">
+            Pending
+          </Badge>
+        );
     }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'PPpp');
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatRelativeDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const calculateDuration = () => {
+    if (!job?.startedAt || !job?.completedAt) return 'N/A';
+    try {
+      const start = new Date(job.startedAt).getTime();
+      const end = new Date(job.completedAt).getTime();
+      const durationMs = end - start;
+      if (durationMs < 1000) return `${durationMs}ms`;
+      if (durationMs < 60000) return `${(durationMs / 1000).toFixed(1)}s`;
+      return `${(durationMs / 60000).toFixed(1)}m`;
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Loading job details...</p>
+        </div>
+      </div>
+    );
   }
 
-  const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 0.95) {
-      return <Badge className="bg-green-100 text-green-700">High</Badge>
-    } else if (confidence >= 0.85) {
-      return <Badge className="bg-yellow-100 text-yellow-700">Medium</Badge>
-    } else {
-      return <Badge className="bg-red-100 text-red-700">Low</Badge>
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+  if (error || !job) {
+    return (
+      <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/history')}
-          >
+          <Button variant="ghost" size="icon" onClick={() => navigate('/history')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -134,9 +175,38 @@ export default function JobDetails() {
             <p className="text-muted-foreground">Job ID: {jobId}</p>
           </div>
         </div>
+
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Inbox className="h-12 w-12 text-muted-foreground/50 mb-4" />
+          <h3 className="font-medium text-lg mb-1">Job not found</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {error || 'The job you are looking for does not exist or has been deleted.'}
+          </p>
+          <Button onClick={() => navigate('/history')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to History
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/history')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Job Details</h1>
+            <p className="text-muted-foreground font-mono text-sm">{jobId}</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-          {getStatusIcon(mockJobData.status)}
-          {getStatusBadge(mockJobData.status)}
+          {getStatusIcon(job.status)}
+          {getStatusBadge(job.status)}
         </div>
       </div>
 
@@ -144,247 +214,251 @@ export default function JobDetails() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Document</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold truncate">{mockJobData.fileName}</div>
-            <p className="text-xs text-muted-foreground">{mockJobData.fileSize} • {mockJobData.pages} pages</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Template</CardTitle>
+            <CardTitle className="text-sm font-medium">Type</CardTitle>
             <Layers className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold">{mockJobData.template}</div>
-            <p className="text-xs text-muted-foreground">Auto-matched</p>
+            <div className="text-lg font-bold capitalize">
+              {job.type?.replace(/_/g, ' ') || 'Processing'}
+            </div>
+            <p className="text-xs text-muted-foreground">Job type</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Processing Time</CardTitle>
+            <CardTitle className="text-sm font-medium">Documents</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-bold">{job.documentsCount || 1}</div>
+            <p className="text-xs text-muted-foreground">Document(s) processed</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Duration</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold">{mockJobData.processingTime}</div>
-            <p className="text-xs text-muted-foreground">Completed at {mockJobData.completedAt.split(' ')[1]}</p>
+            <div className="text-lg font-bold">{calculateDuration()}</div>
+            <p className="text-xs text-muted-foreground">Processing time</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fields Extracted</CardTitle>
-            <FileCheck className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Progress</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-bold">{mockJobData.extractedFields.length} fields</div>
-            <p className="text-xs text-muted-foreground">94% avg confidence</p>
+            <div className="text-lg font-bold">{job.progress}%</div>
+            <p className="text-xs text-muted-foreground">Completion</p>
           </CardContent>
         </Card>
       </div>
 
+      {/* Error Alert */}
+      {job.status === 'failed' && job.error && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertTitle>Processing Failed</AlertTitle>
+          <AlertDescription>{job.error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Main Content Tabs */}
-      <Tabs defaultValue="extracted" className="space-y-4">
+      <Tabs defaultValue="details" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="extracted">Extracted Data</TabsTrigger>
-          <TabsTrigger value="processing">Processing Steps</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          {job.result && <TabsTrigger value="result">Result</TabsTrigger>}
+          {job.processingHistory && job.processingHistory.length > 0 && (
+            <TabsTrigger value="history">Processing History</TabsTrigger>
+          )}
           <TabsTrigger value="metadata">Metadata</TabsTrigger>
         </TabsList>
 
-        {/* Extracted Data Tab */}
-        <TabsContent value="extracted" className="space-y-4">
+        {/* Details Tab */}
+        <TabsContent value="details" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Extracted Fields</CardTitle>
-                  <CardDescription>
-                    Data extracted from the document with confidence scores
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <Copy className="mr-2 h-3 w-3" />
-                    Copy JSON
-                  </Button>
-                  <Button size="sm">
-                    <Download className="mr-2 h-3 w-3" />
-                    Export
-                  </Button>
-                </div>
-              </div>
+              <CardTitle>Job Information</CardTitle>
+              <CardDescription>Complete details about this processing job</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockJobData.extractedFields.map((field, index) => (
-                  <div key={index} className="flex items-start justify-between p-4 rounded-lg border">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{field.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {field.type}
-                        </Badge>
-                      </div>
-                      <p className="text-sm font-mono">{field.value}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        {(field.confidence * 100).toFixed(0)}%
-                      </span>
-                      {getConfidenceBadge(field.confidence)}
-                    </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Job ID:</span>
+                    <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-xs">
+                      {job.id}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => copyToClipboard(job.id)}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Status:</span>
+                    {getStatusBadge(job.status)}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Layers className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Type:</span>
+                    <span className="capitalize">
+                      {job.type?.replace(/_/g, ' ') || 'Processing'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Documents:</span>
+                    <span>{job.documentsCount || 1}</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Created:</span>
+                    <span>{formatDate(job.createdAt)}</span>
+                  </div>
+                  {job.startedAt && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Started:</span>
+                      <span>{formatDate(job.startedAt)}</span>
+                    </div>
+                  )}
+                  {job.completedAt && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Completed:</span>
+                      <span>{formatDate(job.completedAt)}</span>
+                    </div>
+                  )}
+                  {job.failedAt && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <XCircle className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Failed:</span>
+                      <span>{formatDate(job.failedAt)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Processing Steps Tab */}
-        <TabsContent value="processing" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Processing Pipeline</CardTitle>
-              <CardDescription>
-                Step-by-step execution of the document processing
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockJobData.processingSteps.map((step, index) => (
-                  <div key={index} className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                      {step.status === 'completed' ? (
-                        <CheckCircle className="h-5 w-5 text-primary" />
-                      ) : (
-                        <Clock className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium">{step.step}</p>
-                        <span className="text-sm text-muted-foreground">{step.timestamp}</span>
-                      </div>
-                      {index < mockJobData.processingSteps.length - 1 && (
-                        <div className="ml-5 mt-2 h-8 w-px bg-border" />
-                      )}
-                    </div>
+        {/* Result Tab */}
+        {job.result && (
+          <TabsContent value="result" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Processing Result</CardTitle>
+                    <CardDescription>Output data from the job</CardDescription>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Logs Tab */}
-        <TabsContent value="logs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Processing Logs</CardTitle>
-                  <CardDescription>
-                    Detailed execution logs for this job
-                  </CardDescription>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(JSON.stringify(job.result, null, 2))}
+                    >
+                      <Copy className="mr-2 h-3 w-3" />
+                      Copy JSON
+                    </Button>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  <Download className="mr-2 h-3 w-3" />
-                  Download Logs
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[400px] w-full rounded-md border p-4">
-                <div className="space-y-2 font-mono text-sm">
-                  {mockJobData.logs.map((log, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <Terminal className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
-                      <span className="text-muted-foreground break-all">{log}</span>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+                  <pre className="font-mono text-sm">{JSON.stringify(job.result, null, 2)}</pre>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Processing History Tab */}
+        {job.processingHistory && job.processingHistory.length > 0 && (
+          <TabsContent value="history" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Processing History</CardTitle>
+                <CardDescription>Timeline of processing attempts</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {job.processingHistory.map((item, index) => (
+                    <div key={item.id || index} className="flex items-center gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        {item.status === 'completed' ? (
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        ) : item.status === 'failed' ? (
+                          <XCircle className="h-5 w-5 text-red-600" />
+                        ) : (
+                          <Clock className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium capitalize">{item.status}</p>
+                          <span className="text-sm text-muted-foreground">
+                            {formatRelativeDate(item.createdAt)}
+                          </span>
+                        </div>
+                        {item.error && <p className="text-sm text-red-600 mt-1">{item.error}</p>}
+                        {index < job.processingHistory!.length - 1 && (
+                          <div className="ml-5 mt-2 h-8 w-px bg-border" />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* Metadata Tab */}
         <TabsContent value="metadata" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Job Metadata</CardTitle>
-              <CardDescription>
-                Additional information about this processing job
-              </CardDescription>
+              <CardDescription>Additional information about this job</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Hash className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Job ID:</span>
-                      <span className="font-mono">{mockJobData.id}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Owner:</span>
-                      <span>{mockJobData.owner}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Created:</span>
-                      <span>{mockJobData.createdAt}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Activity className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Status:</span>
-                      {getStatusBadge(mockJobData.status)}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">File:</span>
-                      <span>{mockJobData.fileName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Layers className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Template:</span>
-                      <span>{mockJobData.template}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Duration:</span>
-                      <span>{mockJobData.processingTime}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileCheck className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">Fields:</span>
-                      <span>{mockJobData.extractedFields.length} extracted</span>
-                    </div>
-                  </div>
+              {job.metadata ? (
+                <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                  <pre className="font-mono text-sm">{JSON.stringify(job.metadata, null, 2)}</pre>
+                </ScrollArea>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Terminal className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground">No metadata available</p>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Actions */}
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Need help?</AlertTitle>
+            <AlertTitle>Actions</AlertTitle>
             <AlertDescription className="space-y-2">
-              <p>If you encounter any issues with this job, you can:</p>
+              <p>You can perform the following actions on this job:</p>
               <div className="flex gap-2 mt-2">
-                <Button variant="outline" size="sm">
-                  <RefreshCw className="mr-2 h-3 w-3" />
-                  Retry Processing
+                <Button variant="outline" size="sm" onClick={fetchJobDetails} disabled={loading}>
+                  <RefreshCw className={`mr-2 h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
                 </Button>
-                <Button variant="outline" size="sm">
-                  <ExternalLink className="mr-2 h-3 w-3" />
-                  Report Issue
+                <Button variant="outline" size="sm" onClick={() => navigate('/history')}>
+                  <ArrowLeft className="mr-2 h-3 w-3" />
+                  Back to History
                 </Button>
               </div>
             </AlertDescription>
@@ -392,5 +466,5 @@ export default function JobDetails() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

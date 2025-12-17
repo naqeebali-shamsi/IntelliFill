@@ -23,7 +23,7 @@ function getAuthStore() {
 // Add auth token and company context to requests
 api.interceptors.request.use(async (config) => {
   const authState = getAuthStore();
-  
+
   // Get token from Zustand store
   if (authState.tokens?.accessToken) {
     config.headers.Authorization = `Bearer ${authState.tokens.accessToken}`;
@@ -102,7 +102,7 @@ api.interceptors.response.use(
 export interface ProcessingJob {
   id: string;
   type: string;
-  status: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
   createdAt: string;
   completedAt?: string;
@@ -116,6 +116,7 @@ export interface Statistics {
   failedJobs: number;
   averageProcessingTime: number;
   averageConfidence: number;
+  successRate: number;
 }
 
 // File upload with progress
@@ -139,9 +140,9 @@ export const uploadFiles = async (
       }
     },
   });
-  
+
   const data = response.data;
-  
+
   // Handle different response formats
   // If single job ID is returned
   if (data.jobId) {
@@ -151,7 +152,7 @@ export const uploadFiles = async (
       data: data.data,
     };
   }
-  
+
   // If multiple jobs are returned (array)
   if (Array.isArray(data.jobs) && data.jobs.length > 0) {
     return {
@@ -161,7 +162,7 @@ export const uploadFiles = async (
       jobs: data.jobs,
     };
   }
-  
+
   // If data is directly available (synchronous processing)
   if (data.data) {
     return {
@@ -170,7 +171,7 @@ export const uploadFiles = async (
       data: data.data,
     };
   }
-  
+
   // Default response
   return {
     jobId: data.id,
@@ -180,7 +181,9 @@ export const uploadFiles = async (
 };
 
 // Job management
-export const getJobs = async (userId?: string): Promise<ProcessingJob[]> => {
+export const getJobs = async (
+  userId?: string
+): Promise<ProcessingJob[] | { jobs: ProcessingJob[] }> => {
   const response = await api.get('/jobs', { params: { userId } });
   return response.data;
 };
@@ -190,7 +193,9 @@ export const getJob = async (jobId: string): Promise<ProcessingJob> => {
   return response.data;
 };
 
-export const getJobStatus = async (jobId: string): Promise<{
+export const getJobStatus = async (
+  jobId: string
+): Promise<{
   status: string;
   progress: number;
   result?: any;
@@ -230,7 +235,7 @@ export const processDocuments = async (
   const formData = new FormData();
   documents.forEach((doc) => formData.append('documents', doc));
   formData.append('form', form);
-  
+
   const response = await api.post('/process/multiple', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -246,13 +251,15 @@ export const processDocuments = async (
 };
 
 // Form validation
-export const validateForm = async (formFile: File): Promise<{
+export const validateForm = async (
+  formFile: File
+): Promise<{
   fields: string[];
   fieldTypes: Record<string, string>;
 }> => {
   const formData = new FormData();
   formData.append('form', formFile);
-  
+
   const response = await api.post('/validate/form', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -265,7 +272,7 @@ export const validateForm = async (formFile: File): Promise<{
 export const extractData = async (documentFile: File): Promise<any> => {
   const formData = new FormData();
   formData.append('document', documentFile);
-  
+
   const response = await api.post('/extract', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -293,7 +300,9 @@ export const getDocuments = async (params?: {
   return response.data;
 };
 
-export const getDocument = async (documentId: string): Promise<{
+export const getDocument = async (
+  documentId: string
+): Promise<{
   success: boolean;
   document: any;
 }> => {
@@ -312,7 +321,9 @@ export const downloadDocument = async (documentId: string): Promise<Blob> => {
   return response.data;
 };
 
-export const reprocessDocument = async (documentId: string): Promise<{
+export const reprocessDocument = async (
+  documentId: string
+): Promise<{
   jobId: string;
 }> => {
   const response = await api.post(`/documents/${documentId}/reprocess`);
@@ -323,16 +334,16 @@ export const reprocessDocument = async (documentId: string): Promise<{
 export const connectWebSocket = (onMessage: (data: any) => void): WebSocket => {
   const wsUrl = API_BASE_URL.replace('http', 'ws').replace('/api', '/ws');
   const ws = new WebSocket(wsUrl);
-  
+
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     onMessage(data);
   };
-  
+
   ws.onerror = (error) => {
     console.error('WebSocket error:', error);
   };
-  
+
   return ws;
 };
 
@@ -360,7 +371,9 @@ export const updateUserSettings = async (userId: string, settings: any): Promise
 };
 
 export default api;
-export const batchReprocessDocuments = async (documentIds: string[]): Promise<{
+export const batchReprocessDocuments = async (
+  documentIds: string[]
+): Promise<{
   success: boolean;
   jobs: Array<{ jobId: string; documentId: string }>;
   totalQueued: number;
@@ -369,18 +382,22 @@ export const batchReprocessDocuments = async (documentIds: string[]): Promise<{
   return response.data;
 };
 
-export const getLowConfidenceDocuments = async (threshold: number = 0.7): Promise<{
+export const getLowConfidenceDocuments = async (
+  threshold: number = 0.7
+): Promise<{
   success: boolean;
   documents: any[];
   count: number;
 }> => {
   const response = await api.get('/documents/low-confidence', {
-    params: { threshold }
+    params: { threshold },
   });
   return response.data;
 };
 
-export const getReprocessingHistory = async (documentId: string): Promise<{
+export const getReprocessingHistory = async (
+  documentId: string
+): Promise<{
   success: boolean;
   reprocessCount: number;
   lastReprocessedAt: string | null;

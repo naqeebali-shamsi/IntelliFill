@@ -1,37 +1,31 @@
-import React from 'react'
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import {
   FileText,
   Upload,
   CheckCircle,
   Clock,
   AlertCircle,
-  TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
   MoreVertical,
   Download,
   Eye,
   Trash2,
-  Calendar,
   FolderOpen,
-  RefreshCw
-} from 'lucide-react'
+  RefreshCw,
+  Inbox,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -39,86 +33,101 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { useStatistics, useJobs, useTemplates, useQueueMetrics } from '@/hooks/useApiData'
-import { formatDistanceToNow } from 'date-fns'
+} from '@/components/ui/table';
+import { useStatistics, useJobs, useTemplates, useQueueMetrics } from '@/hooks/useApiData';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function ConnectedDashboard() {
-  const { data: statistics, loading: statsLoading } = useStatistics()
-  const { jobs, loading: jobsLoading } = useJobs(5)
-  const { templates, loading: templatesLoading } = useTemplates()
-  const { metrics: queueMetrics, loading: queueLoading } = useQueueMetrics()
-  
-  const [progress, setProgress] = React.useState(13)
+  const navigate = useNavigate();
+  const { data: statistics, loading: statsLoading, error: statsError } = useStatistics();
+  const { jobs, loading: jobsLoading, error: jobsError } = useJobs(5);
+  const { templates, loading: templatesLoading, error: templatesError } = useTemplates();
+  const { metrics: queueMetrics, loading: queueLoading, error: queueError } = useQueueMetrics();
+
+  const [progress, setProgress] = React.useState(0);
 
   React.useEffect(() => {
     if (queueMetrics) {
-      const total = queueMetrics.waiting + queueMetrics.active
-      const completed = queueMetrics.active
-      const percentage = total > 0 ? (completed / total) * 100 : 0
-      setProgress(percentage)
+      const total = queueMetrics.waiting + queueMetrics.active;
+      const completed = queueMetrics.active;
+      const percentage = total > 0 ? (completed / total) * 100 : 0;
+      setProgress(percentage);
     }
-  }, [queueMetrics])
+  }, [queueMetrics]);
 
   const getStatusBadge = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'completed':
-        return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">Completed</Badge>
+        return (
+          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+            Completed
+          </Badge>
+        );
       case 'processing':
-        return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">Processing</Badge>
+        return (
+          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+            Processing
+          </Badge>
+        );
       case 'failed':
-        return <Badge className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">Failed</Badge>
+        return (
+          <Badge className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+            Failed
+          </Badge>
+        );
       default:
-        return <Badge>Unknown</Badge>
+        return <Badge>Unknown</Badge>;
     }
-  }
+  };
 
   const formatDate = (dateString: string) => {
     try {
-      return formatDistanceToNow(new Date(dateString), { addSuffix: true })
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
     } catch {
-      return dateString
+      return dateString;
     }
-  }
+  };
 
-  const stats = statistics ? [
-    {
-      title: "Total Documents",
-      value: statistics.trends?.documents?.value || 0,
-      change: `${statistics.trends?.documents?.change > 0 ? '+' : ''}${statistics.trends?.documents?.change || 0}%`,
-      trend: statistics.trends?.documents?.trend || 'up',
-      icon: FileText,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100 dark:bg-blue-900/20"
-    },
-    {
-      title: "Processed Today",
-      value: statistics.trends?.processedToday?.value || 0,
-      change: `${statistics.trends?.processedToday?.change > 0 ? '+' : ''}${statistics.trends?.processedToday?.change || 0}%`,
-      trend: statistics.trends?.processedToday?.trend || 'up',
-      icon: CheckCircle,
-      color: "text-green-600",
-      bgColor: "bg-green-100 dark:bg-green-900/20"
-    },
-    {
-      title: "In Progress",
-      value: statistics.trends?.inProgress?.value || 0,
-      change: `${statistics.trends?.inProgress?.change > 0 ? '+' : ''}${statistics.trends?.inProgress?.change || 0}%`,
-      trend: statistics.trends?.inProgress?.trend || 'down',
-      icon: Clock,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100 dark:bg-orange-900/20"
-    },
-    {
-      title: "Failed",
-      value: statistics.trends?.failed?.value || 0,
-      change: `${statistics.trends?.failed?.change > 0 ? '+' : ''}${statistics.trends?.failed?.change || 0}%`,
-      trend: statistics.trends?.failed?.trend || 'down',
-      icon: AlertCircle,
-      color: "text-red-600",
-      bgColor: "bg-red-100 dark:bg-red-900/20"
-    }
-  ] : []
+  const stats = statistics
+    ? [
+        {
+          title: 'Total Documents',
+          value: statistics.trends?.documents?.value || 0,
+          change: `${statistics.trends?.documents?.change > 0 ? '+' : ''}${statistics.trends?.documents?.change || 0}%`,
+          trend: statistics.trends?.documents?.trend || 'up',
+          icon: FileText,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100 dark:bg-blue-900/20',
+        },
+        {
+          title: 'Processed Today',
+          value: statistics.trends?.processedToday?.value || 0,
+          change: `${statistics.trends?.processedToday?.change > 0 ? '+' : ''}${statistics.trends?.processedToday?.change || 0}%`,
+          trend: statistics.trends?.processedToday?.trend || 'up',
+          icon: CheckCircle,
+          color: 'text-green-600',
+          bgColor: 'bg-green-100 dark:bg-green-900/20',
+        },
+        {
+          title: 'In Progress',
+          value: statistics.trends?.inProgress?.value || 0,
+          change: `${statistics.trends?.inProgress?.change > 0 ? '+' : ''}${statistics.trends?.inProgress?.change || 0}%`,
+          trend: statistics.trends?.inProgress?.trend || 'down',
+          icon: Clock,
+          color: 'text-orange-600',
+          bgColor: 'bg-orange-100 dark:bg-orange-900/20',
+        },
+        {
+          title: 'Failed',
+          value: statistics.trends?.failed?.value || 0,
+          change: `${statistics.trends?.failed?.change > 0 ? '+' : ''}${statistics.trends?.failed?.change || 0}%`,
+          trend: statistics.trends?.failed?.trend || 'down',
+          icon: AlertCircle,
+          color: 'text-red-600',
+          bgColor: 'bg-red-100 dark:bg-red-900/20',
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -132,7 +141,9 @@ export default function ConnectedDashboard() {
             onClick={() => window.location.reload()}
             disabled={statsLoading || jobsLoading}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${(statsLoading || jobsLoading) ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${statsLoading || jobsLoading ? 'animate-spin' : ''}`}
+            />
             Refresh
           </Button>
         </div>
@@ -152,13 +163,11 @@ export default function ConnectedDashboard() {
           </Card>
         ) : (
           stats.map((stat) => {
-            const Icon = stat.icon
+            const Icon = stat.icon;
             return (
               <Card key={stat.title}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {stat.title}
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
                   <div className={`rounded-full p-2 ${stat.bgColor}`}>
                     <Icon className={`h-4 w-4 ${stat.color}`} />
                   </div>
@@ -178,7 +187,7 @@ export default function ConnectedDashboard() {
                   </div>
                 </CardContent>
               </Card>
-            )
+            );
           })
         )}
       </div>
@@ -191,11 +200,9 @@ export default function ConnectedDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Recent Documents</CardTitle>
-                <CardDescription>
-                  Your recently processed documents
-                </CardDescription>
+                <CardDescription>Your recently processed documents</CardDescription>
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => navigate('/history')}>
                 View All
               </Button>
             </div>
@@ -206,12 +213,24 @@ export default function ConnectedDashboard() {
                 <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
                 <span className="ml-2 text-muted-foreground">Loading documents...</span>
               </div>
+            ) : jobs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Inbox className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <h3 className="font-medium text-lg mb-1">No documents yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Upload your first document to get started
+                </p>
+                <Button onClick={() => navigate('/upload')}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Document
+                </Button>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Document</TableHead>
-                    <TableHead>Template</TableHead>
+                    <TableHead>Job</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -224,12 +243,20 @@ export default function ConnectedDashboard() {
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <div className="font-medium">{job.name}</div>
-                            <div className="text-xs text-muted-foreground">{job.size}</div>
+                            <div className="font-medium font-mono text-xs">
+                              {job.id.slice(0, 8)}...
+                            </div>
+                            {job.documentsCount && (
+                              <div className="text-xs text-muted-foreground">
+                                {job.documentsCount} doc(s)
+                              </div>
+                            )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{job.template}</TableCell>
+                      <TableCell className="capitalize">
+                        {job.type?.replace(/_/g, ' ') || 'Processing'}
+                      </TableCell>
                       <TableCell>{getStatusBadge(job.status)}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(job.createdAt)}
@@ -242,17 +269,9 @@ export default function ConnectedDashboard() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/job/${job.id}`)}>
                               <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              Download
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              View Details
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -271,9 +290,7 @@ export default function ConnectedDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Processing Queue</CardTitle>
-              <CardDescription>
-                Current processing status
-              </CardDescription>
+              <CardDescription>Current processing status</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {queueLoading ? (
@@ -286,7 +303,8 @@ export default function ConnectedDashboard() {
                     <div className="flex items-center justify-between text-sm">
                       <span>Documents in queue</span>
                       <span className="font-medium">
-                        {queueMetrics?.active || 0} / {(queueMetrics?.waiting || 0) + (queueMetrics?.active || 0)}
+                        {queueMetrics?.active || 0} /{' '}
+                        {(queueMetrics?.waiting || 0) + (queueMetrics?.active || 0)}
                       </span>
                     </div>
                     <Progress value={progress} className="h-2" />
@@ -294,11 +312,15 @@ export default function ConnectedDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Average processing time</span>
-                      <span className="font-medium">{statistics?.averageProcessingTime || 0} min</span>
+                      <span className="font-medium">
+                        {statistics?.averageProcessingTime || 0} min
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Success rate</span>
-                      <span className="font-medium text-green-600">{statistics?.successRate || 0}%</span>
+                      <span className="font-medium text-green-600">
+                        {statistics?.successRate || 0}%
+                      </span>
                     </div>
                   </div>
                 </>
@@ -310,19 +332,25 @@ export default function ConnectedDashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Popular Templates</CardTitle>
-              <CardDescription>
-                Most frequently used templates
-              </CardDescription>
+              <CardDescription>Most frequently used templates</CardDescription>
             </CardHeader>
             <CardContent>
               {templatesLoading ? (
                 <div className="flex items-center justify-center py-4">
                   <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
+              ) : templates.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center">
+                  <FolderOpen className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground mb-3">No templates yet</p>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/templates')}>
+                    Create Template
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-3">
-                  {templates.slice(0, 4).map((template, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                  {templates.slice(0, 4).map((template) => (
+                    <div key={template.id} className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="rounded-full bg-primary/10 p-2">
                           <FolderOpen className="h-4 w-4 text-primary" />
@@ -330,7 +358,7 @@ export default function ConnectedDashboard() {
                         <div>
                           <p className="text-sm font-medium">{template.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {template.usage} uses • {template.lastUsed}
+                            {template.usage || 0} uses
                           </p>
                         </div>
                       </div>
@@ -347,22 +375,34 @@ export default function ConnectedDashboard() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2">
-              <Button className="w-full justify-start" variant="outline">
+              <Button
+                className="w-full justify-start"
+                variant="outline"
+                onClick={() => navigate('/upload')}
+              >
                 <Upload className="mr-2 h-4 w-4" />
                 Upload New Document
               </Button>
-              <Button className="w-full justify-start" variant="outline">
+              <Button
+                className="w-full justify-start"
+                variant="outline"
+                onClick={() => navigate('/templates')}
+              >
                 <FileText className="mr-2 h-4 w-4" />
                 Create Template
               </Button>
-              <Button className="w-full justify-start" variant="outline">
-                <Calendar className="mr-2 h-4 w-4" />
-                Schedule Processing
+              <Button
+                className="w-full justify-start"
+                variant="outline"
+                onClick={() => navigate('/documents')}
+              >
+                <FolderOpen className="mr-2 h-4 w-4" />
+                View Documents
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
     </div>
-  )
+  );
 }

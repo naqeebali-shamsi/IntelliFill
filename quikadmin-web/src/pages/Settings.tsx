@@ -1,25 +1,25 @@
-import React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  Palette, 
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import {
+  User,
+  Bell,
+  Shield,
+  Palette,
   Globe,
   Key,
   AlertCircle,
@@ -31,10 +31,35 @@ import {
   Smartphone,
   CreditCard,
   Database,
-  Zap
-} from 'lucide-react'
+  Zap,
+} from 'lucide-react';
+import { useBackendAuthStore } from '@/stores/backendAuthStore';
 
 export default function Settings() {
+  const user = useBackendAuthStore((state) => state.user);
+
+  // Form state for account settings
+  const [accountForm, setAccountForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+  });
+
+  // Load user data into form when available
+  useEffect(() => {
+    if (user) {
+      setAccountForm({
+        name:
+          user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user.firstName || '',
+        email: user.email || '',
+        phone: '',
+        company: '', // Company name not available in current API
+      });
+    }
+  }, [user]);
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
@@ -187,27 +212,47 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Account Information</CardTitle>
-              <CardDescription>
-                Update your account details and profile information
-              </CardDescription>
+              <CardDescription>Update your account details and profile information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" defaultValue="John Doe" />
+                  <Input
+                    id="name"
+                    value={accountForm.name}
+                    onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
+                    placeholder="Enter your full name"
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="john.doe@example.com" />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={accountForm.email}
+                    onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
+                    placeholder="Enter your email"
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={accountForm.phone}
+                    onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })}
+                    placeholder="Enter your phone number"
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="company">Company</Label>
-                  <Input id="company" defaultValue="Acme Corporation" />
+                  <Input
+                    id="company"
+                    value={accountForm.company}
+                    onChange={(e) => setAccountForm({ ...accountForm, company: e.target.value })}
+                    placeholder="Enter your company name"
+                  />
                 </div>
               </div>
               <div className="flex gap-2">
@@ -215,9 +260,7 @@ export default function Settings() {
                   <Save className="mr-2 h-4 w-4" />
                   Save Changes
                 </Button>
-                <Button variant="outline">
-                  Cancel
-                </Button>
+                <Button variant="outline">Cancel</Button>
               </div>
             </CardContent>
           </Card>
@@ -225,41 +268,27 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Subscription Plan</CardTitle>
-              <CardDescription>
-                Manage your subscription and billing information
-              </CardDescription>
+              <CardDescription>Manage your subscription and billing information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-semibold">Professional Plan</h4>
-                    <p className="text-sm text-muted-foreground">$29/month</p>
+                    <h4 className="font-semibold">Free Plan</h4>
+                    <p className="text-sm text-muted-foreground">Basic access</p>
                   </div>
-                  <Badge className="bg-green-100 text-green-700">Active</Badge>
+                  <Badge className="bg-blue-100 text-blue-700">Current</Badge>
                 </div>
                 <div className="mt-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Documents/month:</span>
-                    <span>500 of 1000</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Storage used:</span>
-                    <span>2.3 GB of 10 GB</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Next billing date:</span>
-                    <span>February 1, 2024</span>
-                  </div>
+                  <p className="text-muted-foreground">
+                    Upgrade to a paid plan for more features and higher limits.
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline">
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Update Payment Method
-                </Button>
-                <Button variant="outline">
-                  Upgrade Plan
+                  View Plans
                 </Button>
               </div>
             </CardContent>
@@ -374,9 +403,7 @@ export default function Settings() {
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
                     <Input id="confirm-password" type="password" />
                   </div>
-                  <Button className="w-fit">
-                    Update Password
-                  </Button>
+                  <Button className="w-fit">Update Password</Button>
                 </div>
               </div>
 
@@ -392,7 +419,8 @@ export default function Settings() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Two-factor authentication is not enabled</AlertTitle>
                     <AlertDescription className="mt-2">
-                      Add an extra layer of security to your account by enabling two-factor authentication.
+                      Add an extra layer of security to your account by enabling two-factor
+                      authentication.
                     </AlertDescription>
                   </Alert>
                   <Button className="mt-4">
@@ -410,27 +438,13 @@ export default function Settings() {
                   <div className="rounded-lg border p-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium">Windows - Chrome</p>
-                        <p className="text-sm text-muted-foreground">
-                          192.168.1.100 • Last active: 2 minutes ago
-                        </p>
+                        <p className="font-medium">Current Session</p>
+                        <p className="text-sm text-muted-foreground">This device • Active now</p>
                       </div>
                       <Badge className="bg-green-100 text-green-700">Current</Badge>
                     </div>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">iPhone - Safari</p>
-                        <p className="text-sm text-muted-foreground">
-                          192.168.1.105 • Last active: 1 hour ago
-                        </p>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        Revoke
-                      </Button>
-                    </div>
-                  </div>
+                  <p className="text-sm text-muted-foreground">Session management coming soon.</p>
                 </div>
               </div>
             </CardContent>
@@ -442,9 +456,7 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Advanced Settings</CardTitle>
-              <CardDescription>
-                Configure advanced options and developer settings
-              </CardDescription>
+              <CardDescription>Configure advanced options and developer settings</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -465,9 +477,7 @@ export default function Settings() {
                   </div>
                   <div className="space-y-2">
                     <Label>Import Data</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Import data from a backup file
-                    </p>
+                    <p className="text-sm text-muted-foreground">Import data from a backup file</p>
                     <Button variant="outline">
                       <Upload className="mr-2 h-4 w-4" />
                       Import Data
@@ -495,16 +505,16 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label htmlFor="api-key">API Key</Label>
                     <div className="flex gap-2">
-                      <Input 
-                        id="api-key" 
-                        value="sk_live_..." 
-                        type="password" 
-                        readOnly 
+                      <Input
+                        id="api-key"
+                        placeholder="No API key generated"
+                        type="password"
+                        readOnly
                       />
-                      <Button variant="outline">Regenerate</Button>
+                      <Button variant="outline">Generate Key</Button>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Use this key to access the API programmatically
+                      Generate an API key to access the API programmatically
                     </p>
                   </div>
                 </div>
@@ -517,9 +527,7 @@ export default function Settings() {
                 <AlertTitle>Danger Zone</AlertTitle>
                 <AlertDescription className="space-y-4">
                   <p>Once you delete your account, there is no going back.</p>
-                  <Button variant="destructive">
-                    Delete Account
-                  </Button>
+                  <Button variant="destructive">Delete Account</Button>
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -527,5 +535,5 @@ export default function Settings() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
