@@ -32,11 +32,7 @@ console.log(`   Database: ${config.database.url.split('@')[1]?.split('/')[0] || 
 console.log(`   Redis: ${config.redis.host}:${config.redis.port}`);
 
 // Optional environment variable warnings
-const RECOMMENDED_ENV_VARS = [
-  'REDIS_PASSWORD',
-  'DB_POOL_MAX',
-  'DB_POOL_MIN'
-];
+const RECOMMENDED_ENV_VARS = ['REDIS_PASSWORD', 'DB_POOL_MAX', 'DB_POOL_MIN'];
 
 for (const varName of RECOMMENDED_ENV_VARS) {
   if (!process.env[varName]) {
@@ -60,10 +56,10 @@ async function initializeApp() {
     if (!prismaConnected) {
       throw new Error('Failed to establish Prisma database connection after retries');
     }
-    
+
     // Start database keepalive to prevent Neon idle disconnection
     startKeepalive();
-    
+
     logger.info('Database connected successfully (keepalive enabled)');
 
     // Initialize services
@@ -78,35 +74,63 @@ async function initializeApp() {
       dataExtractor,
       fieldMapper,
       formFiller,
-      validationService
+      validationService,
     });
 
     // Security middleware
-    app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
+    app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+            connectSrc: ["'self'"],
+            fontSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            mediaSrc: ["'self'"],
+            frameSrc: ["'none'"],
+          },
         },
-      },
-      hsts: {
-        maxAge: 31536000,
-        includeSubDomains: true,
-        preload: true
-      }
-    }));
-    
-    app.use(cors({
-      origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
-      credentials: true
-    }));
+        hsts: {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        },
+      })
+    );
+
+    // CORS configuration with pattern matching for Vercel preview URLs
+    const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) || [];
+    const allowedPatterns = [
+      /^https:\/\/intellifill.*\.vercel\.app$/, // All Vercel preview/production URLs for this project
+      /^http:\/\/localhost:\d+$/, // Local development
+    ];
+
+    app.use(
+      cors({
+        origin: (origin, callback) => {
+          // Allow requests with no origin (mobile apps, Postman, server-to-server)
+          if (!origin) return callback(null, true);
+
+          // Check exact matches first
+          if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+          }
+
+          // Check pattern matches (Vercel preview URLs)
+          if (allowedPatterns.some((pattern) => pattern.test(origin))) {
+            return callback(null, true);
+          }
+
+          callback(new Error(`Origin ${origin} not allowed by CORS`));
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+      })
+    );
 
     // Body parsing middleware
     app.use(express.json({ limit: '10mb' }));
@@ -125,45 +149,47 @@ async function initializeApp() {
 
     // Health check endpoint (public)
     app.get('/health', (req, res) => {
-      res.json({ 
-        status: 'ok', 
+      res.json({
+        status: 'ok',
         timestamp: new Date().toISOString(),
         version: '1.0.0',
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.NODE_ENV || 'development',
       });
     });
 
     // Setup routes with authentication
     setupRoutes(app, intelliFillService, db);
-    
+
     // Error handling middleware (must be after routes)
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
       logger.error('Unhandled error:', err);
-      
+
       // JWT errors
       if (err.name === 'JsonWebTokenError') {
         return res.status(401).json({ error: 'Invalid token' });
       }
-      
+
       if (err.name === 'TokenExpiredError') {
         return res.status(401).json({ error: 'Token expired' });
       }
-      
+
       // Multer errors (file upload)
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ error: 'File too large' });
       }
-      
+
       if (err.code === 'LIMIT_UNEXPECTED_FILE') {
         return res.status(400).json({ error: 'Invalid file field' });
       }
 
       // Database errors
-      if (err.code === '23505') { // Unique constraint violation
+      if (err.code === '23505') {
+        // Unique constraint violation
         return res.status(409).json({ error: 'Resource already exists' });
       }
-      
-      if (err.code === '23503') { // Foreign key violation
+
+      if (err.code === '23503') {
+        // Foreign key violation
         return res.status(400).json({ error: 'Invalid reference' });
       }
 
@@ -173,16 +199,16 @@ async function initializeApp() {
       }
 
       // Default error response
-      res.status(err.status || 500).json({ 
-        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+      res.status(err.status || 500).json({
+        error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
       });
     });
 
     // 404 handler (must be last)
     app.use('*', (req: express.Request, res: express.Response) => {
-      res.status(404).json({ 
+      res.status(404).json({
         error: 'Not found',
-        message: `Route ${req.method} ${req.originalUrl} not found` 
+        message: `Route ${req.method} ${req.originalUrl} not found`,
       });
     });
 
@@ -208,7 +234,7 @@ process.on('SIGINT', async () => {
 async function startServer() {
   try {
     const { app, db } = await initializeApp();
-    
+
     const server = app.listen(PORT, () => {
       logger.info(`🚀 IntelliFill API server running on port ${PORT}`);
       logger.info(`📚 IntelliFill API documentation: http://localhost:${PORT}/api-docs`);
@@ -220,11 +246,11 @@ async function startServer() {
     // Handle server shutdown
     process.on('SIGTERM', async () => {
       logger.info('SIGTERM received, closing HTTP server');
-      
+
       // Stop keepalive before shutdown
       const { stopKeepalive } = await import('./utils/prisma');
       stopKeepalive();
-      
+
       server.close(async () => {
         logger.info('HTTP server closed');
         await db.disconnect();
