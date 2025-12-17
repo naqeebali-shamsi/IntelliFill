@@ -1,6 +1,6 @@
 /**
  * Authentication Service - Backend API Integration
- * 
+ *
  * Routes all authentication through the backend API at /api/auth/v2/*
  * This provides:
  * - Centralized auth handling
@@ -99,7 +99,9 @@ export async function getMe(): Promise<AuthResponse> {
 /**
  * Request password reset via backend API
  */
-export async function requestPasswordReset(email: string): Promise<{ success: boolean; message?: string }> {
+export async function requestPasswordReset(
+  email: string
+): Promise<{ success: boolean; message?: string }> {
   const response = await api.post('/auth/v2/forgot-password', { email });
   return response.data;
 }
@@ -107,7 +109,10 @@ export async function requestPasswordReset(email: string): Promise<{ success: bo
 /**
  * Reset password via backend API
  */
-export async function resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{ success: boolean; message?: string }> {
   const response = await api.post('/auth/v2/reset-password', { token, newPassword });
   return response.data;
 }
@@ -115,7 +120,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
 /**
  * Change password via backend API
  */
-export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message?: string }> {
   const response = await api.post('/auth/v2/change-password', { currentPassword, newPassword });
   return response.data;
 }
@@ -123,8 +131,21 @@ export async function changePassword(currentPassword: string, newPassword: strin
 /**
  * Verify reset token via backend API
  */
-export async function verifyResetToken(token: string): Promise<{ success: boolean; message?: string }> {
+export async function verifyResetToken(
+  token: string
+): Promise<{ success: boolean; message?: string }> {
   const response = await api.post('/auth/v2/verify-reset-token', { token });
+  return response.data;
+}
+
+/**
+ * Verify email with OTP code via backend API
+ */
+export async function verifyEmail(
+  email: string,
+  token: string
+): Promise<{ success: boolean; message?: string }> {
+  const response = await api.post('/auth/v2/verify-email', { email, token });
   return response.data;
 }
 
@@ -138,5 +159,5 @@ export default {
   resetPassword,
   changePassword,
   verifyResetToken,
+  verifyEmail,
 };
-
