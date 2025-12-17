@@ -307,6 +307,52 @@ export const extractData = async (documentFile: File): Promise<any> => {
   return response.data.data;
 };
 
+// Document upload for OCR processing (no form template required)
+export const uploadDocuments = async (
+  formData: FormData,
+  onProgress?: (progress: number) => void
+): Promise<{
+  jobId?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'queued';
+  data?: any;
+  documents?: Array<{
+    documentId: string;
+    fileName: string;
+    jobId: string;
+    status: string;
+    statusUrl: string;
+  }>;
+}> => {
+  const response = await api.post('/documents', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+      if (progressEvent.total && onProgress) {
+        const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        onProgress(progress);
+      }
+    },
+  });
+
+  const data = response.data;
+
+  // Handle response from POST /api/documents
+  if (data.documents && data.documents.length > 0) {
+    return {
+      jobId: data.documents[0].jobId,
+      status: data.documents[0].status || 'queued',
+      documents: data.documents,
+    };
+  }
+
+  return {
+    jobId: data.jobId,
+    status: data.status || 'processing',
+    data: data.data,
+  };
+};
+
 // Document management
 export const getDocuments = async (params?: {
   type?: string;

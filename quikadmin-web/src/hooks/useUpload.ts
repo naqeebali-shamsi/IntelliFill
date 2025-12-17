@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PQueue from 'p-queue';
 import { useUploadStore, uploadSelectors } from '@/stores/uploadStore';
-import { uploadFiles } from '@/services/api';
+import { uploadDocuments } from '@/services/api';
 import { UseUploadOptions, UploadFile } from '@/types/upload';
 import { toast } from 'sonner';
 
@@ -38,22 +38,24 @@ export function useUpload(options: UseUploadOptions = {}) {
   const setMaxConcurrent = useUploadStore((state) => state.setMaxConcurrent);
 
   // Store selectors - use memoized selectors to prevent infinite loops
-  const pendingFilesCount = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'pending').length
+  const pendingFilesCount = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'pending').length
   );
-  const uploadingFilesCount = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'uploading').length
+  const uploadingFilesCount = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'uploading').length
   );
-  
+
   // Get actual files arrays when needed (inside effects, not as reactive state)
-  const getPendingFiles = () => useUploadStore.getState().files.filter((f) => f.status === 'pending');
-  const getUploadingFiles = () => useUploadStore.getState().files.filter((f) => f.status === 'uploading');
+  const getPendingFiles = () =>
+    useUploadStore.getState().files.filter((f) => f.status === 'pending');
+  const getUploadingFiles = () =>
+    useUploadStore.getState().files.filter((f) => f.status === 'uploading');
 
   // Initialize p-queue with concurrency control
   const queueRef = useRef<PQueue | null>(null);
   const [isQueueProcessing, setIsQueueProcessing] = useState(false);
   const enqueuedFilesRef = useRef<Set<string>>(new Set());
-  
+
   // Initialize queue if not exists or if concurrency changed
   useEffect(() => {
     if (!queueRef.current || queueRef.current.concurrency !== maxConcurrent) {
@@ -62,26 +64,26 @@ export function useUpload(options: UseUploadOptions = {}) {
         queueRef.current.clear();
         queueRef.current.pause();
       }
-      
+
       queueRef.current = new PQueue({
         concurrency: maxConcurrent,
         interval: 100, // Process queue every 100ms
         intervalCap: maxConcurrent, // Allow maxConcurrent jobs per interval
       });
-      
+
       // Track queue state
       queueRef.current.on('active', () => {
         setIsQueueProcessing(true);
       });
-      
+
       queueRef.current.on('idle', () => {
         setIsQueueProcessing(false);
       });
     }
-    
+
     // Update store setting
     setMaxConcurrent(maxConcurrent);
-    
+
     // Cleanup on unmount
     return () => {
       if (queueRef.current) {
@@ -112,7 +114,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         formData.append('documents', file);
 
         // Upload with progress tracking
-        const result = await uploadFiles(formData, (progress) => {
+        const result = await uploadDocuments(formData, (progress) => {
           updateFileProgress(id, progress);
           if (onProgress) {
             onProgress(uploadFile, progress);
@@ -174,8 +176,7 @@ export function useUpload(options: UseUploadOptions = {}) {
         }
 
         // Handle upload error
-        const errorMessage =
-          error.response?.data?.message || error.message || 'Upload failed';
+        const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
 
         setFileError(id, errorMessage);
 
@@ -219,7 +220,7 @@ export function useUpload(options: UseUploadOptions = {}) {
    * Add file to queue for processing
    */
   const enqueueFileRef = useRef<((uploadFile: UploadFile) => Promise<void>) | null>(null);
-  
+
   const enqueueFile = useCallback(
     async (uploadFile: UploadFile) => {
       if (!queueRef.current) return;
@@ -253,7 +254,7 @@ export function useUpload(options: UseUploadOptions = {}) {
     currentPendingFiles.forEach((file) => {
       const isUploading = currentUploadingFiles.some((f) => f.id === file.id);
       const isEnqueued = enqueuedFilesRef.current.has(file.id);
-      
+
       if (!isUploading && !isEnqueued) {
         enqueuedFilesRef.current.add(file.id);
         enqueueFileRef.current(file).catch((error) => {
@@ -271,16 +272,16 @@ export function useUpload(options: UseUploadOptions = {}) {
    */
   const startUploads = useCallback(() => {
     if (!queueRef.current || !enqueueFileRef.current) return;
-    
+
     // Unpause queue if paused
     if (queueRef.current.isPaused) {
       queueRef.current.start();
     }
-    
+
     // Get fresh state from store
     const currentPendingFiles = getPendingFiles();
     const currentUploadingFiles = getUploadingFiles();
-    
+
     // Process any pending files
     currentPendingFiles.forEach((file) => {
       const isUploading = currentUploadingFiles.some((f) => f.id === file.id);
@@ -311,11 +312,11 @@ export function useUpload(options: UseUploadOptions = {}) {
     if (!queueRef.current || !enqueueFileRef.current) return;
     queueRef.current.start();
     useUploadStore.setState({ autoStart: true });
-    
+
     // Get fresh state from store
     const currentPendingFiles = getPendingFiles();
     const currentUploadingFiles = getUploadingFiles();
-    
+
     // Process pending files
     currentPendingFiles.forEach((file) => {
       const isUploading = currentUploadingFiles.some((f) => f.id === file.id);
