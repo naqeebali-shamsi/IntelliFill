@@ -28,7 +28,7 @@ export class ValidationService {
 
   async validateMappings(mappingResult: MappingResult): Promise<ValidationResult> {
     const errors: string[] = [];
-    const warnings: string[] = [];
+    const warnings: string[] = [...mappingResult.warnings];
     const fieldErrors: Record<string, string[]> = {};
 
     // Validate each mapping

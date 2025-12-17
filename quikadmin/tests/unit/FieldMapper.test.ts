@@ -171,6 +171,52 @@ describe('FieldMapper', () => {
       expect(emailMapping?.value).toBe('direct@example.com');
       expect(emailMapping?.mappingMethod).toBe('Direct Field Match');
     });
+
+    it('should detect duplicate normalized field names and add warnings', async () => {
+      const formFields = ['Email', 'email', 'EMAIL', 'e-mail'];
+      const result = await fieldMapper.mapFields(mockExtractedData, formFields);
+
+      // Should have warnings for duplicate normalized fields
+      expect(result.warnings).toBeDefined();
+      expect(result.warnings.length).toBeGreaterThan(0);
+
+      // Should have a warning about 'Email', 'email', 'EMAIL' all normalizing to 'email'
+      const emailWarning = result.warnings.find(w => w.includes('email'));
+      expect(emailWarning).toBeDefined();
+      expect(emailWarning).toContain('Email');
+      expect(emailWarning).toContain('email');
+      expect(emailWarning).toContain('EMAIL');
+    });
+
+    it('should not add warnings when all field names are unique after normalization', async () => {
+      const formFields = ['full_name', 'email_address', 'phone_number'];
+      const result = await fieldMapper.mapFields(mockExtractedData, formFields);
+
+      // Should have no duplicate warnings
+      expect(result.warnings).toBeDefined();
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it('should map all duplicate fields to the same value', async () => {
+      const formFields = ['Email', 'email', 'EMAIL'];
+      const result = await fieldMapper.mapFields(mockExtractedData, formFields);
+
+      // All three fields should be mapped if a match is found
+      const emailMappings = result.mappings.filter(m =>
+        m.formField === 'Email' || m.formField === 'email' || m.formField === 'EMAIL'
+      );
+
+      // They should all map to the same value
+      if (emailMappings.length > 0) {
+        const firstValue = emailMappings[0].value;
+        emailMappings.forEach(mapping => {
+          expect(mapping.value).toBe(firstValue);
+        });
+      }
+
+      // Should have warning about duplicates
+      expect(result.warnings.length).toBeGreaterThan(0);
+    });
   });
 
   describe('performance', () => {

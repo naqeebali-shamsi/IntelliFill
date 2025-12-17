@@ -48,6 +48,11 @@ interface AppError {
 
 // =================== STORE INTERFACES ===================
 
+interface DemoInfo {
+  notice: string;
+  features: string[];
+}
+
 interface AuthState {
   user: AuthUser | null;
   tokens: AuthTokens | null;
@@ -62,12 +67,15 @@ interface AuthState {
   lockExpiry: number | null;
   lastActivity: number;
   rememberMe: boolean;
+  isDemo: boolean; // Demo mode indicator
+  demoInfo: DemoInfo | null; // Demo mode info (notice, features)
 }
 
 interface AuthActions {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  demoLogin: () => Promise<void>; // Demo mode login
   refreshToken: () => Promise<void>;
   refreshTokenIfNeeded: () => Promise<boolean>; // Proactive refresh - returns true if refreshed
   isTokenExpiringSoon: () => boolean; // Check if token expires within 5 minutes
@@ -99,6 +107,8 @@ const initialState: AuthState = {
   lockExpiry: null,
   lastActivity: Date.now(),
   rememberMe: false,
+  isDemo: false,
+  demoInfo: null,
 };
 
 // Token refresh buffer - refresh 5 minutes before expiration
@@ -275,8 +285,58 @@ export const useBackendAuthStore = create<AuthStore>()(
             state.tokens = null;
             state.tokenExpiresAt = null;
             state.isAuthenticated = false;
+            state.isDemo = false;
+            state.demoInfo = null;
             state.error = null;
           });
+        },
+
+        demoLogin: async () => {
+          set((state) => {
+            state.isLoading = true;
+            state.error = null;
+          });
+
+          try {
+            const response = await authService.demoLogin();
+
+            if (!response.success || !response.data) {
+              throw new Error(response.error || 'Demo login failed');
+            }
+
+            const { user, tokens, demo } = response.data;
+
+            if (!tokens) {
+              throw new Error('No tokens returned from demo login');
+            }
+
+            set((state) => {
+              state.user = user;
+              state.tokens = tokens;
+              state.tokenExpiresAt = tokens.expiresIn
+                ? calculateTokenExpiresAt(tokens.expiresIn)
+                : null;
+              state.isAuthenticated = true;
+              state.isInitialized = true;
+              state.isDemo = true;
+              state.demoInfo = demo || null;
+              state.lastActivity = Date.now();
+              state.rememberMe = false;
+              state.loginAttempts = 0;
+              state.isLocked = false;
+              state.lockExpiry = null;
+              state.isLoading = false;
+            });
+          } catch (error: any) {
+            const authError = createAuthError(error);
+
+            set((state) => {
+              state.error = authError;
+              state.isLoading = false;
+            });
+
+            throw authError;
+          }
         },
 
         refreshToken: async () => {
@@ -499,6 +559,8 @@ export const authSelectors = {
   isLoading: (state: AuthStore) => state.isLoading,
   error: (state: AuthStore) => state.error,
   isLocked: (state: AuthStore) => state.isLocked,
+  isDemo: (state: AuthStore) => state.isDemo,
+  demoInfo: (state: AuthStore) => state.demoInfo,
   canRetry: (state: AuthStore) =>
     !state.isLocked || (state.lockExpiry && Date.now() > state.lockExpiry),
 };
@@ -510,9 +572,12 @@ export const useBackendAuth = () =>
     user: state.user,
     isAuthenticated: state.isAuthenticated,
     isLoading: state.isLoading,
+    isDemo: state.isDemo,
+    demoInfo: state.demoInfo,
     login: state.login,
     logout: state.logout,
     register: state.register,
+    demoLogin: state.demoLogin,
   }));
 
 export const useBackendAuthError = () =>

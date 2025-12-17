@@ -1404,6 +1404,151 @@ export function createSupabaseAuthRoutes(): Router {
     }
   );
 
+  /**
+   * POST /api/auth/v2/demo
+   * Demo login endpoint - provides instant access to the demo account
+   *
+   * Flow:
+   * 1. Validate demo mode is enabled
+   * 2. Find or create demo user
+   * 3. Generate session tokens
+   * 4. Return tokens with demo flag
+   *
+   * Note: This endpoint is for demonstration purposes only.
+   * In production, it should be disabled or heavily rate-limited.
+   *
+   * @returns 200 - Demo login successful with tokens
+   * @returns 403 - Demo mode not enabled
+   * @returns 500 - Server error
+   */
+  router.post('/demo', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Demo credentials from seed-demo.ts
+      const DEMO_EMAIL = 'demo@intellifill.com';
+      const DEMO_PASSWORD = 'demo123';
+
+      // Check if demo mode is enabled (can be controlled via env var)
+      const demoEnabled = process.env.ENABLE_DEMO_MODE !== 'false';
+
+      if (!demoEnabled) {
+        logger.warn('Demo login attempted but demo mode is disabled');
+        return res.status(403).json({
+          error: 'Demo mode is not enabled',
+          code: 'DEMO_DISABLED',
+        });
+      }
+
+      logger.info('Demo login attempt');
+
+      // Find demo user in database
+      const user = await prisma.user.findUnique({
+        where: { email: DEMO_EMAIL },
+        select: {
+          id: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          createdAt: true,
+          lastLogin: true,
+          organizationId: true,
+        },
+      });
+
+      if (!user) {
+        logger.error('Demo user not found. Run: npx ts-node prisma/seed-demo.ts');
+        return res.status(500).json({
+          error: 'Demo account not configured. Please contact support.',
+          code: 'DEMO_NOT_CONFIGURED',
+        });
+      }
+
+      // Verify demo password (as a safety check)
+      const passwordValid = await bcrypt.compare(DEMO_PASSWORD, user.password);
+      if (!passwordValid) {
+        logger.error('Demo user password mismatch. Re-run seed-demo.ts');
+        return res.status(500).json({
+          error: 'Demo account misconfigured. Please contact support.',
+          code: 'DEMO_MISCONFIGURED',
+        });
+      }
+
+      // Generate JWT tokens for demo session
+      const accessToken = jwt.sign(
+        {
+          sub: user.id,
+          email: user.email,
+          role: user.role,
+          organizationId: user.organizationId,
+          aud: 'authenticated',
+          iss: 'demo-mode',
+          isDemo: true, // Flag for demo session
+        },
+        JWT_SECRET,
+        { expiresIn: '4h' } // Longer session for demo
+      );
+
+      const refreshToken = jwt.sign(
+        {
+          sub: user.id,
+          type: 'refresh',
+          isDemo: true,
+        },
+        JWT_REFRESH_SECRET,
+        { expiresIn: '24h' } // Demo refresh token valid for 24 hours
+      );
+
+      // Update last login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
+
+      logger.info(`Demo user logged in: ${DEMO_EMAIL}`);
+
+      res.json({
+        success: true,
+        message: 'Demo login successful',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName || 'Demo',
+            lastName: user.lastName || 'User',
+            role: user.role.toLowerCase(),
+            emailVerified: true,
+            lastLogin: new Date(),
+            createdAt: user.createdAt,
+            isDemo: true, // Flag for frontend to show demo indicator
+          },
+          tokens: {
+            accessToken,
+            refreshToken,
+            expiresIn: 14400, // 4 hours in seconds
+            tokenType: 'Bearer',
+          },
+          demo: {
+            notice: 'This is a demo account. Data may be reset periodically.',
+            features: [
+              'Full access to document processing',
+              'Sample UAE client data',
+              'Pre-loaded form templates',
+              'OCR confidence demonstration',
+            ],
+          },
+        },
+      });
+    } catch (error: any) {
+      logger.error('Demo login error:', error);
+      res.status(500).json({
+        error: 'Demo login failed. Please try again.',
+      });
+    }
+  });
+
   return router;
 }
 

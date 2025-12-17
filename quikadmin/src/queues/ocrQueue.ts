@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { OCRService, OCRProgress } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
+import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 
 const prisma = new PrismaClient();
 
@@ -32,132 +33,166 @@ const redisConfig = {
 };
 
 /**
+ * Queue availability flag
+ */
+let ocrQueueAvailable = false;
+
+/**
  * OCR processing queue with retry logic and exponential backoff
  */
-export const ocrQueue = new Bull<OCRProcessingJob>('ocr-processing', {
-  redis: redisConfig,
-  defaultJobOptions: {
-    removeOnComplete: 100, // Keep last 100 completed jobs
-    removeOnFail: 50, // Keep last 50 failed jobs
-    attempts: 3, // Retry up to 3 times for OCR failures
-    backoff: {
-      type: 'exponential',
-      delay: 3000 // Start with 3s delay, exponentially increase (3s, 9s, 27s)
-    },
-    timeout: 600000 // 10 minute timeout for OCR jobs
-  }
-});
+let ocrQueue: Bull.Queue<OCRProcessingJob> | null = null;
+try {
+  ocrQueue = new Bull<OCRProcessingJob>('ocr-processing', {
+    redis: redisConfig,
+    defaultJobOptions: {
+      removeOnComplete: 100, // Keep last 100 completed jobs
+      removeOnFail: 50, // Keep last 50 failed jobs
+      attempts: 3, // Retry up to 3 times for OCR failures
+      backoff: {
+        type: 'exponential',
+        delay: 3000 // Start with 3s delay, exponentially increase (3s, 9s, 27s)
+      },
+      timeout: 600000 // 10 minute timeout for OCR jobs
+    }
+  });
+
+  ocrQueue.on('error', (error) => {
+    logger.error('OCR queue error:', error);
+    ocrQueueAvailable = false;
+  });
+
+  ocrQueue.on('ready', () => {
+    logger.info('OCR queue ready');
+    ocrQueueAvailable = true;
+  });
+
+  ocrQueueAvailable = true;
+} catch (error) {
+  logger.warn('OCR queue initialization failed - Redis may be unavailable:', error);
+  ocrQueueAvailable = false;
+}
+
+/**
+ * Check if OCR queue is available
+ */
+export function isOCRQueueAvailable(): boolean {
+  return ocrQueueAvailable && ocrQueue !== null;
+}
 
 /**
  * Process OCR jobs
  */
-ocrQueue.process(async (job) => {
-  const { documentId, filePath, options } = job.data;
-  const startTime = Date.now();
+if (ocrQueue) {
+  ocrQueue.process(async (job) => {
+    const { documentId, filePath, options } = job.data;
+    const startTime = Date.now();
 
-  try {
-    logger.info(`Starting OCR processing for document ${documentId}`);
+    try {
+      logger.info(`Starting OCR processing for document ${documentId}`);
 
-    // Update document status to PROCESSING
-    await prisma.document.update({
-      where: { id: documentId },
-      data: { status: 'PROCESSING' }
-    });
+      // Update document status to PROCESSING
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: 'PROCESSING' }
+      });
 
-    await job.progress(5);
+      await job.progress(5);
 
-    // Initialize OCR service
-    const ocrService = new OCRService();
-    await ocrService.initialize();
+      // Initialize OCR service
+      const ocrService = new OCRService();
+      await ocrService.initialize();
 
-    await job.progress(10);
+      await job.progress(10);
 
-    // Process PDF with OCR and track progress
-    const ocrResult = await ocrService.processPDF(filePath, (progress: OCRProgress) => {
-      // Map OCR progress (0-100) to job progress (10-90)
-      const progressPercent = 10 + (progress.progress * 0.8);
-      job.progress(progressPercent);
+      // Process PDF with OCR and track progress
+      const ocrResult = await ocrService.processPDF(filePath, (progress: OCRProgress) => {
+        // Map OCR progress (0-100) to job progress (10-90)
+        const progressPercent = 10 + (progress.progress * 0.8);
+        job.progress(progressPercent);
 
-      logger.debug(`OCR Progress for ${documentId}: ${progress.stage} - ${progress.message}`);
-    });
+        logger.debug(`OCR Progress for ${documentId}: ${progress.stage} - ${progress.message}`);
+      });
 
-    await job.progress(90);
+      await job.progress(90);
 
-    // Extract structured data from OCR text
-    const structuredData = await ocrService.extractStructuredData(ocrResult.text);
+      // Extract structured data from OCR text
+      const structuredData = await ocrService.extractStructuredData(ocrResult.text);
 
-    await job.progress(95);
+      await job.progress(95);
 
-    // Update document with OCR results
-    await prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status: 'COMPLETED',
-        extractedText: ocrResult.text,
-        extractedData: {
-          ...structuredData,
-          ocrMetadata: ocrResult.metadata,
-          pages: ocrResult.pages
-        },
-        confidence: ocrResult.confidence / 100, // Convert to 0-1 scale
-        processedAt: new Date()
-      }
-    });
+      // Update document with OCR results
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status: 'COMPLETED',
+          extractedText: ocrResult.text,
+          extractedData: {
+            ...structuredData,
+            ocrMetadata: ocrResult.metadata,
+            pages: ocrResult.pages
+          },
+          confidence: ocrResult.confidence / 100, // Convert to 0-1 scale
+          processedAt: new Date()
+        }
+      });
 
-    // Cleanup OCR service resources
-    await ocrService.cleanup();
+      // Cleanup OCR service resources
+      await ocrService.cleanup();
 
-    await job.progress(100);
+      await job.progress(100);
 
-    const processingTime = Date.now() - startTime;
-    logger.info(`OCR processing completed for document ${documentId} in ${processingTime}ms with confidence ${ocrResult.confidence}%`);
+      const processingTime = Date.now() - startTime;
+      logger.info(`OCR processing completed for document ${documentId} in ${processingTime}ms with confidence ${ocrResult.confidence}%`);
 
-    return {
-      documentId,
-      status: 'completed',
-      confidence: ocrResult.confidence,
-      pageCount: ocrResult.metadata.pageCount,
-      textLength: ocrResult.text.length,
-      processingTime
-    };
+      return {
+        documentId,
+        status: 'completed',
+        confidence: ocrResult.confidence,
+        pageCount: ocrResult.metadata.pageCount,
+        textLength: ocrResult.text.length,
+        processingTime
+      };
 
-  } catch (error) {
-    logger.error(`OCR processing failed for document ${documentId}:`, error);
+    } catch (error) {
+      logger.error(`OCR processing failed for document ${documentId}:`, error);
 
-    // Update document status to FAILED
-    await prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status: 'FAILED',
-        extractedText: `OCR Error: ${error instanceof Error ? error.message : 'Unknown error'}`
-      }
-    }).catch(dbError => {
-      logger.error('Failed to update document status:', dbError);
-    });
+      // Update document status to FAILED
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status: 'FAILED',
+          extractedText: `OCR Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }
+      }).catch(dbError => {
+        logger.error('Failed to update document status:', dbError);
+      });
 
-    throw error;
-  }
-});
+      throw error;
+    }
+  });
+}
 
 /**
  * Event handlers for logging and monitoring
  */
-ocrQueue.on('completed', (job, result) => {
-  logger.info(`OCR job ${job.id} completed`, {
-    documentId: result.documentId,
-    confidence: result.confidence,
-    pageCount: result.pageCount
+if (ocrQueue) {
+  ocrQueue.on('completed', (job, result) => {
+    logger.info(`OCR job ${job.id} completed`, {
+      documentId: result.documentId,
+      confidence: result.confidence,
+      pageCount: result.pageCount
+    });
   });
-});
 
-ocrQueue.on('failed', (job, err) => {
-  logger.error(`OCR job ${job.id} failed:`, err);
-  logger.info(`OCR job ${job.id} will retry. Attempt ${job.attemptsMade} of ${job.opts.attempts}`);
-});
+  ocrQueue.on('failed', (job, err) => {
+    logger.error(`OCR job ${job.id} failed:`, err);
+    logger.info(`OCR job ${job.id} will retry. Attempt ${job.attemptsMade} of ${job.opts.attempts}`);
+  });
 
-ocrQueue.on('stalled', (job) => {
-  logger.warn(`OCR job ${job.id} has stalled`);
-});
+  ocrQueue.on('stalled', (job) => {
+    logger.warn(`OCR job ${job.id} has stalled`);
+  });
+}
 
 /**
  * Helper function to enqueue a document for OCR processing
@@ -169,6 +204,10 @@ export async function enqueueDocumentForOCR(
   filePath: string,
   forceOCR: boolean = false
 ): Promise<Bull.Job<OCRProcessingJob> | null> {
+  if (!isOCRQueueAvailable()) {
+    throw new QueueUnavailableError('ocr-processing');
+  }
+
   try {
     // Check if PDF needs OCR
     if (!forceOCR) {
@@ -183,7 +222,7 @@ export async function enqueueDocumentForOCR(
 
     logger.info(`Enqueueing document ${documentId} for OCR processing`);
 
-    const job = await ocrQueue.add({
+    const job = await ocrQueue!.add({
       documentId,
       userId,
       filePath,
@@ -201,11 +240,15 @@ export async function enqueueDocumentForOCR(
  * Get OCR queue health status
  */
 export async function getOCRQueueHealth() {
+  if (!isOCRQueueAvailable()) {
+    throw new QueueUnavailableError('ocr-processing');
+  }
+
   const [waiting, active, completed, failed] = await Promise.all([
-    ocrQueue.getWaitingCount(),
-    ocrQueue.getActiveCount(),
-    ocrQueue.getCompletedCount(),
-    ocrQueue.getFailedCount()
+    ocrQueue!.getWaitingCount(),
+    ocrQueue!.getActiveCount(),
+    ocrQueue!.getCompletedCount(),
+    ocrQueue!.getFailedCount()
   ]);
 
   return {
@@ -222,7 +265,11 @@ export async function getOCRQueueHealth() {
  * Get OCR job status by ID
  */
 export async function getOCRJobStatus(jobId: string) {
-  const job = await ocrQueue.getJob(jobId);
+  if (!isOCRQueueAvailable()) {
+    throw new QueueUnavailableError('ocr-processing');
+  }
+
+  const job = await ocrQueue!.getJob(jobId);
 
   if (!job) {
     return null;
@@ -250,9 +297,11 @@ export async function getOCRJobStatus(jobId: string) {
  * Cleanup on shutdown
  */
 process.on('SIGTERM', async () => {
-  logger.info('Shutting down OCR queue...');
-  await ocrQueue.close();
-  logger.info('OCR queue closed');
+  if (ocrQueue) {
+    logger.info('Shutting down OCR queue...');
+    await ocrQueue.close();
+    logger.info('OCR queue closed');
+  }
 });
 
 /**
@@ -264,6 +313,10 @@ export async function enqueueDocumentForReprocessing(
   filePath: string,
   reason?: string
 ): Promise<Bull.Job<OCRProcessingJob>> {
+  if (!isOCRQueueAvailable()) {
+    throw new QueueUnavailableError('ocr-processing');
+  }
+
   try {
     const document = await prisma.document.findUnique({
       where: { id: documentId },
@@ -279,7 +332,7 @@ export async function enqueueDocumentForReprocessing(
       attempt: (document?.reprocessCount || 0) + 1
     });
 
-    const job = await ocrQueue.add(
+    const job = await ocrQueue!.add(
       {
         documentId,
         userId,
@@ -303,3 +356,6 @@ export async function enqueueDocumentForReprocessing(
     throw error;
   }
 }
+
+// Export queue instance (may be null if Redis unavailable)
+export { ocrQueue };

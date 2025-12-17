@@ -14,6 +14,7 @@ export interface MappingResult {
   unmappedFormFields: string[];
   unmappedDataFields: string[];
   overallConfidence: number;
+  warnings: string[];
 }
 
 export class FieldMapper {
@@ -26,12 +27,33 @@ export class FieldMapper {
     const mappings: FieldMapping[] = [];
     const mappedFormFields = new Set<string>();
     const mappedDataFields = new Set<string>();
+    const warnings: string[] = [];
 
     // Create normalized versions of form fields
     const normalizedFormFields = formFields.map(field => ({
       original: field,
       normalized: this.normalizeFieldName(field)
     }));
+
+    // Detect normalized duplicates
+    const normalizationMap = new Map<string, string[]>();
+    for (const field of normalizedFormFields) {
+      const norm = field.normalized;
+      if (!normalizationMap.has(norm)) {
+        normalizationMap.set(norm, []);
+      }
+      normalizationMap.get(norm)!.push(field.original);
+    }
+
+    // Track duplicates for warning
+    for (const [norm, originals] of normalizationMap.entries()) {
+      if (originals.length > 1) {
+        warnings.push(
+          `Multiple form fields normalize to '${norm}': ${originals.join(', ')} - all will receive same value`
+        );
+        logger.warn(`Duplicate normalized field detected: ${norm} (${originals.join(', ')})`);
+      }
+    }
 
     // Map extracted fields to form fields
     for (const formField of normalizedFormFields) {
@@ -49,7 +71,7 @@ export class FieldMapper {
           confidence: bestMatch.confidence,
           mappingMethod: bestMatch.method
         });
-        
+
         mappedFormFields.add(formField.original);
         mappedDataFields.add(bestMatch.source);
       }
@@ -72,7 +94,8 @@ export class FieldMapper {
       mappings,
       unmappedFormFields,
       unmappedDataFields,
-      overallConfidence
+      overallConfidence,
+      warnings
     };
   }
 

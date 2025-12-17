@@ -3,6 +3,7 @@ import { Job } from 'bull';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
 import { DatabaseService } from '../database/DatabaseService';
+import { verifyRedisAtStartup, checkRedisHealth } from '../utils/redisHealth';
 
 export interface ProcessingJob {
   id: string;
@@ -16,11 +17,52 @@ export interface ProcessingJob {
 }
 
 export class QueueService {
+  private static _isAvailable: boolean = false;
+
   private processingQueue: Bull.Queue<ProcessingJob>;
   private ocrQueue: Bull.Queue<{ filePath: string; jobId: string }>;
   private mlTrainingQueue: Bull.Queue<{ data: any[]; modelId: string }>;
   private intelliFillService: IntelliFillService;
   private databaseService: DatabaseService;
+
+  static get isAvailable(): boolean {
+    return QueueService._isAvailable;
+  }
+
+  /**
+   * Initialize QueueService and verify Redis connectivity
+   * Must be called before creating QueueService instances
+   */
+  static async initialize(): Promise<boolean> {
+    try {
+      const redisOk = await verifyRedisAtStartup();
+      QueueService._isAvailable = redisOk;
+
+      if (!redisOk) {
+        logger.warn('QueueService: Redis unavailable - queue operations will fail');
+      } else {
+        logger.info('QueueService: Redis connected and ready');
+      }
+
+      return redisOk;
+    } catch (error) {
+      logger.error('QueueService initialization failed:', error);
+      QueueService._isAvailable = false;
+      return false;
+    }
+  }
+
+  /**
+   * Get current queue service status
+   */
+  static getStatus(): { available: boolean; message: string } {
+    return {
+      available: QueueService._isAvailable,
+      message: QueueService._isAvailable
+        ? 'Queue service is operational'
+        : 'Queue service unavailable - Redis not connected'
+    };
+  }
 
   constructor(
     intelliFillService: IntelliFillService,
@@ -51,37 +93,46 @@ export class QueueService {
         : redisUrl;
     }
 
-    // Initialize queues
-    this.processingQueue = new Bull('pdf-processing', redisConfig, {
-      defaultJobOptions: {
-        removeOnComplete: 100,
-        removeOnFail: 500,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
+    try {
+      // Initialize queues
+      this.processingQueue = new Bull('pdf-processing', redisConfig, {
+        defaultJobOptions: {
+          removeOnComplete: 100,
+          removeOnFail: 500,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000
+          }
         }
-      }
-    });
+      });
 
-    this.ocrQueue = new Bull('ocr-processing', redisConfig, {
-      defaultJobOptions: {
-        removeOnComplete: 50,
-        removeOnFail: 100,
-        attempts: 2
-      }
-    });
+      this.ocrQueue = new Bull('ocr-processing', redisConfig, {
+        defaultJobOptions: {
+          removeOnComplete: 50,
+          removeOnFail: 100,
+          attempts: 2
+        }
+      });
 
-    this.mlTrainingQueue = new Bull('ml-training', redisConfig, {
-      defaultJobOptions: {
-        removeOnComplete: 10,
-        removeOnFail: 50,
-        attempts: 1
-      }
-    });
+      this.mlTrainingQueue = new Bull('ml-training', redisConfig, {
+        defaultJobOptions: {
+          removeOnComplete: 10,
+          removeOnFail: 50,
+          attempts: 1
+        }
+      });
 
-    this.setupProcessors();
-    this.setupEventHandlers();
+      this.setupProcessors();
+      this.setupEventHandlers();
+
+      logger.info('QueueService queues initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize Bull queues:', error);
+      throw new Error(
+        `QueueService initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   private setupProcessors(): void {

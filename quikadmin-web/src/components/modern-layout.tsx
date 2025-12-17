@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useAuthStore } from '@/stores/auth';
+import { DemoModeIndicator } from '@/components/features/demo-mode-indicator';
 import {
   FileText,
   Upload,
@@ -176,6 +177,9 @@ export function ModernLayout({ children }: ModernLayoutProps) {
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col">
+        {/* Demo Mode Banner */}
+        <DemoModeIndicator variant="banner" />
+
         {/* Header */}
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
           <Button

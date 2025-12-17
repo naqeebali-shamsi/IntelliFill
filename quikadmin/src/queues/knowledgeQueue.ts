@@ -24,6 +24,7 @@
 import Bull, { Job, Queue, JobOptions } from 'bull';
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 
 // ============================================================================
 // Types & Interfaces
@@ -155,91 +156,116 @@ const redisConfig = {
 // Queue Instance
 // ============================================================================
 
-export const knowledgeQueue: Queue<KnowledgeJob> = new Bull<KnowledgeJob>(
-  QUEUE_NAME,
-  {
-    redis: redisConfig,
-    defaultJobOptions: {
-      removeOnComplete: 100, // Keep last 100 completed jobs
-      removeOnFail: 50, // Keep last 50 failed jobs
-      attempts: DEFAULT_ATTEMPTS,
-      timeout: DEFAULT_JOB_TIMEOUT,
-      backoff: {
-        type: 'exponential',
-        delay: DEFAULT_BACKOFF_DELAY,
+let knowledgeQueueAvailable = false;
+
+let knowledgeQueue: Queue<KnowledgeJob> | null = null;
+try {
+  knowledgeQueue = new Bull<KnowledgeJob>(
+    QUEUE_NAME,
+    {
+      redis: redisConfig,
+      defaultJobOptions: {
+        removeOnComplete: 100, // Keep last 100 completed jobs
+        removeOnFail: 50, // Keep last 50 failed jobs
+        attempts: DEFAULT_ATTEMPTS,
+        timeout: DEFAULT_JOB_TIMEOUT,
+        backoff: {
+          type: 'exponential',
+          delay: DEFAULT_BACKOFF_DELAY,
+        },
       },
-    },
-    settings: {
-      stalledInterval: 60000, // Check for stalled jobs every minute
-      maxStalledCount: 2, // Jobs can be stalled twice before failing
-      lockDuration: 300000, // Lock jobs for 5 minutes
-      lockRenewTime: 150000, // Renew lock every 2.5 minutes
-    },
-    limiter: {
-      max: MAX_CONCURRENT_JOBS,
-      duration: 1000,
-    },
-  }
-);
+      settings: {
+        stalledInterval: 60000, // Check for stalled jobs every minute
+        maxStalledCount: 2, // Jobs can be stalled twice before failing
+        lockDuration: 300000, // Lock jobs for 5 minutes
+        lockRenewTime: 150000, // Renew lock every 2.5 minutes
+      },
+      limiter: {
+        max: MAX_CONCURRENT_JOBS,
+        duration: 1000,
+      },
+    }
+  );
+
+  knowledgeQueue.on('error', (error) => {
+    logger.error('Knowledge queue error', { error: error.message });
+    knowledgeQueueAvailable = false;
+  });
+
+  knowledgeQueue.on('ready', () => {
+    logger.info('Knowledge queue ready');
+    knowledgeQueueAvailable = true;
+  });
+
+  knowledgeQueueAvailable = true;
+} catch (error) {
+  logger.warn('Knowledge queue initialization failed - Redis may be unavailable:', error);
+  knowledgeQueueAvailable = false;
+}
+
+/**
+ * Check if knowledge queue is available
+ */
+export function isKnowledgeQueueAvailable(): boolean {
+  return knowledgeQueueAvailable && knowledgeQueue !== null;
+}
 
 // ============================================================================
 // Queue Event Handlers
 // ============================================================================
 
-knowledgeQueue.on('error', (error) => {
-  logger.error('Knowledge queue error', { error: error.message });
-});
-
-knowledgeQueue.on('waiting', (jobId) => {
-  logger.debug('Knowledge job waiting', { jobId });
-});
-
-knowledgeQueue.on('active', (job) => {
-  logger.info('Knowledge job started', {
-    jobId: job.id,
-    type: job.data.type,
-    sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
-    organizationId: job.data.organizationId,
+if (knowledgeQueue) {
+  knowledgeQueue.on('waiting', (jobId) => {
+    logger.debug('Knowledge job waiting', { jobId });
   });
-});
 
-knowledgeQueue.on('completed', (job, result: KnowledgeJobResult) => {
-  logger.info('Knowledge job completed', {
-    jobId: job.id,
-    type: job.data.type,
-    sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
-    processingTimeMs: result.processingTimeMs,
-    stats: result.stats,
+  knowledgeQueue.on('active', (job) => {
+    logger.info('Knowledge job started', {
+      jobId: job.id,
+      type: job.data.type,
+      sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
+      organizationId: job.data.organizationId,
+    });
   });
-});
 
-knowledgeQueue.on('failed', (job, error) => {
-  logger.error('Knowledge job failed', {
-    jobId: job.id,
-    type: job.data.type,
-    sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
-    organizationId: job.data.organizationId,
-    error: error.message,
-    attemptsMade: job.attemptsMade,
+  knowledgeQueue.on('completed', (job, result: KnowledgeJobResult) => {
+    logger.info('Knowledge job completed', {
+      jobId: job.id,
+      type: job.data.type,
+      sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
+      processingTimeMs: result.processingTimeMs,
+      stats: result.stats,
+    });
   });
-});
 
-knowledgeQueue.on('stalled', (job) => {
-  logger.warn('Knowledge job stalled', {
-    jobId: job.id,
-    type: job.data.type,
-    sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
+  knowledgeQueue.on('failed', (job, error) => {
+    logger.error('Knowledge job failed', {
+      jobId: job.id,
+      type: job.data.type,
+      sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
+      organizationId: job.data.organizationId,
+      error: error.message,
+      attemptsMade: job.attemptsMade,
+    });
   });
-});
 
-knowledgeQueue.on('progress', (job, progress: JobProgress) => {
-  logger.debug('Knowledge job progress', {
-    jobId: job.id,
-    stage: progress.stage,
-    percentage: progress.percentage,
-    currentStep: progress.currentStep,
+  knowledgeQueue.on('stalled', (job) => {
+    logger.warn('Knowledge job stalled', {
+      jobId: job.id,
+      type: job.data.type,
+      sourceId: 'sourceId' in job.data ? job.data.sourceId : undefined,
+    });
   });
-});
+
+  knowledgeQueue.on('progress', (job, progress: JobProgress) => {
+    logger.debug('Knowledge job progress', {
+      jobId: job.id,
+      stage: progress.stage,
+      percentage: progress.percentage,
+      currentStep: progress.currentStep,
+    });
+  });
+}
 
 // ============================================================================
 // Job Submission Functions
@@ -256,6 +282,10 @@ export async function addProcessDocumentJob(
   data: Omit<ProcessDocumentJob, 'type'>,
   options?: Partial<JobOptions>
 ): Promise<Job<ProcessDocumentJob>> {
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
   const jobData: ProcessDocumentJob = {
     ...data,
     type: 'processDocument',
@@ -266,7 +296,7 @@ export async function addProcessDocumentJob(
     ...options,
   };
 
-  const job = await knowledgeQueue.add(jobData, jobOptions);
+  const job = await knowledgeQueue!.add(jobData, jobOptions);
 
   logger.info('Document processing job queued', {
     jobId: job.id,
@@ -290,6 +320,10 @@ export async function addGenerateEmbeddingsJob(
   data: Omit<GenerateEmbeddingsJob, 'type'>,
   options?: Partial<JobOptions>
 ): Promise<Job<GenerateEmbeddingsJob>> {
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
   const jobData: GenerateEmbeddingsJob = {
     ...data,
     type: 'generateEmbeddings',
@@ -300,7 +334,7 @@ export async function addGenerateEmbeddingsJob(
     ...options,
   };
 
-  const job = await knowledgeQueue.add(jobData, jobOptions);
+  const job = await knowledgeQueue!.add(jobData, jobOptions);
 
   logger.info('Embedding generation job queued', {
     jobId: job.id,
@@ -323,6 +357,10 @@ export async function addReprocessChunksJob(
   data: Omit<ReprocessChunksJob, 'type'>,
   options?: Partial<JobOptions>
 ): Promise<Job<ReprocessChunksJob>> {
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
   const jobData: ReprocessChunksJob = {
     ...data,
     type: 'reprocessChunks',
@@ -333,7 +371,7 @@ export async function addReprocessChunksJob(
     ...options,
   };
 
-  const job = await knowledgeQueue.add(jobData, jobOptions);
+  const job = await knowledgeQueue!.add(jobData, jobOptions);
 
   logger.info('Chunk reprocessing job queued', {
     jobId: job.id,
@@ -454,13 +492,17 @@ export async function getQueueHealth(): Promise<{
   paused: boolean;
   isHealthy: boolean;
 }> {
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
   const [waiting, active, completed, failed, delayed, paused] = await Promise.all([
-    knowledgeQueue.getWaitingCount(),
-    knowledgeQueue.getActiveCount(),
-    knowledgeQueue.getCompletedCount(),
-    knowledgeQueue.getFailedCount(),
-    knowledgeQueue.getDelayedCount(),
-    knowledgeQueue.isPaused(),
+    knowledgeQueue!.getWaitingCount(),
+    knowledgeQueue!.getActiveCount(),
+    knowledgeQueue!.getCompletedCount(),
+    knowledgeQueue!.getFailedCount(),
+    knowledgeQueue!.getDelayedCount(),
+    knowledgeQueue!.isPaused(),
   ]);
 
   const isHealthy = active < MAX_CONCURRENT_JOBS * 2 && waiting < 100 && !paused;
@@ -483,7 +525,10 @@ export async function getQueueHealth(): Promise<{
 export async function getJob(
   jobId: string
 ): Promise<Job<KnowledgeJob> | null> {
-  return knowledgeQueue.getJob(jobId);
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+  return knowledgeQueue!.getJob(jobId);
 }
 
 /**
@@ -501,7 +546,11 @@ export async function getJobStatus(
   finishedOn?: Date;
   failedReason?: string;
 } | null> {
-  const job = await knowledgeQueue.getJob(jobId);
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
+  const job = await knowledgeQueue!.getJob(jobId);
 
   if (!job) {
     return null;
@@ -528,25 +577,29 @@ export async function getOrganizationJobs(
   organizationId: string,
   status?: 'waiting' | 'active' | 'completed' | 'failed'
 ): Promise<Job<KnowledgeJob>[]> {
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
   let jobs: Job<KnowledgeJob>[];
 
   switch (status) {
     case 'waiting':
-      jobs = await knowledgeQueue.getWaiting();
+      jobs = await knowledgeQueue!.getWaiting();
       break;
     case 'active':
-      jobs = await knowledgeQueue.getActive();
+      jobs = await knowledgeQueue!.getActive();
       break;
     case 'completed':
-      jobs = await knowledgeQueue.getCompleted(0, 50);
+      jobs = await knowledgeQueue!.getCompleted(0, 50);
       break;
     case 'failed':
-      jobs = await knowledgeQueue.getFailed(0, 50);
+      jobs = await knowledgeQueue!.getFailed(0, 50);
       break;
     default:
       const [waiting, active] = await Promise.all([
-        knowledgeQueue.getWaiting(),
-        knowledgeQueue.getActive(),
+        knowledgeQueue!.getWaiting(),
+        knowledgeQueue!.getActive(),
       ]);
       jobs = [...waiting, ...active];
   }
@@ -558,7 +611,11 @@ export async function getOrganizationJobs(
  * Cancel a job
  */
 export async function cancelJob(jobId: string): Promise<boolean> {
-  const job = await knowledgeQueue.getJob(jobId);
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
+  const job = await knowledgeQueue!.getJob(jobId);
 
   if (!job) {
     return false;
@@ -581,7 +638,11 @@ export async function cancelJob(jobId: string): Promise<boolean> {
  * Retry a failed job
  */
 export async function retryJob(jobId: string): Promise<boolean> {
-  const job = await knowledgeQueue.getJob(jobId);
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
+  const job = await knowledgeQueue!.getJob(jobId);
 
   if (!job) {
     return false;
@@ -602,7 +663,11 @@ export async function retryJob(jobId: string): Promise<boolean> {
  * Pause the queue
  */
 export async function pauseQueue(): Promise<void> {
-  await knowledgeQueue.pause();
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
+  await knowledgeQueue!.pause();
   logger.info('Knowledge queue paused');
 }
 
@@ -610,7 +675,11 @@ export async function pauseQueue(): Promise<void> {
  * Resume the queue
  */
 export async function resumeQueue(): Promise<void> {
-  await knowledgeQueue.resume();
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
+  await knowledgeQueue!.resume();
   logger.info('Knowledge queue resumed');
 }
 
@@ -620,9 +689,13 @@ export async function resumeQueue(): Promise<void> {
 export async function cleanQueue(
   gracePeriodMs: number = 24 * 60 * 60 * 1000 // 24 hours
 ): Promise<{ completed: number; failed: number }> {
+  if (!isKnowledgeQueueAvailable()) {
+    throw new QueueUnavailableError('knowledge-processing');
+  }
+
   const [completed, failed] = await Promise.all([
-    knowledgeQueue.clean(gracePeriodMs, 'completed'),
-    knowledgeQueue.clean(gracePeriodMs, 'failed'),
+    knowledgeQueue!.clean(gracePeriodMs, 'completed'),
+    knowledgeQueue!.clean(gracePeriodMs, 'failed'),
   ]);
 
   logger.info('Knowledge queue cleaned', {
@@ -653,13 +726,15 @@ export async function closeQueue(): Promise<void> {
   isShuttingDown = true;
   logger.info('Closing knowledge queue...');
 
-  try {
-    await knowledgeQueue.close();
-    logger.info('Knowledge queue closed');
-  } catch (error) {
-    logger.error('Error closing knowledge queue', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+  if (knowledgeQueue) {
+    try {
+      await knowledgeQueue.close();
+      logger.info('Knowledge queue closed');
+    } catch (error) {
+      logger.error('Error closing knowledge queue', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
 }
 
@@ -667,4 +742,6 @@ export async function closeQueue(): Promise<void> {
 process.on('SIGTERM', closeQueue);
 process.on('SIGINT', closeQueue);
 
+// Export queue instance (may be null if Redis unavailable)
+export { knowledgeQueue };
 export default knowledgeQueue;

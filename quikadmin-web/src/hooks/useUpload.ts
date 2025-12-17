@@ -10,6 +10,7 @@ import { useUploadStore, uploadSelectors } from '@/stores/uploadStore';
 import { uploadDocuments } from '@/services/api';
 import { UseUploadOptions, UploadFile } from '@/types/upload';
 import { toast } from 'sonner';
+import { getUserErrorMessage, isRetryableError, getErrorSuggestion } from '@/utils/errorMessages';
 
 /**
  * Hook for managing file uploads with concurrent queue processing
@@ -176,15 +177,24 @@ export function useUpload(options: UseUploadOptions = {}) {
         }
 
         // Handle upload error
-        const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
+        const userMessage = getUserErrorMessage(error);
 
-        setFileError(id, errorMessage);
+        setFileError(id, userMessage);
 
         if (onError) {
           onError(uploadFile, error);
         }
 
-        toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+        toast.error(userMessage);
+
+        if (isRetryableError(error)) {
+          toast.info('This may be a temporary issue. You can try again.');
+        }
+
+        const suggestion = getErrorSuggestion(error);
+        if (suggestion) {
+          toast.info(suggestion);
+        }
 
         // Retry if enabled
         if (retryOnError) {

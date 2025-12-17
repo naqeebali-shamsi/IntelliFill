@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deleteDocument as deleteDocumentAPI, downloadDocument as downloadDocumentAPI } from '@/services/api';
 import { toast } from 'sonner';
 import { Document, DocumentActionResult, BulkActionResult } from '@/types/document';
+import { getUserErrorMessage, isRetryableError, getErrorSuggestion } from '@/utils/errorMessages';
 
 /**
  * Hook for document deletion
@@ -41,7 +42,17 @@ export function useDocumentDelete() {
       toast.success('Document deleted successfully');
     },
     onError: (error) => {
-      toast.error(`Failed to delete document: ${error.message}`);
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
     },
   });
 }
@@ -75,7 +86,17 @@ export function useDocumentDownload() {
       toast.success(`Downloaded ${fileName}`);
     },
     onError: (error) => {
-      toast.error(`Download failed: ${error.message}`);
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
     },
   });
 }
@@ -135,7 +156,17 @@ export function useBulkDelete() {
       }
     },
     onError: (error) => {
-      toast.error(`Bulk delete failed: ${error.message}`);
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
     },
   });
 }
@@ -209,7 +240,17 @@ export function useBulkDownload() {
       }
     },
     onError: (error) => {
-      toast.error(`Bulk download failed: ${error.message}`);
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
     },
   });
 }
@@ -249,7 +290,17 @@ export function useDocumentReprocess() {
       toast.success('Document queued for reprocessing');
     },
     onError: (error) => {
-      toast.error(`Reprocessing failed: ${error.message}`);
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
     },
   });
 }
@@ -270,7 +321,17 @@ export function useBulkReprocess() {
       toast.success(`${data.totalQueued} documents queued for reprocessing`);
     },
     onError: (error) => {
-      toast.error(`Batch reprocessing failed: ${error.message}`);
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
     },
   });
 }

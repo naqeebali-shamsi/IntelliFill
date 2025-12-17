@@ -14,8 +14,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import {
+  Loader2,
+  LogIn,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  FileText,
+  Zap,
+  Shield,
+  Clock,
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
+import { DemoLoginButton } from '@/components/features/demo-login-button';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -87,25 +99,98 @@ export default function Login() {
     if (error) clearError();
   };
 
-  // Test credentials for demo
-  const fillTestCredentials = () => {
-    setFormData({
-      email: 'admin@example.com',
-      password: 'admin123',
-      companySlug: 'demo-company',
-      rememberMe: false,
-    });
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">
-            Enter your credentials to access your account
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+      {/* Hero Section - Left side */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-gradient-to-br from-primary/90 to-primary dark:from-primary/80 dark:to-primary/60 p-12 flex-col justify-between relative overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }} />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+              <FileText className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white">IntelliFill</h1>
+          </div>
+
+          <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6">
+            Stop filling forms manually.
+            <span className="block mt-2 text-white/90">Let AI do it.</span>
+          </h2>
+
+          <p className="text-xl text-white/80 max-w-lg mb-8">
+            Intelligent document processing for UAE PRO agencies. Upload client documents,
+            extract data automatically, and fill government forms in seconds.
+          </p>
+
+          {/* Feature highlights */}
+          <div className="space-y-4 mb-8">
+            <div className="flex items-center gap-3 text-white/90">
+              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Zap className="h-4 w-4" />
+              </div>
+              <span>93% OCR accuracy with AI-powered extraction</span>
+            </div>
+            <div className="flex items-center gap-3 text-white/90">
+              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Clock className="h-4 w-4" />
+              </div>
+              <span>Process documents in under 2 seconds</span>
+            </div>
+            <div className="flex items-center gap-3 text-white/90">
+              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+                <Shield className="h-4 w-4" />
+              </div>
+              <span>Bank-grade encryption for all client data</span>
+            </div>
+          </div>
+
+          {/* Demo CTA */}
+          <DemoLoginButton
+            variant="secondary"
+            size="lg"
+            className="bg-white text-primary hover:bg-white/90"
+          >
+            Try Free Demo - No Signup Required
+          </DemoLoginButton>
+        </div>
+
+        {/* Testimonial */}
+        <div className="relative z-10 mt-auto">
+          <blockquote className="text-white/90 text-lg italic">
+            "IntelliFill saves us 4+ hours daily on document processing.
+            It's transformed how we handle visa applications."
+          </blockquote>
+          <cite className="block mt-3 text-white/70 text-sm not-italic">
+            — PRO Agency Owner, Dubai
+          </cite>
+        </div>
+      </div>
+
+      {/* Login Form - Right side */}
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md space-y-6">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+            <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
+              <FileText className="h-6 w-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold">IntelliFill</h1>
+          </div>
+
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
+              <CardDescription className="text-center">
+                Enter your credentials to access your account
+              </CardDescription>
+            </CardHeader>
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -236,25 +321,23 @@ export default function Login() {
               )}
             </Button>
 
-            {import.meta.env.VITE_ENABLE_DEMO === 'true' && (
-              <>
-                <div className="flex items-center w-full">
-                  <div className="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
-                  <span className="px-3 text-sm text-gray-500">or</span>
-                  <div className="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
-                </div>
+            {/* Demo Login - Always visible for demo showcase */}
+            <div className="relative w-full">
+              <div className="absolute inset-0 flex items-center">
+                <Separator className="w-full" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">or try demo</span>
+              </div>
+            </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={fillTestCredentials}
-                  disabled={isLoading}
-                >
-                  Use demo credentials
-                </Button>
-              </>
-            )}
+            <DemoLoginButton
+              variant="outline"
+              className="w-full"
+              disabled={isLoading}
+            >
+              Try Demo - No Account Needed
+            </DemoLoginButton>
 
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               Don't have an account?{' '}
@@ -264,7 +347,28 @@ export default function Login() {
             </p>
           </CardFooter>
         </form>
-      </Card>
+          </Card>
+
+          {/* Mobile demo features */}
+          <div className="lg:hidden mt-6 p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <h3 className="font-semibold text-sm mb-3 text-center">Why IntelliFill?</h3>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="flex flex-col items-center gap-1">
+                <Zap className="h-5 w-5 text-primary" />
+                <span className="text-xs text-muted-foreground">93% Accuracy</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Clock className="h-5 w-5 text-primary" />
+                <span className="text-xs text-muted-foreground">&lt;2s Process</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <Shield className="h-5 w-5 text-primary" />
+                <span className="text-xs text-muted-foreground">Secure</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

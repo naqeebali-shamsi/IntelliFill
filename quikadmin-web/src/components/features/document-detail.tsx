@@ -24,6 +24,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { StatusBadge } from "./status-badge"
+import { OCRConfidenceAlert } from "./ocr-confidence-alert"
 import { cn } from "@/lib/utils"
 import {
   FileText,
@@ -151,7 +152,13 @@ export function DocumentDetail({
               </TabsContent>
 
               {/* Extracted Data Tab */}
-              <TabsContent value="extracted" className="mt-4">
+              <TabsContent value="extracted" className="mt-4 space-y-4">
+                {/* Confidence Alert */}
+                <OCRConfidenceAlert
+                  confidence={document.confidence}
+                  onReprocess={handleReprocess}
+                  isReprocessing={isReprocessing}
+                />
                 <ExtractedDataSection document={document} />
               </TabsContent>
 

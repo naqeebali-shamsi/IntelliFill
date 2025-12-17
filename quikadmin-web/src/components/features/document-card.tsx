@@ -3,6 +3,7 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction } from "@/components/ui/card"
 import { StatusBadge } from "./status-badge"
+import { ConfidenceBadge } from "./ocr-confidence-alert"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -71,6 +72,10 @@ export interface DocumentCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
    */
   metadata?: Record<string, string | number>
   /**
+   * OCR confidence score (0-1)
+   */
+  confidence?: number | null
+  /**
    * Download handler
    */
   onDownload?: (id: string) => void
@@ -126,6 +131,7 @@ function DocumentCard({
   fileSize,
   pageCount,
   metadata,
+  confidence,
   onDownload,
   onDelete,
   onView,
@@ -215,12 +221,18 @@ function DocumentCard({
             </CardDescription>
           </div>
 
-          {/* Status Badge */}
-          <StatusBadge
-            status={status}
-            showIcon
-            size={compact ? "sm" : "md"}
-          />
+          {/* Status and Confidence Badges */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Show confidence badge for completed docs with low/medium confidence */}
+            {status === "completed" && confidence !== null && confidence !== undefined && confidence < 0.85 && (
+              <ConfidenceBadge confidence={confidence} />
+            )}
+            <StatusBadge
+              status={status}
+              showIcon
+              size={compact ? "sm" : "md"}
+            />
+          </div>
         </div>
 
         {/* Actions Menu */}

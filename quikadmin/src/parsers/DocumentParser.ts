@@ -3,6 +3,7 @@ import * as fs from 'fs/promises';
 import * as mammoth from 'mammoth';
 import { parse } from 'csv-parse/sync';
 import { logger } from '../utils/logger';
+import pdfParse from 'pdf-parse';
 
 export interface ParsedDocument {
   type: 'pdf' | 'docx' | 'txt' | 'csv' | 'image';
@@ -39,31 +40,54 @@ export class DocumentParser {
   private async parsePDF(filePath: string): Promise<ParsedDocument> {
     try {
       const pdfBytes = await fs.readFile(filePath);
-      const pdfDoc = await PDFDocument.load(pdfBytes);
-      
-      const pages = pdfDoc.getPages();
+
+      // Use pdf-parse for actual text extraction
       let content = '';
-      
-      // Extract text from PDF (simplified - in production use pdf-parse or similar)
-      for (const page of pages) {
-        const text = page.getSize();
-        // Note: pdf-lib doesn't extract text directly, use pdf-parse in production
-        content += `Page content extracted from dimensions: ${text.width}x${text.height}\n`;
+      let pdfParseMetadata: Record<string, any> = {};
+
+      try {
+        const pdfData = await pdfParse(pdfBytes);
+        content = pdfData.text || '';
+        pdfParseMetadata = {
+          numpages: pdfData.numpages,
+          numrender: pdfData.numrender,
+          info: pdfData.info,
+          metadata: pdfData.metadata
+        };
+
+        // Log extraction success
+        logger.info(`PDF text extracted: ${content.length} characters from ${pdfData.numpages} pages`);
+
+        // Warn if no text was extracted (might be scanned PDF)
+        if (!content || content.trim().length === 0) {
+          logger.warn('PDF appears to have no extractable text. May require OCR for scanned documents.');
+        }
+      } catch (parseError) {
+        logger.warn('pdf-parse extraction failed, falling back to pdf-lib metadata:', parseError);
+        // Fall back to basic metadata extraction if pdf-parse fails
+        content = '';
       }
+
+      // Also load with pdf-lib for form fields and additional metadata
+      const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
 
       return {
         type: 'pdf',
         content,
         metadata: {
           pageCount: pdfDoc.getPageCount(),
-          title: pdfDoc.getTitle() || 'Untitled',
-          author: pdfDoc.getAuthor(),
-          creationDate: pdfDoc.getCreationDate()
+          title: pdfDoc.getTitle() || pdfParseMetadata?.info?.Title || 'Untitled',
+          author: pdfDoc.getAuthor() || pdfParseMetadata?.info?.Author,
+          creationDate: pdfDoc.getCreationDate(),
+          hasText: content.trim().length > 0,
+          textLength: content.length,
+          requiresOCR: content.trim().length === 0,
+          ...pdfParseMetadata
         }
       };
     } catch (error) {
       logger.error('PDF parsing error:', error);
-      throw new Error(`Failed to parse PDF: ${error}`);
+      throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

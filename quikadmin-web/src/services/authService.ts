@@ -39,6 +39,12 @@ export interface AuthUser {
   emailVerified: boolean;
   lastLogin?: string;
   createdAt?: string;
+  isDemo?: boolean;
+}
+
+export interface DemoInfo {
+  notice: string;
+  features: string[];
 }
 
 export interface AuthResponse {
@@ -47,6 +53,7 @@ export interface AuthResponse {
   data?: {
     user: AuthUser;
     tokens: AuthTokens | null;
+    demo?: DemoInfo;
   };
   error?: string;
 }
@@ -159,6 +166,15 @@ export async function resendVerification(
   return response.data;
 }
 
+/**
+ * Demo login via backend API
+ * Provides instant access to the demo account without credentials
+ */
+export async function demoLogin(): Promise<AuthResponse> {
+  const response = await api.post('/auth/v2/demo');
+  return response.data;
+}
+
 export default {
   login,
   register,
@@ -171,4 +187,5 @@ export default {
   verifyResetToken,
   verifyEmail,
   resendVerification,
+  demoLogin,
 };

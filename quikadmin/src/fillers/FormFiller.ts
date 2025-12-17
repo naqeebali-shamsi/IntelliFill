@@ -19,7 +19,7 @@ export class FormFiller {
   ): Promise<FillResult> {
     const filledFields: string[] = [];
     const failedFields: { field: string; reason: string }[] = [];
-    const warnings: string[] = [];
+    const warnings: string[] = [...mappings.warnings];
 
     try {
       // Load the PDF
