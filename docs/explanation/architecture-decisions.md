@@ -313,9 +313,17 @@ Use Bull with Redis for background job processing.
 
 ---
 
+## Architecture Decision Records (ADRs)
+
+For detailed decision records with full context, alternatives considered, and consequences:
+
+- [ADR-001: Document Processing Pipeline](./adr/ADR-001-document-processing-pipeline.md) - Dual-path processing architecture for text-based vs scanned documents
+
+---
+
 ## Related Documentation
 
 - [System Overview](../reference/architecture/system-overview.md)
+- [Extracted Data Lifecycle](../reference/architecture/extracted-data-lifecycle.md)
 - [Data Flow](./data-flow.md)
 - [Security Model](./security-model.md)
-

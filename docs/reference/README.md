@@ -23,6 +23,7 @@ System configuration options:
 System architecture documentation:
 
 - [System Overview](./architecture/system-overview.md) - High-level architecture
+- [Extracted Data Lifecycle](./architecture/extracted-data-lifecycle.md) - End-to-end data flow from upload to form filling
 
 ### [Database](./database/)
 
@@ -48,28 +49,28 @@ Reference documentation in this section follows these principles:
 
 ### API Base URLs
 
-| Environment | URL |
-|-------------|-----|
-| Development | http://localhost:3002/api |
-| Production | https://api.intellifill.com/api |
+| Environment | URL                             |
+| ----------- | ------------------------------- |
+| Development | http://localhost:3002/api       |
+| Production  | https://api.intellifill.com/api |
 
 ### Default Ports
 
-| Service | Port |
-|---------|------|
-| Backend API | 3002 |
-| Frontend UI | 8080 |
+| Service       | Port |
+| ------------- | ---- |
+| Backend API   | 3002 |
+| Frontend UI   | 8080 |
 | Prisma Studio | 5555 |
-| Redis | 6379 |
-| PostgreSQL | 5432 |
+| Redis         | 6379 |
+| PostgreSQL    | 5432 |
 
 ### Key Files
 
-| Purpose | Path |
-|---------|------|
-| Backend entry | `quikadmin/src/index.ts` |
-| API routes | `quikadmin/src/api/routes.ts` |
-| Frontend entry | `quikadmin-web/src/main.tsx` |
+| Purpose         | Path                             |
+| --------------- | -------------------------------- |
+| Backend entry   | `quikadmin/src/index.ts`         |
+| API routes      | `quikadmin/src/api/routes.ts`    |
+| Frontend entry  | `quikadmin-web/src/main.tsx`     |
 | Database schema | `quikadmin/prisma/schema.prisma` |
 
 ---
@@ -79,4 +80,3 @@ Reference documentation in this section follows these principles:
 - [Tutorials](../tutorials/) - Learning by doing
 - [How-To Guides](../how-to/) - Solving specific problems
 - [Explanation](../explanation/) - Understanding concepts
-

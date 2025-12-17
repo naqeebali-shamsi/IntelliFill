@@ -9,6 +9,7 @@ Explanation documentation is **understanding-oriented** and provides conceptual 
 ### [Architecture Decisions](./architecture-decisions.md)
 
 Why IntelliFill is built the way it is:
+
 - Monorepo structure rationale
 - Technology choices
 - Service separation
@@ -17,6 +18,7 @@ Why IntelliFill is built the way it is:
 ### [Security Model](./security-model.md)
 
 How security works in IntelliFill:
+
 - Authentication flow
 - Authorization model
 - Data protection
@@ -25,10 +27,17 @@ How security works in IntelliFill:
 ### [Data Flow](./data-flow.md)
 
 How data moves through the system:
+
 - Document upload flow
 - OCR processing pipeline
 - Data extraction
 - Form filling process
+
+### Architecture Decision Records (ADRs)
+
+Detailed decision records in `adr/` directory:
+
+- [ADR-001: Document Processing Pipeline](./adr/ADR-001-document-processing-pipeline.md) - Dual-path processing architecture
 
 ---
 
@@ -83,4 +92,3 @@ Read explanations when you want to:
 - [Tutorials](../tutorials/) - Learning-oriented lessons
 - [How-To Guides](../how-to/) - Task-oriented guides
 - [Reference](../reference/) - Technical specifications
-
