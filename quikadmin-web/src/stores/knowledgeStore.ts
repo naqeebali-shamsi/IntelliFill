@@ -98,7 +98,29 @@ interface KnowledgeState {
 // Initial State
 // ============================================================================
 
-const initialState = {
+const initialState: Pick<
+  KnowledgeState,
+  | 'sources'
+  | 'sourcesLoading'
+  | 'sourcesError'
+  | 'selectedSourceId'
+  | 'sourcePagination'
+  | 'searchResults'
+  | 'searchLoading'
+  | 'searchError'
+  | 'searchQuery'
+  | 'searchTime'
+  | 'searchCached'
+  | 'fieldSuggestions'
+  | 'suggestionsLoading'
+  | 'suggestionsError'
+  | 'stats'
+  | 'statsLoading'
+  | 'statsError'
+  | 'uploadProgress'
+  | 'uploadLoading'
+  | 'uploadError'
+> = {
   // Document Sources
   sources: [],
   sourcesLoading: false,
@@ -191,7 +213,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         });
       } catch (error) {
         set((state) => {
-          state.sourcesError = error instanceof Error ? error.message : 'Failed to fetch more sources';
+          state.sourcesError =
+            error instanceof Error ? error.message : 'Failed to fetch more sources';
           state.sourcesLoading = false;
         });
       }
@@ -205,15 +228,11 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       });
 
       try {
-        const response = await knowledgeService.uploadKnowledgeSource(
-          file,
-          title,
-          (progress) => {
-            set((state) => {
-              state.uploadProgress = progress;
-            });
-          }
-        );
+        const response = await knowledgeService.uploadKnowledgeSource(file, title, (progress) => {
+          set((state) => {
+            state.uploadProgress = progress;
+          });
+        });
 
         set((state) => {
           state.sources = [response.source, ...state.sources];
@@ -361,7 +380,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         });
       } catch (error) {
         set((state) => {
-          state.suggestionsError = error instanceof Error ? error.message : 'Failed to fetch suggestions';
+          state.suggestionsError =
+            error instanceof Error ? error.message : 'Failed to fetch suggestions';
           state.suggestionsLoading = false;
         });
       }
@@ -384,7 +404,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         return response.suggestions;
       } catch (error) {
         set((state) => {
-          state.suggestionsError = error instanceof Error ? error.message : 'Failed to fetch suggestions';
+          state.suggestionsError =
+            error instanceof Error ? error.message : 'Failed to fetch suggestions';
           state.suggestionsLoading = false;
         });
         return [];
@@ -408,7 +429,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         return response.suggestions;
       } catch (error) {
         set((state) => {
-          state.suggestionsError = error instanceof Error ? error.message : 'Failed to fetch suggestions';
+          state.suggestionsError =
+            error instanceof Error ? error.message : 'Failed to fetch suggestions';
           state.suggestionsLoading = false;
         });
         return [];

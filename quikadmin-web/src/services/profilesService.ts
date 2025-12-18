@@ -44,7 +44,12 @@ export const profilesService = {
   /**
    * Get all profiles for the current user
    */
-  async list(params: ListProfilesParams = {}): Promise<{ success: boolean; data: { profiles: Profile[]; pagination: ProfileListResponse['data']['pagination'] } }> {
+  async list(
+    params: ListProfilesParams = {}
+  ): Promise<{
+    success: boolean;
+    data: { profiles: Profile[]; pagination: ProfileListResponse['data']['pagination'] };
+  }> {
     const { filter = {}, sort, limit = 20, offset = 0 } = params;
 
     const queryParams = new URLSearchParams();
@@ -59,9 +64,7 @@ export const profilesService = {
     queryParams.set('offset', String(offset));
 
     // Backend uses /clients endpoint - we transform the response
-    const response = await api.get<ProfileListResponse>(
-      `/clients?${queryParams.toString()}`
-    );
+    const response = await api.get<ProfileListResponse>(`/clients?${queryParams.toString()}`);
 
     // Transform backend 'clients' to frontend 'profiles'
     return {
@@ -158,10 +161,10 @@ export const profilesService = {
 
     return {
       total: profiles.length,
-      active: profiles.filter(p => p.status === 'ACTIVE').length,
-      archived: profiles.filter(p => p.status === 'ARCHIVED').length,
-      business: profiles.filter(p => p.type === 'BUSINESS').length,
-      personal: profiles.filter(p => p.type === 'PERSONAL').length,
+      active: profiles.filter((p: Profile) => p.status === 'ACTIVE').length,
+      archived: profiles.filter((p: Profile) => p.status === 'ARCHIVED').length,
+      business: profiles.filter((p: Profile) => p.type === 'BUSINESS').length,
+      personal: profiles.filter((p: Profile) => p.type === 'PERSONAL').length,
     };
   },
 };

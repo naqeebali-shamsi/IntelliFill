@@ -35,11 +35,11 @@ export const migrateAuthData = () => {
 
     try {
       const legacyUser = JSON.parse(legacyUserStr);
-      
+
       // Validate token expiration before migrating
       const tokenPayload = JSON.parse(atob(legacyToken.split('.')[1]));
       const expirationTime = tokenPayload.exp * 1000;
-      
+
       if (Date.now() >= expirationTime) {
         console.log('Legacy token expired, skipping migration');
         clearLegacyAuthData();
@@ -63,11 +63,11 @@ export const migrateAuthData = () => {
           deviceId: generateDeviceId(),
           // Default values for other required fields
           isLoading: false,
-          error: null,
+          error: null as string | null,
           loginAttempts: 0,
           isLocked: false,
-          lockExpiry: null,
-          ipAddress: null,
+          lockExpiry: null as number | null,
+          ipAddress: null as string | null,
           userAgent: navigator.userAgent,
         },
         version: 1,
@@ -75,10 +75,10 @@ export const migrateAuthData = () => {
 
       // Save to Zustand persistence
       localStorage.setItem('intellifill-auth', JSON.stringify(migratedAuthState));
-      
+
       // Clear legacy localStorage data
       clearLegacyAuthData();
-      
+
       console.log('✅ Successfully migrated auth data to Zustand');
     } catch (parseError) {
       console.error('Failed to parse legacy auth data:', parseError);
@@ -112,7 +112,7 @@ export const hasLegacyAuthData = (): boolean => {
   const token = localStorage.getItem('token');
   const refreshToken = localStorage.getItem('refreshToken');
   const user = localStorage.getItem('user');
-  
+
   return !!(token && refreshToken && user);
 };
 
@@ -123,10 +123,10 @@ export const isLegacyTokenValid = (): boolean => {
   try {
     const token = localStorage.getItem('token');
     if (!token) return false;
-    
+
     const tokenPayload = JSON.parse(atob(token.split('.')[1]));
     const expirationTime = tokenPayload.exp * 1000;
-    
+
     return Date.now() < expirationTime;
   } catch {
     return false;

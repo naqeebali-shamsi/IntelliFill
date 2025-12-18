@@ -36,7 +36,7 @@ export interface DemoLoginButtonProps extends Omit<ButtonProps, 'onClick'> {
   /**
    * Callback on demo login error
    */
-  onError?: (error: Error) => void;
+  onLoginError?: (error: Error) => void;
 }
 
 /**
@@ -63,7 +63,7 @@ export function DemoLoginButton({
   loadingText = 'Starting demo...',
   showIcon = true,
   onSuccess,
-  onError,
+  onLoginError,
   children,
   disabled,
   className,
@@ -94,7 +94,7 @@ export function DemoLoginButton({
         description: errorMessage,
       });
 
-      onError?.(error);
+      onLoginError?.(error);
     } finally {
       setIsLoading(false);
     }
