@@ -13,7 +13,7 @@ services:
     plan: free
     branch: main
     rootDir: quikadmin
-    buildCommand: rm -rf ../node_modules ../package-lock.json && npm install --include=optional && npx prisma generate && npm run build
+    buildCommand: npm install --include=optional --os=linux --cpu=x64 --libc=glibc && npx prisma generate && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
