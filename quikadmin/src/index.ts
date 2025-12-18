@@ -152,8 +152,13 @@ async function initializeApp() {
     app.use('/api/documents/upload', uploadLimiter); // Upload rate limit
 
     // CSRF protection for state-changing operations
-    // Temporarily disabled for testing
-    // app.use(csrfProtection);
+    // Environment-aware: enabled in production, can be enabled in dev/test via ENABLE_CSRF=true
+    if (config.server.nodeEnv === 'production' || process.env.ENABLE_CSRF === 'true') {
+      app.use(csrfProtection);
+      logger.info('CSRF protection enabled');
+    } else {
+      logger.warn('⚠️ CSRF protection disabled in development mode');
+    }
 
     // Health check endpoint (public)
     app.get('/health', (req, res) => {

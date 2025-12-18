@@ -35,18 +35,25 @@ class QueueProcessor {
         dataExtractor: new DataExtractor(),
         fieldMapper: new FieldMapper(),
         formFiller: new FormFiller(),
-        validationService: new ValidationService()
+        validationService: new ValidationService(),
       });
 
-      const databaseUrl = process.env.DATABASE_URL || 'postgresql://pdffiller:pdffiller123@localhost:5432/pdffiller';
+      // Validate DATABASE_URL is configured (fail-fast pattern)
+      const databaseUrl = process.env.DATABASE_URL;
+      if (!databaseUrl) {
+        throw new Error(
+          'DATABASE_URL environment variable is required. ' +
+            'Please set it in your .env file. ' +
+            'Example: DATABASE_URL=postgresql://user:password@host:port/database'
+        );
+      }
+
       const databaseService = new DatabaseService(databaseUrl);
+
+      // Redis URL can fallback to localhost for development
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-      this.queueService = new QueueService(
-        intelliFillService,
-        databaseService,
-        redisUrl
-      );
+      this.queueService = new QueueService(intelliFillService, databaseService, redisUrl);
 
       logger.info('Queue processor initialized successfully');
       return true;
@@ -91,7 +98,7 @@ class QueueProcessor {
         try {
           const metrics = await this.queueService.getQueueMetrics();
           console.log('Queue metrics:', metrics);
-          
+
           // Wait before checking again
           await this.sleep(10000); // Check every 10 seconds
         } catch (error) {
@@ -106,7 +113,7 @@ class QueueProcessor {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async stop() {
@@ -138,7 +145,7 @@ process.on('SIGTERM', async () => {
 });
 
 // Start the processor
-processor.start().catch(error => {
+processor.start().catch((error) => {
   console.error('Failed to start queue processor:', error);
   process.exit(1);
 });

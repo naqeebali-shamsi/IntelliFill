@@ -55,7 +55,10 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   // Basic security headers for Phase 0
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Note: X-XSS-Protection header removed per modern security standards (2025).
+  // This header is deprecated and can actually make XSS protection worse in some cases.
+  // Modern browsers have disabled this feature and security tools like Helmet.js
+  // explicitly don't set it anymore. Content-Security-Policy is the recommended approach.
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   if (process.env.NODE_ENV === 'production') {

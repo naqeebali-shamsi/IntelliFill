@@ -43,7 +43,17 @@ export class DatabaseService {
   private connectionString: string;
 
   constructor(connectionString?: string) {
-    this.connectionString = connectionString || process.env.DATABASE_URL || 'postgresql://pdffiller:pdffiller123@localhost:5432/pdffiller';
+    // Validate DATABASE_URL is configured (fail-fast pattern)
+    this.connectionString = connectionString || process.env.DATABASE_URL;
+
+    if (!this.connectionString) {
+      throw new Error(
+        'DATABASE_URL environment variable is required. ' +
+          'Please set it in your .env file. ' +
+          'Example: DATABASE_URL=postgresql://user:password@host:port/database'
+      );
+    }
+
     this.pool = new Pool({
       connectionString: this.connectionString,
       max: 20,
@@ -169,7 +179,7 @@ export class DatabaseService {
       `CREATE INDEX IF NOT EXISTS idx_processing_history_job_id ON processing_history(job_id)`,
       `CREATE INDEX IF NOT EXISTS idx_field_mappings_matched ON field_mappings(matched)`,
       `CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_templates_is_public ON templates(is_public)`
+      `CREATE INDEX IF NOT EXISTS idx_templates_is_public ON templates(is_public)`,
     ];
 
     for (const query of queries) {
@@ -192,7 +202,7 @@ export class DatabaseService {
       job.userId,
       job.documentsCount,
       job.startedAt,
-      JSON.stringify(job.metadata || {})
+      JSON.stringify(job.metadata || {}),
     ];
 
     const result = await this.pool.query(query, values);
@@ -218,7 +228,7 @@ export class DatabaseService {
       updates.completedAt,
       updates.failedAt,
       JSON.stringify(updates.result),
-      updates.error
+      updates.error,
     ];
 
     const result = await this.pool.query(query, values);
@@ -243,7 +253,9 @@ export class DatabaseService {
   }
 
   // Processing history
-  async createProcessingHistory(history: Omit<ProcessingHistory, 'id' | 'createdAt'>): Promise<ProcessingHistory> {
+  async createProcessingHistory(
+    history: Omit<ProcessingHistory, 'id' | 'createdAt'>
+  ): Promise<ProcessingHistory> {
     const query = `
       INSERT INTO processing_history 
       (job_id, form_path, document_paths, output_path, filled_fields, confidence, processing_time)
@@ -258,7 +270,7 @@ export class DatabaseService {
       history.outputPath,
       history.filledFields,
       history.confidence,
-      history.processingTime
+      history.processingTime,
     ];
 
     const result = await this.pool.query(query, values);
@@ -294,7 +306,7 @@ export class DatabaseService {
       settings.preferredLanguage,
       settings.emailNotifications,
       settings.webhookUrl,
-      settings.apiKey
+      settings.apiKey,
     ];
 
     const result = await this.pool.query(query, values);
@@ -359,7 +371,7 @@ export class DatabaseService {
       JSON.stringify(template.fieldMappings),
       JSON.stringify(template.validationRules),
       template.userId,
-      template.isPublic || false
+      template.isPublic || false,
     ];
 
     const result = await this.pool.query(query, values);
@@ -417,7 +429,7 @@ export class DatabaseService {
       completedJobs: parseInt(stats.completed_jobs) || 0,
       failedJobs: parseInt(stats.failed_jobs) || 0,
       averageProcessingTime: parseFloat(stats.avg_processing_time) || 0,
-      averageConfidence: parseFloat(stats.avg_confidence) || 0
+      averageConfidence: parseFloat(stats.avg_confidence) || 0,
     };
   }
 

@@ -3,12 +3,20 @@ import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
+import { z } from 'zod';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { decryptExtractedData } from '../middleware/encryptionMiddleware';
 import { logger } from '../utils/logger';
 import { createProfileRoutes } from './profile.routes';
+import { ExtractedData } from '../extractors/DataExtractor';
 
 const prisma = new PrismaClient();
+
+// Validation schema for fill-form endpoint
+const fillFormBodySchema = z.object({
+  mappings: z.string().optional(),
+  userData: z.string().optional(),
+});
 
 export function createUserRoutes(): Router {
   const router = Router();
@@ -216,14 +224,53 @@ export function createUserRoutes(): Router {
           return res.status(400).json({ error: 'Form file is required' });
         }
 
-        // Get mappings and userData from request body
-        const mappings = req.body.mappings ? JSON.parse(req.body.mappings) : {};
-        const userDataStr = req.body.userData;
+        // Validate request body
+        const validation = fillFormBodySchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
 
-        let userData: any;
-        if (userDataStr) {
-          // Use provided userData (from frontend cache)
-          userData = JSON.parse(userDataStr);
+        // Get mappings and userData from request body with safe JSON parsing
+        let mappings: Record<string, string> = {};
+        let userData: ExtractedData | undefined;
+
+        // Parse mappings with error handling
+        if (validation.data.mappings) {
+          try {
+            mappings = JSON.parse(validation.data.mappings);
+            if (typeof mappings !== 'object' || mappings === null) {
+              return res.status(400).json({
+                error: 'Invalid JSON format',
+                details: 'mappings must be a valid JSON object',
+              });
+            }
+          } catch (error) {
+            return res.status(400).json({
+              error: 'Invalid JSON format in mappings field',
+              details: error instanceof Error ? error.message : 'Parse error',
+            });
+          }
+        }
+
+        // Parse userData with error handling
+        if (validation.data.userData) {
+          try {
+            userData = JSON.parse(validation.data.userData);
+            if (typeof userData !== 'object' || userData === null) {
+              return res.status(400).json({
+                error: 'Invalid JSON format',
+                details: 'userData must be a valid JSON object',
+              });
+            }
+          } catch (error) {
+            return res.status(400).json({
+              error: 'Invalid JSON format in userData field',
+              details: error instanceof Error ? error.message : 'Parse error',
+            });
+          }
         } else {
           // Fetch fresh aggregated data
           const documents = await prisma.document.findMany({

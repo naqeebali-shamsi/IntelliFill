@@ -18,15 +18,16 @@ import path from 'path';
 import fs from 'fs/promises';
 import { OCRService } from '../services/OCRService';
 import { enqueueDocumentForOCR, getOCRJobStatus } from '../queues/ocrQueue';
+import { FileValidationService } from '../services/fileValidation.service';
 
 // Configure multer for document uploads
 const storage = multer.diskStorage({
   destination: 'uploads/client-documents/',
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `doc-${uniqueSuffix}${ext}`);
-  }
+  },
 });
 
 const upload = multer({
@@ -40,36 +41,67 @@ const upload = multer({
     } else {
       cb(new Error(`File type ${ext} not supported. Allowed: ${allowedTypes.join(', ')}`));
     }
-  }
+  },
 });
 
 // Validation schemas
 const uploadDocumentSchema = z.object({
-  category: z.enum([
-    'PASSPORT', 'EMIRATES_ID', 'TRADE_LICENSE', 'VISA',
-    'LABOR_CARD', 'ESTABLISHMENT_CARD', 'MOA', 'BANK_STATEMENT', 'OTHER'
-  ]).optional()
+  category: z
+    .enum([
+      'PASSPORT',
+      'EMIRATES_ID',
+      'TRADE_LICENSE',
+      'VISA',
+      'LABOR_CARD',
+      'ESTABLISHMENT_CARD',
+      'MOA',
+      'BANK_STATEMENT',
+      'OTHER',
+    ])
+    .optional(),
 });
 
 const updateDocumentSchema = z.object({
-  category: z.enum([
-    'PASSPORT', 'EMIRATES_ID', 'TRADE_LICENSE', 'VISA',
-    'LABOR_CARD', 'ESTABLISHMENT_CARD', 'MOA', 'BANK_STATEMENT', 'OTHER'
-  ]).optional().nullable()
+  category: z
+    .enum([
+      'PASSPORT',
+      'EMIRATES_ID',
+      'TRADE_LICENSE',
+      'VISA',
+      'LABOR_CARD',
+      'ESTABLISHMENT_CARD',
+      'MOA',
+      'BANK_STATEMENT',
+      'OTHER',
+    ])
+    .optional()
+    .nullable(),
 });
 
 const listDocumentsSchema = z.object({
-  category: z.enum([
-    'PASSPORT', 'EMIRATES_ID', 'TRADE_LICENSE', 'VISA',
-    'LABOR_CARD', 'ESTABLISHMENT_CARD', 'MOA', 'BANK_STATEMENT', 'OTHER'
-  ]).optional(),
+  category: z
+    .enum([
+      'PASSPORT',
+      'EMIRATES_ID',
+      'TRADE_LICENSE',
+      'VISA',
+      'LABOR_CARD',
+      'ESTABLISHMENT_CARD',
+      'MOA',
+      'BANK_STATEMENT',
+      'OTHER',
+    ])
+    .optional(),
   status: z.enum(['UPLOADED', 'PROCESSING', 'EXTRACTED', 'FAILED']).optional(),
   limit: z.coerce.number().min(1).max(100).default(20),
-  offset: z.coerce.number().min(0).default(0)
+  offset: z.coerce.number().min(0).default(0),
 });
 
 export function createClientDocumentRoutes(): Router {
   const router = Router({ mergeParams: true }); // Enable access to :clientId from parent
+
+  // Initialize file validation service
+  const fileValidationService = new FileValidationService();
 
   // Ensure uploads directory exists
   fs.mkdir('uploads/client-documents', { recursive: true }).catch(() => {});
@@ -77,82 +109,121 @@ export function createClientDocumentRoutes(): Router {
   /**
    * POST /api/clients/:clientId/documents - Upload a document for a client
    */
-  router.post('/', authenticateSupabase, upload.single('document'), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId } = req.params;
+  router.post(
+    '/',
+    authenticateSupabase,
+    upload.single('document'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      if (!req.file) {
-        return res.status(400).json({ error: 'Document file is required' });
-      }
+        if (!req.file) {
+          return res.status(400).json({ error: 'Document file is required' });
+        }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        // Clean up uploaded file
-        await fs.unlink(req.file.path).catch(() => {});
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Validate category from body
-      const validation = uploadDocumentSchema.safeParse(req.body);
-      if (!validation.success) {
-        await fs.unlink(req.file.path).catch(() => {});
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.flatten().fieldErrors
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
         });
-      }
 
-      const { category } = validation.data;
-
-      // Create document record
-      const document = await prisma.clientDocument.create({
-        data: {
-          clientId,
-          userId,
-          fileName: req.file.originalname,
-          fileType: req.file.mimetype,
-          fileSize: req.file.size,
-          storageUrl: req.file.path,
-          category: category as DocumentCategory || null,
-          status: 'UPLOADED'
+        if (!client) {
+          // Clean up uploaded file
+          await fs.unlink(req.file.path).catch(() => {});
+          return res.status(404).json({ error: 'Client not found' });
         }
-      });
 
-      logger.info(`Document uploaded for client ${clientId}: ${document.id}`);
-
-      res.status(201).json({
-        success: true,
-        message: 'Document uploaded successfully',
-        data: {
-          document: {
-            id: document.id,
-            fileName: document.fileName,
-            fileType: document.fileType,
-            fileSize: document.fileSize,
-            category: document.category,
-            status: document.status,
-            createdAt: document.createdAt.toISOString()
-          }
+        // Validate category from body
+        const validation = uploadDocumentSchema.safeParse(req.body);
+        if (!validation.success) {
+          await fs.unlink(req.file.path).catch(() => {});
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
         }
-      });
-    } catch (error) {
-      // Clean up uploaded file on error
-      if (req.file) {
-        await fs.unlink(req.file.path).catch(() => {});
+
+        const { category } = validation.data;
+
+        // Perform comprehensive file validation
+        const fileBuffer = await fs.readFile(req.file.path);
+        const fileValidation = await fileValidationService.validateFile(
+          fileBuffer,
+          req.file.originalname,
+          req.file.mimetype
+        );
+
+        if (!fileValidation.isValid) {
+          // Clean up invalid file
+          await fs.unlink(req.file.path).catch(() => {});
+          logger.warn('File validation failed', {
+            filename: req.file.originalname,
+            errors: fileValidation.errors,
+            userId,
+            clientId,
+          });
+          return res.status(400).json({
+            error: 'File validation failed',
+            details: fileValidation.errors,
+          });
+        }
+
+        // Log security flags if detected
+        if (fileValidation.securityFlags && fileValidation.securityFlags.length > 0) {
+          logger.warn('Security flags detected in uploaded file', {
+            filename: req.file.originalname,
+            sanitizedFilename: fileValidation.sanitizedFilename,
+            flags: fileValidation.securityFlags,
+            userId,
+            clientId,
+          });
+        }
+
+        // Create document record
+        const document = await prisma.clientDocument.create({
+          data: {
+            clientId,
+            userId,
+            fileName: req.file.originalname,
+            fileType: req.file.mimetype,
+            fileSize: req.file.size,
+            storageUrl: req.file.path,
+            category: (category as DocumentCategory) || null,
+            status: 'UPLOADED',
+          },
+        });
+
+        logger.info(`Document uploaded for client ${clientId}: ${document.id}`);
+
+        res.status(201).json({
+          success: true,
+          message: 'Document uploaded successfully',
+          data: {
+            document: {
+              id: document.id,
+              fileName: document.fileName,
+              fileType: document.fileType,
+              fileSize: document.fileSize,
+              category: document.category,
+              status: document.status,
+              createdAt: document.createdAt.toISOString(),
+            },
+          },
+        });
+      } catch (error) {
+        // Clean up uploaded file on error
+        if (req.file) {
+          await fs.unlink(req.file.path).catch(() => {});
+        }
+        logger.error('Error uploading document:', error);
+        next(error);
       }
-      logger.error('Error uploading document:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/documents - List all documents for a client
@@ -168,7 +239,7 @@ export function createClientDocumentRoutes(): Router {
 
       // Verify client belongs to user
       const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
+        where: { id: clientId, userId },
       });
 
       if (!client) {
@@ -180,7 +251,7 @@ export function createClientDocumentRoutes(): Router {
       if (!validation.success) {
         return res.status(400).json({
           error: 'Invalid query parameters',
-          details: validation.error.flatten().fieldErrors
+          details: validation.error.flatten().fieldErrors,
         });
       }
 
@@ -202,15 +273,15 @@ export function createClientDocumentRoutes(): Router {
               select: {
                 id: true,
                 status: true,
-                extractedAt: true
-              }
-            }
-          }
+                extractedAt: true,
+              },
+            },
+          },
         }),
-        prisma.clientDocument.count({ where: whereClause })
+        prisma.clientDocument.count({ where: whereClause }),
       ]);
 
-      const formattedDocuments = documents.map(doc => ({
+      const formattedDocuments = documents.map((doc) => ({
         id: doc.id,
         fileName: doc.fileName,
         fileType: doc.fileType,
@@ -221,7 +292,7 @@ export function createClientDocumentRoutes(): Router {
         extractionStatus: doc.extractedData?.status || null,
         extractedAt: doc.extractedData?.extractedAt?.toISOString() || null,
         createdAt: doc.createdAt.toISOString(),
-        updatedAt: doc.updatedAt.toISOString()
+        updatedAt: doc.updatedAt.toISOString(),
       }));
 
       res.json({
@@ -234,9 +305,9 @@ export function createClientDocumentRoutes(): Router {
             total,
             limit,
             offset,
-            hasMore: (offset + limit) < total
-          }
-        }
+            hasMore: offset + limit < total,
+          },
+        },
       });
     } catch (error) {
       logger.error('Error listing client documents:', error);
@@ -247,185 +318,199 @@ export function createClientDocumentRoutes(): Router {
   /**
    * GET /api/clients/:clientId/documents/:documentId - Get a single document
    */
-  router.get('/:documentId', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
+  router.get(
+    '/:documentId',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId },
-        include: {
-          extractedData: true
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
 
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
 
-      res.json({
-        success: true,
-        data: {
-          document: {
-            id: document.id,
-            clientId: document.clientId,
-            fileName: document.fileName,
-            fileType: document.fileType,
-            fileSize: document.fileSize,
-            storageUrl: document.storageUrl,
-            category: document.category,
-            status: document.status,
-            extractedData: document.extractedData ? {
-              id: document.extractedData.id,
-              rawText: document.extractedData.rawText,
-              fields: document.extractedData.fields,
-              status: document.extractedData.status,
-              extractedAt: document.extractedData.extractedAt?.toISOString(),
-              reviewedAt: document.extractedData.reviewedAt?.toISOString()
-            } : null,
-            createdAt: document.createdAt.toISOString(),
-            updatedAt: document.updatedAt.toISOString()
-          }
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
         }
-      });
-    } catch (error) {
-      logger.error('Error fetching document:', error);
-      next(error);
+
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+          include: {
+            extractedData: true,
+          },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        res.json({
+          success: true,
+          data: {
+            document: {
+              id: document.id,
+              clientId: document.clientId,
+              fileName: document.fileName,
+              fileType: document.fileType,
+              fileSize: document.fileSize,
+              storageUrl: document.storageUrl,
+              category: document.category,
+              status: document.status,
+              extractedData: document.extractedData
+                ? {
+                    id: document.extractedData.id,
+                    rawText: document.extractedData.rawText,
+                    fields: document.extractedData.fields,
+                    status: document.extractedData.status,
+                    extractedAt: document.extractedData.extractedAt?.toISOString(),
+                    reviewedAt: document.extractedData.reviewedAt?.toISOString(),
+                  }
+                : null,
+              createdAt: document.createdAt.toISOString(),
+              updatedAt: document.updatedAt.toISOString(),
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error fetching document:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * PUT /api/clients/:clientId/documents/:documentId - Update document metadata
    */
-  router.put('/:documentId', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
+  router.put(
+    '/:documentId',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Validate request body
-      const validation = updateDocumentSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.flatten().fieldErrors
-        });
-      }
-
-      // Check document exists
-      const existing = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId }
-      });
-
-      if (!existing) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      const { category } = validation.data;
-
-      const document = await prisma.clientDocument.update({
-        where: { id: documentId },
-        data: { category: category as DocumentCategory || null }
-      });
-
-      logger.info(`Document updated: ${documentId} for client ${clientId}`);
-
-      res.json({
-        success: true,
-        message: 'Document updated successfully',
-        data: {
-          document: {
-            id: document.id,
-            fileName: document.fileName,
-            category: document.category,
-            updatedAt: document.updatedAt.toISOString()
-          }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
-    } catch (error) {
-      logger.error('Error updating document:', error);
-      next(error);
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        // Validate request body
+        const validation = updateDocumentSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        // Check document exists
+        const existing = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+        });
+
+        if (!existing) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const { category } = validation.data;
+
+        const document = await prisma.clientDocument.update({
+          where: { id: documentId },
+          data: { category: (category as DocumentCategory) || null },
+        });
+
+        logger.info(`Document updated: ${documentId} for client ${clientId}`);
+
+        res.json({
+          success: true,
+          message: 'Document updated successfully',
+          data: {
+            document: {
+              id: document.id,
+              fileName: document.fileName,
+              category: document.category,
+              updatedAt: document.updatedAt.toISOString(),
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error updating document:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * DELETE /api/clients/:clientId/documents/:documentId - Delete a document
    */
-  router.delete('/:documentId', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
+  router.delete(
+    '/:documentId',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Check document exists
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId }
-      });
-
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      // Delete file from storage
-      if (document.storageUrl) {
-        await fs.unlink(document.storageUrl).catch((err) => {
-          logger.warn(`Failed to delete document file: ${document.storageUrl}`, err);
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
         });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        // Check document exists
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        // Delete file from storage
+        if (document.storageUrl) {
+          await fs.unlink(document.storageUrl).catch((err) => {
+            logger.warn(`Failed to delete document file: ${document.storageUrl}`, err);
+          });
+        }
+
+        // Delete document record (cascade handles extracted data)
+        await prisma.clientDocument.delete({
+          where: { id: documentId },
+        });
+
+        logger.info(`Document deleted: ${documentId} for client ${clientId}`);
+
+        res.json({
+          success: true,
+          message: 'Document deleted successfully',
+        });
+      } catch (error) {
+        logger.error('Error deleting document:', error);
+        next(error);
       }
-
-      // Delete document record (cascade handles extracted data)
-      await prisma.clientDocument.delete({
-        where: { id: documentId }
-      });
-
-      logger.info(`Document deleted: ${documentId} for client ${clientId}`);
-
-      res.json({
-        success: true,
-        message: 'Document deleted successfully'
-      });
-    } catch (error) {
-      logger.error('Error deleting document:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * POST /api/clients/:clientId/documents/:documentId/extract - Trigger OCR extraction
@@ -437,521 +522,567 @@ export function createClientDocumentRoutes(): Router {
    * - sync=false: Queue for background processing (default, for large documents)
    * - mergeToProfile=true: Automatically merge extracted fields to client profile (default)
    */
-  router.post('/:documentId/extract', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
-      const { sync = false, mergeToProfile = true, forceReprocess = false } = req.body;
-
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Check document exists
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId },
-        include: { extractedData: true }
-      });
-
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      // Check if already extracted and not forcing reprocess
-      if (document.extractedData && document.extractedData.status === 'COMPLETED' && !forceReprocess) {
-        return res.status(200).json({
-          success: true,
-          message: 'Document already extracted',
-          data: {
-            documentId,
-            extractedDataId: document.extractedData.id,
-            status: document.extractedData.status,
-            fields: document.extractedData.fields,
-            extractedAt: document.extractedData.extractedAt?.toISOString()
-          }
-        });
-      }
-
-      // Check if file exists
+  router.post(
+    '/:documentId/extract',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await fs.access(document.storageUrl);
-      } catch {
-        return res.status(404).json({ error: 'Document file not found on disk' });
-      }
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
+        const { sync = false, mergeToProfile = true, forceReprocess = false } = req.body;
 
-      // Update document status to processing
-      await prisma.clientDocument.update({
-        where: { id: documentId },
-        data: { status: 'PROCESSING' }
-      });
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Create or update extracted data record
-      let extractedData = document.extractedData;
-      if (!extractedData) {
-        extractedData = await prisma.extractedData.create({
-          data: {
-            documentId,
-            clientId,
-            rawText: null,
-            fields: {},
-            status: 'PENDING'
-          }
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
         });
-      } else {
-        extractedData = await prisma.extractedData.update({
-          where: { id: extractedData.id },
-          data: { status: 'PENDING' }
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        // Check document exists
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+          include: { extractedData: true },
         });
-      }
 
-      // Synchronous extraction for small documents or when explicitly requested
-      if (sync) {
-        try {
-          const ocrService = new OCRService();
-          await ocrService.initialize();
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
 
-          const fileExt = path.extname(document.storageUrl).toLowerCase();
-          let ocrResult;
-
-          if (fileExt === '.pdf') {
-            ocrResult = await ocrService.processPDF(document.storageUrl);
-          } else {
-            ocrResult = await ocrService.processImage(document.storageUrl);
-          }
-
-          // Extract structured fields based on document category
-          const structuredData = await ocrService.extractStructuredData(ocrResult.text);
-          const categoryFields = extractFieldsByCategory(structuredData, document.category);
-
-          // Update extracted data
-          extractedData = await prisma.extractedData.update({
-            where: { id: extractedData.id },
-            data: {
-              rawText: ocrResult.text,
-              fields: categoryFields,
-              status: 'COMPLETED',
-              extractedAt: new Date()
-            }
-          });
-
-          // Update document status
-          await prisma.clientDocument.update({
-            where: { id: documentId },
-            data: { status: 'EXTRACTED' }
-          });
-
-          // Merge to client profile if requested
-          let profileUpdated = false;
-          if (mergeToProfile && Object.keys(categoryFields).length > 0) {
-            profileUpdated = await mergeToClientProfile(clientId, categoryFields, documentId);
-          }
-
-          await ocrService.cleanup();
-
-          logger.info(`Document extracted synchronously: ${documentId}`, {
-            confidence: ocrResult.confidence,
-            fieldsExtracted: Object.keys(categoryFields).length,
-            profileUpdated
-          });
-
-          res.json({
+        // Check if already extracted and not forcing reprocess
+        if (
+          document.extractedData &&
+          document.extractedData.status === 'COMPLETED' &&
+          !forceReprocess
+        ) {
+          return res.status(200).json({
             success: true,
-            message: 'Document extracted successfully',
+            message: 'Document already extracted',
             data: {
               documentId,
-              extractedDataId: extractedData.id,
-              status: 'COMPLETED',
-              confidence: ocrResult.confidence,
-              fields: categoryFields,
-              rawTextLength: ocrResult.text.length,
-              pageCount: ocrResult.metadata.pageCount,
-              processingTime: ocrResult.metadata.processingTime,
-              profileUpdated,
-              extractedAt: extractedData.extractedAt?.toISOString()
-            }
-          });
-        } catch (ocrError) {
-          // Update status to failed
-          await prisma.clientDocument.update({
-            where: { id: documentId },
-            data: { status: 'FAILED' }
-          });
-          await prisma.extractedData.update({
-            where: { id: extractedData.id },
-            data: { status: 'FAILED' }
-          });
-
-          logger.error('Synchronous OCR extraction failed:', ocrError);
-          return res.status(500).json({
-            success: false,
-            error: 'OCR extraction failed',
-            message: ocrError instanceof Error ? ocrError.message : 'Unknown error'
+              extractedDataId: document.extractedData.id,
+              status: document.extractedData.status,
+              fields: document.extractedData.fields,
+              extractedAt: document.extractedData.extractedAt?.toISOString(),
+            },
           });
         }
-      } else {
-        // Queue for background processing
-        try {
-          const job = await enqueueDocumentForOCR(documentId, userId, document.storageUrl, forceReprocess);
 
-          if (job) {
-            logger.info(`Document queued for OCR: ${documentId}, job: ${job.id}`);
+        // Check if file exists
+        try {
+          await fs.access(document.storageUrl);
+        } catch {
+          return res.status(404).json({ error: 'Document file not found on disk' });
+        }
+
+        // Update document status to processing
+        await prisma.clientDocument.update({
+          where: { id: documentId },
+          data: { status: 'PROCESSING' },
+        });
+
+        // Create or update extracted data record
+        let extractedData = document.extractedData;
+        if (!extractedData) {
+          extractedData = await prisma.extractedData.create({
+            data: {
+              documentId,
+              clientId,
+              rawText: null,
+              fields: {},
+              status: 'PENDING',
+            },
+          });
+        } else {
+          extractedData = await prisma.extractedData.update({
+            where: { id: extractedData.id },
+            data: { status: 'PENDING' },
+          });
+        }
+
+        // Synchronous extraction for small documents or when explicitly requested
+        if (sync) {
+          try {
+            const ocrService = new OCRService();
+            await ocrService.initialize();
+
+            const fileExt = path.extname(document.storageUrl).toLowerCase();
+            let ocrResult;
+
+            if (fileExt === '.pdf') {
+              ocrResult = await ocrService.processPDF(document.storageUrl);
+            } else {
+              ocrResult = await ocrService.processImage(document.storageUrl);
+            }
+
+            // Extract structured fields based on document category
+            const structuredData = await ocrService.extractStructuredData(ocrResult.text);
+            const categoryFields = extractFieldsByCategory(structuredData, document.category);
+
+            // Update extracted data
+            extractedData = await prisma.extractedData.update({
+              where: { id: extractedData.id },
+              data: {
+                rawText: ocrResult.text,
+                fields: categoryFields,
+                status: 'COMPLETED',
+                extractedAt: new Date(),
+              },
+            });
+
+            // Update document status
+            await prisma.clientDocument.update({
+              where: { id: documentId },
+              data: { status: 'EXTRACTED' },
+            });
+
+            // Merge to client profile if requested
+            let profileUpdated = false;
+            if (mergeToProfile && Object.keys(categoryFields).length > 0) {
+              profileUpdated = await mergeToClientProfile(clientId, categoryFields, documentId);
+            }
+
+            await ocrService.cleanup();
+
+            logger.info(`Document extracted synchronously: ${documentId}`, {
+              confidence: ocrResult.confidence,
+              fieldsExtracted: Object.keys(categoryFields).length,
+              profileUpdated,
+            });
+
             res.json({
               success: true,
-              message: 'Extraction queued. The document will be processed in the background.',
+              message: 'Document extracted successfully',
               data: {
                 documentId,
                 extractedDataId: extractedData.id,
-                jobId: job.id?.toString(),
-                status: 'PENDING',
-                note: 'Use GET /api/clients/:clientId/documents/:documentId/extraction-status to check progress'
-              }
+                status: 'COMPLETED',
+                confidence: ocrResult.confidence,
+                fields: categoryFields,
+                rawTextLength: ocrResult.text.length,
+                pageCount: ocrResult.metadata.pageCount,
+                processingTime: ocrResult.metadata.processingTime,
+                profileUpdated,
+                extractedAt: extractedData.extractedAt?.toISOString(),
+              },
             });
-          } else {
-            // Document doesn't need OCR (text-based PDF)
+          } catch (ocrError) {
+            // Update status to failed
             await prisma.clientDocument.update({
               where: { id: documentId },
-              data: { status: 'UPLOADED' }
+              data: { status: 'FAILED' },
+            });
+            await prisma.extractedData.update({
+              where: { id: extractedData.id },
+              data: { status: 'FAILED' },
             });
 
-            res.json({
-              success: true,
-              message: 'Document is text-based and does not require OCR extraction',
-              data: {
-                documentId,
-                status: 'TEXT_BASED',
-                note: 'This document contains extractable text and does not need OCR processing'
-              }
+            logger.error('Synchronous OCR extraction failed:', ocrError);
+            return res.status(500).json({
+              success: false,
+              error: 'OCR extraction failed',
+              message: ocrError instanceof Error ? ocrError.message : 'Unknown error',
             });
           }
-        } catch (queueError) {
-          // Fallback to synchronous if queue fails - update status back
-          logger.warn('Queue failed:', queueError);
+        } else {
+          // Queue for background processing
+          try {
+            const job = await enqueueDocumentForOCR(
+              documentId,
+              userId,
+              document.storageUrl,
+              forceReprocess
+            );
 
-          await prisma.clientDocument.update({
-            where: { id: documentId },
-            data: { status: 'UPLOADED' }
-          });
+            if (job) {
+              logger.info(`Document queued for OCR: ${documentId}, job: ${job.id}`);
+              res.json({
+                success: true,
+                message: 'Extraction queued. The document will be processed in the background.',
+                data: {
+                  documentId,
+                  extractedDataId: extractedData.id,
+                  jobId: job.id?.toString(),
+                  status: 'PENDING',
+                  note: 'Use GET /api/clients/:clientId/documents/:documentId/extraction-status to check progress',
+                },
+              });
+            } else {
+              // Document doesn't need OCR (text-based PDF)
+              await prisma.clientDocument.update({
+                where: { id: documentId },
+                data: { status: 'UPLOADED' },
+              });
 
-          return res.status(503).json({
-            success: false,
-            error: 'Background processing unavailable',
-            message: 'Queue is not available. Try with sync=true parameter for synchronous processing.',
-            suggestion: 'POST with body: { "sync": true }'
-          });
+              res.json({
+                success: true,
+                message: 'Document is text-based and does not require OCR extraction',
+                data: {
+                  documentId,
+                  status: 'TEXT_BASED',
+                  note: 'This document contains extractable text and does not need OCR processing',
+                },
+              });
+            }
+          } catch (queueError) {
+            // Fallback to synchronous if queue fails - update status back
+            logger.warn('Queue failed:', queueError);
+
+            await prisma.clientDocument.update({
+              where: { id: documentId },
+              data: { status: 'UPLOADED' },
+            });
+
+            return res.status(503).json({
+              success: false,
+              error: 'Background processing unavailable',
+              message:
+                'Queue is not available. Try with sync=true parameter for synchronous processing.',
+              suggestion: 'POST with body: { "sync": true }',
+            });
+          }
         }
+      } catch (error) {
+        logger.error('Error triggering extraction:', error);
+        next(error);
       }
-    } catch (error) {
-      logger.error('Error triggering extraction:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/documents/:documentId/extraction-status - Get extraction job status
    */
-  router.get('/:documentId/extraction-status', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
+  router.get(
+    '/:documentId/extraction-status',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId },
-        include: { extractedData: true }
-      });
-
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          documentId,
-          documentStatus: document.status,
-          extraction: document.extractedData ? {
-            id: document.extractedData.id,
-            status: document.extractedData.status,
-            fieldsCount: document.extractedData.fields ? Object.keys(document.extractedData.fields as object).length : 0,
-            extractedAt: document.extractedData.extractedAt?.toISOString(),
-            reviewedAt: document.extractedData.reviewedAt?.toISOString()
-          } : null
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
-    } catch (error) {
-      logger.error('Error getting extraction status:', error);
-      next(error);
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+          include: { extractedData: true },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        res.json({
+          success: true,
+          data: {
+            documentId,
+            documentStatus: document.status,
+            extraction: document.extractedData
+              ? {
+                  id: document.extractedData.id,
+                  status: document.extractedData.status,
+                  fieldsCount: document.extractedData.fields
+                    ? Object.keys(document.extractedData.fields as object).length
+                    : 0,
+                  extractedAt: document.extractedData.extractedAt?.toISOString(),
+                  reviewedAt: document.extractedData.reviewedAt?.toISOString(),
+                }
+              : null,
+          },
+        });
+      } catch (error) {
+        logger.error('Error getting extraction status:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * PUT /api/clients/:clientId/documents/:documentId/extracted-data - Update extracted data fields
    * Allows manual correction of extracted data
    */
-  router.put('/:documentId/extracted-data', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
-      const { fields, mergeToProfile = false } = req.body;
+  router.put(
+    '/:documentId/extracted-data',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
+        const { fields, mergeToProfile = false } = req.body;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      if (!fields || typeof fields !== 'object') {
-        return res.status(400).json({ error: 'Fields object is required' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId },
-        include: { extractedData: true }
-      });
-
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      if (!document.extractedData) {
-        return res.status(404).json({ error: 'No extracted data found for this document' });
-      }
-
-      // Merge new fields with existing
-      const currentFields = (document.extractedData.fields || {}) as Record<string, any>;
-      const updatedFields = { ...currentFields, ...fields };
-
-      const extractedData = await prisma.extractedData.update({
-        where: { id: document.extractedData.id },
-        data: {
-          fields: updatedFields,
-          status: 'REVIEWED',
-          reviewedAt: new Date()
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
 
-      // Merge to client profile if requested
-      let profileUpdated = false;
-      if (mergeToProfile) {
-        profileUpdated = await mergeToClientProfile(clientId, fields, documentId);
-      }
-
-      logger.info(`Extracted data updated for document: ${documentId}`);
-
-      res.json({
-        success: true,
-        message: 'Extracted data updated successfully',
-        data: {
-          documentId,
-          extractedDataId: extractedData.id,
-          fields: updatedFields,
-          status: extractedData.status,
-          profileUpdated,
-          reviewedAt: extractedData.reviewedAt?.toISOString()
+        if (!fields || typeof fields !== 'object') {
+          return res.status(400).json({ error: 'Fields object is required' });
         }
-      });
-    } catch (error) {
-      logger.error('Error updating extracted data:', error);
-      next(error);
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+          include: { extractedData: true },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        if (!document.extractedData) {
+          return res.status(404).json({ error: 'No extracted data found for this document' });
+        }
+
+        // Merge new fields with existing
+        const currentFields = (document.extractedData.fields || {}) as Record<string, any>;
+        const updatedFields = { ...currentFields, ...fields };
+
+        const extractedData = await prisma.extractedData.update({
+          where: { id: document.extractedData.id },
+          data: {
+            fields: updatedFields,
+            status: 'REVIEWED',
+            reviewedAt: new Date(),
+          },
+        });
+
+        // Merge to client profile if requested
+        let profileUpdated = false;
+        if (mergeToProfile) {
+          profileUpdated = await mergeToClientProfile(clientId, fields, documentId);
+        }
+
+        logger.info(`Extracted data updated for document: ${documentId}`);
+
+        res.json({
+          success: true,
+          message: 'Extracted data updated successfully',
+          data: {
+            documentId,
+            extractedDataId: extractedData.id,
+            fields: updatedFields,
+            status: extractedData.status,
+            profileUpdated,
+            reviewedAt: extractedData.reviewedAt?.toISOString(),
+          },
+        });
+      } catch (error) {
+        logger.error('Error updating extracted data:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * POST /api/clients/:clientId/documents/:documentId/merge-to-profile - Merge extracted data to profile
    */
-  router.post('/:documentId/merge-to-profile', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
-      const { fieldNames } = req.body; // Optional: specific fields to merge
+  router.post(
+    '/:documentId/merge-to-profile',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
+        const { fieldNames } = req.body; // Optional: specific fields to merge
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
 
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
 
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId },
-        include: { extractedData: true }
-      });
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+          include: { extractedData: true },
+        });
 
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
 
-      if (!document.extractedData) {
-        return res.status(404).json({ error: 'No extracted data found for this document' });
-      }
+        if (!document.extractedData) {
+          return res.status(404).json({ error: 'No extracted data found for this document' });
+        }
 
-      const extractedFields = (document.extractedData.fields || {}) as Record<string, any>;
+        const extractedFields = (document.extractedData.fields || {}) as Record<string, any>;
 
-      // Filter to specific fields if requested
-      let fieldsToMerge = extractedFields;
-      if (fieldNames && Array.isArray(fieldNames)) {
-        fieldsToMerge = {};
-        for (const fieldName of fieldNames) {
-          if (extractedFields[fieldName] !== undefined) {
-            fieldsToMerge[fieldName] = extractedFields[fieldName];
+        // Filter to specific fields if requested
+        let fieldsToMerge = extractedFields;
+        if (fieldNames && Array.isArray(fieldNames)) {
+          fieldsToMerge = {};
+          for (const fieldName of fieldNames) {
+            if (extractedFields[fieldName] !== undefined) {
+              fieldsToMerge[fieldName] = extractedFields[fieldName];
+            }
           }
         }
-      }
 
-      if (Object.keys(fieldsToMerge).length === 0) {
-        return res.status(400).json({ error: 'No fields to merge' });
-      }
-
-      const profileUpdated = await mergeToClientProfile(clientId, fieldsToMerge, documentId);
-
-      logger.info(`Merged ${Object.keys(fieldsToMerge).length} fields to profile for client: ${clientId}`);
-
-      res.json({
-        success: true,
-        message: `Merged ${Object.keys(fieldsToMerge).length} fields to client profile`,
-        data: {
-          mergedFields: Object.keys(fieldsToMerge),
-          profileUpdated
+        if (Object.keys(fieldsToMerge).length === 0) {
+          return res.status(400).json({ error: 'No fields to merge' });
         }
-      });
-    } catch (error) {
-      logger.error('Error merging to profile:', error);
-      next(error);
+
+        const profileUpdated = await mergeToClientProfile(clientId, fieldsToMerge, documentId);
+
+        logger.info(
+          `Merged ${Object.keys(fieldsToMerge).length} fields to profile for client: ${clientId}`
+        );
+
+        res.json({
+          success: true,
+          message: `Merged ${Object.keys(fieldsToMerge).length} fields to client profile`,
+          data: {
+            mergedFields: Object.keys(fieldsToMerge),
+            profileUpdated,
+          },
+        });
+      } catch (error) {
+        logger.error('Error merging to profile:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/documents/:documentId/preview - Get document preview URL
    */
-  router.get('/:documentId/preview', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
-
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId }
-      });
-
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      // Check file exists
+  router.get(
+    '/:documentId/preview',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await fs.access(document.storageUrl);
-      } catch {
-        return res.status(404).json({ error: 'Document file not found' });
-      }
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
 
-      // Return download URL (in production, this would be a signed URL or served through a CDN)
-      res.json({
-        success: true,
-        data: {
-          documentId,
-          fileName: document.fileName,
-          fileType: document.fileType,
-          fileSize: document.fileSize,
-          previewUrl: `/api/clients/${clientId}/documents/${documentId}/download`,
-          canPreview: ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(document.fileType)
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
-    } catch (error) {
-      logger.error('Error getting document preview:', error);
-      next(error);
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        // Check file exists
+        try {
+          await fs.access(document.storageUrl);
+        } catch {
+          return res.status(404).json({ error: 'Document file not found' });
+        }
+
+        // Return download URL (in production, this would be a signed URL or served through a CDN)
+        res.json({
+          success: true,
+          data: {
+            documentId,
+            fileName: document.fileName,
+            fileType: document.fileType,
+            fileSize: document.fileSize,
+            previewUrl: `/api/clients/${clientId}/documents/${documentId}/download`,
+            canPreview: [
+              'application/pdf',
+              'image/jpeg',
+              'image/png',
+              'image/gif',
+              'image/webp',
+            ].includes(document.fileType),
+          },
+        });
+      } catch (error) {
+        logger.error('Error getting document preview:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/documents/:documentId/download - Download document file
    */
-  router.get('/:documentId/download', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, documentId } = req.params;
-
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const document = await prisma.clientDocument.findFirst({
-        where: { id: documentId, clientId }
-      });
-
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-
-      // Check file exists
+  router.get(
+    '/:documentId/download',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await fs.access(document.storageUrl);
-      } catch {
-        return res.status(404).json({ error: 'Document file not found' });
-      }
+        const userId = (req as any).user?.id;
+        const { clientId, documentId } = req.params;
 
-      // Send file
-      res.download(document.storageUrl, document.fileName);
-    } catch (error) {
-      logger.error('Error downloading document:', error);
-      next(error);
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const document = await prisma.clientDocument.findFirst({
+          where: { id: documentId, clientId },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        // Check file exists
+        try {
+          await fs.access(document.storageUrl);
+        } catch {
+          return res.status(404).json({ error: 'Document file not found' });
+        }
+
+        // Send file
+        res.download(document.storageUrl, document.fileName);
+      } catch (error) {
+        logger.error('Error downloading document:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   return router;
 }
@@ -960,7 +1091,10 @@ export function createClientDocumentRoutes(): Router {
  * Extract fields from OCR structured data based on document category
  * Maps generic OCR patterns to specific profile fields
  */
-function extractFieldsByCategory(structuredData: Record<string, any>, category: DocumentCategory | null): Record<string, any> {
+function extractFieldsByCategory(
+  structuredData: Record<string, any>,
+  category: DocumentCategory | null
+): Record<string, any> {
   const fields: Record<string, any> = {};
 
   // Map common patterns from structuredData
@@ -1167,7 +1301,7 @@ async function mergeToClientProfile(
   try {
     // Get or create profile
     let profile = await prisma.clientProfile.findUnique({
-      where: { clientId }
+      where: { clientId },
     });
 
     if (!profile) {
@@ -1175,8 +1309,8 @@ async function mergeToClientProfile(
         data: {
           clientId,
           data: {},
-          fieldSources: {}
-        }
+          fieldSources: {},
+        },
       });
     }
 
@@ -1205,7 +1339,7 @@ async function mergeToClientProfile(
       newFieldSources[fieldName] = {
         documentId,
         extractedAt: new Date().toISOString(),
-        manuallyEdited: false
+        manuallyEdited: false,
       };
       fieldsUpdated++;
     }
@@ -1215,8 +1349,8 @@ async function mergeToClientProfile(
         where: { id: profile.id },
         data: {
           data: newData,
-          fieldSources: newFieldSources
-        }
+          fieldSources: newFieldSources,
+        },
       });
 
       logger.info(`Updated ${fieldsUpdated} fields in profile for client: ${clientId}`);
