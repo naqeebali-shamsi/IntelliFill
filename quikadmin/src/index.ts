@@ -232,15 +232,13 @@ async function initializeApp() {
   }
 }
 
-// Graceful shutdown
+// Graceful shutdown handlers (will be augmented in startServer)
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
-  process.exit(0);
 });
 
 // Start server
@@ -248,17 +246,25 @@ async function startServer() {
   try {
     const { app, db } = await initializeApp();
 
-    const server = app.listen(PORT, () => {
+    const server = app.listen(PORT, async () => {
       logger.info(`🚀 IntelliFill API server running on port ${PORT}`);
       logger.info(`📚 IntelliFill API documentation: http://localhost:${PORT}/api-docs`);
       logger.info(`❤️  Health check: http://localhost:${PORT}/health`);
       logger.info(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth/*`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+      // Start Redis health monitoring after server is up
+      const { startRedisHealthMonitoring } = await import('./utils/redisHealth');
+      startRedisHealthMonitoring(30000); // Check every 30 seconds
     });
 
     // Handle server shutdown
-    process.on('SIGTERM', async () => {
-      logger.info('SIGTERM received, closing HTTP server');
+    const shutdownHandler = async () => {
+      logger.info('Shutdown signal received, closing HTTP server');
+
+      // Stop Redis health monitoring
+      const { stopRedisHealthMonitoring } = await import('./utils/redisHealth');
+      stopRedisHealthMonitoring();
 
       // Stop keepalive before shutdown
       const { stopKeepalive } = await import('./utils/prisma');
@@ -269,7 +275,19 @@ async function startServer() {
         await db.disconnect();
         process.exit(0);
       });
-    });
+
+      // Force exit after 10 seconds if graceful shutdown fails
+      setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    // Replace previous handlers with new ones that include cleanup
+    process.removeAllListeners('SIGTERM');
+    process.removeAllListeners('SIGINT');
+    process.on('SIGTERM', shutdownHandler);
+    process.on('SIGINT', shutdownHandler);
 
     return server;
   } catch (error) {

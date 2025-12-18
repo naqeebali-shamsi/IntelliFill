@@ -1,4 +1,8 @@
 {
+  // TypeScript strict mode migration: Gradual enforcement strategy
+  // - noImplicitAny: true enforces type annotations on new code
+  // - Existing 'any' types will be fixed incrementally
+  // - Goal: Prevent new implicit 'any' types while allowing gradual migration
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
@@ -19,7 +23,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": false,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
 
     /* Path mapping */
     "baseUrl": ".",

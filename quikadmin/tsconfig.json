@@ -1,4 +1,8 @@
 {
+  // TypeScript strict mode migration: Gradual enforcement strategy
+  // - noImplicitAny: true enforces type annotations on new code
+  // - Existing ~595 'any' instances across 135 files will be fixed incrementally
+  // - Goal: Prevent new implicit 'any' types while allowing gradual migration
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
@@ -6,7 +10,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": false,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

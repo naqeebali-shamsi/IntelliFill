@@ -104,8 +104,73 @@ export async function verifyRedisAtStartup(): Promise<boolean> {
   return available;
 }
 
+/**
+ * Continuous health monitoring
+ */
+let redisHealthy = true;
+let healthCheckInterval: NodeJS.Timeout | null = null;
+
+/**
+ * Start continuous Redis health monitoring
+ * Checks health periodically and logs status changes only
+ */
+export function startRedisHealthMonitoring(intervalMs: number = 30000): void {
+  if (healthCheckInterval) {
+    logger.warn('Redis health monitoring already running');
+    return;
+  }
+
+  logger.info('Starting Redis health monitoring', {
+    intervalMs,
+    intervalSeconds: intervalMs / 1000,
+  });
+
+  healthCheckInterval = setInterval(async () => {
+    const wasHealthy = redisHealthy;
+    const isHealthy = await checkRedisHealth();
+    redisHealthy = isHealthy;
+
+    // Only log when status changes to avoid spam
+    if (wasHealthy && !redisHealthy) {
+      logger.error('Redis connection lost - queues may be unavailable', {
+        lastError: healthState.lastError,
+      });
+    } else if (!wasHealthy && redisHealthy) {
+      logger.info('Redis connection restored', {
+        downtime: Date.now() - healthState.lastCheck,
+      });
+    }
+  }, intervalMs);
+
+  // Prevent the interval from keeping the process alive
+  if (healthCheckInterval.unref) {
+    healthCheckInterval.unref();
+  }
+}
+
+/**
+ * Stop continuous Redis health monitoring
+ */
+export function stopRedisHealthMonitoring(): void {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+    logger.info('Redis health monitoring stopped');
+  }
+}
+
+/**
+ * Check if Redis is currently healthy (based on last check)
+ */
+export function isRedisHealthy(): boolean {
+  return redisHealthy;
+}
+
 export default {
   checkRedisHealth,
   getRedisHealthState,
   verifyRedisAtStartup,
+  startRedisHealthMonitoring,
+  stopRedisHealthMonitoring,
+  isRedisHealthy,
 };
