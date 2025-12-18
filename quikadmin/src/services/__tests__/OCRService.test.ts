@@ -407,18 +407,40 @@ describe('OCRService', () => {
   describe('preprocessImage (private method)', () => {
     it('should apply preprocessing pipeline', async () => {
       const mockImageBuffer = Buffer.from('original-image');
-      const mockSharpInstance = sharp(mockImageBuffer);
+      (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
+
+      // Setup worker recognize to return valid result
+      mockWorker.recognize.mockResolvedValue({
+        data: {
+          text: 'Preprocessed text',
+          confidence: 90,
+        },
+      });
+
+      // Capture the mock sharp instance that will be created
+      let capturedSharpInstance: any;
+      (sharp as unknown as jest.Mock).mockImplementation(() => {
+        capturedSharpInstance = {
+          greyscale: jest.fn().mockReturnThis(),
+          normalize: jest.fn().mockReturnThis(),
+          sharpen: jest.fn().mockReturnThis(),
+          threshold: jest.fn().mockReturnThis(),
+          resize: jest.fn().mockReturnThis(),
+          toBuffer: jest.fn().mockResolvedValue(Buffer.from('processed-image')),
+        };
+        return capturedSharpInstance;
+      });
 
       // Call through processImage which uses preprocessing
       await service.processImage('/test.png');
 
       expect(sharp).toHaveBeenCalled();
       // Verify the preprocessing chain
-      expect(mockSharpInstance.greyscale).toHaveBeenCalled();
-      expect(mockSharpInstance.normalize).toHaveBeenCalled();
-      expect(mockSharpInstance.sharpen).toHaveBeenCalled();
-      expect(mockSharpInstance.threshold).toHaveBeenCalledWith(128);
-      expect(mockSharpInstance.resize).toHaveBeenCalledWith({ width: 2400 });
+      expect(capturedSharpInstance.greyscale).toHaveBeenCalled();
+      expect(capturedSharpInstance.normalize).toHaveBeenCalled();
+      expect(capturedSharpInstance.sharpen).toHaveBeenCalled();
+      expect(capturedSharpInstance.threshold).toHaveBeenCalledWith(128);
+      expect(capturedSharpInstance.resize).toHaveBeenCalledWith({ width: 2400 });
     });
 
     it('should return original image if preprocessing fails', async () => {

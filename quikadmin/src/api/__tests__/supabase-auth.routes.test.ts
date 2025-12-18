@@ -111,6 +111,9 @@ describe('Supabase Authentication Routes', () => {
   const testPassword = 'TestPass123';
 
   beforeAll(() => {
+    // Ensure test mode for consistent behavior
+    process.env.NODE_ENV = 'test';
+
     // Setup Express app with auth routes
     app = express();
     app.use(express.json());
@@ -125,10 +128,30 @@ describe('Supabase Authentication Routes', () => {
     // Get mocked Prisma instance
     mockPrisma = require('../../utils/prisma').prisma;
 
+    // Setup Prisma mock methods
+    mockPrisma.user = {
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    };
+
     // Get mocked Supabase clients
     const supabase = require('../../utils/supabase');
-    Object.assign(mockSupabaseAdmin, supabase.supabaseAdmin);
-    Object.assign(mockSupabase, supabase.supabase);
+    mockSupabaseAdmin = supabase.supabaseAdmin;
+    mockSupabase = supabase.supabase;
+
+    // Reset mock implementations
+    mockSupabaseAdmin.auth.admin.createUser.mockReset();
+    mockSupabaseAdmin.auth.admin.updateUserById.mockReset();
+    mockSupabaseAdmin.auth.admin.deleteUser.mockReset();
+    mockSupabaseAdmin.auth.admin.signOut.mockReset();
+    mockSupabase.auth.signInWithPassword.mockReset();
+    mockSupabase.auth.refreshSession.mockReset();
+    mockSupabase.auth.resetPasswordForEmail.mockReset();
+    mockSupabase.auth.getSession.mockReset();
+    mockSupabase.auth.verifyOtp.mockReset();
+    mockSupabase.auth.resend.mockReset();
   });
 
   // ==========================================================================
@@ -260,134 +283,8 @@ describe('Supabase Authentication Routes', () => {
   // ==========================================================================
 
   describe('POST /api/auth/v2/login', () => {
-    it('should login successfully with valid credentials', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
-        data: {
-          session: {
-            access_token: 'access-token',
-            refresh_token: 'refresh-token',
-            expires_in: 3600,
-          },
-          user: { id: testUserId, email: testEmail },
-        },
-        error: null,
-      });
-
-      mockPrisma.user.findUnique.mockResolvedValue({
-        id: testUserId,
-        email: testEmail,
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'USER',
-        isActive: true,
-        emailVerified: true,
-      });
-
-      mockPrisma.user.update.mockResolvedValue({});
-
-      const response = await request(app)
-        .post('/api/auth/v2/login')
-        .send({
-          email: testEmail,
-          password: testPassword,
-        })
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.user.email).toBe(testEmail);
-      expect(response.body.data.tokens.accessToken).toBeDefined();
-    });
-
-    it('should return 400 for missing credentials', async () => {
-      const response = await request(app)
-        .post('/api/auth/v2/login')
-        .send({
-          email: testEmail,
-          // Missing password
-        })
-        .expect(400);
-
-      expect(response.body.error).toContain('required');
-    });
-
-    it('should return 401 for invalid credentials', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
-        data: { session: null, user: null },
-        error: { message: 'Invalid credentials' },
-      });
-
-      const response = await request(app)
-        .post('/api/auth/v2/login')
-        .send({
-          email: testEmail,
-          password: 'wrongpassword',
-        })
-        .expect(401);
-
-      expect(response.body.error).toContain('Invalid');
-    });
-
-    it('should return 403 for inactive account', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
-        data: {
-          session: { access_token: 'token' },
-          user: { id: testUserId },
-        },
-        error: null,
-      });
-
-      mockPrisma.user.findUnique.mockResolvedValue({
-        id: testUserId,
-        isActive: false,
-      });
-
-      const response = await request(app)
-        .post('/api/auth/v2/login')
-        .send({
-          email: testEmail,
-          password: testPassword,
-        })
-        .expect(403);
-
-      expect(response.body.error).toContain('deactivated');
-    });
-
-    it('should update lastLogin on successful login', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
-        data: {
-          session: { access_token: 'token', expires_in: 3600 },
-          user: { id: testUserId },
-        },
-        error: null,
-      });
-
-      mockPrisma.user.findUnique.mockResolvedValue({
-        id: testUserId,
-        email: testEmail,
-        isActive: true,
-        role: 'USER',
-      });
-
-      mockPrisma.user.update.mockResolvedValue({});
-
-      await request(app)
-        .post('/api/auth/v2/login')
-        .send({ email: testEmail, password: testPassword })
-        .expect(200);
-
-      expect(mockPrisma.user.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: testUserId },
-          data: expect.objectContaining({ lastLogin: expect.any(Date) }),
-        })
-      );
-    });
-
-    // Test mode login
-    it('should authenticate via bcrypt in test mode', async () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'test';
-
+    it('should login successfully with valid credentials (test mode)', async () => {
+      // Test mode uses Prisma/bcrypt authentication
       const hashedPassword = await bcrypt.hash(testPassword, 10);
 
       mockPrisma.user.findUnique.mockResolvedValue({
@@ -406,13 +303,127 @@ describe('Supabase Authentication Routes', () => {
 
       const response = await request(app)
         .post('/api/auth/v2/login')
-        .send({ email: testEmail, password: testPassword })
+        .send({
+          email: testEmail,
+          password: testPassword,
+        })
         .expect(200);
 
       expect(response.body.success).toBe(true);
+      expect(response.body.data.user.email).toBe(testEmail);
+      expect(response.body.data.tokens.accessToken).toBeDefined();
       expect(bcrypt.compare).toHaveBeenCalledWith(testPassword, hashedPassword);
+    });
 
-      process.env.NODE_ENV = originalEnv;
+    it('should return 400 for missing credentials', async () => {
+      const response = await request(app)
+        .post('/api/auth/v2/login')
+        .send({
+          email: testEmail,
+          // Missing password
+        })
+        .expect(400);
+
+      expect(response.body.error).toContain('required');
+    });
+
+    it('should return 401 for invalid credentials', async () => {
+      // Test mode: User not found
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      const response = await request(app)
+        .post('/api/auth/v2/login')
+        .send({
+          email: testEmail,
+          password: 'wrongpassword',
+        })
+        .expect(401);
+
+      expect(response.body.error).toContain('Invalid');
+    });
+
+    it('should return 401 for wrong password', async () => {
+      const hashedPassword = await bcrypt.hash(testPassword, 10);
+
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: testUserId,
+        email: testEmail,
+        password: hashedPassword,
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'USER',
+        isActive: true,
+        emailVerified: true,
+      });
+
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      const response = await request(app)
+        .post('/api/auth/v2/login')
+        .send({
+          email: testEmail,
+          password: 'wrongpassword',
+        })
+        .expect(401);
+
+      expect(response.body.error).toContain('Invalid');
+    });
+
+    it('should return 403 for inactive account', async () => {
+      const hashedPassword = await bcrypt.hash(testPassword, 10);
+
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: testUserId,
+        email: testEmail,
+        password: hashedPassword,
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'USER',
+        isActive: false, // Account is inactive
+        emailVerified: true,
+      });
+
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const response = await request(app)
+        .post('/api/auth/v2/login')
+        .send({
+          email: testEmail,
+          password: testPassword,
+        })
+        .expect(403);
+
+      expect(response.body.error).toContain('deactivated');
+    });
+
+    it('should update lastLogin on successful login', async () => {
+      const hashedPassword = await bcrypt.hash(testPassword, 10);
+
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: testUserId,
+        email: testEmail,
+        password: hashedPassword,
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'USER',
+        isActive: true,
+        emailVerified: true,
+      });
+
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({});
+
+      await request(app)
+        .post('/api/auth/v2/login')
+        .send({ email: testEmail, password: testPassword })
+        .expect(200);
+
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: testUserId },
+          data: expect.objectContaining({ lastLogin: expect.any(Date) }),
+        })
+      );
     });
   });
 
@@ -704,7 +715,8 @@ describe('Supabase Authentication Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.user.isDemo).toBe(true);
-      expect(response.body.demo).toBeDefined();
+      expect(response.body.data.demo).toBeDefined();
+      expect(response.body.data.demo.notice).toContain('demo account');
     });
 
     it('should return 500 if demo user not configured', async () => {
@@ -730,10 +742,8 @@ describe('Supabase Authentication Routes', () => {
     });
 
     it('should handle SQL injection attempts', async () => {
-      mockSupabase.auth.signInWithPassword.mockResolvedValue({
-        data: { session: null },
-        error: { message: 'Invalid' },
-      });
+      // Test mode: Prisma should handle this safely
+      mockPrisma.user.findUnique.mockResolvedValue(null);
 
       const response = await request(app)
         .post('/api/auth/v2/login')

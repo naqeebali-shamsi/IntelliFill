@@ -67,6 +67,14 @@ describe('ProfileService', () => {
 
   beforeEach(() => {
     service = new ProfileService();
+
+    // Reset decryptJSON mock to default implementation
+    (decryptJSON as jest.Mock).mockImplementation((data) => {
+      if (typeof data === 'string' && data.startsWith('encrypted:')) {
+        return JSON.parse(data.replace('encrypted:', ''));
+      }
+      return data;
+    });
   });
 
   afterEach(() => {
@@ -456,13 +464,13 @@ describe('ProfileService', () => {
       const mockDocuments = [
         {
           id: 'doc-1',
-          extractedData: 'encrypted:{"phone":"15551234"}',
+          extractedData: 'encrypted:{"phone":"15551234567"}',
           confidence: 90,
           processedAt: new Date('2025-01-01'),
         },
         {
           id: 'doc-2',
-          extractedData: 'encrypted:{"phone":"555-1234"}',
+          extractedData: 'encrypted:{"phone":"555-123-4567"}',
           confidence: 85,
           processedAt: new Date('2025-01-02'),
         },
@@ -472,7 +480,7 @@ describe('ProfileService', () => {
 
       const result = await service.aggregateUserProfile('user-1');
 
-      // Should deduplicate (country code stripped - normalizes to 5551234)
+      // Should deduplicate (country code stripped from 15551234567 -> 5551234567, matches 555-123-4567 -> 5551234567)
       expect(result.fields.phone.values).toHaveLength(1);
     });
 
@@ -676,13 +684,14 @@ describe('ProfileService', () => {
 
   describe('updateProfile', () => {
     it('should update existing profile with new data', async () => {
+      const lastUpdated = new Date('2025-01-01');
       const existingFields = {
         email: {
           key: 'email',
           values: ['john@example.com'],
           sources: ['doc-1'],
           confidence: 90,
-          lastUpdated: new Date('2025-01-01').toISOString(),
+          lastUpdated: lastUpdated,
         },
       };
 
@@ -724,13 +733,14 @@ describe('ProfileService', () => {
     });
 
     it('should not duplicate existing values', async () => {
+      const lastUpdated = new Date('2025-01-01');
       const existingFields = {
         email: {
           key: 'email',
           values: ['john@example.com'],
           sources: ['doc-1'],
           confidence: 90,
-          lastUpdated: new Date('2025-01-01').toISOString(),
+          lastUpdated: lastUpdated,
         },
       };
 
@@ -877,10 +887,10 @@ describe('ProfileService', () => {
       const result = await service.aggregateUserProfile('user-1');
 
       // Should normalize even very long field names (lowercase, no special chars)
-      const normalizedKey = 'a'.repeat(300).toLowerCase();
-      // Check if any field with lots of 'a's exists
-      const hasLongField = Object.keys(result.fields).some((key) => key.length > 250);
-      expect(hasLongField).toBe(true);
+      // Normalization keeps alphanumeric and underscores, so 300 'a's should remain 300 'a's
+      const normalizedKey = 'a'.repeat(300);
+      expect(result.fields[normalizedKey]).toBeDefined();
+      expect(result.fields[normalizedKey].values).toContain('value');
     });
 
     it('should handle special characters in field names', async () => {

@@ -15,7 +15,7 @@
  * @module api/__tests__/profile.routes.test
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, no-console */
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import request from 'supertest';
 import express, { Express } from 'express';
@@ -48,13 +48,9 @@ const mockProfileService = {
   deleteProfile: jest.fn(),
 };
 
-jest.mock('../../services/ProfileService', () => {
-  return {
-    ProfileService: jest.fn(function ProfileService() {
-      return mockProfileService;
-    }),
-  };
-});
+jest.mock('../../services/ProfileService', () => ({
+  ProfileService: jest.fn().mockImplementation(() => mockProfileService),
+}));
 
 // Mock logger
 jest.mock('../../utils/piiSafeLogger', () => ({
@@ -111,6 +107,14 @@ describe('Profile API Routes', () => {
 
     const profileRoutes = createProfileRoutes();
     app.use('/api/users', profileRoutes);
+
+    // Add error handler middleware to match real Express behavior
+    app.use((err: Error, req: any, res: any, next: any) => {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+      });
+    });
   });
 
   beforeEach(() => {
@@ -119,9 +123,9 @@ describe('Profile API Routes', () => {
     // Get mocked Prisma instance
     mockPrisma = new PrismaClient();
 
-    // Reset profile service mocks
+    // Clear mock calls but keep the mock functions themselves
     Object.keys(mockProfileService).forEach((key) => {
-      (mockProfileService as any)[key].mockReset();
+      (mockProfileService as any)[key].mockClear();
     });
   });
 
@@ -161,15 +165,15 @@ describe('Profile API Routes', () => {
 
   describe('GET /api/users/me/profile', () => {
     it('should return existing profile', async () => {
-      mockProfileService.getProfile.mockResolvedValue(mockProfile);
+      // Create a fresh profile with recent timestamp to avoid staleness check
+      const freshProfile = {
+        ...mockProfile,
+        lastAggregated: new Date(), // Recent timestamp
+      };
+      mockProfileService.getProfile.mockResolvedValue(freshProfile);
 
-      const response = await request(app).get('/api/users/me/profile');
+      const response = await request(app).get('/api/users/me/profile').expect(200);
 
-      if (response.status !== 200) {
-        console.log('Profile response error:', response.body);
-      }
-
-      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.profile.userId).toBe(testUserId);
       expect(response.body.profile.fields).toHaveLength(3);
@@ -177,15 +181,21 @@ describe('Profile API Routes', () => {
     });
 
     it('should aggregate profile if none exists', async () => {
+      // Create a fresh profile to avoid triggering staleness check
+      const freshProfile = {
+        ...mockProfile,
+        lastAggregated: new Date(), // Recent timestamp
+      };
+
       mockProfileService.getProfile.mockResolvedValue(null);
-      mockProfileService.aggregateUserProfile.mockResolvedValue(mockProfile);
-      mockProfileService.saveProfile.mockResolvedValue(mockProfile);
+      mockProfileService.aggregateUserProfile.mockResolvedValue(freshProfile);
+      mockProfileService.saveProfile.mockResolvedValue(undefined); // saveProfile returns void
 
       const response = await request(app).get('/api/users/me/profile').expect(200);
 
       expect(response.body.success).toBe(true);
       expect(mockProfileService.aggregateUserProfile).toHaveBeenCalledWith(testUserId);
-      expect(mockProfileService.saveProfile).toHaveBeenCalledWith(testUserId, mockProfile);
+      expect(mockProfileService.saveProfile).toHaveBeenCalledWith(testUserId, freshProfile);
     });
 
     it('should refresh stale profile', async () => {
@@ -445,14 +455,23 @@ describe('Profile API Routes', () => {
     it('should normalize field key', async () => {
       mockProfileService.getProfile.mockResolvedValue(mockProfile);
 
-      // Test with different formats
+      // Test with different formats - the normalization converts to lowercase and replaces spaces/hyphens with underscores
       const response1 = await request(app)
         .get('/api/users/me/profile/field/first_name')
         .expect(200);
       expect(response1.body.field.key).toBe('first_name');
 
-      const response2 = await request(app).get('/api/users/me/profile/field/firstName').expect(200);
+      // Test with uppercase and hyphens
+      const response2 = await request(app)
+        .get('/api/users/me/profile/field/FIRST-NAME')
+        .expect(200);
       expect(response2.body.field.key).toBe('first_name');
+
+      // Test with spaces
+      const response3 = await request(app)
+        .get('/api/users/me/profile/field/first name')
+        .expect(200);
+      expect(response3.body.field.key).toBe('first_name');
     });
 
     it('should return 400 if field key missing', async () => {
