@@ -64,6 +64,11 @@ describe('AuditLoggerService', () => {
         metadata: { size: 1024 },
         ipAddress: '192.168.1.1',
         userAgent: 'Mozilla/5.0',
+        piiPresent: false,
+        phiPresent: false,
+        dataClassification: 'internal',
+        complianceFrameworks: ['SOC2'],
+        retentionDays: 365,
       };
 
       await expect(service.log(entry)).resolves.not.toThrow();
@@ -81,6 +86,11 @@ describe('AuditLoggerService', () => {
         metadata: null,
         ipAddress: null,
         userAgent: null,
+        piiPresent: false,
+        phiPresent: false,
+        dataClassification: 'public',
+        complianceFrameworks: [],
+        retentionDays: 90,
       };
 
       await expect(service.log(minimalEntry)).resolves.not.toThrow();
@@ -101,6 +111,11 @@ describe('AuditLoggerService', () => {
         metadata: null,
         ipAddress: null,
         userAgent: null,
+        piiPresent: false,
+        phiPresent: false,
+        dataClassification: 'internal',
+        complianceFrameworks: [],
+        retentionDays: 365,
       };
 
       // Should not throw - audit logging shouldn't block operations
@@ -270,6 +285,11 @@ describe('AuditLoggerService', () => {
         metadata: { path: '/api/knowledge/search' },
         ipAddress: null,
         userAgent: null,
+        piiPresent: false,
+        phiPresent: false,
+        dataClassification: 'internal',
+        complianceFrameworks: [],
+        retentionDays: 365,
       };
 
       await expect(service.log(entry)).resolves.not.toThrow();
@@ -287,6 +307,11 @@ describe('AuditLoggerService', () => {
         metadata: { path: '/api/documents/upload' },
         ipAddress: null,
         userAgent: null,
+        piiPresent: true,
+        phiPresent: false,
+        dataClassification: 'confidential',
+        complianceFrameworks: ['PIPEDA', 'SOC2'],
+        retentionDays: 730,
       };
 
       await expect(service.log(entry)).resolves.not.toThrow();
@@ -316,6 +341,11 @@ describe('AuditLoggerService', () => {
         },
         ipAddress: '10.0.0.1',
         userAgent: 'TestAgent',
+        piiPresent: true,
+        phiPresent: false,
+        dataClassification: 'restricted',
+        complianceFrameworks: ['PIPEDA', 'SOC2'],
+        retentionDays: 2555,
       };
 
       await service.log(entry);

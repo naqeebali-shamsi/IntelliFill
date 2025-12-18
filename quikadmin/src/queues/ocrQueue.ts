@@ -1,6 +1,6 @@
 import Bull from 'bull';
 import { PrismaClient } from '@prisma/client';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { OCRService, OCRProgress } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';

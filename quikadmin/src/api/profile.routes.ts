@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ProfileService } from '../services/ProfileService';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
 export function createProfileRoutes(): Router {
   const router = Router();

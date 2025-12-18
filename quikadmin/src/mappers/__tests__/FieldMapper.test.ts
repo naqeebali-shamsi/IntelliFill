@@ -45,11 +45,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -81,11 +83,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -115,11 +119,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -141,11 +147,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -178,11 +186,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -206,11 +216,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -246,11 +258,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -272,11 +286,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -298,11 +314,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -323,11 +341,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -356,11 +376,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -382,11 +404,13 @@ describe('FieldMapper', () => {
           names: ['John Doe'],
           dates: ['2024-01-01'],
           addresses: ['123 Main St'],
+          numbers: [],
           currencies: ['$100.00'],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -419,11 +443,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -446,11 +472,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -470,11 +498,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -501,11 +531,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -528,11 +560,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -560,11 +594,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -592,11 +628,13 @@ describe('FieldMapper', () => {
           names: ['John Doe'],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -632,11 +670,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 
@@ -657,11 +697,13 @@ describe('FieldMapper', () => {
           names: [],
           dates: [],
           addresses: [],
+          numbers: [],
           currencies: [],
         },
         metadata: {
+          extractionMethod: 'test',
           confidence: 0.9,
-          processingTime: 100,
+          timestamp: new Date(),
         },
       };
 

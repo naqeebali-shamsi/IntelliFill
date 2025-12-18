@@ -1,5 +1,5 @@
 import Bull from 'bull';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { DocumentParser } from '../parsers/DocumentParser';
 import { DataExtractor } from '../extractors/DataExtractor';
 import { FieldMapper } from '../mappers/FieldMapper';

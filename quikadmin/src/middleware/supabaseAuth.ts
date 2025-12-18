@@ -11,7 +11,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifySupabaseToken } from '../utils/supabase';
 import { prisma } from '../utils/prisma';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
 /**
  * Extended Request interface with Supabase user
@@ -113,7 +113,7 @@ export async function authenticateSupabase(
 
     // SECURITY: Check if user account is active
     if (!dbUser.isActive) {
-      logger.warn(`Inactive user attempted access: ${dbUser.email}`);
+      logger.warn('Inactive user attempted access', { userId: dbUser.id });
       res.status(403).json({
         error: 'Forbidden',
         message: 'Account is deactivated',
@@ -165,7 +165,11 @@ export function authorizeSupabase(allowedRoles: string[]) {
     const normalizedAllowedRoles = allowedRoles.map(r => r.toUpperCase());
 
     if (!normalizedAllowedRoles.includes(userRole)) {
-      logger.warn(`Authorization failed: User ${req.user.email} (${userRole}) attempted to access route requiring ${allowedRoles.join(', ')}`);
+      logger.warn('Authorization failed: Insufficient permissions', {
+        userId: req.user.id,
+        userRole,
+        requiredRoles: allowedRoles
+      });
       res.status(403).json({
         error: 'Forbidden',
         message: 'Insufficient permissions'

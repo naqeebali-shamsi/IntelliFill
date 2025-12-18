@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { encryptJSON, decryptJSON } from '../utils/encryption';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
 const prisma = new PrismaClient();
 

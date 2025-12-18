@@ -56,7 +56,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       // Mock pdf-lib PDFDocument
       const mockPdfDoc = {
@@ -105,7 +105,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -135,7 +135,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -166,7 +166,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(5),
@@ -196,7 +196,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(3),
@@ -275,7 +275,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -322,7 +322,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -354,7 +354,7 @@ describe('DocumentParser', () => {
       };
 
       mockFs.readFile.mockResolvedValue(mockPdfBuffer);
-      mockPdfParse.mockResolvedValue(mockPdfData);
+      mockPdfParse.mockResolvedValue(mockPdfData as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -387,7 +387,7 @@ describe('DocumentParser', () => {
         info: {},
         metadata: null,
         version: '1.4',
-      });
+      } as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -430,7 +430,7 @@ describe('DocumentParser', () => {
         info: {},
         metadata: null,
         version: '1.4',
-      });
+      } as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),
@@ -466,7 +466,7 @@ describe('DocumentParser', () => {
         info: {},
         metadata: null,
         version: '1.4',
-      });
+      } as any);
 
       const mockPdfDoc = {
         getPageCount: jest.fn().mockReturnValue(1),

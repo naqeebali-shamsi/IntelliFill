@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { enqueueDocumentForReprocessing } from '../queues/ocrQueue';
 import Bull from 'bull';
 

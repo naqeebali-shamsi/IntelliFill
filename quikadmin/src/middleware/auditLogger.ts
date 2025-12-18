@@ -21,6 +21,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { createClient } from 'redis';
+import { sanitizeForLogging, mayContainPII } from '../utils/piiSanitizer';
 
 // ============================================================================
 // Types & Interfaces
@@ -37,6 +38,15 @@ export interface AuditLogEntry {
   metadata: Record<string, unknown> | null;
   ipAddress: string | null;
   userAgent: string | null;
+
+  // NEW COMPLIANCE FIELDS
+  piiPresent: boolean;
+  phiPresent: boolean;
+  dataClassification: 'public' | 'internal' | 'confidential' | 'restricted';
+  complianceFrameworks: string[];
+  retentionDays: number;
+  purpose?: string;
+  consentVerified?: boolean;
 }
 
 export interface AnomalyDetectionConfig {
@@ -171,6 +181,19 @@ export class AuditLoggerService {
    */
   async log(entry: AuditLogEntry): Promise<void> {
     try {
+      // Build metadata with compliance fields
+      const enrichedMetadata = {
+        ...(entry.metadata || {}),
+        // Compliance fields stored in metadata JSON
+        piiPresent: entry.piiPresent,
+        phiPresent: entry.phiPresent,
+        dataClassification: entry.dataClassification,
+        complianceFrameworks: entry.complianceFrameworks,
+        retentionDays: entry.retentionDays,
+        purpose: entry.purpose,
+        consentVerified: entry.consentVerified,
+      };
+
       // Store in database
       await prisma.auditLog.create({
         data: {
@@ -181,7 +204,7 @@ export class AuditLoggerService {
           entityId: entry.entityId,
           oldValue: (entry.oldValue || undefined) as Prisma.InputJsonValue | undefined,
           newValue: (entry.newValue || undefined) as Prisma.InputJsonValue | undefined,
-          metadata: (entry.metadata || undefined) as Prisma.InputJsonValue | undefined,
+          metadata: enrichedMetadata as Prisma.InputJsonValue,
           ipAddress: entry.ipAddress,
           userAgent: entry.userAgent,
         },
@@ -194,6 +217,9 @@ export class AuditLoggerService {
         organizationId: entry.organizationId,
         entityType: entry.entityType,
         entityId: entry.entityId,
+        dataClassification: entry.dataClassification,
+        piiPresent: entry.piiPresent,
+        phiPresent: entry.phiPresent,
       });
 
       // Run anomaly detection asynchronously
@@ -543,6 +569,36 @@ export function createAuditMiddleware(
       // Extract entity info from path
       const { entityType, entityId } = extractEntityFromPath(req.path);
 
+      // Sanitize request body if present
+      let sanitizedNewValue = null;
+      let piiPresent = false;
+      let phiPresent = false;
+
+      if (includeRequestBody && ['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+        const sanitizationResult = sanitizeBody(req.body);
+        sanitizedNewValue = sanitizationResult.sanitized;
+        piiPresent = sanitizationResult.piiPresent;
+        phiPresent = sanitizationResult.phiPresent;
+      }
+
+      // Sanitize response body if present
+      let sanitizedResponseBody = null;
+      if (responseBody && includeResponseBody) {
+        const sanitizationResult = sanitizeBody(responseBody);
+        sanitizedResponseBody = sanitizationResult.sanitized;
+        piiPresent = piiPresent || sanitizationResult.piiPresent;
+        phiPresent = phiPresent || sanitizationResult.phiPresent;
+      }
+
+      // Determine data classification
+      const dataClassification = detectDataClassification(entityType, action);
+
+      // Calculate retention days
+      const retentionDays = calculateRetentionDays(dataClassification);
+
+      // Default compliance frameworks for UAE document processing
+      const complianceFrameworks = ['PIPEDA'];
+
       const entry: AuditLogEntry = {
         userId: user?.id || null,
         organizationId: user?.organizationId || null,
@@ -550,22 +606,25 @@ export function createAuditMiddleware(
         entityType,
         entityId,
         oldValue: null,
-        newValue:
-          includeRequestBody && ['POST', 'PUT', 'PATCH'].includes(req.method)
-            ? sanitizeBody(req.body)
-            : null,
+        newValue: sanitizedNewValue,
         metadata: {
           requestId,
           method: req.method,
           path: req.path,
           statusCode: res.statusCode,
           duration,
-          ...(responseBody && includeResponseBody
-            ? { responseBody: sanitizeBody(responseBody) }
-            : {}),
+          ...(sanitizedResponseBody ? { responseBody: sanitizedResponseBody } : {}),
         },
         ipAddress: getClientIp(req),
         userAgent: req.headers['user-agent'] || null,
+        // Compliance fields
+        piiPresent,
+        phiPresent,
+        dataClassification,
+        complianceFrameworks,
+        retentionDays,
+        purpose: action, // Use action as default purpose
+        consentVerified: user ? true : undefined, // Authenticated users have verified consent
       };
 
       // Log asynchronously
@@ -668,36 +727,102 @@ function singularize(word: string): string {
 
 /**
  * Sanitize request/response body for logging
- * Removes sensitive fields
+ * Uses piiSanitizer utility for comprehensive PII detection and removal
  */
-function sanitizeBody(body: any): any {
-  if (!body || typeof body !== 'object') return body;
+function sanitizeBody(body: any): { sanitized: any; piiPresent: boolean; phiPresent: boolean } {
+  if (!body || typeof body !== 'object') {
+    return { sanitized: body, piiPresent: false, phiPresent: false };
+  }
 
-  const sensitiveFields = [
-    'password',
-    'token',
-    'secret',
-    'key',
-    'authorization',
-    'cookie',
-    'embedding',
+  // Use the comprehensive PII sanitizer
+  const sanitized = sanitizeForLogging(body);
+
+  // Detect PII presence in original body
+  const piiPresent = mayContainPII(body);
+
+  // Detect PHI presence (health-related fields)
+  const phiPresent = detectPHI(body);
+
+  return { sanitized, piiPresent, phiPresent };
+}
+
+/**
+ * Detect if body contains Protected Health Information (PHI)
+ */
+function detectPHI(body: any): boolean {
+  if (!body || typeof body !== 'object') return false;
+
+  const phiPatterns = [
+    /medical/i,
+    /health/i,
+    /diagnosis/i,
+    /prescription/i,
+    /treatment/i,
+    /patient/i,
+    /doctor/i,
+    /clinic/i,
+    /hospital/i,
   ];
-  const sanitized = { ...body };
 
-  for (const field of sensitiveFields) {
-    if (field in sanitized) {
-      sanitized[field] = '[REDACTED]';
+  const keys = Object.keys(body).join(' ').toLowerCase();
+  const values = JSON.stringify(Object.values(body)).toLowerCase();
+  const combined = keys + ' ' + values;
+
+  return phiPatterns.some((pattern) => pattern.test(combined));
+}
+
+/**
+ * Detect data classification based on entity type and action
+ */
+function detectDataClassification(
+  entityType: string | null,
+  action: string
+): 'public' | 'internal' | 'confidential' | 'restricted' {
+  if (!entityType) return 'public';
+
+  const entityLower = entityType.toLowerCase();
+  const actionLower = action.toLowerCase();
+
+  // RESTRICTED: Sensitive documents (passport, Emirates ID)
+  if (entityLower === 'document') {
+    if (
+      actionLower.includes('passport') ||
+      actionLower.includes('emirates') ||
+      actionLower.includes('id')
+    ) {
+      return 'restricted';
     }
   }
 
-  // Recursively sanitize nested objects
-  for (const [key, value] of Object.entries(sanitized)) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      sanitized[key] = sanitizeBody(value);
-    }
+  // CONFIDENTIAL: Client profiles and personal data
+  if (entityLower === 'client' || entityLower === 'user') {
+    return 'confidential';
   }
 
-  return sanitized;
+  // INTERNAL: Templates and organizational resources
+  if (entityLower === 'template' || entityLower === 'form') {
+    return 'internal';
+  }
+
+  // Default to public for everything else
+  return 'public';
+}
+
+/**
+ * Calculate retention days based on data classification
+ */
+function calculateRetentionDays(classification: 'public' | 'internal' | 'confidential' | 'restricted'): number {
+  switch (classification) {
+    case 'restricted':
+      return 2555; // 7 years for compliance (passport, ID documents)
+    case 'confidential':
+      return 1825; // 5 years for client data
+    case 'internal':
+      return 1095; // 3 years for templates/forms
+    case 'public':
+    default:
+      return 365; // 1 year for general logs
+  }
 }
 
 /**

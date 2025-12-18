@@ -1,7 +1,7 @@
 import { PDFDocument, PDFForm, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
 import * as fs from 'fs/promises';
 import { MappingResult } from '../mappers/FieldMapper';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
 export interface FillResult {
   success: boolean;

@@ -1,7 +1,7 @@
 import { QueueService } from '../queue/QueueService';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { DatabaseService } from '../database/DatabaseService';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -21,12 +21,14 @@ class QueueProcessor {
         return false;
       }
 
-      // Initialize services with required dependencies
+      // Initialize services with required dependencies (lazy loaded to avoid circular deps)
+      /* eslint-disable @typescript-eslint/no-require-imports */
       const { DocumentParser } = require('../parsers/DocumentParser');
       const { DataExtractor } = require('../extractors/DataExtractor');
       const { FieldMapper } = require('../mappers/FieldMapper');
       const { FormFiller } = require('../fillers/FormFiller');
       const { ValidationService } = require('../validators/ValidationService');
+      /* eslint-enable @typescript-eslint/no-require-imports */
 
       const intelliFillService = new IntelliFillService({
         documentParser: new DocumentParser(),

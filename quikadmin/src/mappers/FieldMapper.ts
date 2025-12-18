@@ -1,5 +1,5 @@
 import { ExtractedData } from '../extractors/DataExtractor';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
 export interface FieldMapping {
   formField: string;

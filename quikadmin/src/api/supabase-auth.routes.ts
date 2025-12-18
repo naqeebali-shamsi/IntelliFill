@@ -24,7 +24,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabaseAdmin, supabase } from '../utils/supabase';
 import { prisma } from '../utils/prisma';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 
 // Test mode configuration
@@ -202,7 +202,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Create User in Supabase Auth =====
 
-        logger.info(`Attempting to register user with Supabase: ${email}`);
+        logger.info('Attempting to register user with Supabase', { email });
 
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: email.toLowerCase(),
@@ -263,7 +263,7 @@ export function createSupabaseAuthRoutes(): Router {
             },
           });
 
-          logger.info(`User profile created in Prisma: ${email}`);
+          logger.info('User profile created in Prisma', { email });
 
           // ===== Generate Session Tokens =====
 
@@ -298,7 +298,7 @@ export function createSupabaseAuthRoutes(): Router {
 
           // ===== Success Response =====
 
-          logger.info(`New user registered successfully: ${email}`);
+          logger.info('New user registered successfully', { email });
 
           res.status(201).json({
             success: true,
@@ -386,13 +386,13 @@ export function createSupabaseAuthRoutes(): Router {
         });
       }
 
-      logger.info(`Login attempt for user: ${email} (test mode: ${isTestMode})`);
+      logger.info('Login attempt', { email, isTestMode });
 
       // ===== TEST MODE: Authenticate with Prisma/bcrypt =====
       // In test mode (E2E tests), we authenticate directly against Prisma
       // since Supabase Auth is not available in the Docker test environment
       if (isTestMode) {
-        logger.info(`[TEST MODE] Authenticating ${email} via Prisma/bcrypt`);
+        logger.info('[TEST MODE] Authenticating via Prisma/bcrypt', { email });
 
         // Find user in Prisma
         const user = await prisma.user.findUnique({
@@ -412,7 +412,7 @@ export function createSupabaseAuthRoutes(): Router {
         });
 
         if (!user) {
-          logger.warn(`[TEST MODE] User not found: ${email}`);
+          logger.warn('[TEST MODE] User not found', { email });
           return res.status(401).json({
             error: 'Invalid email or password',
           });
@@ -421,7 +421,7 @@ export function createSupabaseAuthRoutes(): Router {
         // Verify password with bcrypt
         const passwordValid = await bcrypt.compare(password, user.password);
         if (!passwordValid) {
-          logger.warn(`[TEST MODE] Invalid password for user: ${email}`);
+          logger.warn('[TEST MODE] Invalid password', { email });
           return res.status(401).json({
             error: 'Invalid email or password',
           });
@@ -429,7 +429,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // Check if account is active
         if (!user.isActive) {
-          logger.warn(`[TEST MODE] Inactive user attempted login: ${email}`);
+          logger.warn('[TEST MODE] Inactive user attempted login', { email });
           return res.status(403).json({
             error: 'Account is deactivated. Please contact support.',
             code: 'ACCOUNT_DEACTIVATED',
@@ -464,7 +464,7 @@ export function createSupabaseAuthRoutes(): Router {
           data: { lastLogin: new Date() },
         });
 
-        logger.info(`[TEST MODE] User logged in successfully: ${email}`);
+        logger.info('[TEST MODE] User logged in successfully', { email });
 
         return res.json({
           success: true,
@@ -498,7 +498,7 @@ export function createSupabaseAuthRoutes(): Router {
       });
 
       if (authError || !sessionData.session || !sessionData.user) {
-        logger.warn(`Login failed for ${email}:`, authError?.message || 'No session returned');
+        logger.warn('Login failed', { email, error: authError?.message || 'No session returned' });
         return res.status(401).json({
           error: 'Invalid email or password',
         });
@@ -533,7 +533,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       // Check if account is active
       if (!user.isActive) {
-        logger.warn(`Inactive user attempted login: ${email}`);
+        logger.warn('Inactive user attempted login', { userId: user.id });
         return res.status(403).json({
           error: 'Account is deactivated. Please contact support.',
           code: 'ACCOUNT_DEACTIVATED',
@@ -549,7 +549,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       // ===== Success Response =====
 
-      logger.info(`User logged in successfully: ${email}`);
+      logger.info('User logged in successfully', { userId: user.id });
 
       res.json({
         success: true,
@@ -608,10 +608,10 @@ export function createSupabaseAuthRoutes(): Router {
         if (userId) {
           try {
             await supabaseAdmin.auth.admin.signOut(userId, 'global');
-            logger.info(`User logged out: ${email}`);
+            logger.info('User logged out', { userId });
           } catch (signOutError) {
             // Log but don't fail - logout should be idempotent
-            logger.warn(`Supabase sign out failed for ${email}:`, signOutError);
+            logger.warn('Supabase sign out failed', { userId, error: signOutError });
           }
         }
 
@@ -689,7 +689,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       // ===== Success Response =====
 
-      logger.info(`Token refreshed for user: ${sessionData.user.email}`);
+      logger.info('Token refreshed for user', { userId: sessionData.user.id });
 
       res.json({
         success: true,
@@ -836,7 +836,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Send Password Reset Email =====
 
-        logger.info(`Password reset requested for: ${email}`);
+        logger.info('Password reset requested', { email });
 
         // Determine redirect URL
         const resetRedirectUrl =
@@ -860,7 +860,7 @@ export function createSupabaseAuthRoutes(): Router {
         // Always return success to prevent email enumeration attacks
         // The user will receive an email only if the account exists
 
-        logger.info(`Password reset email sent (or would be sent if account exists): ${email}`);
+        logger.info('Password reset email sent (or would be sent if account exists)', { email });
 
         res.json({
           success: true,
@@ -1040,7 +1040,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Success Response =====
 
-        logger.info(`Password reset successfully for user: ${session.user.email}`);
+        logger.info('Password reset successfully', { userId: session.user.id });
 
         res.json({
           success: true,
@@ -1123,7 +1123,7 @@ export function createSupabaseAuthRoutes(): Router {
         });
 
         if (verifyError) {
-          logger.warn(`Incorrect current password for user: ${req.user.email}`);
+          logger.warn('Incorrect current password', { userId: req.user.id });
           return res.status(400).json({
             error: 'Current password is incorrect',
           });
@@ -1131,7 +1131,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Update Password in Supabase =====
 
-        logger.info(`Changing password for user: ${req.user.email}`);
+        logger.info('Changing password', { userId: req.user.id });
 
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(req.user.id, {
           password: newPassword,
@@ -1155,7 +1155,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         try {
           await supabaseAdmin.auth.admin.signOut(req.user.id, 'global');
-          logger.info(`All sessions invalidated for user: ${req.user.email}`);
+          logger.info('All sessions invalidated', { userId: req.user.id });
         } catch (signOutError) {
           // Log but don't fail if sign out fails
           logger.warn('Failed to sign out all sessions after password change:', signOutError);
@@ -1163,7 +1163,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Success Response =====
 
-        logger.info(`Password changed successfully for user: ${req.user.email}`);
+        logger.info('Password changed successfully', { userId: req.user.id });
 
         res.json({
           success: true,
@@ -1232,7 +1232,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Verify OTP with Supabase =====
 
-        logger.info(`Email verification attempt for: ${email}`);
+        logger.info('Email verification attempt', { email });
 
         const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
           email: email.toLowerCase(),
@@ -1261,7 +1261,7 @@ export function createSupabaseAuthRoutes(): Router {
             data: { emailVerified: true },
           });
 
-          logger.info(`Email verified successfully for user: ${email}`);
+          logger.info('Email verified successfully', { userId: verifyData.user.id });
         } catch (updateError: any) {
           // Log error but still return success since Supabase verification succeeded
           logger.error('Failed to update emailVerified in Prisma:', updateError);
@@ -1346,7 +1346,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         if (!user) {
           // Don't reveal if user exists - return generic success message
-          logger.info(`Resend verification requested for non-existent email: ${normalizedEmail}`);
+          logger.info('Resend verification requested for non-existent email', { email: normalizedEmail });
           return res.json({
             success: true,
             message: 'If an account exists with this email, a verification code has been sent.',
@@ -1364,7 +1364,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Resend Verification Email via Supabase =====
 
-        logger.info(`Resending verification email for: ${normalizedEmail}`);
+        logger.info('Resending verification email', { email: normalizedEmail });
 
         const { error: resendError } = await supabase.auth.resend({
           type: 'signup',
@@ -1389,7 +1389,7 @@ export function createSupabaseAuthRoutes(): Router {
 
         // ===== Success Response =====
 
-        logger.info(`Verification email resent successfully to: ${normalizedEmail}`);
+        logger.info('Verification email resent successfully', { email: normalizedEmail });
 
         res.json({
           success: true,

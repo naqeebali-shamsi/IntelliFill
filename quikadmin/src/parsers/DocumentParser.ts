@@ -2,7 +2,7 @@ import { PDFDocument } from 'pdf-lib';
 import * as fs from 'fs/promises';
 import * as mammoth from 'mammoth';
 import { parse } from 'csv-parse/sync';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import pdfParse from 'pdf-parse';
 
 export interface ParsedDocument {

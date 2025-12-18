@@ -9,7 +9,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { prisma } from '../utils/prisma';
 import { z } from 'zod';
 
