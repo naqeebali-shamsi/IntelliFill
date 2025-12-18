@@ -86,22 +86,22 @@ export class MCPDataTransformer {
       formatCurrency: (value: number) => {
         return new Intl.NumberFormat('en-US', {
           style: 'currency',
-          currency: 'USD'
+          currency: 'USD',
         }).format(value);
       },
       arrayToCSV: (value: any[]) => value?.join(','),
-      csvToArray: (value: string) => value?.split(',').map(v => v.trim()),
-      mapField: (mapping: Record<string, any>) => (value: any) => mapping[value] || value
+      csvToArray: (value: string) => value?.split(',').map((v) => v.trim()),
+      mapField: (mapping: Record<string, any>) => (value: any) => mapping[value] || value,
     };
   }
 
-  private transformers: Record<string, Function> = {};
+  private transformers: Record<string, (...args: any[]) => any> = {};
 
   registerSchema(schema: TransformationSchema): void {
     this.schemas.set(schema.name, schema);
     this.logger.info(`Registered transformation schema: ${schema.name}`, {
       version: schema.version,
-      ruleCount: schema.rules.length
+      ruleCount: schema.rules.length,
     });
   }
 
@@ -115,7 +115,7 @@ export class MCPDataTransformer {
     }
   ): Promise<{ data: any; validation: ValidationResult }> {
     const schema = this.schemas.get(schemaName);
-    
+
     if (!schema) {
       throw new Error(`Transformation schema not found: ${schemaName}`);
     }
@@ -132,7 +132,7 @@ export class MCPDataTransformer {
       this.cacheMisses++;
 
       // Pre-transform hook
-      let transformedData = schema.preTransform ? schema.preTransform(data) : data;
+      const transformedData = schema.preTransform ? schema.preTransform(data) : data;
 
       // Apply transformation rules
       let result: any = options?.preserveUnmapped ? { ...transformedData } : {};
@@ -142,21 +142,20 @@ export class MCPDataTransformer {
       for (const rule of schema.rules) {
         try {
           const sourceValue = this.extractValue(transformedData, rule.source);
-          
+
           // Check required fields
           if (rule.required && (sourceValue === undefined || sourceValue === null)) {
             errors.push({
               field: rule.target,
               message: `Required field is missing`,
-              value: sourceValue
+              value: sourceValue,
             });
             continue;
           }
 
           // Apply default value if needed
-          let value = sourceValue !== undefined && sourceValue !== null
-            ? sourceValue
-            : rule.defaultValue;
+          let value =
+            sourceValue !== undefined && sourceValue !== null ? sourceValue : rule.defaultValue;
 
           // Apply transformation
           if (rule.transform && value !== undefined) {
@@ -170,7 +169,7 @@ export class MCPDataTransformer {
               errors.push({
                 field: rule.target,
                 message: validation.error.message,
-                value
+                value,
               });
               continue;
             }
@@ -185,7 +184,7 @@ export class MCPDataTransformer {
           this.logger.error(`Error applying transformation rule for ${rule.target}`, error);
           errors.push({
             field: rule.target,
-            message: error.message
+            message: error.message,
           });
         }
       }
@@ -199,15 +198,15 @@ export class MCPDataTransformer {
       if (schema.validation) {
         const validation = schema.validation.validate(result, {
           abortEarly: false,
-          allowUnknown: !options?.strict
+          allowUnknown: !options?.strict,
         });
 
         if (validation.error) {
-          validation.error.details.forEach(detail => {
+          validation.error.details.forEach((detail) => {
             errors.push({
               field: detail.path.join('.'),
               message: detail.message,
-              value: detail.context?.value
+              value: detail.context?.value,
             });
           });
         }
@@ -216,7 +215,7 @@ export class MCPDataTransformer {
       const validationResult: ValidationResult = {
         valid: errors.length === 0,
         errors: errors.length > 0 ? errors : undefined,
-        warnings: warnings.length > 0 ? warnings : undefined
+        warnings: warnings.length > 0 ? warnings : undefined,
       };
 
       const response = { data: result, validation: validationResult };
@@ -275,7 +274,7 @@ export class MCPDataTransformer {
 
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
-      
+
       // Handle array notation
       const arrayMatch = part.match(/^(.+)\[(\d+)\]$/);
       if (arrayMatch) {
@@ -311,7 +310,7 @@ export class MCPDataTransformer {
 
   async validate(data: any, schemaName: string): Promise<ValidationResult> {
     const schema = this.schemas.get(schemaName);
-    
+
     if (!schema) {
       throw new Error(`Validation schema not found: ${schemaName}`);
     }
@@ -322,12 +321,12 @@ export class MCPDataTransformer {
     // Validate against schema rules
     for (const rule of schema.rules) {
       const value = this.extractValue(data, rule.target);
-      
+
       if (rule.required && (value === undefined || value === null)) {
         errors.push({
           field: rule.target,
           message: 'Required field is missing',
-          value
+          value,
         });
       }
 
@@ -337,7 +336,7 @@ export class MCPDataTransformer {
           errors.push({
             field: rule.target,
             message: validation.error.message,
-            value
+            value,
           });
         }
       }
@@ -346,15 +345,15 @@ export class MCPDataTransformer {
     // Overall schema validation
     if (schema.validation) {
       const validation = schema.validation.validate(data, {
-        abortEarly: false
+        abortEarly: false,
       });
 
       if (validation.error) {
-        validation.error.details.forEach(detail => {
+        validation.error.details.forEach((detail) => {
           errors.push({
             field: detail.path.join('.'),
             message: detail.message,
-            value: detail.context?.value
+            value: detail.context?.value,
           });
         });
       }
@@ -363,23 +362,21 @@ export class MCPDataTransformer {
     return {
       valid: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined,
-      warnings: warnings.length > 0 ? warnings : undefined
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   }
 
-  registerTransformer(name: string, transformer: Function): void {
+  registerTransformer(name: string, transformer: (...args: any[]) => any): void {
     this.transformers[name] = transformer;
     this.logger.debug(`Registered custom transformer: ${name}`);
   }
 
-  getTransformer(name: string): Function | undefined {
+  getTransformer(name: string): ((...args: any[]) => any) | undefined {
     return this.transformers[name];
   }
 
   private getCacheKey(data: any, schemaName: string): string {
-    const dataHash = crypto.createHash('md5')
-      .update(JSON.stringify(data))
-      .digest('hex');
+    const dataHash = crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
     return `${schemaName}:${dataHash}`;
   }
 
@@ -389,7 +386,7 @@ export class MCPDataTransformer {
       const firstKey = this.transformCache.keys().next().value;
       this.transformCache.delete(firstKey);
     }
-    
+
     this.transformCache.set(key, value);
   }
 
@@ -406,7 +403,7 @@ export class MCPDataTransformer {
       maxSize: this.cacheMaxSize,
       hits: this.cacheHits,
       misses: this.cacheMisses,
-      hitRate: total > 0 ? this.cacheHits / total : 0
+      hitRate: total > 0 ? this.cacheHits / total : 0,
     };
   }
 

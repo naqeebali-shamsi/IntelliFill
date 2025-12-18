@@ -172,6 +172,7 @@ describe('Knowledge API Routes', () => {
   describe('Authentication', () => {
     it('should require authentication for all endpoints', async () => {
       // Get the actual authenticate mock
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { authenticateSupabase } = require('../../middleware/supabaseAuth');
 
       // Make it return 401 for this test
@@ -179,9 +180,7 @@ describe('Knowledge API Routes', () => {
         res.status(401).json({ error: 'Unauthorized' });
       });
 
-      const response = await request(app)
-        .get('/api/knowledge/sources')
-        .expect(401);
+      const response = await request(app).get('/api/knowledge/sources').expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });
@@ -199,9 +198,7 @@ describe('Knowledge API Routes', () => {
         organizationId: null,
       });
 
-      const response = await request(app)
-        .get('/api/knowledge/sources')
-        .expect(403);
+      const response = await request(app).get('/api/knowledge/sources').expect(403);
 
       expect(response.body.error).toBe('Organization required');
     });
@@ -232,9 +229,7 @@ describe('Knowledge API Routes', () => {
       mockPrisma.documentSource.findMany.mockResolvedValue(mockSources);
       mockPrisma.documentSource.count.mockResolvedValue(1);
 
-      const response = await request(app)
-        .get('/api/knowledge/sources')
-        .expect(200);
+      const response = await request(app).get('/api/knowledge/sources').expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.sources).toHaveLength(1);
@@ -245,9 +240,7 @@ describe('Knowledge API Routes', () => {
       mockPrisma.documentSource.findMany.mockResolvedValue([]);
       mockPrisma.documentSource.count.mockResolvedValue(0);
 
-      await request(app)
-        .get('/api/knowledge/sources?status=COMPLETED')
-        .expect(200);
+      await request(app).get('/api/knowledge/sources?status=COMPLETED').expect(200);
 
       expect(mockPrisma.documentSource.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -262,9 +255,7 @@ describe('Knowledge API Routes', () => {
       mockPrisma.documentSource.findMany.mockResolvedValue([]);
       mockPrisma.documentSource.count.mockResolvedValue(0);
 
-      await request(app)
-        .get('/api/knowledge/sources?limit=10&offset=20')
-        .expect(200);
+      await request(app).get('/api/knowledge/sources?limit=10&offset=20').expect(200);
 
       expect(mockPrisma.documentSource.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -286,9 +277,7 @@ describe('Knowledge API Routes', () => {
 
       mockPrisma.documentSource.findFirst.mockResolvedValue(mockSource);
 
-      const response = await request(app)
-        .get(`/api/knowledge/sources/${testSourceId}`)
-        .expect(200);
+      const response = await request(app).get(`/api/knowledge/sources/${testSourceId}`).expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.source.id).toBe(testSourceId);
@@ -297,9 +286,7 @@ describe('Knowledge API Routes', () => {
     it('should return 404 for non-existent source', async () => {
       mockPrisma.documentSource.findFirst.mockResolvedValue(null);
 
-      const response = await request(app)
-        .get(`/api/knowledge/sources/${testSourceId}`)
-        .expect(404);
+      const response = await request(app).get(`/api/knowledge/sources/${testSourceId}`).expect(404);
 
       expect(response.body.error).toBe('Document source not found');
     });
@@ -597,9 +584,7 @@ describe('Knowledge API Routes', () => {
         { id: 'source-1', title: 'Recent Doc', status: 'COMPLETED', createdAt: new Date() },
       ]);
 
-      const response = await request(app)
-        .get('/api/knowledge/stats')
-        .expect(200);
+      const response = await request(app).get('/api/knowledge/stats').expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.stats.totalSources).toBe(15);
@@ -617,24 +602,20 @@ describe('Knowledge API Routes', () => {
 
   describe('Rate Limiting', () => {
     it('should apply search rate limiter', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { knowledgeSearchLimiter } = require('../../middleware/rateLimiter');
 
-      await request(app)
-        .post('/api/knowledge/search')
-        .send({ query: 'test query' })
-        .expect(200);
+      await request(app).post('/api/knowledge/search').send({ query: 'test query' }).expect(200);
 
       expect(knowledgeSearchLimiter).toHaveBeenCalled();
     });
 
     it('should apply suggest rate limiter', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { knowledgeSuggestLimiter } = require('../../middleware/rateLimiter');
       mockPrisma.$queryRaw.mockResolvedValue([]);
 
-      await request(app)
-        .post('/api/knowledge/suggest')
-        .send({ query: 'test' })
-        .expect(200);
+      await request(app).post('/api/knowledge/suggest').send({ query: 'test' }).expect(200);
 
       expect(knowledgeSuggestLimiter).toHaveBeenCalled();
     });

@@ -27,19 +27,30 @@ const storage = multer.diskStorage({
   destination: 'uploads/',
   filename: (req, file, cb) => {
     // Generate unique filename but preserve extension
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `${uniqueSuffix}${ext}`);
-  }
+  },
 });
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv', '.jpeg', '.jpg', '.png', '.gif', '.webp'];
+    const allowedTypes = [
+      '.pdf',
+      '.docx',
+      '.doc',
+      '.txt',
+      '.csv',
+      '.jpeg',
+      '.jpg',
+      '.png',
+      '.gif',
+      '.webp',
+    ];
     const ext = path.extname(file.originalname).toLowerCase();
 
     try {
@@ -54,10 +65,14 @@ const upload = multer({
     } catch (error) {
       cb(error as Error);
     }
-  }
+  },
 });
 
-export function setupRoutes(app: express.Application, intelliFillService: IntelliFillService, db?: DatabaseService): void {
+export function setupRoutes(
+  app: express.Application,
+  intelliFillService: IntelliFillService,
+  db?: DatabaseService
+): void {
   const router = Router();
 
   // Setup authentication routes
@@ -94,7 +109,6 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   const clientDocumentRoutes = createClientDocumentRoutes();
   app.use('/api/clients/:clientId/documents', clientDocumentRoutes);
 
-
   // Setup form template routes (Task 10 - Form Templates with field mappings)
   const formTemplateRoutes = createFormTemplateRoutes();
   app.use('/api/form-templates', formTemplateRoutes);
@@ -102,15 +116,15 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   // Setup filled forms routes (Task 11 - Form Generation)
   const filledFormRoutes = createFilledFormRoutes();
   app.use('/api/filled-forms', filledFormRoutes);
-// Setup knowledge base routes (Vector Search - Phase 3)  // Mounted at /api/knowledge for vector search and document source management  const knowledgeRoutes = createKnowledgeRoutes();  app.use('/api/knowledge', knowledgeRoutes);
+  // Setup knowledge base routes (Vector Search - Phase 3)  // Mounted at /api/knowledge for vector search and document source management  const knowledgeRoutes = createKnowledgeRoutes();  app.use('/api/knowledge', knowledgeRoutes);
 
   // Health check
   router.get('/health', (req: Request, res: Response) => {
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || 'development',
     });
   });
 
@@ -120,7 +134,7 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
       const checks = {
         database: false,
         redis: false,
-        filesystem: false
+        filesystem: false,
       };
 
       // Check database if available
@@ -135,6 +149,7 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
       // Check filesystem
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const fs = require('fs').promises;
         await fs.access('uploads/', fs.constants.W_OK);
         checks.filesystem = true;
@@ -144,6 +159,7 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
       // Check Redis
       try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { connected, client } = require('../middleware/rateLimiter').getRedisHealth();
         if (connected && client) {
           await client.ping();
@@ -153,26 +169,26 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
         logger.error('Redis health check failed:', error);
       }
 
-      const allHealthy = Object.values(checks).every(check => check === true);
-      
+      const allHealthy = Object.values(checks).every((check) => check === true);
+
       if (allHealthy) {
-        res.json({ 
+        res.json({
           status: 'ready',
           checks,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       } else {
-        res.status(503).json({ 
+        res.status(503).json({
           status: 'not ready',
           checks,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
     } catch (error) {
-      res.status(503).json({ 
+      res.status(503).json({
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
   });
@@ -181,11 +197,12 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
   // Phase 6 Complete: Uses Supabase-only authentication
   // Note: Files are NOT encrypted during processing to allow PDF parsing
   // Only the extracted data stored in the database is encrypted
-  router.post('/process/single',
+  router.post(
+    '/process/single',
     authenticateSupabase,
     upload.fields([
       { name: 'document', maxCount: 1 },
-      { name: 'form', maxCount: 1 }
+      { name: 'form', maxCount: 1 },
     ]),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -207,8 +224,8 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
             fileType: documentFile.mimetype,
             fileSize: documentFile.size,
             storageUrl: documentFile.path,
-            status: 'PROCESSING'
-          }
+            status: 'PROCESSING',
+          },
         });
 
         try {
@@ -217,11 +234,7 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
           const outputPath = `outputs/filled_${document.id}_${Date.now()}.pdf`;
 
           // Step 2: Process the document
-          const result = await intelliFillService.processSingle(
-            documentPath,
-            formPath,
-            outputPath
-          );
+          const result = await intelliFillService.processSingle(documentPath, formPath, outputPath);
 
           if (result.success) {
             // Step 3: Update document with extracted data (encrypted)
@@ -233,8 +246,8 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
                 extractedData: encryptedData,
                 status: 'COMPLETED',
                 confidence: result.mappingResult.overallConfidence,
-                processedAt: new Date()
-              }
+                processedAt: new Date(),
+              },
             });
 
             res.json({
@@ -246,28 +259,28 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
                 filledFields: result.fillResult.filledFields,
                 confidence: result.mappingResult.overallConfidence,
                 processingTime: result.processingTime,
-                warnings: result.fillResult.warnings
-              }
+                warnings: result.fillResult.warnings,
+              },
             });
           } else {
             // Update status to FAILED
             await prisma.document.update({
               where: { id: document.id },
-              data: { status: 'FAILED' }
+              data: { status: 'FAILED' },
             });
 
             res.status(400).json({
               success: false,
               message: 'Failed to fill PDF form',
               errors: result.errors,
-              warnings: result.fillResult.warnings
+              warnings: result.fillResult.warnings,
             });
           }
         } catch (processingError) {
           // Update status to FAILED on error
           await prisma.document.update({
             where: { id: document.id },
-            data: { status: 'FAILED' }
+            data: { status: 'FAILED' },
           });
           throw processingError;
         }
@@ -279,21 +292,22 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Process multiple documents and single form
   // Phase 6 Complete: Uses Supabase-only authentication
-  router.post('/process/multiple',
+  router.post(
+    '/process/multiple',
     authenticateSupabase,
     upload.fields([
       { name: 'documents', maxCount: 10 },
-      { name: 'form', maxCount: 1 }
+      { name: 'form', maxCount: 1 },
     ]),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        
+
         if (!files.documents || !files.form) {
           return res.status(400).json({ error: 'Documents and form file are required' });
         }
 
-        const documentPaths = files.documents.map(f => f.path);
+        const documentPaths = files.documents.map((f) => f.path);
         const formPath = files.form[0].path;
         const outputPath = `outputs/filled_${Date.now()}.pdf`;
 
@@ -313,15 +327,15 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
               confidence: result.mappingResult.overallConfidence,
               processingTime: result.processingTime,
               warnings: result.fillResult.warnings,
-              documentCount: documentPaths.length
-            }
+              documentCount: documentPaths.length,
+            },
           });
         } else {
           res.status(400).json({
             success: false,
             message: 'Failed to fill PDF forms',
             errors: result.errors,
-            warnings: result.fillResult.warnings
+            warnings: result.fillResult.warnings,
           });
         }
       } catch (error) {
@@ -332,30 +346,31 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Batch process with different forms for each document
   // Phase 6 Complete: Uses Supabase-only authentication
-  router.post('/process/batch',
+  router.post(
+    '/process/batch',
     authenticateSupabase,
     upload.fields([
       { name: 'documents', maxCount: 20 },
-      { name: 'forms', maxCount: 20 }
+      { name: 'forms', maxCount: 20 },
     ]),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-        
+
         if (!files.documents || !files.forms) {
           return res.status(400).json({ error: 'Documents and forms are required' });
         }
 
         if (files.documents.length !== files.forms.length) {
-          return res.status(400).json({ 
-            error: 'Number of documents must match number of forms' 
+          return res.status(400).json({
+            error: 'Number of documents must match number of forms',
           });
         }
 
         const jobs = files.documents.map((doc, i) => ({
           documents: [doc.path],
           form: files.forms[i].path,
-          output: `outputs/batch_${Date.now()}_${i}.pdf`
+          output: `outputs/batch_${Date.now()}_${i}.pdf`,
         }));
 
         const results = await intelliFillService.batchProcess(jobs);
@@ -365,10 +380,10 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
           message: 'Batch processing completed',
           data: {
             totalJobs: jobs.length,
-            successfulJobs: results.filter(r => r.success).length,
-            failedJobs: results.filter(r => !r.success).length,
-            results: results
-          }
+            successfulJobs: results.filter((r) => r.success).length,
+            failedJobs: results.filter((r) => !r.success).length,
+            results: results,
+          },
         });
       } catch (error) {
         next(error);
@@ -378,7 +393,8 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Get form fields
   // Phase 6 Complete: Uses Supabase-only optional authentication
-  router.post('/form/fields',
+  router.post(
+    '/form/fields',
     optionalAuthSupabase,
     upload.single('form'),
     async (req: Request, res: Response, next: NextFunction) => {
@@ -393,8 +409,8 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
           success: true,
           data: {
             fields: fields,
-            fieldCount: fields.length
-          }
+            fieldCount: fields.length,
+          },
         });
       } catch (error) {
         next(error);
@@ -404,7 +420,8 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
 
   // Validate document data
   // Phase 6 Complete: Uses Supabase-only authentication
-  router.post('/validate',
+  router.post(
+    '/validate',
     authenticateSupabase,
     upload.single('document'),
     async (req: Request, res: Response, next: NextFunction) => {
@@ -413,13 +430,11 @@ export function setupRoutes(app: express.Application, intelliFillService: Intell
           return res.status(400).json({ error: 'Document file is required' });
         }
 
-        const validationResult = await intelliFillService.validateDocument(
-          req.file.path
-        );
+        const validationResult = await intelliFillService.validateDocument(req.file.path);
 
         res.json({
           success: validationResult.valid,
-          data: validationResult
+          data: validationResult,
         });
       } catch (error) {
         next(error);

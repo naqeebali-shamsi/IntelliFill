@@ -10,16 +10,16 @@ const router = Router();
 
 // Schema for job ID validation
 const jobIdSchema = Joi.object({
-  id: Joi.string().required()
+  id: Joi.string().required(),
 });
 
 // Get job status (polling endpoint)
 router.get('/jobs/:id/status', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     const status = await getJobStatus(id);
-    
+
     if (!status) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -27,7 +27,7 @@ router.get('/jobs/:id/status', async (req: Request, res: Response) => {
     // Add cache headers for polling efficiency
     res.set({
       'Cache-Control': 'no-cache',
-      'X-Job-Status': status.status
+      'X-Job-Status': status.status,
     });
 
     return res.json(status);
@@ -42,16 +42,16 @@ router.get('/jobs/:id/status', async (req: Request, res: Response) => {
 router.post('/jobs/:id/cancel', authenticateSupabase, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Try document queue first
-    let documentJob = await documentQueue.getJob(id);
+    const documentJob = await documentQueue.getJob(id);
     if (documentJob) {
       await documentJob.remove();
       return res.json({ message: 'Job cancelled successfully', jobId: id });
     }
 
     // Try batch queue
-    let batchJob = await batchQueue.getJob(id);
+    const batchJob = await batchQueue.getJob(id);
     if (batchJob) {
       await batchJob.remove();
       return res.json({ message: 'Batch job cancelled successfully', jobId: id });
@@ -69,26 +69,26 @@ router.post('/jobs/:id/cancel', authenticateSupabase, async (req: Request, res: 
 router.post('/jobs/:id/retry', authenticateSupabase, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Try document queue first
-    let documentJob = await documentQueue.getJob(id);
+    const documentJob = await documentQueue.getJob(id);
     if (documentJob) {
       await documentJob.retry();
-      return res.json({ 
-        message: 'Job requeued successfully', 
+      return res.json({
+        message: 'Job requeued successfully',
         jobId: id,
-        status: 'queued'
+        status: 'queued',
       });
     }
 
     // Try batch queue
-    let batchJob = await batchQueue.getJob(id);
+    const batchJob = await batchQueue.getJob(id);
     if (batchJob) {
       await batchJob.retry();
-      return res.json({ 
-        message: 'Batch job requeued successfully', 
+      return res.json({
+        message: 'Batch job requeued successfully',
         jobId: id,
-        status: 'queued'
+        status: 'queued',
       });
     }
 
@@ -109,26 +109,26 @@ router.get('/jobs/queue/stats', async (req: Request, res: Response) => {
           batchQueue.getWaitingCount(),
           batchQueue.getActiveCount(),
           batchQueue.getCompletedCount(),
-          batchQueue.getFailedCount()
+          batchQueue.getFailedCount(),
         ]);
-        
+
         return {
           queue: 'batch-processing',
           waiting,
           active,
           completed,
           failed,
-          isHealthy: active < 50 && waiting < 500
+          isHealthy: active < 50 && waiting < 500,
         };
-      })()
+      })(),
     ]);
 
     return res.json({
       queues: {
         documentProcessing: documentHealth,
-        batchProcessing: batchHealth
+        batchProcessing: batchHealth,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     logger.error('Failed to get queue stats:', error);
@@ -144,22 +144,28 @@ router.get('/jobs/recent', authenticateSupabase, async (req: Request, res: Respo
 
     // Get recent jobs (last 10)
     const jobs = await documentQueue.getJobs(['completed', 'failed', 'active', 'waiting'], 0, 10);
-    
+
     // Filter by user and convert to DTOs
     const userJobs = jobs
-      .filter(job => job.data.userId === userId)
-      .map(job => toJobStatusDTO({
-        id: job.id,
-        type: 'document_processing',
-        status: job.failedReason ? 'failed' : 
-               job.finishedOn ? 'completed' : 
-               job.processedOn ? 'processing' : 'queued',
-        progress: job.progress() || 0,
-        created_at: new Date(job.timestamp),
-        started_at: job.processedOn ? new Date(job.processedOn) : undefined,
-        completed_at: job.finishedOn ? new Date(job.finishedOn) : undefined,
-        error: job.failedReason
-      }));
+      .filter((job) => job.data.userId === userId)
+      .map((job) =>
+        toJobStatusDTO({
+          id: job.id,
+          type: 'document_processing',
+          status: job.failedReason
+            ? 'failed'
+            : job.finishedOn
+              ? 'completed'
+              : job.processedOn
+                ? 'processing'
+                : 'queued',
+          progress: job.progress() || 0,
+          created_at: new Date(job.timestamp),
+          started_at: job.processedOn ? new Date(job.processedOn) : undefined,
+          completed_at: job.finishedOn ? new Date(job.finishedOn) : undefined,
+          error: job.failedReason,
+        })
+      );
 
     return res.json(userJobs);
   } catch (error) {

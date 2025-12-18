@@ -58,7 +58,7 @@ export class MCPClient extends EventEmitter {
     this.config = config;
     this.logger = createLogger('MCPClient');
     this.rateLimitTokens = config.rateLimit?.burst || config.rateLimit?.maxRequestsPerSecond || 10;
-    
+
     this.axiosInstance = this.createAxiosInstance();
     this.setupInterceptors();
   }
@@ -69,8 +69,8 @@ export class MCPClient extends EventEmitter {
       timeout: this.config.timeout || 30000,
       headers: {
         'Content-Type': 'application/json',
-        ...this.config.headers
-      }
+        ...this.config.headers,
+      },
     };
 
     // Configure authentication
@@ -79,16 +79,18 @@ export class MCPClient extends EventEmitter {
         case 'bearer':
           axiosConfig.headers!['Authorization'] = `Bearer ${this.config.auth.token}`;
           break;
-        case 'basic':
+        case 'basic': {
           const basicAuth = Buffer.from(
             `${this.config.auth.username}:${this.config.auth.password}`
           ).toString('base64');
           axiosConfig.headers!['Authorization'] = `Basic ${basicAuth}`;
           break;
-        case 'apikey':
+        }
+        case 'apikey': {
           const headerName = this.config.auth.apiKeyHeader || 'X-API-Key';
           axiosConfig.headers![headerName] = this.config.auth.apiKey!;
           break;
+        }
         case 'oauth2':
           // OAuth2 implementation would go here
           break;
@@ -104,19 +106,19 @@ export class MCPClient extends EventEmitter {
       (config) => {
         const requestId = this.generateRequestId();
         config.headers['X-Request-ID'] = requestId;
-        
+
         this.logger.debug('MCP request', {
           method: config.method,
           url: config.url,
-          requestId
+          requestId,
         });
-        
+
         this.emit('request:start', {
           method: config.method,
           url: config.url,
-          requestId
+          requestId,
         });
-        
+
         return config;
       },
       (error) => {
@@ -129,39 +131,39 @@ export class MCPClient extends EventEmitter {
     this.axiosInstance.interceptors.response.use(
       (response) => {
         const requestId = response.config.headers['X-Request-ID'];
-        
+
         this.logger.debug('MCP response', {
           status: response.status,
-          requestId
+          requestId,
         });
-        
+
         this.emit('response:success', {
           status: response.status,
-          requestId
+          requestId,
         });
-        
+
         return response;
       },
       async (error) => {
         const requestId = error.config?.headers?.['X-Request-ID'];
-        
+
         this.logger.error('MCP response error', {
           status: error.response?.status,
           message: error.message,
-          requestId
+          requestId,
         });
-        
+
         // Retry logic
         if (this.shouldRetry(error)) {
           return this.retryRequest(error.config);
         }
-        
+
         this.emit('response:error', {
           status: error.response?.status,
           message: error.message,
-          requestId
+          requestId,
         });
-        
+
         return Promise.reject(error);
       }
     );
@@ -180,29 +182,29 @@ export class MCPClient extends EventEmitter {
     // Retry on network errors or 5xx status codes
     const isNetworkError = !error.response;
     const isServerError = error.response?.status >= 500;
-    
+
     return isNetworkError || isServerError;
   }
 
   private async retryRequest(config: any): Promise<any> {
     config._retryCount = (config._retryCount || 0) + 1;
-    
+
     const delay = this.calculateRetryDelay(config._retryCount);
-    
+
     this.logger.info(`Retrying request (attempt ${config._retryCount})`, {
       url: config.url,
-      delay
+      delay,
     });
-    
+
     await this.sleep(delay);
-    
+
     return this.axiosInstance.request(config);
   }
 
   private calculateRetryDelay(retryCount: number): number {
     const baseDelay = this.config.retry?.delay || 1000;
     const multiplier = this.config.retry?.backoffMultiplier || 2;
-    
+
     return baseDelay * Math.pow(multiplier, retryCount - 1);
   }
 
@@ -215,17 +217,18 @@ export class MCPClient extends EventEmitter {
     const now = Date.now();
     const timeSinceRefill = now - this.lastTokenRefill;
     const tokensToAdd = (timeSinceRefill / 1000) * this.config.rateLimit.maxRequestsPerSecond;
-    
+
     this.rateLimitTokens = Math.min(
       this.rateLimitTokens + tokensToAdd,
       this.config.rateLimit.burst || this.config.rateLimit.maxRequestsPerSecond
     );
-    
+
     this.lastTokenRefill = now;
 
     // Wait if no tokens available
     if (this.rateLimitTokens < 1) {
-      const waitTime = (1 - this.rateLimitTokens) * 1000 / this.config.rateLimit.maxRequestsPerSecond;
+      const waitTime =
+        ((1 - this.rateLimitTokens) * 1000) / this.config.rateLimit.maxRequestsPerSecond;
       await this.sleep(waitTime);
       return this.enforceRateLimit();
     }
@@ -235,9 +238,9 @@ export class MCPClient extends EventEmitter {
 
   async request<T = any>(request: MCPRequest): Promise<MCPResponse<T>> {
     await this.enforceRateLimit();
-    
+
     const startTime = Date.now();
-    
+
     try {
       const response = await this.axiosInstance.request({
         method: request.method,
@@ -245,31 +248,31 @@ export class MCPClient extends EventEmitter {
         data: request.data,
         headers: request.headers,
         params: request.params,
-        timeout: request.timeout
+        timeout: request.timeout,
       });
 
       const duration = Date.now() - startTime;
-      
+
       return {
         data: response.data,
         status: response.status,
         headers: response.headers as Record<string, string>,
         duration,
-        requestId: response.config.headers['X-Request-ID']
+        requestId: response.config.headers['X-Request-ID'],
       };
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      
+
       if (error.response) {
         return {
           data: error.response.data,
           status: error.response.status,
           headers: error.response.headers,
           duration,
-          requestId: error.config?.headers?.['X-Request-ID']
+          requestId: error.config?.headers?.['X-Request-ID'],
         };
       }
-      
+
       throw error;
     }
   }
@@ -278,7 +281,7 @@ export class MCPClient extends EventEmitter {
     return this.request<T>({
       method: 'GET',
       path,
-      params
+      params,
     });
   }
 
@@ -286,7 +289,7 @@ export class MCPClient extends EventEmitter {
     return this.request<T>({
       method: 'POST',
       path,
-      data
+      data,
     });
   }
 
@@ -294,14 +297,14 @@ export class MCPClient extends EventEmitter {
     return this.request<T>({
       method: 'PUT',
       path,
-      data
+      data,
     });
   }
 
   async delete<T = any>(path: string): Promise<MCPResponse<T>> {
     return this.request<T>({
       method: 'DELETE',
-      path
+      path,
     });
   }
 
@@ -309,7 +312,7 @@ export class MCPClient extends EventEmitter {
     return this.request<T>({
       method: 'PATCH',
       path,
-      data
+      data,
     });
   }
 
@@ -318,7 +321,7 @@ export class MCPClient extends EventEmitter {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   updateAuth(auth: MCPClientConfig['auth']): void {
@@ -335,7 +338,7 @@ export class MCPClient extends EventEmitter {
     return {
       activeRequests: this.activeRequests,
       queuedRequests: this.requestQueue.length,
-      rateLimitTokens: this.rateLimitTokens
+      rateLimitTokens: this.rateLimitTokens,
     };
   }
 }

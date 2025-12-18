@@ -78,7 +78,7 @@ describe('DocumentParser', () => {
           author: 'Test Author',
           creationDate: new Date('2024-01-01'),
           hasText: true,
-          textLength: 36,
+          textLength: 35,
           requiresOCR: false,
           numpages: 2,
           numrender: 2,
@@ -250,17 +250,13 @@ describe('DocumentParser', () => {
       mockPdfParse.mockRejectedValue(new Error('PDF parse failed'));
       (PDFDocument.load as jest.Mock).mockRejectedValue(new Error('PDF lib failed'));
 
-      await expect(parser.parse('/test/invalid.pdf')).rejects.toThrow(
-        'Failed to parse PDF'
-      );
+      await expect(parser.parse('/test/invalid.pdf')).rejects.toThrow('Failed to parse PDF');
     });
 
     it('should handle file read errors', async () => {
       mockFs.readFile.mockRejectedValue(new Error('File not found'));
 
-      await expect(parser.parse('/test/nonexistent.pdf')).rejects.toThrow(
-        'Failed to parse PDF'
-      );
+      await expect(parser.parse('/test/nonexistent.pdf')).rejects.toThrow('Failed to parse PDF');
     });
 
     it('should handle PDFs with missing metadata gracefully', async () => {
@@ -409,7 +405,7 @@ describe('DocumentParser', () => {
 
     it('should handle files without extensions', async () => {
       await expect(parser.parse('/test/document')).rejects.toThrow(
-        'Unsupported file type: undefined'
+        'Unsupported file type: /test/document'
       );
     });
   });

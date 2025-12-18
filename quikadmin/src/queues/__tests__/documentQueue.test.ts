@@ -34,6 +34,7 @@ describe('documentQueue', () => {
     jest.clearAllMocks();
 
     // Setup Bull mock
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     Bull = require('bull');
     mockQueue = {
       process: jest.fn(),
@@ -55,12 +56,11 @@ describe('documentQueue', () => {
     it('should initialize queue successfully when Redis is available', async () => {
       Bull.mockImplementation(() => mockQueue);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isDocumentQueueAvailable } = require('../documentQueue');
 
       // Simulate 'ready' event
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       expect(isDocumentQueueAvailable()).toBe(true);
@@ -71,6 +71,7 @@ describe('documentQueue', () => {
         throw new Error('Redis connection failed');
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isDocumentQueueAvailable } = require('../documentQueue');
 
       expect(isDocumentQueueAvailable()).toBe(false);
@@ -79,12 +80,11 @@ describe('documentQueue', () => {
     it('should mark queue as unavailable on error event', () => {
       Bull.mockImplementation(() => mockQueue);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isDocumentQueueAvailable } = require('../documentQueue');
 
       // Simulate 'error' event
-      const errorHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'error'
-      )?.[1];
+      const errorHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'error')?.[1];
       if (errorHandler) errorHandler(new Error('Redis error'));
 
       expect(isDocumentQueueAvailable()).toBe(false);
@@ -93,23 +93,20 @@ describe('documentQueue', () => {
     it('should track queue availability state correctly', () => {
       Bull.mockImplementation(() => mockQueue);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isDocumentQueueAvailable } = require('../documentQueue');
 
       // Initially available (optimistic initialization)
       expect(isDocumentQueueAvailable()).toBe(true);
 
       // Mark as unavailable on error
-      const errorHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'error'
-      )?.[1];
+      const errorHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'error')?.[1];
       if (errorHandler) errorHandler(new Error('Redis down'));
 
       expect(isDocumentQueueAvailable()).toBe(false);
 
       // Mark as available on ready
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       expect(isDocumentQueueAvailable()).toBe(true);
@@ -126,6 +123,7 @@ describe('documentQueue', () => {
         throw new Error('Redis unavailable');
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth, isDocumentQueueAvailable } = require('../documentQueue');
 
       expect(isDocumentQueueAvailable()).toBe(false);
@@ -141,6 +139,7 @@ describe('documentQueue', () => {
         throw new Error('Redis unavailable');
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getJobStatus, isDocumentQueueAvailable } = require('../documentQueue');
 
       expect(isDocumentQueueAvailable()).toBe(false);
@@ -153,6 +152,7 @@ describe('documentQueue', () => {
         throw new Error('Redis unavailable');
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth } = require('../documentQueue');
 
       try {
@@ -178,12 +178,11 @@ describe('documentQueue', () => {
       mockQueue.getCompletedCount.mockResolvedValue(100);
       mockQueue.getFailedCount.mockResolvedValue(3);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth } = require('../documentQueue');
 
       // Ensure queue is marked as available
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const health = await getQueueHealth();
@@ -206,11 +205,10 @@ describe('documentQueue', () => {
       mockQueue.getCompletedCount.mockResolvedValue(100);
       mockQueue.getFailedCount.mockResolvedValue(3);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth } = require('../documentQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const health = await getQueueHealth();
@@ -226,11 +224,10 @@ describe('documentQueue', () => {
       mockQueue.getCompletedCount.mockResolvedValue(100);
       mockQueue.getFailedCount.mockResolvedValue(3);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth } = require('../documentQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const health = await getQueueHealth();
@@ -249,11 +246,10 @@ describe('documentQueue', () => {
 
       mockQueue.getJob.mockResolvedValue(null);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getJobStatus } = require('../documentQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const status = await getJobStatus('nonexistent-job');
@@ -278,11 +274,10 @@ describe('documentQueue', () => {
 
       mockQueue.getJob.mockResolvedValue(mockJob);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getJobStatus } = require('../documentQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const status = await getJobStatus('job-123');
@@ -299,6 +294,7 @@ describe('documentQueue', () => {
         throw new Error('Redis connection failed');
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getJobStatus } = require('../documentQueue');
 
       await expect(getJobStatus('job-123')).rejects.toThrow(QueueUnavailableError);
@@ -313,6 +309,7 @@ describe('documentQueue', () => {
     it('should track batch queue availability separately', () => {
       Bull.mockImplementation(() => mockQueue);
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isBatchQueueAvailable } = require('../documentQueue');
 
       // Simulate 'ready' event for batch queue
@@ -335,6 +332,7 @@ describe('documentQueue', () => {
         return mockQueue;
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { isBatchQueueAvailable } = require('../documentQueue');
 
       expect(isBatchQueueAvailable()).toBe(false);
@@ -350,6 +348,7 @@ describe('documentQueue', () => {
       Bull.mockImplementation(() => mockQueue);
 
       // Import to register SIGTERM handler
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../documentQueue');
 
       // Simulate SIGTERM
@@ -379,6 +378,7 @@ describe('documentQueue', () => {
         return mockQueue;
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../documentQueue');
     });
 
@@ -394,6 +394,7 @@ describe('documentQueue', () => {
         return mockQueue;
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('../documentQueue');
     });
   });

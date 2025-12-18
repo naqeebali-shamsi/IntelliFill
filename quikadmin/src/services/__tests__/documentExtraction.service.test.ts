@@ -8,6 +8,8 @@
  * - Security integration
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 import {
   DocumentExtractionService,
   ExtractionResult,
@@ -313,9 +315,9 @@ describe('DocumentExtractionService', () => {
 
       const buffer = Buffer.from('malicious content');
 
-      await expect(
-        service.extract(buffer, '../../../etc/passwd.pdf')
-      ).rejects.toThrow('File validation failed');
+      await expect(service.extract(buffer, '../../../etc/passwd.pdf')).rejects.toThrow(
+        'File validation failed'
+      );
     });
 
     it('should include security warnings in result', async () => {
@@ -351,9 +353,9 @@ describe('DocumentExtractionService', () => {
 
       const pdfBuffer = Buffer.from('%PDF-1.4\nContent\n%%EOF');
 
-      await expect(
-        service.extract(pdfBuffer, 'test.pdf')
-      ).rejects.toThrow('System under high load');
+      await expect(service.extract(pdfBuffer, 'test.pdf')).rejects.toThrow(
+        'System under high load'
+      );
     });
 
     it('should proceed when memory is OK', async () => {
@@ -365,9 +367,7 @@ describe('DocumentExtractionService', () => {
 
       const pdfBuffer = Buffer.from('%PDF-1.4\nContent\n%%EOF');
 
-      await expect(
-        service.extract(pdfBuffer, 'test.pdf')
-      ).resolves.toBeDefined();
+      await expect(service.extract(pdfBuffer, 'test.pdf')).resolves.toBeDefined();
     });
   });
 
@@ -401,7 +401,11 @@ describe('DocumentExtractionService', () => {
   describe('isSupported', () => {
     it('should return true for supported types', () => {
       expect(service.isSupported('application/pdf')).toBe(true);
-      expect(service.isSupported('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBe(true);
+      expect(
+        service.isSupported(
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+      ).toBe(true);
       expect(service.isSupported('text/plain')).toBe(true);
       expect(service.isSupported('image/jpeg')).toBe(true);
       expect(service.isSupported('image/png')).toBe(true);

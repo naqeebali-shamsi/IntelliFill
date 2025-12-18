@@ -13,21 +13,15 @@ export function createStatsRoutes(db: DatabaseService): Router {
       const userId = (req as any).user?.id;
 
       // Get real statistics from database
-      const [
-        totalJobs,
-        completedJobs,
-        failedJobs,
-        inProgressJobs,
-        totalClients,
-        totalDocuments
-      ] = await Promise.all([
-        prisma.job.count({ where: userId ? { userId } : undefined }),
-        prisma.job.count({ where: { status: 'completed', ...(userId ? { userId } : {}) } }),
-        prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } }),
-        prisma.job.count({ where: { status: 'processing', ...(userId ? { userId } : {}) } }),
-        prisma.client.count({ where: userId ? { userId } : undefined }),
-        prisma.document.count({ where: userId ? { userId } : undefined })
-      ]);
+      const [totalJobs, completedJobs, failedJobs, inProgressJobs, totalClients, totalDocuments] =
+        await Promise.all([
+          prisma.job.count({ where: userId ? { userId } : undefined }),
+          prisma.job.count({ where: { status: 'completed', ...(userId ? { userId } : {}) } }),
+          prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } }),
+          prisma.job.count({ where: { status: 'processing', ...(userId ? { userId } : {}) } }),
+          prisma.client.count({ where: userId ? { userId } : undefined }),
+          prisma.document.count({ where: userId ? { userId } : undefined }),
+        ]);
 
       // Calculate today's processed count
       const today = new Date();
@@ -36,8 +30,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
         where: {
           status: 'completed',
           completedAt: { gte: today },
-          ...(userId ? { userId } : {})
-        }
+          ...(userId ? { userId } : {}),
+        },
       });
 
       // Calculate average processing time (in seconds)
@@ -46,13 +40,13 @@ export function createStatsRoutes(db: DatabaseService): Router {
           status: 'completed',
           startedAt: { not: null },
           completedAt: { not: null },
-          ...(userId ? { userId } : {})
+          ...(userId ? { userId } : {}),
         },
         select: {
           startedAt: true,
-          completedAt: true
+          completedAt: true,
         },
-        take: 100 // Last 100 completed jobs
+        take: 100, // Last 100 completed jobs
       });
 
       let averageProcessingTime = 0;
@@ -63,13 +57,11 @@ export function createStatsRoutes(db: DatabaseService): Router {
           }
           return acc;
         }, 0);
-        averageProcessingTime = (totalTime / completedJobsWithTime.length) / 1000; // Convert to seconds
+        averageProcessingTime = totalTime / completedJobsWithTime.length / 1000; // Convert to seconds
       }
 
       // Calculate success rate
-      const successRate = totalJobs > 0
-        ? Math.round((completedJobs / totalJobs) * 1000) / 10
-        : 0;
+      const successRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 1000) / 10 : 0;
 
       const stats = {
         totalJobs,
@@ -86,8 +78,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
           documents: { value: totalDocuments, change: 0, trend: 'stable' as const },
           processedToday: { value: processedToday, change: 0, trend: 'stable' as const },
           inProgress: { value: inProgressJobs, change: 0, trend: 'stable' as const },
-          failed: { value: failedJobs, change: 0, trend: 'stable' as const }
-        }
+          failed: { value: failedJobs, change: 0, trend: 'stable' as const },
+        },
       };
 
       res.json(stats);
@@ -119,18 +111,18 @@ export function createStatsRoutes(db: DatabaseService): Router {
           include: {
             processingHistory: {
               orderBy: { createdAt: 'desc' },
-              take: 1
-            }
-          }
+              take: 1,
+            },
+          },
         }),
-        prisma.job.count({ where: whereClause })
+        prisma.job.count({ where: whereClause }),
       ]);
 
-      const formattedJobs = jobs.map(job => ({
+      const formattedJobs = jobs.map((job) => ({
         id: job.id,
         type: job.type,
         status: job.status,
-        progress: job.status === 'completed' ? 100 : (job.status === 'processing' ? 50 : 0),
+        progress: job.status === 'completed' ? 100 : job.status === 'processing' ? 50 : 0,
         createdAt: job.createdAt.toISOString(),
         startedAt: job.startedAt?.toISOString(),
         completedAt: job.completedAt?.toISOString(),
@@ -138,7 +130,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         error: job.error,
         result: job.result,
         metadata: job.metadata,
-        documentsCount: job.documentsCount
+        documentsCount: job.documentsCount,
       }));
 
       res.json({
@@ -146,7 +138,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         total,
         limit,
         offset,
-        hasMore: (offset + limit) < total
+        hasMore: offset + limit < total,
       });
     } catch (error) {
       logger.error('Error fetching jobs:', error);
@@ -163,13 +155,13 @@ export function createStatsRoutes(db: DatabaseService): Router {
       const job = await prisma.job.findFirst({
         where: {
           id: jobId,
-          ...(userId ? { userId } : {})
+          ...(userId ? { userId } : {}),
         },
         include: {
           processingHistory: {
-            orderBy: { createdAt: 'desc' }
-          }
-        }
+            orderBy: { createdAt: 'desc' },
+          },
+        },
       });
 
       if (!job) {
@@ -180,7 +172,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         id: job.id,
         type: job.type,
         status: job.status,
-        progress: job.status === 'completed' ? 100 : (job.status === 'processing' ? 50 : 0),
+        progress: job.status === 'completed' ? 100 : job.status === 'processing' ? 50 : 0,
         createdAt: job.createdAt.toISOString(),
         startedAt: job.startedAt?.toISOString(),
         completedAt: job.completedAt?.toISOString(),
@@ -189,7 +181,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         result: job.result,
         metadata: job.metadata,
         documentsCount: job.documentsCount,
-        processingHistory: job.processingHistory
+        processingHistory: job.processingHistory,
       });
     } catch (error) {
       logger.error('Error fetching job:', error);
@@ -206,14 +198,14 @@ export function createStatsRoutes(db: DatabaseService): Router {
       const job = await prisma.job.findFirst({
         where: {
           id: jobId,
-          ...(userId ? { userId } : {})
+          ...(userId ? { userId } : {}),
         },
         select: {
           status: true,
           result: true,
           error: true,
-          completedAt: true
-        }
+          completedAt: true,
+        },
       });
 
       if (!job) {
@@ -222,9 +214,9 @@ export function createStatsRoutes(db: DatabaseService): Router {
 
       res.json({
         status: job.status,
-        progress: job.status === 'completed' ? 100 : (job.status === 'processing' ? 50 : 0),
+        progress: job.status === 'completed' ? 100 : job.status === 'processing' ? 50 : 0,
         result: job.result,
-        error: job.error
+        error: job.error,
       });
     } catch (error) {
       logger.error('Error fetching job status:', error);
@@ -241,16 +233,13 @@ export function createStatsRoutes(db: DatabaseService): Router {
       const templates = await prisma.template.findMany({
         where: {
           isActive: true,
-          OR: [
-            { isPublic: true },
-            ...(userId ? [{ userId }] : [])
-          ]
+          OR: [{ isPublic: true }, ...(userId ? [{ userId }] : [])],
         },
         orderBy: { usageCount: 'desc' },
-        take: 20
+        take: 20,
       });
 
-      const formattedTemplates = templates.map(template => ({
+      const formattedTemplates = templates.map((template) => ({
         id: template.id,
         name: template.name,
         description: template.description,
@@ -258,7 +247,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         usage: template.usageCount,
         isPublic: template.isPublic,
         createdAt: template.createdAt.toISOString(),
-        updatedAt: template.updatedAt.toISOString()
+        updatedAt: template.updatedAt.toISOString(),
       }));
 
       res.json(formattedTemplates);
@@ -280,8 +269,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
           error: 'Template name and formType are required',
           details: {
             name: !name ? 'Template name is required' : null,
-            formType: !formType ? 'Form type is required' : null
-          }
+            formType: !formType ? 'Form type is required' : null,
+          },
         });
       }
 
@@ -292,8 +281,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
           formType: formType.trim(),
           fieldMappings: JSON.stringify(fields || []),
           isPublic: isPublic || false,
-          userId
-        }
+          userId,
+        },
       });
 
       logger.info(`New template created: ${name} by user: ${userId}`);
@@ -308,14 +297,14 @@ export function createStatsRoutes(db: DatabaseService): Router {
             description: newTemplate.description,
             formType: newTemplate.formType,
             isPublic: newTemplate.isPublic,
-            createdAt: newTemplate.createdAt.toISOString()
-          }
-        }
+            createdAt: newTemplate.createdAt.toISOString(),
+          },
+        },
       });
     } catch (error) {
       logger.error('Error creating template:', error);
       res.status(500).json({
-        error: 'Failed to create template. Please try again.'
+        error: 'Failed to create template. Please try again.',
       });
     }
   });
@@ -330,7 +319,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         prisma.job.count({ where: { status: 'pending', ...(userId ? { userId } : {}) } }),
         prisma.job.count({ where: { status: 'processing', ...(userId ? { userId } : {}) } }),
         prisma.job.count({ where: { status: 'completed', ...(userId ? { userId } : {}) } }),
-        prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } })
+        prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } }),
       ]);
 
       // Calculate average processing time from recent completed jobs
@@ -339,14 +328,14 @@ export function createStatsRoutes(db: DatabaseService): Router {
           status: 'completed',
           startedAt: { not: null },
           completedAt: { not: null },
-          ...(userId ? { userId } : {})
+          ...(userId ? { userId } : {}),
         },
         select: {
           startedAt: true,
-          completedAt: true
+          completedAt: true,
         },
         orderBy: { completedAt: 'desc' },
-        take: 50
+        take: 50,
       });
 
       let averageProcessingTime = 0;
@@ -357,7 +346,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
           }
           return acc;
         }, 0);
-        averageProcessingTime = (totalTime / recentJobs.length) / 1000; // Convert to seconds
+        averageProcessingTime = totalTime / recentJobs.length / 1000; // Convert to seconds
       }
 
       const metrics = {
@@ -368,7 +357,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         delayed: 0, // Not tracked in current schema
         queueLength: waiting + active,
         averageWaitTime: 0, // Would need queue integration for accurate value
-        averageProcessingTime: Math.round(averageProcessingTime * 10) / 10
+        averageProcessingTime: Math.round(averageProcessingTime * 10) / 10,
       };
 
       res.json(metrics);
@@ -392,8 +381,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
       const document = await prisma.document.findFirst({
         where: {
           id: documentId,
-          userId
-        }
+          userId,
+        },
       });
 
       if (!document) {
@@ -405,7 +394,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
         return res.json({
           data: document.extractedData,
           confidence: document.confidence,
-          status: document.status
+          status: document.status,
         });
       }
 
@@ -413,7 +402,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
       res.json({
         data: null,
         status: 'pending',
-        message: 'Document has not been processed yet. Use /api/documents/:id/extract to trigger extraction.'
+        message:
+          'Document has not been processed yet. Use /api/documents/:id/extract to trigger extraction.',
       });
     } catch (error) {
       logger.error('Error extracting data:', error);
@@ -432,7 +422,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
 
       // Get template to validate
       const template = await prisma.template.findUnique({
-        where: { id: templateId }
+        where: { id: templateId },
       });
 
       if (!template) {
@@ -441,7 +431,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
 
       // Parse field mappings
       let fields: string[] = [];
-      let fieldTypes: Record<string, string> = {};
+      const fieldTypes: Record<string, string> = {};
 
       try {
         const mappings = JSON.parse(template.fieldMappings);
@@ -465,8 +455,8 @@ export function createStatsRoutes(db: DatabaseService): Router {
           formType: template.formType,
           fields,
           fieldTypes,
-          isValid: fields.length > 0
-        }
+          isValid: fields.length > 0,
+        },
       });
     } catch (error) {
       logger.error('Error validating form:', error);

@@ -30,10 +30,7 @@ import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 // Types & Interfaces
 // ============================================================================
 
-export type KnowledgeJobType =
-  | 'processDocument'
-  | 'generateEmbeddings'
-  | 'reprocessChunks';
+export type KnowledgeJobType = 'processDocument' | 'generateEmbeddings' | 'reprocessChunks';
 
 export interface BaseKnowledgeJob {
   type: KnowledgeJobType;
@@ -79,10 +76,7 @@ export interface ReprocessChunksJob extends BaseKnowledgeJob {
   };
 }
 
-export type KnowledgeJob =
-  | ProcessDocumentJob
-  | GenerateEmbeddingsJob
-  | ReprocessChunksJob;
+export type KnowledgeJob = ProcessDocumentJob | GenerateEmbeddingsJob | ReprocessChunksJob;
 
 export interface JobProgress {
   stage: 'extraction' | 'chunking' | 'embedding' | 'storage' | 'complete' | 'failed';
@@ -160,32 +154,29 @@ let knowledgeQueueAvailable = false;
 
 let knowledgeQueue: Queue<KnowledgeJob> | null = null;
 try {
-  knowledgeQueue = new Bull<KnowledgeJob>(
-    QUEUE_NAME,
-    {
-      redis: redisConfig,
-      defaultJobOptions: {
-        removeOnComplete: 100, // Keep last 100 completed jobs
-        removeOnFail: 50, // Keep last 50 failed jobs
-        attempts: DEFAULT_ATTEMPTS,
-        timeout: DEFAULT_JOB_TIMEOUT,
-        backoff: {
-          type: 'exponential',
-          delay: DEFAULT_BACKOFF_DELAY,
-        },
+  knowledgeQueue = new Bull<KnowledgeJob>(QUEUE_NAME, {
+    redis: redisConfig,
+    defaultJobOptions: {
+      removeOnComplete: 100, // Keep last 100 completed jobs
+      removeOnFail: 50, // Keep last 50 failed jobs
+      attempts: DEFAULT_ATTEMPTS,
+      timeout: DEFAULT_JOB_TIMEOUT,
+      backoff: {
+        type: 'exponential',
+        delay: DEFAULT_BACKOFF_DELAY,
       },
-      settings: {
-        stalledInterval: 60000, // Check for stalled jobs every minute
-        maxStalledCount: 2, // Jobs can be stalled twice before failing
-        lockDuration: 300000, // Lock jobs for 5 minutes
-        lockRenewTime: 150000, // Renew lock every 2.5 minutes
-      },
-      limiter: {
-        max: MAX_CONCURRENT_JOBS,
-        duration: 1000,
-      },
-    }
-  );
+    },
+    settings: {
+      stalledInterval: 60000, // Check for stalled jobs every minute
+      maxStalledCount: 2, // Jobs can be stalled twice before failing
+      lockDuration: 300000, // Lock jobs for 5 minutes
+      lockRenewTime: 150000, // Renew lock every 2.5 minutes
+    },
+    limiter: {
+      max: MAX_CONCURRENT_JOBS,
+      duration: 1000,
+    },
+  });
 
   knowledgeQueue.on('error', (error) => {
     logger.error('Knowledge queue error', { error: error.message });
@@ -395,10 +386,7 @@ export async function addReprocessChunksJob(
  * @param job - The Bull job
  * @param progress - Progress information
  */
-export async function reportProgress(
-  job: Job<KnowledgeJob>,
-  progress: JobProgress
-): Promise<void> {
+export async function reportProgress(job: Job<KnowledgeJob>, progress: JobProgress): Promise<void> {
   await job.progress(progress);
 
   logger.debug('Job progress updated', {
@@ -522,9 +510,7 @@ export async function getQueueHealth(): Promise<{
 /**
  * Get job by ID
  */
-export async function getJob(
-  jobId: string
-): Promise<Job<KnowledgeJob> | null> {
+export async function getJob(jobId: string): Promise<Job<KnowledgeJob> | null> {
   if (!isKnowledgeQueueAvailable()) {
     throw new QueueUnavailableError('knowledge-processing');
   }
@@ -534,9 +520,7 @@ export async function getJob(
 /**
  * Get job status
  */
-export async function getJobStatus(
-  jobId: string
-): Promise<{
+export async function getJobStatus(jobId: string): Promise<{
   id: string;
   type: KnowledgeJobType;
   status: string;
@@ -596,12 +580,13 @@ export async function getOrganizationJobs(
     case 'failed':
       jobs = await knowledgeQueue!.getFailed(0, 50);
       break;
-    default:
+    default: {
       const [waiting, active] = await Promise.all([
         knowledgeQueue!.getWaiting(),
         knowledgeQueue!.getActive(),
       ]);
       jobs = [...waiting, ...active];
+    }
   }
 
   return jobs.filter((job) => job.data.organizationId === organizationId);

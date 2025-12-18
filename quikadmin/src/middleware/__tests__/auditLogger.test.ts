@@ -97,6 +97,7 @@ describe('AuditLoggerService', () => {
     });
 
     it('should not throw on database errors', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       prisma.auditLog.create.mockRejectedValueOnce(new Error('DB Error'));
 
@@ -157,6 +158,7 @@ describe('AuditLoggerService', () => {
 
   describe('getUserAuditLogs', () => {
     it('should retrieve user audit logs with default options', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       const mockLogs = [
         { id: 1, action: 'LOGIN', timestamp: new Date() },
@@ -178,6 +180,7 @@ describe('AuditLoggerService', () => {
     });
 
     it('should apply limit and offset options', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       prisma.auditLog.findMany.mockResolvedValueOnce([]);
 
@@ -192,6 +195,7 @@ describe('AuditLoggerService', () => {
     });
 
     it('should filter by actions when provided', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       prisma.auditLog.findMany.mockResolvedValueOnce([]);
 
@@ -212,6 +216,7 @@ describe('AuditLoggerService', () => {
 
   describe('getOrganizationAuditLogs', () => {
     it('should retrieve organization audit logs', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       prisma.auditLog.findMany.mockResolvedValueOnce([]);
 
@@ -225,6 +230,7 @@ describe('AuditLoggerService', () => {
     });
 
     it('should filter by userId when provided', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       prisma.auditLog.findMany.mockResolvedValueOnce([]);
 
@@ -247,6 +253,7 @@ describe('AuditLoggerService', () => {
 
   describe('countRecentSearches', () => {
     it('should count searches within time window', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { prisma } = require('../../utils/prisma');
       prisma.auditLog.count.mockResolvedValueOnce(15);
 
@@ -388,17 +395,20 @@ describe('createAuditMiddleware', () => {
   // For now, we test the service directly
 
   it('should be importable', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { createAuditMiddleware } = require('../auditLogger');
     expect(typeof createAuditMiddleware).toBe('function');
   });
 
   it('should return middleware function', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { createAuditMiddleware } = require('../auditLogger');
     const middleware = createAuditMiddleware();
     expect(typeof middleware).toBe('function');
   });
 
   it('should accept options', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { createAuditMiddleware } = require('../auditLogger');
     const middleware = createAuditMiddleware({
       excludePaths: ['/health', '/metrics'],

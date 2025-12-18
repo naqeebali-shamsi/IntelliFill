@@ -24,171 +24,184 @@ export function createUserRoutes(): Router {
    * Use Case: When filling a form, use ALL available user data instead of selecting one document
    * Example: User uploads Visa, Passport, Bank Statement → Form auto-fills from all sources
    */
-  router.get('/me/data', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
+  router.get(
+    '/me/data',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Fetch all completed documents for user
-      const documents = await prisma.document.findMany({
-        where: {
-          userId,
-          status: 'COMPLETED',
-          extractedData: { not: null }
-        },
-        select: {
-          id: true,
-          fileName: true,
-          fileType: true,
-          extractedData: true,
-          confidence: true,
-          processedAt: true,
-          createdAt: true
-        },
-        orderBy: { processedAt: 'desc' }
-      });
-
-      if (documents.length === 0) {
-        return res.json({
-          success: true,
-          data: {
-            fields: {},
-            entities: {
-              names: [],
-              emails: [],
-              phones: [],
-              dates: [],
-              addresses: []
-            },
-            metadata: {
-              confidence: 0
-            }
+        // Fetch all completed documents for user
+        const documents = await prisma.document.findMany({
+          where: {
+            userId,
+            status: 'COMPLETED',
+            extractedData: { not: null },
           },
-          sources: [],
-          documentCount: 0,
-          message: 'No documents with extracted data found. Please upload and process documents first.'
+          select: {
+            id: true,
+            fileName: true,
+            fileType: true,
+            extractedData: true,
+            confidence: true,
+            processedAt: true,
+            createdAt: true,
+          },
+          orderBy: { processedAt: 'desc' },
         });
-      }
 
-      // Decrypt and collect all data with source attribution
-      const allDataWithSources: Array<{
-        documentId: string;
-        fileName: string;
-        fileType: string;
-        confidence: number | null;
-        data: any;
-        fields: string[];
-      }> = [];
-
-      for (const doc of documents) {
-        try {
-          const decryptedData = decryptExtractedData(doc.extractedData as string);
-          const fieldKeys = Object.keys(decryptedData.fields || {});
-
-          allDataWithSources.push({
-            documentId: doc.id,
-            fileName: doc.fileName,
-            fileType: doc.fileType,
-            confidence: doc.confidence,
-            data: decryptedData,
-            fields: fieldKeys
+        if (documents.length === 0) {
+          return res.json({
+            success: true,
+            data: {
+              fields: {},
+              entities: {
+                names: [],
+                emails: [],
+                phones: [],
+                dates: [],
+                addresses: [],
+              },
+              metadata: {
+                confidence: 0,
+              },
+            },
+            sources: [],
+            documentCount: 0,
+            message:
+              'No documents with extracted data found. Please upload and process documents first.',
           });
-        } catch (error) {
-          logger.warn(`Failed to decrypt data for document ${doc.id}:`, error);
         }
-      }
 
-      // Merge all extracted data using the same logic as IntelliFillService
-      const merged = mergeExtractedData(allDataWithSources.map(d => d.data));
+        // Decrypt and collect all data with source attribution
+        const allDataWithSources: Array<{
+          documentId: string;
+          fileName: string;
+          fileType: string;
+          confidence: number | null;
+          data: any;
+          fields: string[];
+        }> = [];
 
-      // Create field-to-source mapping
-      const fieldSources: Record<string, Array<{ documentId: string; fileName: string; confidence: number | null }>> = {};
+        for (const doc of documents) {
+          try {
+            const decryptedData = decryptExtractedData(doc.extractedData as string);
+            const fieldKeys = Object.keys(decryptedData.fields || {});
 
-      for (const source of allDataWithSources) {
-        for (const fieldName of source.fields) {
-          if (!fieldSources[fieldName]) {
-            fieldSources[fieldName] = [];
+            allDataWithSources.push({
+              documentId: doc.id,
+              fileName: doc.fileName,
+              fileType: doc.fileType,
+              confidence: doc.confidence,
+              data: decryptedData,
+              fields: fieldKeys,
+            });
+          } catch (error) {
+            logger.warn(`Failed to decrypt data for document ${doc.id}:`, error);
           }
-          fieldSources[fieldName].push({
-            documentId: source.documentId,
-            fileName: source.fileName,
-            confidence: source.confidence
-          });
         }
+
+        // Merge all extracted data using the same logic as IntelliFillService
+        const merged = mergeExtractedData(allDataWithSources.map((d) => d.data));
+
+        // Create field-to-source mapping
+        const fieldSources: Record<
+          string,
+          Array<{ documentId: string; fileName: string; confidence: number | null }>
+        > = {};
+
+        for (const source of allDataWithSources) {
+          for (const fieldName of source.fields) {
+            if (!fieldSources[fieldName]) {
+              fieldSources[fieldName] = [];
+            }
+            fieldSources[fieldName].push({
+              documentId: source.documentId,
+              fileName: source.fileName,
+              confidence: source.confidence,
+            });
+          }
+        }
+
+        // Build sources summary
+        const sources = allDataWithSources.map((s) => ({
+          documentId: s.documentId,
+          fileName: s.fileName,
+          fileType: s.fileType,
+          fields: s.fields,
+          fieldCount: s.fields.length,
+          confidence: s.confidence,
+        }));
+
+        res.json({
+          success: true,
+          data: merged,
+          fieldSources,
+          sources,
+          documentCount: documents.length,
+          message: `Data aggregated from ${documents.length} document(s)`,
+        });
+      } catch (error) {
+        logger.error('Error aggregating user data:', error);
+        next(error);
       }
-
-      // Build sources summary
-      const sources = allDataWithSources.map(s => ({
-        documentId: s.documentId,
-        fileName: s.fileName,
-        fileType: s.fileType,
-        fields: s.fields,
-        fieldCount: s.fields.length,
-        confidence: s.confidence
-      }));
-
-      res.json({
-        success: true,
-        data: merged,
-        fieldSources,
-        sources,
-        documentCount: documents.length,
-        message: `Data aggregated from ${documents.length} document(s)`
-      });
-    } catch (error) {
-      logger.error('Error aggregating user data:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * GET /api/users/me/info - Get basic user info
    * Note: /me/profile now handled by profile.routes.ts for aggregated document data
    */
-  router.get('/me/info', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
+  router.get(
+    '/me/info',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          emailVerified: true,
-          createdAt: true,
-          lastLogin: true
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
 
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            emailVerified: true,
+            createdAt: true,
+            lastLogin: true,
+          },
+        });
+
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({
+          success: true,
+          user,
+        });
+      } catch (error) {
+        logger.error('Error fetching user info:', error);
+        next(error);
       }
-
-      res.json({
-        success: true,
-        user
-      });
-    } catch (error) {
-      logger.error('Error fetching user info:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * POST /api/users/me/fill-form - Fill form using ALL user's aggregated data
    * Phase 4B: User-centric form filling (no document selection needed)
    */
-  router.post('/me/fill-form',
+  router.post(
+    '/me/fill-form',
     authenticateSupabase,
     upload.single('form'),
     async (req: Request, res: Response, next: NextFunction) => {
@@ -217,28 +230,28 @@ export function createUserRoutes(): Router {
             where: {
               userId,
               status: 'COMPLETED',
-              extractedData: { not: null }
+              extractedData: { not: null },
             },
             select: {
-              extractedData: true
-            }
+              extractedData: true,
+            },
           });
 
           if (documents.length === 0) {
             return res.status(400).json({
-              error: 'No document data available. Please upload and process documents first.'
+              error: 'No document data available. Please upload and process documents first.',
             });
           }
 
-          const allData = documents.map(doc =>
-            decryptExtractedData(doc.extractedData as string)
-          );
+          const allData = documents.map((doc) => decryptExtractedData(doc.extractedData as string));
 
           userData = mergeExtractedData(allData);
         }
 
         // Initialize services
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { FieldMapper } = require('../mappers/FieldMapper');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { FormFiller } = require('../fillers/FormFiller');
         const fieldMapper = new FieldMapper();
         const formFiller = new FormFiller();
@@ -259,11 +272,11 @@ export function createUserRoutes(): Router {
               formField,
               dataField,
               value: userData.fields[dataField as string],
-              confidence: 1.0
+              confidence: 1.0,
             })),
             overallConfidence: 0.95,
             unmappedFormFields: [],
-            unmappedDataFields: []
+            unmappedDataFields: [],
           };
         } else {
           // Use ML auto-mapping
@@ -285,8 +298,8 @@ export function createUserRoutes(): Router {
             fileSize: stats.size,
             storageUrl: outputPath,
             status: 'COMPLETED',
-            confidence: mappingResult.overallConfidence
-          }
+            confidence: mappingResult.overallConfidence,
+          },
         });
 
         // Cleanup temp form file
@@ -299,13 +312,14 @@ export function createUserRoutes(): Router {
           filledFields: fillResult.filledFields.length,
           totalFields: formFieldsInfo.fields.length,
           downloadUrl: `/api/documents/${filledDoc.id}/download`,
-          warnings: fillResult.warnings
+          warnings: fillResult.warnings,
         });
       } catch (error) {
         logger.error('Fill form error:', error);
         next(error);
       }
-    });
+    }
+  );
 
   return router;
 }
@@ -321,7 +335,7 @@ const upload = multer({
     } else {
       cb(new Error('Only PDF forms are supported'));
     }
-  }
+  },
 });
 
 /**
@@ -336,12 +350,12 @@ function mergeExtractedData(dataArray: any[]): any {
       emails: [],
       phones: [],
       dates: [],
-      addresses: []
+      addresses: [],
     },
     metadata: {
       confidence: 0,
-      sourceCount: dataArray.length
-    }
+      sourceCount: dataArray.length,
+    },
   };
 
   let totalConfidence = 0;

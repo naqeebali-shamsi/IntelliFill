@@ -11,9 +11,9 @@
 import { FieldMapper, MappingResult, FieldMapping } from '../FieldMapper';
 import { ExtractedData } from '../../extractors/DataExtractor';
 
-// Mock logger
-jest.mock('../../utils/logger', () => ({
-  logger: {
+// Mock piiSafeLogger (used by FieldMapper)
+jest.mock('../../utils/piiSafeLogger', () => ({
+  piiSafeLogger: {
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
@@ -55,11 +55,7 @@ describe('FieldMapper', () => {
         },
       };
 
-      const formFields = [
-        'First Name',
-        'first-name',
-        'first_name',
-      ];
+      const formFields = ['First Name', 'first-name', 'first_name'];
 
       const result = await mapper.mapFields(extractedData, formFields);
 
@@ -93,12 +89,7 @@ describe('FieldMapper', () => {
         },
       };
 
-      const formFields = [
-        'First Name',
-        'first-name',
-        'Last Name',
-        'last-name',
-      ];
+      const formFields = ['First Name', 'first-name', 'Last Name', 'last-name'];
 
       const result = await mapper.mapFields(extractedData, formFields);
 
@@ -157,12 +148,7 @@ describe('FieldMapper', () => {
         },
       };
 
-      const formFields = [
-        'E-mail',
-        'e.mail',
-        'e_mail',
-        'e mail',
-      ];
+      const formFields = ['E-mail', 'e.mail', 'e_mail', 'e mail'];
 
       const result = await mapper.mapFields(extractedData, formFields);
 
@@ -174,7 +160,8 @@ describe('FieldMapper', () => {
     });
 
     it('should log warnings for duplicate normalized fields', async () => {
-      const { logger } = require('../../utils/logger');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { piiSafeLogger } = require('../../utils/piiSafeLogger');
 
       const extractedData: ExtractedData = {
         fields: {
@@ -200,8 +187,8 @@ describe('FieldMapper', () => {
 
       await mapper.mapFields(extractedData, formFields);
 
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Duplicate normalized field detected')
+      expect(piiSafeLogger.warn).toHaveBeenCalledWith(
+        expect.stringMatching(/Duplicate normalized field detected/)
       );
     });
 
@@ -414,14 +401,7 @@ describe('FieldMapper', () => {
         },
       };
 
-      const formFields = [
-        'email',
-        'phone',
-        'name',
-        'date',
-        'address',
-        'amount',
-      ];
+      const formFields = ['email', 'phone', 'name', 'date', 'address', 'amount'];
 
       const result = await mapper.mapFields(extractedData, formFields);
 
@@ -570,12 +550,7 @@ describe('FieldMapper', () => {
         },
       };
 
-      const formFields = [
-        'First Name',
-        'first-name',
-        'Last Name',
-        'last-name',
-      ];
+      const formFields = ['First Name', 'first-name', 'Last Name', 'last-name'];
 
       const result = await mapper.mapFields(extractedData, formFields);
 
@@ -638,13 +613,7 @@ describe('FieldMapper', () => {
         },
       };
 
-      const formFields = [
-        'First Name',
-        'first-name',
-        'lastName',
-        'email',
-        'phone_number',
-      ];
+      const formFields = ['First Name', 'first-name', 'lastName', 'email', 'phone_number'];
 
       const result = await mapper.mapFields(extractedData, formFields);
 

@@ -8,6 +8,8 @@
  * - Queue health monitoring
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 import { QueueUnavailableError } from '../../utils/QueueUnavailableError';
 
 // Mock dependencies before imports
@@ -85,9 +87,7 @@ describe('ocrQueue', () => {
       const { isOCRQueueAvailable } = require('../ocrQueue');
 
       // Simulate 'error' event
-      const errorHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'error'
-      )?.[1];
+      const errorHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'error')?.[1];
       if (errorHandler) errorHandler(new Error('Redis error'));
 
       expect(isOCRQueueAvailable()).toBe(false);
@@ -99,9 +99,7 @@ describe('ocrQueue', () => {
       const { isOCRQueueAvailable } = require('../ocrQueue');
 
       // Simulate 'ready' event
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       expect(isOCRQueueAvailable()).toBe(true);
@@ -175,9 +173,7 @@ describe('ocrQueue', () => {
 
       const { enqueueDocumentForOCR } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const job = await enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', true);
@@ -203,9 +199,7 @@ describe('ocrQueue', () => {
 
       const { enqueueDocumentForOCR } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const job = await enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', false);
@@ -242,9 +236,7 @@ describe('ocrQueue', () => {
 
       const { getOCRQueueHealth } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const health = await getOCRQueueHealth();
@@ -269,9 +261,7 @@ describe('ocrQueue', () => {
 
       const { getOCRQueueHealth } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const health = await getOCRQueueHealth();
@@ -289,9 +279,7 @@ describe('ocrQueue', () => {
 
       const { getOCRQueueHealth } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const health = await getOCRQueueHealth();
@@ -312,9 +300,7 @@ describe('ocrQueue', () => {
 
       const { getOCRJobStatus } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const status = await getOCRJobStatus('nonexistent-job');
@@ -348,9 +334,7 @@ describe('ocrQueue', () => {
 
       const { getOCRJobStatus } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const status = await getOCRJobStatus('job-123');
@@ -382,9 +366,7 @@ describe('ocrQueue', () => {
 
       const { enqueueDocumentForReprocessing } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       const job = await enqueueDocumentForReprocessing(
@@ -423,9 +405,7 @@ describe('ocrQueue', () => {
 
       const { enqueueDocumentForReprocessing } = require('../ocrQueue');
 
-      const readyHandler = mockQueue.on.mock.calls.find(
-        (call: any[]) => call[0] === 'ready'
-      )?.[1];
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
       await expect(
