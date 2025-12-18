@@ -24,7 +24,7 @@ const intelliFillService = new IntelliFillService({
   dataExtractor,
   fieldMapper,
   formFiller,
-  validationService
+  validationService,
 });
 
 program
@@ -36,9 +36,13 @@ program
 program
   .command('fill')
   .description('Fill a PDF form with data from documents')
-  .requiredOption('-d, --document <path>', 'Path to source document(s)', (val, prev: string[] | undefined) => {
-    return prev ? prev.concat(val) : [val];
-  })
+  .requiredOption(
+    '-d, --document <path>',
+    'Path to source document(s)',
+    (val, prev: string[] | undefined) => {
+      return prev ? prev.concat(val) : [val];
+    }
+  )
   .requiredOption('-f, --form <path>', 'Path to PDF form')
   .requiredOption('-o, --output <path>', 'Output path for filled PDF')
   .option('-v, --verbose', 'Enable verbose output')
@@ -47,40 +51,43 @@ program
       console.log('🚀 Starting PDF form filling process...\n');
 
       const documents = Array.isArray(options.document) ? options.document : [options.document];
-      
+
       if (options.verbose) {
         console.log(`📄 Processing ${documents.length} document(s)`);
         console.log(`📋 Form: ${options.form}`);
         console.log(`💾 Output: ${options.output}\n`);
       }
 
-      const result = documents.length === 1
-        ? await intelliFillService.processSingle(documents[0], options.form, options.output)
-        : await intelliFillService.processMultiple(documents, options.form, options.output);
+      const result =
+        documents.length === 1
+          ? await intelliFillService.processSingle(documents[0], options.form, options.output)
+          : await intelliFillService.processMultiple(documents, options.form, options.output);
 
       if (result.success) {
         console.log('✅ PDF form filled successfully!\n');
         console.log(`📊 Statistics:`);
         console.log(`   - Fields filled: ${result.fillResult.filledFields.length}`);
-        console.log(`   - Confidence: ${(result.mappingResult.overallConfidence * 100).toFixed(1)}%`);
+        console.log(
+          `   - Confidence: ${(result.mappingResult.overallConfidence * 100).toFixed(1)}%`
+        );
         console.log(`   - Processing time: ${result.processingTime}ms`);
-        
+
         if (result.fillResult.warnings.length > 0) {
           console.log(`\n⚠️  Warnings:`);
-          result.fillResult.warnings.forEach(w => console.log(`   - ${w}`));
+          result.fillResult.warnings.forEach((w: string) => console.log(`   - ${w}`));
         }
-        
+
         console.log(`\n💾 Output saved to: ${result.fillResult.outputPath}`);
       } else {
         console.error('❌ Failed to fill PDF form\n');
         console.error('Errors:');
-        result.errors.forEach(e => console.error(`   - ${e}`));
-        
+        result.errors.forEach((e) => console.error(`   - ${e}`));
+
         if (result.fillResult.warnings.length > 0) {
           console.log(`\n⚠️  Warnings:`);
-          result.fillResult.warnings.forEach(w => console.log(`   - ${w}`));
+          result.fillResult.warnings.forEach((w: string) => console.log(`   - ${w}`));
         }
-        
+
         process.exit(1);
       }
     } catch (error) {
@@ -137,7 +144,7 @@ program
       console.log(`📋 Form Analysis Results:\n`);
       console.log(`Total Fields: ${fieldInfo.fields.length}\n`);
       console.log('Field Details:');
-      
+
       for (const fieldName of fieldInfo.fields) {
         const type = fieldInfo.fieldTypes[fieldName];
         console.log(`   - ${fieldName} (${type})`);
@@ -168,19 +175,21 @@ program
 
       console.log(`✅ Batch processing complete!\n`);
       console.log(`📊 Results:`);
-      
+
       results.forEach((result, index) => {
         const status = result.success ? '✅' : '❌';
         console.log(`\nJob ${index + 1}: ${status}`);
         if (result.success) {
           console.log(`   - Fields filled: ${result.fillResult.filledFields.length}`);
-          console.log(`   - Confidence: ${(result.mappingResult.overallConfidence * 100).toFixed(1)}%`);
+          console.log(
+            `   - Confidence: ${(result.mappingResult.overallConfidence * 100).toFixed(1)}%`
+          );
         } else {
           console.log(`   - Errors: ${result.errors.join(', ')}`);
         }
       });
 
-      const successCount = results.filter(r => r.success).length;
+      const successCount = results.filter((r) => r.success).length;
       console.log(`\n📈 Overall: ${successCount}/${results.length} jobs successful`);
     } catch (error) {
       console.error('❌ Error:', error);

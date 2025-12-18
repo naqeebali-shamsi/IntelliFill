@@ -34,30 +34,77 @@ export interface TemplateMatchResult {
 // Form type patterns for detection
 const FORM_TYPE_PATTERNS = {
   W2: {
-    keywords: ['w2', 'w-2', 'wage', 'tax', 'statement', 'employer', 'ein', 'fica', 'medicare', 'federal_income_tax', 'social_security', 'box_1', 'box_2'],
+    keywords: [
+      'w2',
+      'w-2',
+      'wage',
+      'tax',
+      'statement',
+      'employer',
+      'ein',
+      'fica',
+      'medicare',
+      'federal_income_tax',
+      'social_security',
+      'box_1',
+      'box_2',
+    ],
     requiredFields: ['employer_ein', 'employee_ssn', 'wages'],
-    weight: 1.0
+    weight: 1.0,
   },
   I9: {
-    keywords: ['i9', 'i-9', 'employment', 'eligibility', 'verification', 'citizen', 'status', 'alien', 'passport', 'uscis', 'document_number', 'expiration_date'],
+    keywords: [
+      'i9',
+      'i-9',
+      'employment',
+      'eligibility',
+      'verification',
+      'citizen',
+      'status',
+      'alien',
+      'passport',
+      'uscis',
+      'document_number',
+      'expiration_date',
+    ],
     requiredFields: ['last_name', 'first_name', 'citizenship_status'],
-    weight: 1.0
+    weight: 1.0,
   },
   PASSPORT: {
-    keywords: ['passport', 'travel', 'document', 'nationality', 'issue_date', 'expiration_date', 'passport_number', 'place_of_birth', 'emergency_contact'],
+    keywords: [
+      'passport',
+      'travel',
+      'document',
+      'nationality',
+      'issue_date',
+      'expiration_date',
+      'passport_number',
+      'place_of_birth',
+      'emergency_contact',
+    ],
     requiredFields: ['passport_number', 'full_name', 'date_of_birth'],
-    weight: 1.0
+    weight: 1.0,
   },
   JOB_APPLICATION: {
-    keywords: ['application', 'employment', 'resume', 'position', 'cover_letter', 'references', 'work_experience', 'education', 'skills'],
+    keywords: [
+      'application',
+      'employment',
+      'resume',
+      'position',
+      'cover_letter',
+      'references',
+      'work_experience',
+      'education',
+      'skills',
+    ],
     requiredFields: ['first_name', 'last_name', 'email', 'phone'],
-    weight: 1.0
+    weight: 1.0,
   },
   CUSTOM: {
-    keywords: [],
-    requiredFields: [],
-    weight: 0.1
-  }
+    keywords: [] as string[],
+    requiredFields: [] as string[],
+    weight: 0.1,
+  },
 };
 
 export class TemplateService {
@@ -79,8 +126,8 @@ export class TemplateService {
           formType: templateData.formType,
           fieldMappings: encryptedMappings,
           isPublic: templateData.isPublic || false,
-          usageCount: 0
-        }
+          usageCount: 0,
+        },
       });
 
       logger.info(`Template created: ${template.id}`);
@@ -99,11 +146,11 @@ export class TemplateService {
       const templates = await prisma.template.findMany({
         where: {
           userId,
-          isActive: true
+          isActive: true,
         },
         orderBy: {
-          updatedAt: 'desc'
-        }
+          updatedAt: 'desc',
+        },
       });
 
       return templates;
@@ -121,19 +168,19 @@ export class TemplateService {
       const templates = await prisma.template.findMany({
         where: {
           isPublic: true,
-          isActive: true
+          isActive: true,
         },
         orderBy: {
-          usageCount: 'desc'
+          usageCount: 'desc',
         },
         include: {
           user: {
             select: {
               firstName: true,
-              lastName: true
-            }
-          }
-        }
+              lastName: true,
+            },
+          },
+        },
       });
 
       return templates;
@@ -152,11 +199,8 @@ export class TemplateService {
         where: {
           id: templateId,
           isActive: true,
-          OR: [
-            { userId: userId },
-            { isPublic: true }
-          ]
-        }
+          OR: [{ userId: userId }, { isPublic: true }],
+        },
       });
 
       return template;
@@ -181,8 +225,8 @@ export class TemplateService {
       const existing = await prisma.template.findFirst({
         where: {
           id: templateId,
-          userId
-        }
+          userId,
+        },
       });
 
       if (!existing) {
@@ -201,7 +245,7 @@ export class TemplateService {
 
       const template = await prisma.template.update({
         where: { id: templateId },
-        data: updateData
+        data: updateData,
       });
 
       logger.info(`Template updated: ${template.id}`);
@@ -223,8 +267,8 @@ export class TemplateService {
       const existing = await prisma.template.findFirst({
         where: {
           id: templateId,
-          userId
-        }
+          userId,
+        },
       });
 
       if (!existing) {
@@ -233,7 +277,7 @@ export class TemplateService {
 
       await prisma.template.update({
         where: { id: templateId },
-        data: { isActive: false }
+        data: { isActive: false },
       });
 
       logger.info(`Template deleted: ${templateId}`);
@@ -252,9 +296,7 @@ export class TemplateService {
       logger.info(`Detecting form type from ${fieldNames.length} fields`);
 
       // Normalize field names
-      const normalizedFields = fieldNames.map(f =>
-        f.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-      );
+      const normalizedFields = fieldNames.map((f) => f.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
 
       const scores: { [key: string]: { score: number; matches: string[] } } = {};
 
@@ -265,9 +307,7 @@ export class TemplateService {
 
         // Check keyword matches
         for (const keyword of patterns.keywords) {
-          const keywordMatches = normalizedFields.filter(field =>
-            field.includes(keyword)
-          );
+          const keywordMatches = normalizedFields.filter((field) => field.includes(keyword));
           if (keywordMatches.length > 0) {
             score += keywordMatches.length * patterns.weight;
             matches.push(...keywordMatches);
@@ -276,8 +316,8 @@ export class TemplateService {
 
         // Check required fields (higher weight)
         for (const required of patterns.requiredFields) {
-          const requiredMatches = normalizedFields.filter(field =>
-            field.includes(required) || this.fuzzyMatch(field, required)
+          const requiredMatches = normalizedFields.filter(
+            (field) => field.includes(required) || this.fuzzyMatch(field, required)
           );
           if (requiredMatches.length > 0) {
             score += requiredMatches.length * patterns.weight * 2;
@@ -315,7 +355,7 @@ export class TemplateService {
       return {
         formType: bestMatch,
         confidence: Math.round(confidence * 100) / 100,
-        matchedPatterns: bestMatches
+        matchedPatterns: bestMatches,
       };
     } catch (error) {
       logger.error(`Failed to detect form type:`, error);
@@ -327,10 +367,7 @@ export class TemplateService {
    * Match templates based on field names
    * Returns ranked list of matching templates with similarity scores
    */
-  async matchTemplate(
-    fieldNames: string[],
-    userId?: string
-  ): Promise<TemplateMatchResult[]> {
+  async matchTemplate(fieldNames: string[], userId?: string): Promise<TemplateMatchResult[]> {
     try {
       logger.info(`Matching templates for ${fieldNames.length} fields`);
 
@@ -338,17 +375,12 @@ export class TemplateService {
       const templates = await prisma.template.findMany({
         where: {
           isActive: true,
-          OR: [
-            { userId: userId },
-            { isPublic: true }
-          ]
-        }
+          OR: [{ userId: userId }, { isPublic: true }],
+        },
       });
 
       // Normalize field names
-      const normalizedFields = fieldNames.map(f =>
-        f.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-      );
+      const normalizedFields = fieldNames.map((f) => f.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
 
       const matches: TemplateMatchResult[] = [];
 
@@ -356,7 +388,7 @@ export class TemplateService {
         try {
           // Decrypt field mappings
           const mappings: FieldMapping[] = decryptJSON(template.fieldMappings);
-          const templateFields = mappings.map(m =>
+          const templateFields = mappings.map((m) =>
             m.targetField.toLowerCase().replace(/[^a-z0-9_]/g, '_')
           );
 
@@ -371,7 +403,7 @@ export class TemplateService {
             matches.push({
               template,
               similarity: Math.round(similarity * 10000) / 100,
-              matchedFields
+              matchedFields,
             });
           }
         } catch (error) {
@@ -459,8 +491,8 @@ export class TemplateService {
         } else {
           matrix[i][j] = Math.min(
             matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
+            matrix[i][j - 1] + 1, // insertion
+            matrix[i - 1][j] + 1 // deletion
           );
         }
       }
@@ -478,9 +510,9 @@ export class TemplateService {
         where: { id: templateId },
         data: {
           usageCount: {
-            increment: 1
-          }
-        }
+            increment: 1,
+          },
+        },
       });
     } catch (error) {
       logger.warn(`Failed to increment usage count for template ${templateId}:`, error);
