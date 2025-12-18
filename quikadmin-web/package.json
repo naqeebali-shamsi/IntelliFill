@@ -73,10 +73,6 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.0.14"
   },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.53.5",
-    "@rollup/rollup-linux-x64-musl": "4.53.5"
-  },
   "scripts": {
     "dev": "vite --host",
     "build": "tsc -p tsconfig.build.json --noEmit && vite build",
