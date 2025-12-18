@@ -218,6 +218,81 @@ export function createDocumentRoutes(): Router {
     }
   );
 
+  // ============================================================================
+  // STATIC ROUTES - Must be defined BEFORE parameterized /:id routes
+  // ============================================================================
+
+  /**
+   * POST /api/documents/reprocess/batch - Batch reprocess multiple documents
+   */
+  router.post(
+    '/reprocess/batch',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { documentIds } = req.body;
+
+        if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+          return res.status(400).json({ error: 'documentIds array is required' });
+        }
+
+        const { DocumentService } = await import('../services/DocumentService');
+        const documentService = new DocumentService();
+
+        const jobs = await documentService.batchReprocess(documentIds, userId);
+
+        res.json({
+          success: true,
+          message: `${jobs.length} documents queued for reprocessing`,
+          jobs: jobs.map((job) => ({
+            jobId: job.id,
+            documentId: job.data.documentId,
+          })),
+          totalQueued: jobs.length,
+        });
+      } catch (error) {
+        logger.error('Batch reprocess error:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * GET /api/documents/low-confidence - Get documents with confidence below threshold
+   */
+  router.get(
+    '/low-confidence',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+        const { threshold = 0.7 } = req.query;
+
+        const { DocumentService } = await import('../services/DocumentService');
+        const documentService = new DocumentService();
+
+        const documents = await documentService.getLowConfidenceDocuments(
+          userId,
+          parseFloat(threshold as string)
+        );
+
+        res.json({
+          success: true,
+          documents,
+          count: documents.length,
+        });
+      } catch (error) {
+        logger.error('Get low confidence documents error:', error);
+        next(error);
+      }
+    }
+  );
+
+  // ============================================================================
+  // PARAMETERIZED ROUTES - /:id and sub-routes
+  // ============================================================================
+
   /**
    * GET /api/documents/:id - Get single document details
    * Phase 6 Complete: Uses Supabase-only authentication
@@ -558,73 +633,6 @@ export function createDocumentRoutes(): Router {
         });
       } catch (error) {
         logger.error('Reprocess document error:', error);
-        next(error);
-      }
-    }
-  );
-
-  /**
-   * POST /api/documents/reprocess/batch - Batch reprocess multiple documents
-   */
-  router.post(
-    '/reprocess/batch',
-    authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const userId = (req as any).user?.id;
-        const { documentIds } = req.body;
-
-        if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
-          return res.status(400).json({ error: 'documentIds array is required' });
-        }
-
-        const { DocumentService } = await import('../services/DocumentService');
-        const documentService = new DocumentService();
-
-        const jobs = await documentService.batchReprocess(documentIds, userId);
-
-        res.json({
-          success: true,
-          message: `${jobs.length} documents queued for reprocessing`,
-          jobs: jobs.map((job) => ({
-            jobId: job.id,
-            documentId: job.data.documentId,
-          })),
-          totalQueued: jobs.length,
-        });
-      } catch (error) {
-        logger.error('Batch reprocess error:', error);
-        next(error);
-      }
-    }
-  );
-
-  /**
-   * GET /api/documents/low-confidence - Get documents with confidence below threshold
-   */
-  router.get(
-    '/low-confidence',
-    authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const userId = (req as any).user?.id;
-        const { threshold = 0.7 } = req.query;
-
-        const { DocumentService } = await import('../services/DocumentService');
-        const documentService = new DocumentService();
-
-        const documents = await documentService.getLowConfidenceDocuments(
-          userId,
-          parseFloat(threshold as string)
-        );
-
-        res.json({
-          success: true,
-          documents,
-          count: documents.length,
-        });
-      } catch (error) {
-        logger.error('Get low confidence documents error:', error);
         next(error);
       }
     }

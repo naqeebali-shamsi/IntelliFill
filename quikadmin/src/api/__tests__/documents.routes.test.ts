@@ -577,27 +577,30 @@ describe('Documents API Routes', () => {
   // ==========================================================================
 
   describe('GET /api/documents/low-confidence', () => {
-    it.skip('should return documents below confidence threshold (ROUTE ORDERING BUG)', async () => {
-      // NOTE: This route is currently broken due to route ordering.
-      // /api/documents/low-confidence is matched by /api/documents/:id first
-      // This needs to be fixed in the implementation by moving specific routes before parameterized routes
+    it('should return documents below confidence threshold', async () => {
       const mockDocuments = [
         { id: 'doc-1', confidence: 0.5 },
         { id: 'doc-2', confidence: 0.6 },
       ];
 
-      jest.doMock('../../services/DocumentService', () => ({
-        DocumentService: jest.fn().mockImplementation(() => ({
-          getLowConfidenceDocuments: jest.fn().mockResolvedValue(mockDocuments),
-        })),
-      }));
+      mockDocumentService.getLowConfidenceDocuments.mockResolvedValue(mockDocuments);
 
       const response = await request(app)
         .get('/api/documents/low-confidence?threshold=0.7')
         .expect(200);
 
       expect(response.body.success).toBe(true);
+      expect(response.body.documents).toEqual(mockDocuments);
       expect(response.body.count).toBe(2);
+    });
+
+    it('should use default threshold of 0.7', async () => {
+      mockDocumentService.getLowConfidenceDocuments.mockResolvedValue([]);
+
+      const response = await request(app).get('/api/documents/low-confidence').expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(mockDocumentService.getLowConfidenceDocuments).toHaveBeenCalledWith(testUserId, 0.7);
     });
   });
 
