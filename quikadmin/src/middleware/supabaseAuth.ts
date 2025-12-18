@@ -50,7 +50,7 @@ export async function authenticateSupabase(
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'Missing or invalid Authorization header'
+        message: 'Missing or invalid Authorization header',
       });
       return;
     }
@@ -61,7 +61,7 @@ export async function authenticateSupabase(
     if (!token || token.trim() === '') {
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'No token provided'
+        message: 'No token provided',
       });
       return;
     }
@@ -70,7 +70,7 @@ export async function authenticateSupabase(
     if (token.length < 20 || token.length > 2048) {
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'Token length is invalid'
+        message: 'Token length is invalid',
       });
       return;
     }
@@ -81,7 +81,7 @@ export async function authenticateSupabase(
     if (!supabaseUser) {
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'Invalid or expired token'
+        message: 'Invalid or expired token',
       });
       return;
     }
@@ -96,8 +96,8 @@ export async function authenticateSupabase(
         firstName: true,
         lastName: true,
         supabaseUserId: true,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (!dbUser) {
@@ -106,7 +106,7 @@ export async function authenticateSupabase(
       logger.error(`User ${supabaseUser.id} authenticated with Supabase but not found in database`);
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'User not found in database'
+        message: 'User not found in database',
       });
       return;
     }
@@ -117,7 +117,7 @@ export async function authenticateSupabase(
       res.status(403).json({
         error: 'Forbidden',
         message: 'Account is deactivated',
-        code: 'ACCOUNT_DEACTIVATED'
+        code: 'ACCOUNT_DEACTIVATED',
       });
       return;
     }
@@ -129,17 +129,26 @@ export async function authenticateSupabase(
       role: dbUser.role,
       supabaseUserId: dbUser.supabaseUserId || supabaseUser.id,
       firstName: dbUser.firstName || undefined,
-      lastName: dbUser.lastName || undefined
+      lastName: dbUser.lastName || undefined,
     };
 
     req.supabaseUser = supabaseUser; // Raw Supabase user for advanced use cases
+
+    // Set RLS user context for Row Level Security policies
+    // This enables database-level data isolation (defense in depth)
+    try {
+      await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
+    } catch (rlsError) {
+      // Log but don't fail - application-level filtering still works
+      logger.warn('Failed to set RLS context', { userId: dbUser.id, error: rlsError });
+    }
 
     next();
   } catch (error: any) {
     logger.error('Supabase authentication error:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Authentication failed'
+      message: 'Authentication failed',
     });
   }
 }
@@ -155,24 +164,24 @@ export function authorizeSupabase(allowedRoles: string[]) {
     if (!req.user) {
       res.status(401).json({
         error: 'Unauthorized',
-        message: 'Authentication required'
+        message: 'Authentication required',
       });
       return;
     }
 
     // Normalize role comparison (case-insensitive)
     const userRole = req.user.role.toUpperCase();
-    const normalizedAllowedRoles = allowedRoles.map(r => r.toUpperCase());
+    const normalizedAllowedRoles = allowedRoles.map((r) => r.toUpperCase());
 
     if (!normalizedAllowedRoles.includes(userRole)) {
       logger.warn('Authorization failed: Insufficient permissions', {
         userId: req.user.id,
         userRole,
-        requiredRoles: allowedRoles
+        requiredRoles: allowedRoles,
       });
       res.status(403).json({
         error: 'Forbidden',
-        message: 'Insufficient permissions'
+        message: 'Insufficient permissions',
       });
       return;
     }
@@ -223,8 +232,8 @@ export async function optionalAuthSupabase(
           firstName: true,
           lastName: true,
           supabaseUserId: true,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       if (dbUser && dbUser.isActive) {
@@ -234,9 +243,16 @@ export async function optionalAuthSupabase(
           role: dbUser.role,
           supabaseUserId: dbUser.supabaseUserId || supabaseUser.id,
           firstName: dbUser.firstName || undefined,
-          lastName: dbUser.lastName || undefined
+          lastName: dbUser.lastName || undefined,
         };
         req.supabaseUser = supabaseUser;
+
+        // Set RLS user context for optional auth as well
+        try {
+          await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
+        } catch {
+          // Silent failure for optional auth
+        }
       }
     }
 
@@ -244,10 +260,12 @@ export async function optionalAuthSupabase(
   } catch (error) {
     // Silent failure - continue without user
     // Log suspicious activity but don't block request
-    if (error instanceof Error &&
-        (error.message.includes('algorithm') ||
-         error.message.includes('none') ||
-         error.message.includes('signature'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('algorithm') ||
+        error.message.includes('none') ||
+        error.message.includes('signature'))
+    ) {
       logger.warn('Suspicious token in optional auth:', error.message);
     }
     next();
