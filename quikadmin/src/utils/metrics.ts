@@ -13,21 +13,21 @@ export const httpRequestDuration = new Histogram({
   help: 'Duration of HTTP requests in seconds',
   labelNames: ['method', 'route', 'status_code'],
   buckets: [0.1, 0.5, 1, 2, 5],
-  registers: [register]
+  registers: [register],
 });
 
 export const httpRequestTotal = new Counter({
   name: 'http_requests_total',
   help: 'Total number of HTTP requests',
   labelNames: ['method', 'route', 'status_code'],
-  registers: [register]
+  registers: [register],
 });
 
 export const processingJobsTotal = new Counter({
   name: 'processing_jobs_total',
   help: 'Total number of processing jobs',
   labelNames: ['type', 'status'],
-  registers: [register]
+  registers: [register],
 });
 
 export const processingDuration = new Histogram({
@@ -35,58 +35,58 @@ export const processingDuration = new Histogram({
   help: 'Duration of document processing in seconds',
   labelNames: ['type'],
   buckets: [1, 5, 10, 30, 60, 120, 300],
-  registers: [register]
+  registers: [register],
 });
 
 export const queueSize = new Gauge({
   name: 'queue_size',
   help: 'Current size of processing queue',
   labelNames: ['queue_name', 'status'],
-  registers: [register]
+  registers: [register],
 });
 
 export const fieldMappingAccuracy = new Gauge({
   name: 'field_mapping_accuracy',
   help: 'Current field mapping accuracy percentage',
-  registers: [register]
+  registers: [register],
 });
 
 export const ocrProcessingTime = new Histogram({
   name: 'ocr_processing_time_seconds',
   help: 'Time taken for OCR processing',
   buckets: [1, 2, 5, 10, 20, 30, 60],
-  registers: [register]
+  registers: [register],
 });
 
 export const mlModelAccuracy = new Gauge({
   name: 'ml_model_accuracy',
   help: 'Current ML model accuracy',
   labelNames: ['model_name'],
-  registers: [register]
+  registers: [register],
 });
 
 export const activeConnections = new Gauge({
   name: 'active_connections',
   help: 'Number of active WebSocket connections',
-  registers: [register]
+  registers: [register],
 });
 
 export const databaseConnectionPool = new Gauge({
   name: 'database_connection_pool_size',
   help: 'Database connection pool statistics',
   labelNames: ['status'],
-  registers: [register]
+  registers: [register],
 });
 
 export const redisOperations = new Counter({
   name: 'redis_operations_total',
   help: 'Total Redis operations',
   labelNames: ['operation', 'status'],
-  registers: [register]
+  registers: [register],
 });
 
 // Middleware to track HTTP metrics
-export const metricsMiddleware = (req: Request, res: Response, next: Function) => {
+export const metricsMiddleware = (req: Request, res: Response, next: () => void) => {
   const start = Date.now();
 
   res.on('finish', () => {
