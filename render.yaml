@@ -13,8 +13,8 @@ services:
     plan: free
     branch: main
     rootDir: quikadmin
-    buildCommand: npm install --include=optional --os=linux --cpu=x64 --libc=glibc && npx prisma generate && npm run build
-    startCommand: npm run start:prod
+    buildCommand: cd .. && corepack enable && pnpm install --frozen-lockfile && cd quikadmin && npx prisma generate && pnpm run build
+    startCommand: pnpm run start:prod
     healthCheckPath: /api/health
     envVars:
       # Core
