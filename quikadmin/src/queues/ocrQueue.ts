@@ -25,8 +25,9 @@ export interface OCRProcessingJob {
 
 /**
  * Redis configuration for queue
+ * Supports REDIS_URL (including rediss:// for TLS) or fallback to host/port
  */
-const redisConfig = {
+const redisConfig = process.env.REDIS_URL || {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
   password: process.env.REDIS_PASSWORD,

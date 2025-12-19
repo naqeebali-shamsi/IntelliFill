@@ -31,10 +31,11 @@ export interface BatchProcessingJob {
 }
 
 // Create queue with Redis connection
-const redisConfig = {
+// Supports REDIS_URL (including rediss:// for TLS) or fallback to host/port
+const redisConfig = process.env.REDIS_URL || {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD
+  password: process.env.REDIS_PASSWORD,
 };
 
 // Queue availability flags
@@ -52,9 +53,9 @@ try {
       attempts: 3,
       backoff: {
         type: 'exponential',
-        delay: 2000
-      }
-    }
+        delay: 2000,
+      },
+    },
   });
 
   documentQueue.on('error', (error) => {
@@ -81,8 +82,8 @@ try {
     defaultJobOptions: {
       removeOnComplete: 50,
       removeOnFail: 25,
-      attempts: 2
-    }
+      attempts: 2,
+    },
   });
 
   batchQueue.on('error', (error) => {
@@ -148,12 +149,11 @@ if (documentQueue) {
         status: 'completed',
         extractedData,
         mappedFields,
-        processingTime: Date.now() - job.timestamp
+        processingTime: Date.now() - job.timestamp,
       };
 
       logger.info(`Document ${documentId} processed successfully`);
       return result;
-
     } catch (error) {
       logger.error(`Failed to process document ${documentId}:`, error);
       throw error;
@@ -179,7 +179,7 @@ if (batchQueue && documentQueue) {
           documentId: documentIds[i],
           userId: job.data.userId,
           filePath: `pending`, // Would be fetched from database
-          options: {}
+          options: {},
         });
 
         // Wait for completion if not parallel
@@ -200,9 +200,8 @@ if (batchQueue && documentQueue) {
       return {
         batchId: job.id,
         documentsProcessed: results.length,
-        results
+        results,
       };
-
     } catch (error) {
       logger.error(`Batch processing failed:`, error);
       throw error;
@@ -231,7 +230,7 @@ export async function getQueueHealth() {
     documentQueue!.getWaitingCount(),
     documentQueue!.getActiveCount(),
     documentQueue!.getCompletedCount(),
-    documentQueue!.getFailedCount()
+    documentQueue!.getFailedCount(),
   ]);
 
   return {
@@ -240,7 +239,7 @@ export async function getQueueHealth() {
     active,
     completed,
     failed,
-    isHealthy: active < 100 && waiting < 1000
+    isHealthy: active < 100 && waiting < 1000,
   };
 }
 
@@ -265,7 +264,7 @@ export async function getJobStatus(jobId: string) {
           started_at: batchJob.processedOn ? new Date(batchJob.processedOn) : undefined,
           completed_at: batchJob.finishedOn ? new Date(batchJob.finishedOn) : undefined,
           result: batchJob.returnvalue,
-          error: batchJob.failedReason
+          error: batchJob.failedReason,
         });
       }
     }
@@ -281,7 +280,7 @@ export async function getJobStatus(jobId: string) {
     started_at: job.processedOn ? new Date(job.processedOn) : undefined,
     completed_at: job.finishedOn ? new Date(job.finishedOn) : undefined,
     result: job.returnvalue,
-    error: job.failedReason
+    error: job.failedReason,
   });
 }
 
