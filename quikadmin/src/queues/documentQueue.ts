@@ -32,11 +32,29 @@ export interface BatchProcessingJob {
 
 // Create queue with Redis connection
 // Supports REDIS_URL (including rediss:// for TLS) or fallback to host/port
-const redisConfig = process.env.REDIS_URL || {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  password: process.env.REDIS_PASSWORD,
-};
+function getRedisConfig(): string | object {
+  const redisUrl = process.env.REDIS_URL;
+  if (redisUrl) {
+    // For TLS connections (rediss://), ioredis needs tls option
+    if (redisUrl.startsWith('rediss://')) {
+      const url = new URL(redisUrl);
+      return {
+        host: url.hostname,
+        port: parseInt(url.port) || 6379,
+        password: url.password || undefined,
+        tls: {},
+      };
+    }
+    return redisUrl;
+  }
+  return {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD,
+  };
+}
+
+const redisConfig = getRedisConfig();
 
 // Queue availability flags
 let documentQueueAvailable = false;
