@@ -29,10 +29,10 @@ import { csrfProtection } from './middleware/csrf';
 console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
 console.log(`   Server: http://localhost:${config.server.port}`);
 console.log(`   Database: ${config.database.url.split('@')[1]?.split('/')[0] || 'configured'}`);
-console.log(`   Redis: ${config.redis.host}:${config.redis.port}`);
+console.log(`   Redis: ${config.redis.url.replace(/:[^:@]+@/, ':****@')}`);
 
 // Optional environment variable warnings
-const RECOMMENDED_ENV_VARS = ['REDIS_PASSWORD', 'DB_POOL_MAX', 'DB_POOL_MIN'];
+const RECOMMENDED_ENV_VARS = ['DB_POOL_MAX', 'DB_POOL_MIN'];
 
 for (const varName of RECOMMENDED_ENV_VARS) {
   if (!process.env[varName]) {
