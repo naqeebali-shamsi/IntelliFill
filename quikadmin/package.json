@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:render": "npm rebuild sharp --platform=linux --arch=x64 && npm run build",
-    "postinstall": "node -e \"if(process.platform==='linux'){const{execSync}=require('child_process');try{execSync('npm rebuild sharp',{stdio:'inherit'})}catch(e){}}\"",
+    "postinstall": "node -e \"if(process.platform==='linux'&&process.env.RENDER==='true'){const{execSync}=require('child_process');try{execSync('npm rebuild sharp',{stdio:'inherit'})}catch(e){}}\"",
     "dev": "ts-node-dev --respawn --transpile-only --exit-child --watch src --ignore-watch node_modules src/index.ts",
     "dev:nodemon": "nodemon src/index.ts",
     "dev:debug": "ts-node-dev --respawn --transpile-only --inspect --exit-child src/index.ts",

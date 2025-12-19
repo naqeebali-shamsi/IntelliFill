@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "start-dev.bat",
     "prepare": "husky || true",
-    "postinstall": "node -e \"if(process.platform==='linux'){const{execSync}=require('child_process');execSync('rm -rf node_modules/sharp',{stdio:'inherit'});execSync('npm install sharp --os=linux --cpu=x64 --force',{stdio:'inherit'})}\" || true",
+    "postinstall": "node -e \"if(process.platform==='linux'&&process.env.RENDER==='true'){const{execSync}=require('child_process');execSync('rm -rf node_modules/sharp',{stdio:'inherit'});execSync('npm install sharp --os=linux --cpu=x64 --force',{stdio:'inherit'})}\" || true",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd quikadmin && npm run lint",
     "lint:frontend": "cd quikadmin-web && bun run lint",
