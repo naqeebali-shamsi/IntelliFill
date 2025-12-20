@@ -18,7 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import api, { validateForm, API_BASE_URL } from '@/services/api';
+import api, { validateForm } from '@/services/api';
 import { toast } from 'sonner';
 import { FieldMappingTable } from '@/components/features/field-mapping-table';
 import { TemplateManager } from '@/components/features/template-manager';
@@ -326,6 +326,33 @@ export default function SimpleFillForm() {
     setResult(null);
     setCurrentStep('upload');
     // Note: We don't reset selectedProfile to keep the user's profile choice
+  };
+
+  const handleDownload = async () => {
+    if (!result?.downloadUrl) return;
+
+    try {
+      // Use authenticated API request to download the file
+      const response = await api.get(result.downloadUrl.replace(/^\/api/, ''), {
+        responseType: 'blob',
+      });
+
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `filled-form-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Download started!');
+    } catch (error: any) {
+      console.error('Download failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to download file');
+    }
   };
 
   const getFieldSource = (fieldName: string | null): string => {
@@ -651,11 +678,9 @@ export default function SimpleFillForm() {
                 )}
 
                 <div className="flex gap-2">
-                  <Button asChild className="flex-1">
-                    <a href={`${API_BASE_URL}${result.downloadUrl.replace(/^\/api/, '')}`} download>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Filled Form
-                    </a>
+                  <Button className="flex-1" onClick={handleDownload}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Filled Form
                   </Button>
                   <Button variant="outline" onClick={handleReset}>
                     Fill Another
