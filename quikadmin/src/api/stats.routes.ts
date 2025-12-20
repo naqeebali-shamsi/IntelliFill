@@ -1,8 +1,36 @@
 import express, { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs/promises';
 import { DatabaseService } from '../database/DatabaseService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
+import { IntelliFillService } from '../services/IntelliFillService';
+
+// Configure multer for form validation file uploads
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `form-validate-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are supported for form validation'));
+    }
+  },
+});
 
 export function createStatsRoutes(db: DatabaseService): Router {
   const router = Router();
@@ -412,57 +440,145 @@ export function createStatsRoutes(db: DatabaseService): Router {
   });
 
   // Validate form endpoint - validates PDF form structure
-  router.post('/validate/form', authenticateSupabase, async (req: Request, res: Response) => {
-    try {
-      const { templateId } = req.body;
-
-      if (!templateId) {
-        return res.status(400).json({ error: 'Template ID is required' });
-      }
-
-      // Get template to validate
-      const template = await prisma.template.findUnique({
-        where: { id: templateId },
-      });
-
-      if (!template) {
-        return res.status(404).json({ error: 'Template not found' });
-      }
-
-      // Parse field mappings
-      let fields: string[] = [];
-      const fieldTypes: Record<string, string> = {};
-
+  // Supports both:
+  // 1. PDF file upload (multipart/form-data with 'form' field) - extracts fields from PDF
+  // 2. Template ID (JSON body with templateId) - returns template fields (legacy)
+  router.post(
+    '/validate/form',
+    authenticateSupabase,
+    upload.single('form'),
+    async (req: Request, res: Response) => {
       try {
-        const mappings = JSON.parse(template.fieldMappings);
-        if (Array.isArray(mappings)) {
-          fields = mappings.map((m: any) => m.name || m);
-          mappings.forEach((m: any) => {
-            if (typeof m === 'object' && m.name) {
-              fieldTypes[m.name] = m.type || 'text';
-            }
+        // Handle PDF file upload (new behavior for frontend)
+        if (req.file) {
+          const intelliFillService = new IntelliFillService();
+
+          try {
+            const fields = await intelliFillService.extractFormFields(req.file.path);
+
+            // Infer field types based on field names
+            const fieldTypes: Record<string, string> = {};
+            fields.forEach((fieldName: string) => {
+              const lowerName = fieldName.toLowerCase();
+              if (
+                lowerName.includes('date') ||
+                lowerName.includes('dob') ||
+                lowerName.includes('birth')
+              ) {
+                fieldTypes[fieldName] = 'date';
+              } else if (lowerName.includes('email')) {
+                fieldTypes[fieldName] = 'email';
+              } else if (
+                lowerName.includes('phone') ||
+                lowerName.includes('tel') ||
+                lowerName.includes('fax')
+              ) {
+                fieldTypes[fieldName] = 'phone';
+              } else if (
+                lowerName.includes('check') ||
+                lowerName.includes('agree') ||
+                lowerName.includes('consent')
+              ) {
+                fieldTypes[fieldName] = 'checkbox';
+              } else if (lowerName.includes('signature') || lowerName.includes('sign')) {
+                fieldTypes[fieldName] = 'signature';
+              } else if (
+                lowerName.includes('amount') ||
+                lowerName.includes('price') ||
+                lowerName.includes('cost') ||
+                lowerName.includes('fee')
+              ) {
+                fieldTypes[fieldName] = 'number';
+              } else if (lowerName.includes('address')) {
+                fieldTypes[fieldName] = 'address';
+              } else if (lowerName.includes('ssn') || lowerName.includes('social')) {
+                fieldTypes[fieldName] = 'ssn';
+              } else if (lowerName.includes('zip') || lowerName.includes('postal')) {
+                fieldTypes[fieldName] = 'zip';
+              } else {
+                fieldTypes[fieldName] = 'text';
+              }
+            });
+
+            // Clean up uploaded file after processing
+            await fs.unlink(req.file.path).catch((err) => {
+              logger.warn('Failed to clean up uploaded form file:', err);
+            });
+
+            return res.json({
+              data: {
+                fields,
+                fieldTypes,
+                fieldCount: fields.length,
+                isValid: fields.length > 0,
+              },
+            });
+          } catch (extractError) {
+            // Clean up file on error
+            await fs.unlink(req.file.path).catch(() => {});
+
+            logger.error('Error extracting form fields from PDF:', extractError);
+            return res.status(400).json({
+              error: 'Failed to extract fields from PDF. Ensure the file is a valid PDF form.',
+              details: extractError instanceof Error ? extractError.message : 'Unknown error',
+            });
+          }
+        }
+
+        // Fallback to template-based validation (existing behavior)
+        const { templateId } = req.body;
+
+        if (!templateId) {
+          return res.status(400).json({
+            error: 'Either a form file or templateId is required',
+            hint: 'Send a PDF file as multipart/form-data with field name "form", or send JSON with "templateId"',
           });
         }
-      } catch {
-        // Field mappings might be in different format
-        fields = [];
-      }
 
-      res.json({
-        data: {
-          templateId: template.id,
-          templateName: template.name,
-          formType: template.formType,
-          fields,
-          fieldTypes,
-          isValid: fields.length > 0,
-        },
-      });
-    } catch (error) {
-      logger.error('Error validating form:', error);
-      res.status(500).json({ error: 'Failed to validate form' });
+        // Get template to validate
+        const template = await prisma.template.findUnique({
+          where: { id: templateId },
+        });
+
+        if (!template) {
+          return res.status(404).json({ error: 'Template not found' });
+        }
+
+        // Parse field mappings
+        let fields: string[] = [];
+        const fieldTypes: Record<string, string> = {};
+
+        try {
+          const mappings = JSON.parse(template.fieldMappings);
+          if (Array.isArray(mappings)) {
+            fields = mappings.map((m: any) => m.name || m);
+            mappings.forEach((m: any) => {
+              if (typeof m === 'object' && m.name) {
+                fieldTypes[m.name] = m.type || 'text';
+              }
+            });
+          }
+        } catch {
+          // Field mappings might be in different format
+          fields = [];
+        }
+
+        res.json({
+          data: {
+            templateId: template.id,
+            templateName: template.name,
+            formType: template.formType,
+            fields,
+            fieldTypes,
+            isValid: fields.length > 0,
+          },
+        });
+      } catch (error) {
+        logger.error('Error validating form:', error);
+        res.status(500).json({ error: 'Failed to validate form' });
+      }
     }
-  });
+  );
 
   return router;
 }
