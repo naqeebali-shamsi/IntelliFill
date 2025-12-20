@@ -305,6 +305,9 @@ export function createUserRoutes(): Router {
 
         // Process form
         const formPath = req.file.path;
+
+        // Ensure outputs directory exists
+        await fs.mkdir('outputs', { recursive: true });
         const outputPath = path.join('outputs', `filled-${Date.now()}-${req.file.originalname}`);
 
         // Get form fields
