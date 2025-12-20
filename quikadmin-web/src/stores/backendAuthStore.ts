@@ -135,8 +135,15 @@ function createAuthError(error: any): AppError {
       message = 'Invalid email or password';
       break;
     case 403:
-      code = 'ACCOUNT_DEACTIVATED';
-      message = 'Account is deactivated. Please contact support.';
+      // Check the server's actual error code/message instead of assuming account deactivation
+      if (serverCode === 'ACCOUNT_DEACTIVATED') {
+        code = 'ACCOUNT_DEACTIVATED';
+        message = 'Account is deactivated. Please contact support.';
+      } else {
+        // Use server's error message for other 403 errors (CSRF, forbidden, etc.)
+        code = serverCode || 'FORBIDDEN';
+        message = serverMessage || 'Access forbidden';
+      }
       break;
     case 409:
       code = 'EMAIL_EXISTS';
