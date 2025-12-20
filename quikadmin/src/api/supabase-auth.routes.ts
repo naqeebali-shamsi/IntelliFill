@@ -19,13 +19,14 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { supabaseAdmin, supabase } from '../utils/supabase';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+// Use centralized rate limiters to avoid duplication and ensure Redis store is used
+import { authLimiter as centralAuthLimiter } from '../middleware/rateLimiter';
 
 // Test mode configuration
 const isTestMode = process.env.NODE_ENV === 'test';
@@ -88,36 +89,20 @@ export interface ResendVerificationRequest {
 
 /**
  * Rate limiting for auth endpoints
- * Stricter limits for security-critical operations
+ *
+ * IMPORTANT: We use the centralized rate limiter from middleware/rateLimiter.ts
+ * This ensures:
+ * 1. Redis store is used for distributed rate limiting
+ * 2. Consistent limits across the application
+ * 3. No double rate limiting (index.ts also applies limiters)
+ *
+ * The centralized limiter uses skipSuccessfulRequests: true,
+ * so only failed auth attempts count toward the limit.
  */
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 1000 : 5,
-  message: {
-    error: 'Too many authentication attempts. Please try again later.',
-    retryAfter: '15 minutes',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn(`Auth rate limit exceeded for IP: ${req.ip}`);
-    res.status(429).json({
-      error: 'Too many authentication attempts. Please try again later.',
-      retryAfter: '15 minutes',
-    });
-  },
-});
+const authLimiter = centralAuthLimiter;
 
-const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 100 : 3, // Higher limit for dev/test
-  message: {
-    error: 'Too many registration attempts. Please try again later.',
-    retryAfter: '1 hour',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Registration uses the same limiter - it's auth-related and should be protected
+const registerLimiter = centralAuthLimiter;
 
 /**
  * Create Supabase auth router
@@ -1346,7 +1331,9 @@ export function createSupabaseAuthRoutes(): Router {
 
         if (!user) {
           // Don't reveal if user exists - return generic success message
-          logger.info('Resend verification requested for non-existent email', { email: normalizedEmail });
+          logger.info('Resend verification requested for non-existent email', {
+            email: normalizedEmail,
+          });
           return res.json({
             success: true,
             message: 'If an account exists with this email, a verification code has been sent.',

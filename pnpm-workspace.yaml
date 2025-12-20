@@ -1,3 +1,15 @@
 packages:
   - 'quikadmin'
   - 'quikadmin-web'
+
+# Cross-platform support for native binaries (sharp, esbuild, rollup, etc.)
+# This ensures pnpm-lock.yaml includes binaries for all specified platforms
+# Moved from .npmrc to avoid npm 11+ warnings
+supportedArchitectures:
+  os:
+    - current
+    - linux
+  cpu:
+    - x64
+  libc:
+    - glibc
