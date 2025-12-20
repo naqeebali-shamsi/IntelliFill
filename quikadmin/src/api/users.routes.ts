@@ -6,6 +6,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { decryptExtractedData } from '../middleware/encryptionMiddleware';
+import { encryptFile } from '../utils/encryption';
 import { logger } from '../utils/logger';
 import { createProfileRoutes } from './profile.routes';
 import { ExtractedData } from '../extractors/DataExtractor';
@@ -337,7 +338,12 @@ export function createUserRoutes(): Router {
         // Fill form
         const fillResult = await formFiller.fillPDFForm(formPath, mappingResult, outputPath);
 
-        // Get file size
+        // Encrypt the filled PDF for secure storage
+        const filledPdfBuffer = await fs.readFile(outputPath);
+        const encryptedBuffer = encryptFile(filledPdfBuffer);
+        await fs.writeFile(outputPath, encryptedBuffer);
+
+        // Get file size (of encrypted file)
         const stats = await fs.stat(outputPath);
 
         // Save filled document
