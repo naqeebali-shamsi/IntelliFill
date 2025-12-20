@@ -18,7 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import api, { validateForm } from '@/services/api';
+import api, { validateForm, API_BASE_URL } from '@/services/api';
 import { toast } from 'sonner';
 import { FieldMappingTable } from '@/components/features/field-mapping-table';
 import { TemplateManager } from '@/components/features/template-manager';
@@ -652,7 +652,7 @@ export default function SimpleFillForm() {
 
                 <div className="flex gap-2">
                   <Button asChild className="flex-1">
-                    <a href={result.downloadUrl} download>
+                    <a href={`${API_BASE_URL}${result.downloadUrl.replace(/^\/api/, '')}`} download>
                       <Download className="h-4 w-4 mr-2" />
                       Download Filled Form
                     </a>
