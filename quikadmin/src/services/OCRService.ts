@@ -45,14 +45,15 @@ export class OCRService {
           if (m.status === 'recognizing text') {
             logger.debug(`OCR Progress: ${(m.progress * 100).toFixed(1)}%`);
           }
-        }
+        },
       });
-      
+
       // Configure for better accuracy
       await this.worker.setParameters({
-        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,;:!?@#$%&*()-_+=[]{}|\\/<>"\' ',
+        tessedit_char_whitelist:
+          '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,;:!?@#$%&*()-_+=[]{}|\\/<>"\' ',
         preserve_interword_spaces: '1',
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
       });
 
       this.initialized = true;
@@ -90,7 +91,7 @@ export class OCRService {
           totalPages: pageCount,
           stage: 'converting',
           progress: (i / pageCount) * 100,
-          message: `Converting page ${pageNum}/${pageCount} to image...`
+          message: `Converting page ${pageNum}/${pageCount} to image...`,
         });
 
         // Convert PDF page to image
@@ -102,7 +103,7 @@ export class OCRService {
           totalPages: pageCount,
           stage: 'preprocessing',
           progress: ((i + 0.3) / pageCount) * 100,
-          message: `Preprocessing page ${pageNum}/${pageCount}...`
+          message: `Preprocessing page ${pageNum}/${pageCount}...`,
         });
 
         // Preprocess image for better OCR
@@ -114,22 +115,44 @@ export class OCRService {
           totalPages: pageCount,
           stage: 'recognizing',
           progress: ((i + 0.5) / pageCount) * 100,
-          message: `Recognizing text on page ${pageNum}/${pageCount}...`
+          message: `Recognizing text on page ${pageNum}/${pageCount}...`,
         });
 
-        // Perform OCR
-        const result = await this.worker!.recognize(processedImage);
+        // Perform OCR with explicit error handling for tesseract worker errors
+        let result;
+        try {
+          result = await this.worker!.recognize(processedImage);
+        } catch (recognizeError) {
+          // Tesseract worker errors can crash the process if not caught
+          logger.error(`Tesseract OCR failed for page ${pageNum}:`, recognizeError);
+          throw new Error(
+            `OCR recognition failed for page ${pageNum}: ${recognizeError instanceof Error ? recognizeError.message : 'Unknown error'}`
+          );
+        }
+
+        // Validate OCR result
+        if (!result || !result.data) {
+          logger.warn(`OCR returned empty result for page ${pageNum}`);
+          pages.push({
+            pageNumber: pageNum,
+            text: '',
+            confidence: 0,
+          });
+          continue;
+        }
 
         pages.push({
           pageNumber: pageNum,
-          text: result.data.text,
-          confidence: result.data.confidence
+          text: result.data.text || '',
+          confidence: result.data.confidence || 0,
         });
 
-        fullText += result.data.text + '\n\n';
-        totalConfidence += result.data.confidence;
+        fullText += (result.data.text || '') + '\n\n';
+        totalConfidence += result.data.confidence || 0;
 
-        logger.debug(`Processed page ${pageNum}/${pageCount} with confidence ${result.data.confidence}%`);
+        logger.debug(
+          `Processed page ${pageNum}/${pageCount} with confidence ${result.data.confidence}%`
+        );
 
         // Clean up page image to free memory
         if (imageBuffer) {
@@ -145,7 +168,7 @@ export class OCRService {
         totalPages: pageCount,
         stage: 'complete',
         progress: 100,
-        message: `OCR complete. Processed ${pageCount} pages in ${(processingTime / 1000).toFixed(1)}s`
+        message: `OCR complete. Processed ${pageCount} pages in ${(processingTime / 1000).toFixed(1)}s`,
       });
 
       return {
@@ -155,8 +178,8 @@ export class OCRService {
         metadata: {
           language: 'eng',
           processingTime,
-          pageCount
-        }
+          pageCount,
+        },
       };
     } catch (error) {
       logger.error('OCR processing error:', error);
@@ -180,25 +203,27 @@ export class OCRService {
       // Preprocess image
       const imageBuffer = await fs.readFile(imagePath);
       const processedImage = await this.preprocessImage(imageBuffer);
-      
+
       // Perform OCR
       const result = await this.worker!.recognize(processedImage);
-      
+
       const processingTime = Date.now() - startTime;
 
       return {
         text: result.data.text,
         confidence: result.data.confidence,
-        pages: [{
-          pageNumber: 1,
-          text: result.data.text,
-          confidence: result.data.confidence
-        }],
+        pages: [
+          {
+            pageNumber: 1,
+            text: result.data.text,
+            confidence: result.data.confidence,
+          },
+        ],
         metadata: {
           language: 'eng',
           processingTime,
-          pageCount: 1
-        }
+          pageCount: 1,
+        },
       };
     } catch (error) {
       logger.error('Image OCR error:', error);
@@ -207,6 +232,16 @@ export class OCRService {
   }
 
   private async preprocessImage(imageBuffer: Buffer): Promise<Buffer> {
+    // CRITICAL: Validate input buffer to prevent tesseract worker crashes
+    if (!imageBuffer || imageBuffer.length === 0) {
+      throw new Error('Cannot preprocess empty image buffer');
+    }
+
+    // Minimum valid image size (a 1x1 PNG is ~68 bytes)
+    if (imageBuffer.length < 50) {
+      throw new Error(`Image buffer too small (${imageBuffer.length} bytes)`);
+    }
+
     try {
       // Apply image preprocessing for better OCR accuracy
       const processed = await sharp(imageBuffer)
@@ -217,14 +252,27 @@ export class OCRService {
         .resize({ width: 2400 }) // Resize for optimal OCR (300 DPI equivalent)
         .toBuffer();
 
+      // Validate output buffer
+      if (!processed || processed.length === 0) {
+        throw new Error('Sharp produced empty output buffer');
+      }
+
       return processed;
     } catch (error) {
-      logger.warn('Image preprocessing failed, using original:', error);
+      logger.warn('Image preprocessing failed:', error);
+      // Don't return empty/invalid buffer - throw instead
+      if (!imageBuffer || imageBuffer.length < 50) {
+        throw new Error('Cannot fall back to invalid original buffer');
+      }
       return imageBuffer;
     }
   }
 
-  private async pdfPageToImage(pdfPath: string, pageIndex: number, tempDir: string): Promise<Buffer> {
+  private async pdfPageToImage(
+    pdfPath: string,
+    pageIndex: number,
+    tempDir: string
+  ): Promise<Buffer> {
     try {
       const pageNum = pageIndex + 1;
 
@@ -237,7 +285,7 @@ export class OCRService {
         width: 2480, // A4 at 300 DPI
         height: 3508, // A4 at 300 DPI
         compression: 'jpeg', // Use JPEG compression to save memory
-        quality: 90 // High quality but compressed
+        quality: 90, // High quality but compressed
       };
 
       const convert = fromPath(pdfPath, options);
@@ -246,12 +294,26 @@ export class OCRService {
       const result = await convert(pageNum, { responseType: 'buffer' });
 
       if (!result || !result.buffer) {
-        throw new Error(`Failed to convert page ${pageNum} to image`);
+        throw new Error(`Failed to convert page ${pageNum} to image: no buffer returned`);
       }
 
-      logger.debug(`Converted PDF page ${pageNum} to image (${result.buffer.length} bytes)`);
+      const buffer = result.buffer as Buffer;
 
-      return result.buffer as Buffer;
+      // CRITICAL: Validate buffer is not empty (prevents tesseract worker crash)
+      if (buffer.length === 0) {
+        throw new Error(`PDF page ${pageNum} conversion produced empty buffer`);
+      }
+
+      // Minimum valid image size check (a 1x1 PNG is ~68 bytes)
+      if (buffer.length < 100) {
+        throw new Error(
+          `PDF page ${pageNum} produced suspiciously small image (${buffer.length} bytes)`
+        );
+      }
+
+      logger.debug(`Converted PDF page ${pageNum} to image (${buffer.length} bytes)`);
+
+      return buffer;
     } catch (error) {
       logger.error(`Failed to convert PDF page ${pageIndex + 1} to image:`, error);
       throw new Error(`PDF page ${pageIndex + 1} conversion failed: ${error}`);
@@ -269,7 +331,7 @@ export class OCRService {
       ssn: /\d{3}-\d{2}-\d{4}/g,
       zipCode: /\b\d{5}(-\d{4})?\b/g,
       currency: /[$€£¥]\s?\d+(?:,\d{3})*(?:\.\d{2})?/g,
-      percentage: /\d+(?:\.\d+)?%/g
+      percentage: /\d+(?:\.\d+)?%/g,
     };
 
     for (const [key, pattern] of Object.entries(patterns)) {
@@ -282,7 +344,7 @@ export class OCRService {
     // Extract key-value pairs
     const keyValuePattern = /([A-Za-z\s]+):\s*([^\n]+)/g;
     const keyValueMatches = [...text.matchAll(keyValuePattern)];
-    
+
     structuredData.fields = {};
     for (const match of keyValueMatches) {
       const key = match[1].trim().toLowerCase().replace(/\s+/g, '_');
@@ -296,7 +358,7 @@ export class OCRService {
   async enhanceWithOCR(originalText: string, ocrText: string): Promise<string> {
     // Merge original extracted text with OCR results
     // This is useful when PDF has both searchable and scanned content
-    
+
     if (!originalText || originalText.trim().length < 50) {
       // If original text is minimal, use OCR text
       return ocrText;
@@ -308,11 +370,17 @@ export class OCRService {
     }
 
     // Merge both texts, removing duplicates
-    const originalLines = originalText.split('\n').map(l => l.trim()).filter(l => l);
-    const ocrLines = ocrText.split('\n').map(l => l.trim()).filter(l => l);
-    
+    const originalLines = originalText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l);
+    const ocrLines = ocrText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l);
+
     const mergedLines = [...new Set([...originalLines, ...ocrLines])];
-    
+
     return mergedLines.join('\n');
   }
 
