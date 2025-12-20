@@ -327,6 +327,7 @@ export function createUserRoutes(): Router {
             overallConfidence: 0.95,
             unmappedFormFields: [],
             unmappedDataFields: [],
+            warnings: [],
           };
         } else {
           // Use ML auto-mapping
