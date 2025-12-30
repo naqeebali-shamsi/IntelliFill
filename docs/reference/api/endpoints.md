@@ -3,7 +3,7 @@ title: API Endpoints Reference
 description: Complete reference for all IntelliFill API endpoints
 category: reference
 tags: [api, endpoints, rest]
-lastUpdated: 2025-11-25
+lastUpdated: 2025-12-30
 ---
 
 # API Endpoints Reference
@@ -33,6 +33,7 @@ Check API health status.
 **Authentication**: None
 
 **Response**:
+
 ```json
 {
   "status": "ok",
@@ -50,9 +51,8 @@ Check API health status.
 
 Register a new user.
 
-**Authentication**: None
-
 **Request Body**:
+
 ```json
 {
   "email": "user@example.com",
@@ -61,160 +61,29 @@ Register a new user.
 }
 ```
 
-**Response** (201):
-```json
-{
-  "success": true,
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "name": "John Doe"
-  },
-  "message": "Registration successful"
-}
-```
-
-**Errors**:
-- `400`: Invalid input
-- `409`: Email already exists
-
----
-
 ### POST /api/auth/v2/login
 
 Authenticate a user.
-
-**Authentication**: None
-
-**Request Body**:
-```json
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com",
-    "name": "John Doe"
-  },
-  "token": "jwt-token",
-  "expiresIn": 604800
-}
-```
-
-**Errors**:
-- `400`: Invalid input
-- `401`: Invalid credentials
-
----
 
 ### POST /api/auth/v2/logout
 
 Log out the current user.
 
-**Authentication**: Required
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "message": "Logged out successfully"
-}
-```
-
----
-
 ### POST /api/auth/v2/refresh
 
 Refresh the authentication token.
-
-**Authentication**: Required (refresh token)
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "token": "new-jwt-token",
-  "expiresIn": 604800
-}
-```
-
----
 
 ### POST /api/auth/v2/change-password
 
 Change the user's password.
 
-**Authentication**: Required
-
-**Request Body**:
-```json
-{
-  "currentPassword": "oldpassword",
-  "newPassword": "newpassword123"
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "message": "Password changed successfully"
-}
-```
-
----
-
 ### POST /api/auth/v2/forgot-password
 
 Request a password reset email.
 
-**Authentication**: None
-
-**Request Body**:
-```json
-{
-  "email": "user@example.com"
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "message": "Password reset email sent"
-}
-```
-
----
-
 ### POST /api/auth/v2/reset-password
 
 Reset password with token.
-
-**Authentication**: None
-
-**Request Body**:
-```json
-{
-  "token": "reset-token",
-  "newPassword": "newpassword123"
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "message": "Password reset successfully"
-}
-```
 
 ---
 
@@ -224,145 +93,21 @@ Reset password with token.
 
 List all documents for the current user.
 
-**Authentication**: Required
-
-**Query Parameters**:
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| page | number | Page number (default: 1) |
-| limit | number | Items per page (default: 20) |
-| status | string | Filter by status |
-| search | string | Search in filename |
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "documents": [
-    {
-      "id": "uuid",
-      "filename": "invoice.pdf",
-      "mimeType": "application/pdf",
-      "status": "completed",
-      "confidence": 0.93,
-      "createdAt": "2025-11-25T10:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 50,
-    "totalPages": 3
-  }
-}
-```
-
----
-
 ### GET /api/documents/:id
 
 Get a specific document.
-
-**Authentication**: Required
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "document": {
-    "id": "uuid",
-    "filename": "invoice.pdf",
-    "mimeType": "application/pdf",
-    "status": "completed",
-    "ocrText": "Invoice #12345...",
-    "extracted": {
-      "invoiceNumber": "12345",
-      "amount": "$1,500.00"
-    },
-    "confidence": 0.93,
-    "createdAt": "2025-11-25T10:00:00.000Z"
-  }
-}
-```
-
-**Errors**:
-- `404`: Document not found
-
----
 
 ### POST /api/documents/upload
 
 Upload a new document.
 
-**Authentication**: Required
-
-**Content-Type**: `multipart/form-data`
-
-**Request Body**:
-| Field | Type | Description |
-|-------|------|-------------|
-| document | file | The document file (PDF, PNG, JPG) |
-
-**Response** (201):
-```json
-{
-  "success": true,
-  "document": {
-    "id": "uuid",
-    "filename": "invoice.pdf",
-    "status": "processing"
-  },
-  "message": "Document uploaded successfully"
-}
-```
-
-**Errors**:
-- `400`: Invalid file type or size
-- `413`: File too large (max 10MB)
-
----
-
 ### DELETE /api/documents/:id
 
 Delete a document.
 
-**Authentication**: Required
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "message": "Document deleted successfully"
-}
-```
-
----
-
 ### PATCH /api/documents/:id
 
 Update a document.
-
-**Authentication**: Required
-
-**Request Body**:
-```json
-{
-  "filename": "new-name.pdf",
-  "status": "reviewed"
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "document": {
-    "id": "uuid",
-    "filename": "new-name.pdf",
-    "status": "reviewed"
-  }
-}
-```
 
 ---
 
@@ -372,74 +117,13 @@ Update a document.
 
 Process a single document and fill a form.
 
-**Authentication**: Required
-
-**Content-Type**: `multipart/form-data`
-
-**Request Body**:
-| Field | Type | Description |
-|-------|------|-------------|
-| document | file | Source document |
-| form | file | PDF form to fill |
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "jobId": "uuid",
-  "status": "processing"
-}
-```
-
----
-
 ### POST /api/process/multiple
 
 Process multiple documents.
 
-**Authentication**: Required
-
-**Content-Type**: `multipart/form-data`
-
-**Request Body**:
-| Field | Type | Description |
-|-------|------|-------------|
-| documents | file[] | Source documents |
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "jobId": "uuid",
-  "documentCount": 5
-}
-```
-
----
-
 ### GET /api/jobs/:id/status
 
 Get the status of a processing job.
-
-**Authentication**: Required
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "job": {
-    "id": "uuid",
-    "status": "completed",
-    "progress": 100,
-    "result": {
-      "extractedData": {...},
-      "filledFormUrl": "/downloads/uuid.pdf"
-    },
-    "startedAt": "2025-11-25T10:00:00.000Z",
-    "completedAt": "2025-11-25T10:00:05.000Z"
-  }
-}
-```
 
 ---
 
@@ -449,78 +133,13 @@ Get the status of a processing job.
 
 Get the current user's profile.
 
-**Authentication**: Required
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "profile": {
-    "id": "uuid",
-    "userId": "uuid",
-    "data": {
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "phone": "(555) 123-4567"
-    },
-    "updatedAt": "2025-11-25T10:00:00.000Z"
-  }
-}
-```
-
----
-
 ### PUT /api/users/me/profile
 
 Update the current user's profile.
 
-**Authentication**: Required
-
-**Request Body**:
-```json
-{
-  "data": {
-    "firstName": "John",
-    "lastName": "Doe",
-    "phone": "(555) 123-4567"
-  }
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "profile": {...},
-  "message": "Profile updated successfully"
-}
-```
-
----
-
 ### POST /api/users/me/fill-form
 
 Fill a form using the user's profile data.
-
-**Authentication**: Required
-
-**Content-Type**: `multipart/form-data`
-
-**Request Body**:
-| Field | Type | Description |
-|-------|------|-------------|
-| form | file | PDF form to fill |
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "filledFormUrl": "/downloads/uuid.pdf",
-  "fieldsMatched": 15,
-  "totalFields": 20
-}
-```
 
 ---
 
@@ -530,152 +149,103 @@ Fill a form using the user's profile data.
 
 List all templates.
 
-**Authentication**: Required
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "templates": [
-    {
-      "id": "uuid",
-      "name": "W-9 Form",
-      "description": "IRS W-9 tax form",
-      "fieldCount": 25,
-      "isPublic": true,
-      "createdAt": "2025-11-25T10:00:00.000Z"
-    }
-  ]
-}
-```
-
----
-
 ### GET /api/templates/public
 
 List public templates.
-
-**Authentication**: None
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "templates": [...]
-}
-```
-
----
 
 ### POST /api/templates
 
 Create a new template.
 
-**Authentication**: Required
-
-**Request Body**:
-```json
-{
-  "name": "Custom Form",
-  "description": "My custom form template",
-  "fields": [
-    { "name": "full_name", "type": "text", "label": "Full Name" }
-  ],
-  "isPublic": false
-}
-```
-
-**Response** (201):
-```json
-{
-  "success": true,
-  "template": {...}
-}
-```
-
----
-
 ### PUT /api/templates/:id
 
 Update a template.
-
-**Authentication**: Required
-
-**Request Body**:
-```json
-{
-  "name": "Updated Name",
-  "fields": [...]
-}
-```
-
-**Response** (200):
-```json
-{
-  "success": true,
-  "template": {...}
-}
-```
-
----
 
 ### DELETE /api/templates/:id
 
 Delete a template.
 
-**Authentication**: Required
+---
 
-**Response** (200):
-```json
-{
-  "success": true,
-  "message": "Template deleted successfully"
-}
-```
+## Profile API (Detailed)
+
+The User Profile API provides intelligent aggregation and management of user data extracted from all uploaded documents.
+
+### Key Features
+
+- Automatic data aggregation from all user documents
+- Intelligent deduplication (phone numbers, emails, SSNs)
+- Encrypted storage at rest
+- Manual profile editing with merge capabilities
+- Field-level confidence scoring
+- Source attribution (track which documents contributed data)
+
+### POST /api/users/me/profile/refresh
+
+Manually trigger profile refresh by re-aggregating data from all documents.
+
+### DELETE /api/users/me/profile
+
+Delete the user's aggregated profile. Documents remain intact.
+
+### GET /api/users/me/profile/field/:fieldKey
+
+Retrieve a specific field from the user's profile.
 
 ---
 
-## Error Responses
+## Template API (Detailed)
 
-All endpoints return errors in a consistent format:
+### POST /api/templates/detect
 
-```json
-{
-  "success": false,
-  "error": "Error message",
-  "code": "ERROR_CODE",
-  "details": {}
-}
-```
+Analyzes field names and detects the most likely form type.
 
-### Common Error Codes
+**Supported Form Types:**
 
-| Code | Status | Description |
-|------|--------|-------------|
-| VALIDATION_ERROR | 400 | Invalid request data |
-| UNAUTHORIZED | 401 | Missing or invalid auth |
-| FORBIDDEN | 403 | Insufficient permissions |
-| NOT_FOUND | 404 | Resource not found |
-| CONFLICT | 409 | Resource conflict |
-| RATE_LIMITED | 429 | Too many requests |
-| INTERNAL_ERROR | 500 | Server error |
+- W2 - W-2 Wage and Tax Statement
+- I9 - I-9 Employment Eligibility Verification
+- PASSPORT - US Passport Application
+- JOB_APPLICATION - Job Application Form
+- CUSTOM - Custom/Unknown Form Type
+
+### POST /api/templates/match
+
+Finds templates that match the provided field names, ranked by similarity.
+
+### POST /api/templates/:id/use
+
+Records template usage (increments usage counter).
 
 ---
 
-## Rate Limiting
+## Document Reprocessing API
 
-API endpoints are rate limited:
+### POST /api/documents/:id/reprocess
 
-- **Unauthenticated**: 20 requests/minute
-- **Authenticated**: 100 requests/minute
-- **File uploads**: 10 requests/minute
+Re-run OCR processing on a single document with higher quality settings.
 
-Rate limit headers:
-```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1637840000
-```
+### POST /api/documents/reprocess/batch
+
+Re-run OCR processing on multiple documents at once.
+
+### GET /api/documents/low-confidence
+
+Retrieve documents with confidence scores below a specified threshold.
+
+### GET /api/documents/:id/reprocessing-history
+
+Retrieve reprocessing history and metadata for a document.
+
+### Enhanced OCR Settings (Reprocessing)
+
+| Setting               | Normal OCR | Reprocessing |
+| --------------------- | ---------- | ------------ |
+| DPI                   | 300        | 600          |
+| Adaptive Thresholding | No         | Yes          |
+| Deskewing             | No         | Yes          |
+| Noise Reduction       | No         | Yes          |
+| Timeout               | 5 minutes  | 10 minutes   |
+| Priority              | Normal     | High         |
 
 ---
 
@@ -684,4 +254,5 @@ X-RateLimit-Reset: 1637840000
 - [Environment Variables](../configuration/environment.md)
 - [Authentication Guide](../../how-to/troubleshooting/auth-issues.md)
 - [Architecture Overview](../architecture/system-overview.md)
-
+- [Document Reprocessing Guide](../../tutorials/document-reprocessing.md)
+- [Template Usage Guide](../../tutorials/template-usage.md)

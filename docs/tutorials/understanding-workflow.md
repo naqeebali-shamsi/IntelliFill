@@ -96,16 +96,16 @@ class OCRService {
   async extractText(imagePath: string): Promise<OCRResult> {
     // Preprocess image
     const processed = await this.preprocess(imagePath);
-    
+
     // Run OCR
     const result = await Tesseract.recognize(processed, 'eng', {
-      logger: m => console.log(m.progress)
+      logger: (m) => console.log(m.progress),
     });
-    
+
     return {
       text: result.data.text,
       confidence: result.data.confidence,
-      words: result.data.words
+      words: result.data.words,
     };
   }
 }
@@ -125,13 +125,13 @@ class OCRService {
 
 ### Extracted Data Types
 
-| Type | Pattern | Example |
-|------|---------|---------|
-| Email | `[\w.-]+@[\w.-]+\.\w+` | user@example.com |
-| Phone | `\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}` | (555) 123-4567 |
-| Date | Various date patterns | Nov 25, 2025 |
-| SSN | `\d{3}-\d{2}-\d{4}` | 123-45-6789 |
-| Amount | `\$[\d,]+\.?\d*` | $1,234.56 |
+| Type   | Pattern                               | Example          |
+| ------ | ------------------------------------- | ---------------- |
+| Email  | `[\w.-]+@[\w.-]+\.\w+`                | user@example.com |
+| Phone  | `\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}` | (555) 123-4567   |
+| Date   | Various date patterns                 | Nov 25, 2025     |
+| SSN    | `\d{3}-\d{2}-\d{4}`                   | 123-45-6789      |
+| Amount | `\$[\d,]+\.?\d*`                      | $1,234.56        |
 
 ### Key Components
 
@@ -188,20 +188,20 @@ class OCRService {
 ```typescript
 // Extracted data
 const data = {
-  "Full Name": "John Smith",
-  "Email Address": "john@example.com"
+  'Full Name': 'John Smith',
+  'Email Address': 'john@example.com',
 };
 
 // PDF form fields
 const fields = [
-  { name: "applicant_name", type: "text" },
-  { name: "email", type: "text" }
+  { name: 'applicant_name', type: 'text' },
+  { name: 'email', type: 'text' },
 ];
 
 // Mapping result
 const mapping = {
-  "applicant_name": "Full Name",  // Fuzzy matched
-  "email": "Email Address"         // Exact matched
+  applicant_name: 'Full Name', // Fuzzy matched
+  email: 'Email Address', // Exact matched
 };
 ```
 
@@ -219,13 +219,13 @@ const mapping = {
 
 ### Supported Field Types
 
-| Type | Description | Example |
-|------|-------------|---------|
-| Text | Text input fields | Name, address |
-| Checkbox | True/false fields | Agree to terms |
-| Radio | Single selection | Gender options |
-| Dropdown | Select list | State selection |
-| Date | Date picker | Birth date |
+| Type     | Description       | Example         |
+| -------- | ----------------- | --------------- |
+| Text     | Text input fields | Name, address   |
+| Checkbox | True/false fields | Agree to terms  |
+| Radio    | Single selection  | Gender options  |
+| Dropdown | Select list       | State selection |
+| Date     | Date picker       | Birth date      |
 
 ### Key Components
 
@@ -241,17 +241,17 @@ class FormFiller {
   async fill(pdfBytes: Buffer, data: Record<string, any>): Promise<Buffer> {
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const form = pdfDoc.getForm();
-    
+
     for (const [fieldName, value] of Object.entries(data)) {
       const field = form.getField(fieldName);
-      
+
       if (field instanceof PDFTextField) {
         field.setText(String(value));
       } else if (field instanceof PDFCheckBox) {
         value ? field.check() : field.uncheck();
       }
     }
-    
+
     return Buffer.from(await pdfDoc.save());
   }
 }
@@ -287,13 +287,13 @@ User                    Frontend                  Backend                    Ser
 
 ## Performance Characteristics
 
-| Stage | Typical Time | Factors |
-|-------|-------------|---------|
-| Upload | 1-5s | File size, network |
-| OCR | 1-10s | Image size, complexity |
-| Extraction | <1s | Text length |
-| Mapping | <1s | Field count |
-| Filling | <2s | PDF complexity |
+| Stage      | Typical Time | Factors                |
+| ---------- | ------------ | ---------------------- |
+| Upload     | 1-5s         | File size, network     |
+| OCR        | 1-10s        | Image size, complexity |
+| Extraction | <1s          | Text length            |
+| Mapping    | <1s          | Field count            |
+| Filling    | <2s          | PDF complexity         |
 
 ---
 
@@ -301,13 +301,13 @@ User                    Frontend                  Backend                    Ser
 
 Each stage has specific error handling:
 
-| Stage | Common Errors | Recovery |
-|-------|--------------|----------|
-| Upload | File too large | Reject with message |
-| OCR | Image unreadable | Return low confidence |
-| Extract | No patterns found | Return empty data |
-| Map | No matching fields | Manual mapping |
-| Fill | Invalid PDF | Return error |
+| Stage   | Common Errors      | Recovery              |
+| ------- | ------------------ | --------------------- |
+| Upload  | File too large     | Reject with message   |
+| OCR     | Image unreadable   | Return low confidence |
+| Extract | No patterns found  | Return empty data     |
+| Map     | No matching fields | Manual mapping        |
+| Fill    | Invalid PDF        | Return error          |
 
 ---
 
@@ -323,5 +323,4 @@ Each stage has specific error handling:
 
 - [Getting Started](./getting-started.md)
 - [Your First Document](./first-document.md)
-- [OCR Implementation](../../quikadmin/docs/02-guides/development/ocr-implementation.md)
-
+- [OCR Implementation](../how-to/development/ocr-implementation.md)

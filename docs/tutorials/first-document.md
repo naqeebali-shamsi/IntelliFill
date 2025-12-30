@@ -80,6 +80,7 @@ After upload, you'll see:
 3. **Completion** - Green checkmark when done
 
 The processing pipeline:
+
 ```
 Upload → OCR Scan → Text Extraction → Data Parsing → Complete
 ```
@@ -138,15 +139,15 @@ If you have a fillable PDF form:
 
 IntelliFill automatically detects:
 
-| Type | Examples |
-|------|----------|
-| Names | John Smith, Jane Doe |
-| Emails | user@example.com |
-| Phones | (555) 123-4567, +1-555-123-4567 |
-| Dates | Nov 25, 2025, 11/25/2025 |
-| Amounts | $1,234.56, USD 1000 |
-| SSN | 123-45-6789 |
-| Addresses | 123 Main St, City, ST 12345 |
+| Type      | Examples                        |
+| --------- | ------------------------------- |
+| Names     | John Smith, Jane Doe            |
+| Emails    | user@example.com                |
+| Phones    | (555) 123-4567, +1-555-123-4567 |
+| Dates     | Nov 25, 2025, 11/25/2025        |
+| Amounts   | $1,234.56, USD 1000             |
+| SSN       | 123-45-6789                     |
+| Addresses | 123 Main St, City, ST 12345     |
 
 ---
 
@@ -196,5 +197,4 @@ IntelliFill automatically detects:
 
 - [Understanding the Workflow](./understanding-workflow.md)
 - [Document Processing API](../reference/api/endpoints.md#documents)
-- [OCR Implementation](../../quikadmin/docs/02-guides/development/ocr-implementation.md)
-
+- [OCR Implementation](../how-to/development/ocr-implementation.md)

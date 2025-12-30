@@ -1,3 +1,11 @@
+---
+title: 'Documentation Hub'
+description: 'Central navigation hub for all IntelliFill documentation organized by the Diataxis framework'
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # IntelliFill Documentation Hub
 
 Welcome to the IntelliFill documentation. This documentation follows the [Diátaxis framework](https://diataxis.fr/) to organize content by user needs.
@@ -22,10 +30,8 @@ Practical guides to accomplish specific tasks.
   - [Local Setup](./how-to/development/local-setup.md) - Set up local development
   - [Database Setup](./how-to/development/database-setup.md) - Configure PostgreSQL/Neon
   - [Testing](./how-to/development/testing.md) - Run and write tests
-  
 - **Deployment**
   - [Docker Deployment](./how-to/deployment/docker-deployment.md) - Deploy with Docker
-  
 - **Troubleshooting**
   - [Database Issues](./how-to/troubleshooting/database-issues.md) - Fix connection problems
   - [Authentication Issues](./how-to/troubleshooting/auth-issues.md) - Resolve auth errors
@@ -36,13 +42,10 @@ Technical descriptions and specifications.
 
 - **API**
   - [Endpoints](./reference/api/endpoints.md) - Complete API reference
-  
 - **Configuration**
   - [Environment Variables](./reference/configuration/environment.md) - All configuration options
-  
 - **Architecture**
   - [System Overview](./reference/architecture/system-overview.md) - Architecture documentation
-  
 - **Database**
   - [Schema](./reference/database/schema.md) - Database schema reference
 
@@ -107,16 +110,16 @@ IntelliFill/
 
 ## Technology Stack
 
-| Layer | Technology |
-|-------|------------|
-| **Backend** | Node.js, Express, TypeScript, Prisma |
+| Layer        | Technology                              |
+| ------------ | --------------------------------------- |
+| **Backend**  | Node.js, Express, TypeScript, Prisma    |
 | **Frontend** | React 18, Vite, TypeScript, TailwindCSS |
-| **Database** | PostgreSQL (Neon Serverless) |
-| **Auth** | Supabase Auth + JWT |
-| **OCR** | Tesseract.js |
-| **PDF** | pdf-lib |
-| **State** | Zustand |
-| **Testing** | Jest, Vitest, Cypress |
+| **Database** | PostgreSQL (Neon Serverless)            |
+| **Auth**     | Supabase Auth + JWT                     |
+| **OCR**      | Tesseract.js                            |
+| **PDF**      | pdf-lib                                 |
+| **State**    | Zustand                                 |
+| **Testing**  | Jest, Vitest, Cypress                   |
 
 ---
 
@@ -144,6 +147,7 @@ When updating documentation:
 **This is a living documentation system.** Documentation must be kept current with the codebase.
 
 See [MAINTENANCE.md](./MAINTENANCE.md) for:
+
 - Documentation update triggers
 - Quality standards
 - AI agent instructions
@@ -151,14 +155,13 @@ See [MAINTENANCE.md](./MAINTENANCE.md) for:
 
 ### Quick Reference: When to Update Docs
 
-| Code Change | Update |
-|-------------|--------|
-| API change | `reference/api/endpoints.md` |
-| Config change | `reference/configuration/environment.md` |
-| Schema change | `reference/database/schema.md` |
-| Known issue found/fixed | `../CLAUDE.local.md` |
+| Code Change             | Update                                   |
+| ----------------------- | ---------------------------------------- |
+| API change              | `reference/api/endpoints.md`             |
+| Config change           | `reference/configuration/environment.md` |
+| Schema change           | `reference/database/schema.md`           |
+| Known issue found/fixed | `../CLAUDE.local.md`                     |
 
 ---
 
 **Last Updated**: 2025-11-25
-
