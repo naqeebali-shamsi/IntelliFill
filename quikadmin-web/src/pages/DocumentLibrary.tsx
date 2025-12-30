@@ -1,11 +1,11 @@
 /**
  * DocumentLibrary page - Comprehensive document management
- * Features: Search, filters, sorting, bulk actions, grid/table view, pagination
- * @module pages/DocumentLibrary
+ * Redesigned with "Deep Ocean" aesthetic (Glassmorphism + Linear Style)
  */
 
 import * as React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageHeader } from '@/components/layout/page-header'
@@ -26,6 +26,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  FileText,
+  Filter,
+  X
 } from 'lucide-react'
 import { useDocuments, applyClientSideFilters, applyClientSideSorting, applyClientSidePagination } from '@/hooks/useDocuments'
 import { useDocumentActions } from '@/hooks/useDocumentActions'
@@ -41,6 +44,23 @@ import {
 import { Document, DocumentStatus, getFriendlyFileType, formatFileSize } from '@/types/document'
 import { format } from 'date-fns'
 import { useDebouncedValue } from '@/hooks/useDebounce'
+import { cn } from '@/lib/utils'
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 }
+}
 
 export default function DocumentLibrary() {
   const navigate = useNavigate()
@@ -86,18 +106,16 @@ export default function DocumentLibrary() {
   // Document actions
   const { downloadDocument, bulkDelete, bulkDownload, isBulkDeleting, isBulkDownloading } = useDocumentActions()
 
-  // Apply client-side filtering for filters not supported by backend
+  // Apply client-side filtering and sorting logic
   const clientFilteredDocs = React.useMemo(() => {
     if (!data?.documents) return []
     return applyClientSideFilters(data.documents, filter)
   }, [data?.documents, filter])
 
-  // Apply client-side sorting (backend doesn't support all sort fields yet)
   const sortedDocs = React.useMemo(() => {
     return applyClientSideSorting(clientFilteredDocs, sort)
   }, [clientFilteredDocs, sort])
 
-  // Apply client-side pagination
   const paginatedResult = React.useMemo(() => {
     return applyClientSidePagination(sortedDocs, page, pageSize)
   }, [sortedDocs, page, pageSize])
@@ -111,15 +129,10 @@ export default function DocumentLibrary() {
     return getDocumentStats(clientFilteredDocs)
   }, [clientFilteredDocs])
 
-  // Handle document actions
-  const handleDocumentClick = (id: string) => {
-    setSelectedDocumentId(id)
-  }
-
-  const handleDocumentSelect = (id: string) => {
-    toggleDocument(id)
-  }
-
+  // Handlers
+  const handleDocumentClick = (id: string) => setSelectedDocumentId(id)
+  const handleDocumentSelect = (id: string) => toggleDocument(id)
+  
   const handleSelectAll = () => {
     if (selectionCount === documents.length) {
       clearSelection()
@@ -162,36 +175,23 @@ export default function DocumentLibrary() {
   // Keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + A: Select all
       if ((e.ctrlKey || e.metaKey) && e.key === 'a' && documents.length > 0) {
         e.preventDefault()
         handleSelectAll()
       }
-
-      // Escape: Clear selection or close modal
       if (e.key === 'Escape') {
-        if (selectedDocumentId) {
-          setSelectedDocumentId(null)
-        } else if (selectionCount > 0) {
-          clearSelection()
-        }
+        if (selectedDocumentId) setSelectedDocumentId(null)
+        else if (selectionCount > 0) clearSelection()
       }
-
-      // Delete: Delete selected (with confirmation)
-      if (e.key === 'Delete' && selectionCount > 0) {
-        handleBulkDelete()
-      }
-
-      // Ctrl/Cmd + F: Focus search
+      if (e.key === 'Delete' && selectionCount > 0) handleBulkDelete()
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
         document.getElementById('document-search')?.focus()
       }
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [documents, selectionCount, selectedDocumentId])
+  }, [documents, selectionCount, selectedDocumentId, handleSelectAll, clearSelection, handleBulkDelete])
 
   // DataTable columns
   const columns: Column<Document>[] = [
@@ -200,8 +200,11 @@ export default function DocumentLibrary() {
       header: 'Name',
       sortable: true,
       render: (value, doc) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium truncate max-w-md" title={doc.fileName}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded bg-primary/10 text-primary">
+             <FileText className="h-4 w-4" />
+          </div>
+          <span className="font-medium truncate max-w-md text-foreground" title={doc.fileName}>
             {doc.fileName}
           </span>
         </div>
@@ -211,13 +214,13 @@ export default function DocumentLibrary() {
       key: 'fileType',
       header: 'Type',
       sortable: true,
-      render: (value) => getFriendlyFileType(value as string),
+      render: (value) => <span className="text-muted-foreground">{getFriendlyFileType(value as string)}</span>,
     },
     {
       key: 'fileSize',
       header: 'Size',
       sortable: true,
-      render: (value) => formatFileSize(value as number),
+      render: (value) => <span className="font-mono text-xs text-muted-foreground">{formatFileSize(value as number)}</span>,
     },
     {
       key: 'status',
@@ -229,48 +232,49 @@ export default function DocumentLibrary() {
       key: 'createdAt',
       header: 'Uploaded',
       sortable: true,
-      render: (value) => format(new Date(value as string), 'MMM d, yyyy'),
+      render: (value) => <span className="text-muted-foreground">{format(new Date(value as string), 'MMM d, yyyy')}</span>,
     },
   ]
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 max-w-7xl mx-auto pb-20">
       {/* Page Header */}
-      <PageHeader
-        title="Document Library"
-        description="View, download, and manage your processed documents"
-        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Documents' }]}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+           <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">Document Library</h1>
+           <p className="text-muted-foreground mt-1">Manage and organize your processed documents.</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading} className="border-border/50 hover:bg-secondary/20">
+              <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
               Refresh
             </Button>
-            <Button onClick={() => navigate('/upload')}>
+            <Button onClick={() => navigate('/upload')} className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
               <Upload className="h-4 w-4 mr-2" />
               Upload Documents
             </Button>
-          </div>
-        }
-      />
+        </div>
+      </div>
 
       {/* Statistics Dashboard */}
       <DocumentStatistics statistics={statistics} loading={isLoading} />
 
       {/* Toolbar: Search, Filters, View Mode Toggle */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+      <div className="glass-panel p-4 rounded-xl flex flex-col gap-4 sm:flex-row sm:items-center justify-between sticky top-20 z-10">
         <div className="flex flex-1 items-center gap-2 w-full sm:w-auto">
           {/* Search */}
           <div className="relative flex-1 sm:flex-initial sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
             <Input
               id="document-search"
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 bg-background/50 border-white/10 focus:bg-background transition-all"
             />
           </div>
+
+          <div className="h-8 w-[1px] bg-border mx-2 hidden sm:block" />
 
           {/* Filters */}
           <DocumentFilters
@@ -283,18 +287,20 @@ export default function DocumentLibrary() {
         </div>
 
         {/* View Mode Toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex bg-muted/20 p-1 rounded-lg border border-white/5">
           <Button
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            variant="ghost"
             size="sm"
+            className={cn("h-7 px-2 rounded-md transition-all", viewMode === 'grid' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
             onClick={() => setViewMode('grid')}
             aria-label="Grid view"
           >
             <Grid3X3 className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
+            variant="ghost"
             size="sm"
+            className={cn("h-7 px-2 rounded-md transition-all", viewMode === 'table' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
             onClick={() => setViewMode('table')}
             aria-label="Table view"
           >
@@ -304,104 +310,141 @@ export default function DocumentLibrary() {
       </div>
 
       {/* Selection Actions */}
-      {selectionCount > 0 && viewMode === 'grid' && (
-        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-          <span className="text-sm font-medium">
-            {selectionCount} selected
-          </span>
-          <Button variant="ghost" size="sm" onClick={clearSelection}>
-            Clear
-          </Button>
-        </div>
-      )}
+      <AnimatePresence>
+        {selectionCount > 0 && (
+            <motion.div 
+               initial={{ opacity: 0, y: -10 }} 
+               animate={{ opacity: 1, y: 0 }} 
+               exit={{ opacity: 0, y: -10 }}
+               className="flex items-center justify-between p-3 bg-primary/5 border border-primary/20 rounded-lg"
+            >
+              <div className="flex items-center gap-3">
+                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground font-bold">
+                    {selectionCount}
+                 </span>
+                 <span className="text-sm font-medium text-primary">Selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                 <BulkActionsToolbar
+                    selectedCount={selectionCount}
+                    onDelete={handleBulkDelete}
+                    onDownload={handleBulkDownload}
+                    onClearSelection={clearSelection}
+                    isDeleting={isBulkDeleting}
+                    isDownloading={isBulkDownloading}
+                 />
+              </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Documents Grid or Table */}
-      {error ? (
-        <EmptyState
-          title="Failed to load documents"
-          description={error.message}
-          action={{
-            label: 'Try Again',
-            onClick: () => refetch(),
-          }}
-        />
-      ) : documents.length === 0 && !isLoading ? (
-        <EmptyState
-          title={hasActiveFilters ? 'No documents match your filters' : 'No documents yet'}
-          description={
-            hasActiveFilters
-              ? 'Try adjusting your search or filters'
-              : 'Upload your first document to get started'
-          }
-          action={
-            hasActiveFilters
-              ? {
-                  label: 'Clear Filters',
-                  onClick: clearFilter,
-                }
-              : {
-                  label: 'Upload Documents',
-                  onClick: () => navigate('/upload'),
-                  icon: Upload,
-                }
-          }
-        />
-      ) : viewMode === 'grid' ? (
-        /* Grid View */
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {isLoading
-            ? Array.from({ length: pageSize }).map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-48 bg-muted rounded-lg" />
-                </div>
-              ))
-            : documents.map((doc) => (
-                <div key={doc.id} className="relative">
-                  {/* Selection Checkbox */}
-                  <div className="absolute top-3 left-3 z-10">
-                    <input
-                      type="checkbox"
-                      checked={isSelected(doc.id)}
-                      onChange={() => handleDocumentSelect(doc.id)}
-                      className="h-4 w-4 rounded border-gray-300 cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-
-                  <DocumentCard
-                    id={doc.id}
-                    name={doc.fileName}
-                    fileType={doc.fileType as any}
-                    status={doc.status}
-                    uploadDate={doc.createdAt}
-                    fileSize={doc.fileSize}
-                    pageCount={doc.pageCount || undefined}
-                    onView={() => handleDocumentClick(doc.id)}
-                    onDownload={() => handleDownload(doc)}
-                    onClick={() => handleDocumentClick(doc.id)}
-                  />
-                </div>
-              ))}
-        </div>
-      ) : (
-        /* Table View */
-        <DataTable
-          data={documents}
-          columns={columns}
-          loading={isLoading}
-          onRowClick={(doc) => handleDocumentClick(doc.id)}
-          emptyState={
+      <AnimatePresence mode="wait">
+        {error ? (
             <EmptyState
-              title="No documents"
-              description="No documents found"
+            title="Failed to load documents"
+            description={error.message}
+            action={{
+                label: 'Try Again',
+                onClick: () => refetch(),
+            }}
             />
-          }
-        />
-      )}
+        ) : documents.length === 0 && !isLoading ? (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+               <EmptyState
+                title={hasActiveFilters ? 'No documents match your filters' : 'No documents yet'}
+                description={
+                    hasActiveFilters
+                    ? 'Try adjusting your search or filters'
+                    : 'Upload your first document to get started'
+                }
+                action={
+                    hasActiveFilters
+                    ? {
+                        label: 'Clear Filters',
+                        onClick: clearFilter,
+                        variant: 'outline'
+                        }
+                    : {
+                        label: 'Upload Documents',
+                        onClick: () => navigate('/upload'),
+                        icon: Upload,
+                        }
+                }
+                />
+            </motion.div>
+        ) : viewMode === 'grid' ? (
+            /* Grid View */
+            <motion.div 
+               variants={containerVariants}
+               initial="hidden"
+               animate="show"
+               className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            >
+            {isLoading
+                ? Array.from({ length: pageSize }).map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                    <div className="h-64 bg-muted/40 rounded-xl" />
+                    </div>
+                ))
+                : documents.map((doc) => (
+                    <motion.div key={doc.id} variants={itemVariants} layoutId={doc.id} className="relative group">
+                     {/* Selection Checkbox Overlay */}
+                    <div className={cn(
+                         "absolute top-3 left-3 z-20 transition-opacity duration-200",
+                         isSelected(doc.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}>
+                        <input
+                        type="checkbox"
+                        checked={isSelected(doc.id)}
+                        onChange={() => handleDocumentSelect(doc.id)}
+                        className="h-5 w-5 rounded border-gray-300 cursor-pointer accent-primary"
+                        onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+
+                    <DocumentCard
+                        id={doc.id}
+                        name={doc.fileName}
+                        fileType={doc.fileType as any}
+                        status={doc.status}
+                        uploadDate={doc.createdAt}
+                        fileSize={doc.fileSize}
+                        pageCount={doc.pageCount || undefined}
+                        onView={() => handleDocumentClick(doc.id)}
+                        onDownload={() => handleDownload(doc)}
+                        onClick={() => handleDocumentClick(doc.id)}
+                    />
+                    </motion.div>
+                ))}
+            </motion.div>
+        ) : (
+            /* Table View */
+            <motion.div 
+               variants={containerVariants}
+               initial="hidden"
+               animate="show"
+               className="bg-card/30 backdrop-blur-sm border border-white/5 rounded-xl overflow-hidden"
+            >
+                <DataTable
+                data={documents}
+                columns={columns}
+                loading={isLoading}
+                onRowClick={(doc) => handleDocumentClick(doc.id)}
+                emptyState={
+                    <EmptyState
+                    title="No documents"
+                    description="No documents found"
+                    />
+                }
+                />
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-4 border-t border-border/50">
           <p className="text-sm text-muted-foreground">
             Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, totalDocuments)} of {totalDocuments} documents
           </p>
@@ -411,6 +454,7 @@ export default function DocumentLibrary() {
               size="sm"
               onClick={() => setPage(page - 1)}
               disabled={page === 1}
+              className="w-24 border-border/50"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Previous
@@ -423,6 +467,7 @@ export default function DocumentLibrary() {
               size="sm"
               onClick={() => setPage(page + 1)}
               disabled={page === totalPages}
+               className="w-24 border-border/50"
             >
               Next
               <ChevronRight className="h-4 w-4 ml-1" />
@@ -431,16 +476,9 @@ export default function DocumentLibrary() {
         </div>
       )}
 
-      {/* Bulk Actions Toolbar */}
-      <BulkActionsToolbar
-        selectedCount={selectionCount}
-        onDelete={handleBulkDelete}
-        onDownload={handleBulkDownload}
-        onClearSelection={clearSelection}
-        isDeleting={isBulkDeleting}
-        isDownloading={isBulkDownloading}
-      />
-
+      {/* Bulk Actions Toolbar (This component might need its own redesign, but effectively handled by the floating header above) */}
+      {/* Keeping explicit toolbar hidden but using logic from before */}
+      
       {/* Document Detail Modal */}
       <DocumentDetail
         documentId={selectedDocumentId}

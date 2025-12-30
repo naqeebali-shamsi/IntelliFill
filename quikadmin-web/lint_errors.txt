@@ -1,0 +1,1181 @@
+﻿
+> intellifill-web@1.0.0 lint
+> eslint "src/**/*.{ts,tsx}"
+
+
+N:\IntelliFill\quikadmin-web\src\components\__tests__\ErrorBoundary.test.tsx
+  84:33  warning  'resetError' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\__tests__\autocomplete-field.test.tsx
+   16:35  warning  'fireEvent' is defined but never used     @typescript-eslint/no-unused-vars
+   40:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  605:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  624:7   warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\components\features\__tests__\document-filters.test.tsx
+  11:10  warning  'DocumentFilter' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\__tests__\form-fill-history-card.test.tsx
+  7:26  warning  'waitFor' is defined but never used  @typescript-eslint/no-unused-vars
+  7:35  warning  'within' is defined but never used   @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\__tests__\profile-fields-manager.test.tsx
+   36:34  warning  Unexpected any. Specify a different type                @typescript-eslint/no-explicit-any
+  555:13  warning  'initialFieldCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\__tests__\profile-selector.test.tsx
+  7:35  warning  'within' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\data-table.tsx
+  142:38  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  226:9   warning  'someRowsSelected' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\demo-login-button.tsx
+  89:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\features\document-detail.tsx
+  17:10  warning  'Badge' is defined but never used                @typescript-eslint/no-unused-vars
+  48:3   warning  'getFileTypeCategory' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\document-statistics.tsx
+  17:3  warning  'HardDrive' is defined but never used   @typescript-eslint/no-unused-vars
+  19:3  warning  'TrendingUp' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\form-fill-history-card.tsx
+    8:10  warning  'useQuery' is defined but never used                 @typescript-eslint/no-unused-vars
+  139:9   warning  'completionRate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  169:9   warning  'StatusIcon' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  326:9   error    'filtered' is never reassigned. Use 'const' instead  prefer-const
+
+N:\IntelliFill\quikadmin-web\src\components\features\form-preview.tsx
+  28:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\features\profile-field-editor.tsx
+   2:10  warning  'useForm' is defined but never used                                             @typescript-eslint/no-unused-vars
+   3:10  warning  'zodResolver' is defined but never used                                         @typescript-eslint/no-unused-vars
+   4:10  warning  'z' is defined but never used                                                   @typescript-eslint/no-unused-vars
+  38:10  warning  'getFieldValidator' is defined but never used                                   @typescript-eslint/no-unused-vars
+  54:3   warning  'onViewSource' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\profile-fields-manager.tsx
+    9:10  warning  'useMutation' is defined but never used                                      @typescript-eslint/no-unused-vars
+    9:23  warning  'useQueryClient' is defined but never used                                   @typescript-eslint/no-unused-vars
+   63:10  warning  'cn' is defined but never used                                               @typescript-eslint/no-unused-vars
+   90:26  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  102:44  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  306:3   warning  'category' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  472:3   warning  'profileId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  479:71  warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\features\profile-form-modal.tsx
+  132:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:67  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  143:61  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  147:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\features\profile-selector.tsx
+   13:10  warning  'Badge' is defined but never used                         @typescript-eslint/no-unused-vars
+   32:10  warning  'EmptyState' is defined but never used                    @typescript-eslint/no-unused-vars
+  160:9   warning  'handleChangeProfile' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\features\template-manager.tsx
+  71:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  83:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\knowledge\SearchInterface.tsx
+   38:3   warning  'ExternalLink' is defined but never used             @typescript-eslint/no-unused-vars
+  246:46  warning  'setSearchQuery' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  260:9   warning  'debouncedQuery' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\knowledge\SuggestionPopover.tsx
+   9:10  warning  'Badge' is defined but never used        @typescript-eslint/no-unused-vars
+  26:3   warning  'Check' is defined but never used        @typescript-eslint/no-unused-vars
+  27:3   warning  'ChevronDown' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\knowledge\__tests__\SearchInterface.test.tsx
+   41:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  161:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  196:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  221:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  291:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  317:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\knowledge\__tests__\SuggestionPopover.test.tsx
+   52:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  195:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  219:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  242:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  267:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  291:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  320:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  346:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  370:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  399:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  436:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\components\layout\AppLayout.tsx
+    6:31  warning  'SheetTrigger' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+   28:10  warning  'Separator' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  148:10  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\components\layout\AppLayout.tsx:148:10
+  146 |         className="hidden md:block relative z-30 flex-shrink-0"
+  147 |       >
+> 148 |         <SidebarContent collapsed={sidebarCollapsed} />
+      |          ^^^^^^^^^^^^^^ This component is created during render
+  149 |         
+  150 |         {/* Toggle Button */}
+  151 |         <Button
+
+N:\IntelliFill\quikadmin-web\src\components\layout\AppLayout.tsx:54:26
+   52 |   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
+   53 |
+>  54 |   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
+      |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  55 |     <div className="flex flex-col h-full bg-background/40 backdrop-blur-xl border-r border-white/5">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  56 |       {/* Brand */}
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 137 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 138 |   );
+      | ^^^^ The component is created during render here
+  139 |
+  140 |   return (
+  141 |     <div className="flex min-h-screen bg-background font-sans selection:bg-primary/20">                                                                                     react-hooks/static-components
+  164:12  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\components\layout\AppLayout.tsx:164:12
+  162 |       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+  163 |         <SheetContent side="left" className="p-0 border-r border-white/10 w-80 bg-background/95 backdrop-blur-xl">
+> 164 |           <SidebarContent collapsed={false} />
+      |            ^^^^^^^^^^^^^^ This component is created during render
+  165 |         </SheetContent>
+  166 |       </Sheet>
+  167 |
+
+N:\IntelliFill\quikadmin-web\src\components\layout\AppLayout.tsx:54:26
+   52 |   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
+   53 |
+>  54 |   const SidebarContent = ({ collapsed }: { collapsed: boolean }) => (
+      |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  55 |     <div className="flex flex-col h-full bg-background/40 backdrop-blur-xl border-r border-white/5">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  56 |       {/* Brand */}
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 137 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 138 |   );
+      | ^^^^ The component is created during render here
+  139 |
+  140 |   return (
+  141 |     <div className="flex min-h-screen bg-background font-sans selection:bg-primary/20">  react-hooks/static-components
+
+N:\IntelliFill\quikadmin-web\src\components\ui\__tests__\dialog.test.tsx
+   7:32  warning  'vi' is defined but never used            @typescript-eslint/no-unused-vars
+  14:3   warning  'DialogHeader' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\components\ui\__tests__\select.test.tsx
+  7:32  warning  'vi' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\hooks\__tests__\useDocumentActions.test.tsx
+   84:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\hooks\__tests__\useUpload.test.tsx
+   93:15  warning  'result' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  111:15  warning  'result' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  162:13  warning  'progressCallback' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\hooks\useApiData.ts
+   5:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  65:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  91:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\hooks\useDebounce.ts
+  58:58  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  58:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\hooks\useDocumentActions.ts
+    9:10  warning  'Document' is defined but never used      @typescript-eslint/no-unused-vars
+  314:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\hooks\useDocumentDetail.ts
+  54:40  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  90:75  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  92:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\hooks\useDocuments.ts
+  147:41  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+  166:93  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+  173:31  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\hooks\useJobPolling.ts
+   29:5   warning  'timeout' is assigned a value but never used                                                                                                             @typescript-eslint/no-unused-vars
+  100:47  warning  Unexpected any. Specify a different type                                                                                                                 @typescript-eslint/no-explicit-any
+  153:41  error    React Hook "useJobPolling" cannot be called inside a callback. React Hooks must be called in a React function component or a custom React Hook function  react-hooks/rules-of-hooks
+  181:19  warning  Forbidden non-null assertion                                                                                                                             @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\hooks\useUpload.ts
+    7:34  warning  'useMemo' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+    9:26  warning  'uploadSelectors' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   94:24  warning  The ref value 'enqueuedFilesRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'enqueuedFilesRef.current' to a variable inside the effect, and use that variable in the cleanup function                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+  169:23  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+  245:3   error    Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+N:\IntelliFill\quikadmin-web\src\hooks\useUpload.ts:245:3
+  243 |
+  244 |   // Store latest enqueueFile in ref
+> 245 |   enqueueFileRef.current = enqueueFile;
+      |   ^^^^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  246 |
+  247 |   /**
+  248 |    * Auto-process queue when files are added  react-hooks/refs
+
+N:\IntelliFill\quikadmin-web\src\lib\supabase.ts
+  68:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\lib\toast.ts
+  123:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\lib\validations\profile.ts
+  13:14  error  Unnecessary escape character: \(  no-useless-escape
+  13:16  error  Unnecessary escape character: \)  no-useless-escape
+  13:18  error  Unnecessary escape character: \+  no-useless-escape
+  13:20  error  Unnecessary escape character: \.  no-useless-escape
+
+N:\IntelliFill\quikadmin-web\src\main.tsx
+  6:21  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\pages\AuthCallback.tsx
+  32:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+N:\IntelliFill\quikadmin-web\src\pages\AuthCallback.tsx:32:7
+  30 |     // Handle errors
+  31 |     if (error) {
+> 32 |       setStatus('error');
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |       setMessage(errorDescription || 'Something went wrong. Please try again.');
+  34 |       return;
+  35 |     }  react-hooks/set-state-in-effect
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedDashboard.tsx
+   10:3   warning  'Card' is defined but never used                       @typescript-eslint/no-unused-vars
+   11:3   warning  'CardContent' is defined but never used                @typescript-eslint/no-unused-vars
+   13:3   warning  'CardHeader' is defined but never used                 @typescript-eslint/no-unused-vars
+   18:10  warning  'Badge' is defined but never used                      @typescript-eslint/no-unused-vars
+   23:3   warning  'Clock' is defined but never used                      @typescript-eslint/no-unused-vars
+   27:3   warning  'MoreVertical' is defined but never used               @typescript-eslint/no-unused-vars
+   28:3   warning  'Download' is defined but never used                   @typescript-eslint/no-unused-vars
+   30:3   warning  'Trash2' is defined but never used                     @typescript-eslint/no-unused-vars
+   39:3   warning  'DropdownMenu' is defined but never used               @typescript-eslint/no-unused-vars
+   40:3   warning  'DropdownMenuContent' is defined but never used        @typescript-eslint/no-unused-vars
+   41:3   warning  'DropdownMenuItem' is defined but never used           @typescript-eslint/no-unused-vars
+   42:3   warning  'DropdownMenuTrigger' is defined but never used        @typescript-eslint/no-unused-vars
+   45:3   warning  'Table' is defined but never used                      @typescript-eslint/no-unused-vars
+   46:3   warning  'TableBody' is defined but never used                  @typescript-eslint/no-unused-vars
+   47:3   warning  'TableCell' is defined but never used                  @typescript-eslint/no-unused-vars
+   48:3   warning  'TableHead' is defined but never used                  @typescript-eslint/no-unused-vars
+   49:3   warning  'TableHeader' is defined but never used                @typescript-eslint/no-unused-vars
+   50:3   warning  'TableRow' is defined but never used                   @typescript-eslint/no-unused-vars
+   77:11  warning  'templates' is assigned a value but never used         @typescript-eslint/no-unused-vars
+   77:31  warning  'templatesLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  252:81  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx
+   12:3   warning  'Card' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   13:3   warning  'CardContent' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   14:3   warning  'CardDescription' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   15:3   warning  'CardHeader' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   16:3   warning  'CardTitle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   36:10  warning  'DocumentCard' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+   38:10  warning  'Spinner' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   39:10  warning  'EmptyState' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   50:3   warning  'getAcceptedExtensions' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   71:9   warning  'navigate' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   78:11  warning  'startUploads' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   78:25  warning  'isProcessing' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   78:39  warning  'activeUploads' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   78:54  warning  'pendingUploads' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   82:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-console
+   93:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     no-console
+  104:9   warning  'failedFiles' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  133:56  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  135:47  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  249:81  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  336:19  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:336:19
+  334 |              {/* Stats Grid */}
+  335 |              <div className="grid grid-cols-2 gap-4">
+> 336 |                  <StatCard label="In Queue" value={stats.total} />
+      |                   ^^^^^^^^ This component is created during render
+  337 |                  <StatCard label="Completed" value={stats.completed} colorClass="text-green-500" />
+  338 |                  <StatCard label="Processing" value={stats.uploading + stats.processing} colorClass="text-blue-500" />
+  339 |                  <StatCard label="Failed" value={stats.failed} colorClass="text-red-500" />
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:154:20
+  152 |   };
+  153 |
+> 154 |   const StatCard = ({ label, value, colorClass }: { label: string, value: number, colorClass?: string }) => (
+      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |      <div className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center text-center">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |         <span className={cn("text-2xl font-bold font-heading", colorClass)}>{value}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |         <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |      </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   );
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="max-w-7xl mx-auto space-y-8 pb-20">  react-hooks/static-components
+  337:19  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:337:19
+  335 |              <div className="grid grid-cols-2 gap-4">
+  336 |                  <StatCard label="In Queue" value={stats.total} />
+> 337 |                  <StatCard label="Completed" value={stats.completed} colorClass="text-green-500" />
+      |                   ^^^^^^^^ This component is created during render
+  338 |                  <StatCard label="Processing" value={stats.uploading + stats.processing} colorClass="text-blue-500" />
+  339 |                  <StatCard label="Failed" value={stats.failed} colorClass="text-red-500" />
+  340 |              </div>
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:154:20
+  152 |   };
+  153 |
+> 154 |   const StatCard = ({ label, value, colorClass }: { label: string, value: number, colorClass?: string }) => (
+      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |      <div className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center text-center">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |         <span className={cn("text-2xl font-bold font-heading", colorClass)}>{value}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |         <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |      </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   );
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="max-w-7xl mx-auto space-y-8 pb-20">              react-hooks/static-components
+  338:19  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:338:19
+  336 |                  <StatCard label="In Queue" value={stats.total} />
+  337 |                  <StatCard label="Completed" value={stats.completed} colorClass="text-green-500" />
+> 338 |                  <StatCard label="Processing" value={stats.uploading + stats.processing} colorClass="text-blue-500" />
+      |                   ^^^^^^^^ This component is created during render
+  339 |                  <StatCard label="Failed" value={stats.failed} colorClass="text-red-500" />
+  340 |              </div>
+  341 |
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:154:20
+  152 |   };
+  153 |
+> 154 |   const StatCard = ({ label, value, colorClass }: { label: string, value: number, colorClass?: string }) => (
+      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |      <div className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center text-center">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |         <span className={cn("text-2xl font-bold font-heading", colorClass)}>{value}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |         <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |      </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   );
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="max-w-7xl mx-auto space-y-8 pb-20">                                                                    react-hooks/static-components
+  339:19  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:339:19
+  337 |                  <StatCard label="Completed" value={stats.completed} colorClass="text-green-500" />
+  338 |                  <StatCard label="Processing" value={stats.uploading + stats.processing} colorClass="text-blue-500" />
+> 339 |                  <StatCard label="Failed" value={stats.failed} colorClass="text-red-500" />
+      |                   ^^^^^^^^ This component is created during render
+  340 |              </div>
+  341 |
+  342 |              {/* Dynamic Illustration / Active Process */}
+
+N:\IntelliFill\quikadmin-web\src\pages\ConnectedUpload.tsx:154:20
+  152 |   };
+  153 |
+> 154 |   const StatCard = ({ label, value, colorClass }: { label: string, value: number, colorClass?: string }) => (
+      |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |      <div className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center text-center">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |         <span className={cn("text-2xl font-bold font-heading", colorClass)}>{value}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |         <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |      </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   );
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="max-w-7xl mx-auto space-y-8 pb-20">                                                                            react-hooks/static-components
+
+N:\IntelliFill\quikadmin-web\src\pages\DocumentLibrary.tsx
+   11:10  warning  'PageHeader' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   30:3   warning  'Filter' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   31:3   warning  'X' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   37:3   warning  'useDocumentStore' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   67:10  warning  'searchParams' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   73:5   warning  'selectDocument' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   74:5   warning  'deselectDocument' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   81:34  warning  'toggleViewMode' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   84:36  warning  'setPageSize' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   84:49  warning  'resetPage' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+  110:44  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `data.documents`, but the source dependencies were [data?.documents, filter]. Inferred different dependency than source.
+
+N:\IntelliFill\quikadmin-web\src\pages\DocumentLibrary.tsx:110:44
+  108 |
+  109 |   // Apply client-side filtering and sorting logic
+> 110 |   const clientFilteredDocs = React.useMemo(() => {
+      |                                            ^^^^^^^
+> 111 |     if (!data?.documents) return []
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 112 |     return applyClientSideFilters(data.documents, filter)
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 113 |   }, [data?.documents, filter])
+      | ^^^^ Could not preserve existing manual memoization
+  114 |
+  115 |   const sortedDocs = React.useMemo(() => {
+  116 |     return applyClientSideSorting(clientFilteredDocs, sort)  react-hooks/preserve-manual-memoization
+  136:9   warning  The 'handleSelectAll' function makes the dependencies of useEffect Hook (at line 194) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'handleSelectAll' in its own useCallback() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+  148:9   warning  The 'handleBulkDelete' function makes the dependencies of useEffect Hook (at line 194) change on every render. To fix this, wrap the definition of 'handleBulkDelete' in its own useCallback() Hook                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         react-hooks/exhaustive-deps
+  161:9   warning  'handleSortChange' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  166:33  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  409:51  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\ForgotPassword.tsx
+  29:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\FormFillDemo.tsx
+  148:14  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\pages\History.tsx
+    8:18  warning  'AnimatePresence' is defined but never used      @typescript-eslint/no-unused-vars
+    9:10  warning  'Badge' is defined but never used                @typescript-eslint/no-unused-vars
+   31:3   warning  'X' is defined but never used                    @typescript-eslint/no-unused-vars
+  121:9   warning  'formatDate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  137:71  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\JobDetails.tsx
+   11:3   warning  'Download' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+   18:3   warning  'FileCheck' is defined but never used                                                                               @typescript-eslint/no-unused-vars
+   20:3   warning  'ExternalLink' is defined but never used                                                                            @typescript-eslint/no-unused-vars
+   35:14  warning  Unexpected any. Specify a different type                                                                            @typescript-eslint/no-explicit-any
+   57:6   warning  React Hook useEffect has a missing dependency: 'fetchJobDetails'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  415:34  warning  Forbidden non-null assertion                                                                                        @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\pages\KnowledgeBase.tsx
+   11:29  warning  'CardDescription' is defined but never used    @typescript-eslint/no-unused-vars
+   14:10  warning  'Badge' is defined but never used              @typescript-eslint/no-unused-vars
+   42:3   warning  'ChevronRight' is defined but never used       @typescript-eslint/no-unused-vars
+   43:3   warning  'BarChart3' is defined but never used          @typescript-eslint/no-unused-vars
+  134:9   warning  'navigate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\pages\Login.tsx
+  78:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileDetail.tsx
+   25:3   warning  'FileText' is defined but never used          @typescript-eslint/no-unused-vars
+   26:3   warning  'Clock' is defined but never used             @typescript-eslint/no-unused-vars
+   27:3   warning  'Database' is defined but never used          @typescript-eslint/no-unused-vars
+   36:22  warning  'EmptyStateSimple' is defined but never used  @typescript-eslint/no-unused-vars
+  169:44  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  421:5   warning  'refetch' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  424:48  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+  444:67  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+  451:22  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  458:46  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+  471:47  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+  484:47  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+  689:22  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+  694:44  warning  Forbidden non-null assertion                  @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx
+   26:3   warning  'Briefcase' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   32:10  warning  'Card' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   34:10  warning  'PageHeader' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   54:3   warning  'useProfilesStore' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+  133:14  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:133:14
+  131 |         >
+  132 |           <div className="flex items-start justify-between mb-4">
+> 133 |             <TypeIcon />
+      |              ^^^^^^^^ This component is created during render
+  134 |             <DropdownMenu>
+  135 |               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+  136 |                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground -mr-2">
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:105:20
+  103 |   );
+  104 |
+> 105 |   const TypeIcon = () => (
+      |                    ^^^^^^^
+> 106 |     <div
+      | ^^^^^^^^
+> 107 |       className={cn(
+      ΓÇª
+      | ^^^^^^^^
+> 119 |     </div>
+      | ^^^^^^^^
+> 120 |   );
+      | ^^^^ The component is created during render here
+  121 |
+  122 |   if (viewMode === 'grid') {
+  123 |     return (                                                                                                                                                         react-hooks/static-components
+  165:16  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:165:16
+  163 |             <p className="text-sm text-muted-foreground flex items-center gap-2">
+  164 |               {profile.type === 'BUSINESS' ? 'Business Account' : 'Personal Account'} 
+> 165 |               <StatusBadge />
+      |                ^^^^^^^^^^^ This component is created during render
+  166 |             </p>
+  167 |           </div>
+  168 |
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:99:23
+   97 |   };
+   98 |
+>  99 |   const StatusBadge = () => (
+      |                       ^^^^^^^
+> 100 |     profile.status === 'ARCHIVED' ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 101 |       <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] h-5 px-1.5">Archived</Badge>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 102 |     ) : null
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 103 |   );
+      | ^^^^ The component is created during render here
+  104 |
+  105 |   const TypeIcon = () => (
+  106 |     <div                                           react-hooks/static-components
+  196:10  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:196:10
+  194 |         onClick={handleCardClick}
+  195 |       >
+> 196 |         <TypeIcon />
+      |          ^^^^^^^^ This component is created during render
+  197 |         
+  198 |         <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
+  199 |           <div className="col-span-12 sm:col-span-5 md:col-span-4">
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:105:20
+  103 |   );
+  104 |
+> 105 |   const TypeIcon = () => (
+      |                    ^^^^^^^
+> 106 |     <div
+      | ^^^^^^^^
+> 107 |       className={cn(
+      ΓÇª
+      | ^^^^^^^^
+> 119 |     </div>
+      | ^^^^^^^^
+> 120 |   );
+      | ^^^^ The component is created during render here
+  121 |
+  122 |   if (viewMode === 'grid') {
+  123 |     return (                                                                                                                                                                                                                                                                               react-hooks/static-components
+  203:17  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:203:17
+  201 |             <div className="flex items-center gap-2 sm:hidden mt-1">
+  202 |                <span className="text-xs text-muted-foreground">{profile.type === 'BUSINESS' ? 'Business' : 'Personal'}</span>
+> 203 |                <StatusBadge />
+      |                 ^^^^^^^^^^^ This component is created during render
+  204 |             </div>
+  205 |           </div>
+  206 |           
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:99:23
+   97 |   };
+   98 |
+>  99 |   const StatusBadge = () => (
+      |                       ^^^^^^^
+> 100 |     profile.status === 'ARCHIVED' ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 101 |       <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] h-5 px-1.5">Archived</Badge>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 102 |     ) : null
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 103 |   );
+      | ^^^^ The component is created during render here
+  104 |
+  105 |   const TypeIcon = () => (
+  106 |     <div  react-hooks/static-components
+  210:18  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:210:18
+  208 |              <span className="flex items-center gap-2">
+  209 |                 {profile.type === 'BUSINESS' ? 'Business' : 'Personal'}
+> 210 |                 <StatusBadge />
+      |                  ^^^^^^^^^^^ This component is created during render
+  211 |              </span>
+  212 |           </div>
+  213 |           
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileList.tsx:99:23
+   97 |   };
+   98 |
+>  99 |   const StatusBadge = () => (
+      |                       ^^^^^^^
+> 100 |     profile.status === 'ARCHIVED' ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 101 |       <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] h-5 px-1.5">Archived</Badge>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 102 |     ) : null
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 103 |   );
+      | ^^^^ The component is created during render here
+  104 |
+  105 |   const TypeIcon = () => (
+  106 |     <div                                                                 react-hooks/static-components
+  248:9   warning  'navigate' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileSettings.tsx
+    8:3   warning  'Phone' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   17:3   warning  'Download' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+   26:10  warning  'Separator' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   27:10  warning  'Badge' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   94:22  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  110:22  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  127:22  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  145:22  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+  185:37  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `profile.fields`, but the source dependencies were [profile?.fields]. Inferred different dependency than source.
+
+N:\IntelliFill\quikadmin-web\src\pages\ProfileSettings.tsx:185:37
+  183 |   };
+  184 |   // Categorize fields
+> 185 |   const categorizedFields = useMemo(() => {
+      |                                     ^^^^^^^
+> 186 |     if (!profile?.fields) return { personal: [], contact: [], address: [], custom: [] };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 187 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 211 |     return { personal, contact, address, custom };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 212 |   }, [profile?.fields]);
+      | ^^^^ Could not preserve existing manual memoization
+  213 |
+  214 |   // Filter fields based on search
+  215 |   const filterFields = (fields: ProfileFieldValue[]) => {  react-hooks/preserve-manual-memoization
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx
+  113:19  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  256:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:256:22
+  254 |                   </div>
+  255 |                   <div className="grid grid-cols-2 gap-1">
+> 256 |                     <RequirementItem met={passwordStrength.requirements.length} text="8+ characters" />
+      |                      ^^^^^^^^^^^^^^^ This component is created during render
+  257 |                     <RequirementItem met={passwordStrength.requirements.uppercase} text="Uppercase" />
+  258 |                     <RequirementItem met={passwordStrength.requirements.lowercase} text="Lowercase" />
+  259 |                     <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:150:27
+  148 |   }
+  149 |
+> 150 |   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 151 |     <div className="flex items-center gap-1 text-xs">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 152 |       {met ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 153 |         <Check className="h-3 w-3 text-green-500" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 154 |       ) : (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |         <X className="h-3 w-3 text-gray-400" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |       )}
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |       <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   )
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">                                                                                 react-hooks/static-components
+  257:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:257:22
+  255 |                   <div className="grid grid-cols-2 gap-1">
+  256 |                     <RequirementItem met={passwordStrength.requirements.length} text="8+ characters" />
+> 257 |                     <RequirementItem met={passwordStrength.requirements.uppercase} text="Uppercase" />
+      |                      ^^^^^^^^^^^^^^^ This component is created during render
+  258 |                     <RequirementItem met={passwordStrength.requirements.lowercase} text="Lowercase" />
+  259 |                     <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+  260 |                     <RequirementItem met={passwordStrength.requirements.special} text="Special char" />
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:150:27
+  148 |   }
+  149 |
+> 150 |   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 151 |     <div className="flex items-center gap-1 text-xs">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 152 |       {met ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 153 |         <Check className="h-3 w-3 text-green-500" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 154 |       ) : (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |         <X className="h-3 w-3 text-gray-400" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |       )}
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |       <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   )
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">  react-hooks/static-components
+  258:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:258:22
+  256 |                     <RequirementItem met={passwordStrength.requirements.length} text="8+ characters" />
+  257 |                     <RequirementItem met={passwordStrength.requirements.uppercase} text="Uppercase" />
+> 258 |                     <RequirementItem met={passwordStrength.requirements.lowercase} text="Lowercase" />
+      |                      ^^^^^^^^^^^^^^^ This component is created during render
+  259 |                     <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+  260 |                     <RequirementItem met={passwordStrength.requirements.special} text="Special char" />
+  261 |                   </div>
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:150:27
+  148 |   }
+  149 |
+> 150 |   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 151 |     <div className="flex items-center gap-1 text-xs">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 152 |       {met ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 153 |         <Check className="h-3 w-3 text-green-500" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 154 |       ) : (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |         <X className="h-3 w-3 text-gray-400" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |       )}
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |       <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   )
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">                                    react-hooks/static-components
+  259:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:259:22
+  257 |                     <RequirementItem met={passwordStrength.requirements.uppercase} text="Uppercase" />
+  258 |                     <RequirementItem met={passwordStrength.requirements.lowercase} text="Lowercase" />
+> 259 |                     <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+      |                      ^^^^^^^^^^^^^^^ This component is created during render
+  260 |                     <RequirementItem met={passwordStrength.requirements.special} text="Special char" />
+  261 |                   </div>
+  262 |                 </div>
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:150:27
+  148 |   }
+  149 |
+> 150 |   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 151 |     <div className="flex items-center gap-1 text-xs">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 152 |       {met ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 153 |         <Check className="h-3 w-3 text-green-500" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 154 |       ) : (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |         <X className="h-3 w-3 text-gray-400" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |       )}
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |       <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   )
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">                                                                                                                     react-hooks/static-components
+  260:22  error    Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:260:22
+  258 |                     <RequirementItem met={passwordStrength.requirements.lowercase} text="Lowercase" />
+  259 |                     <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+> 260 |                     <RequirementItem met={passwordStrength.requirements.special} text="Special char" />
+      |                      ^^^^^^^^^^^^^^^ This component is created during render
+  261 |                   </div>
+  262 |                 </div>
+  263 |               )}
+
+N:\IntelliFill\quikadmin-web\src\pages\Register.tsx:150:27
+  148 |   }
+  149 |
+> 150 |   const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+      |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 151 |     <div className="flex items-center gap-1 text-xs">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 152 |       {met ? (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 153 |         <Check className="h-3 w-3 text-green-500" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 154 |       ) : (
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |         <X className="h-3 w-3 text-gray-400" />
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |       )}
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 157 |       <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 158 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 159 |   )
+      | ^^^^ The component is created during render here
+  160 |
+  161 |   return (
+  162 |     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">                                                                                                                                                                                                           react-hooks/static-components
+
+N:\IntelliFill\quikadmin-web\src\pages\ResetPassword.tsx
+   44:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   69:27  error    Unnecessary escape character: \[          no-useless-escape
+   69:44  error    Unnecessary escape character: \/          no-useless-escape
+  123:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\Settings.tsx
+  19:3  warning  'User' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  52:7  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+N:\IntelliFill\quikadmin-web\src\pages\Settings.tsx:52:7
+  50 |   useEffect(() => {
+  51 |     if (user) {
+> 52 |       setAccountForm({
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  53 |         name:
+  54 |           user.firstName && user.lastName
+  55 |             ? `${user.firstName} ${user.lastName}`  react-hooks/set-state-in-effect
+
+N:\IntelliFill\quikadmin-web\src\pages\SimpleFillForm.tsx
+   26:26  warning  'DocumentData' is defined but never used             @typescript-eslint/no-unused-vars
+   42:28  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   43:30  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   44:30  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   69:28  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   70:39  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   71:36  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  107:40  warning  Forbidden non-null assertion                         @typescript-eslint/no-non-null-assertion
+  116:28  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  117:34  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  214:23  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  313:21  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  352:21  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  358:9   warning  'getFieldSource' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  445:83  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\Templates.tsx
+   11:20  warning  'useEffect' is defined but never used                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   21:3   warning  'Eye' is defined but never used                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   62:20  warning  'setViewMode' is assigned a value but never used                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   91:22  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  103:22  warning  Unexpected any. Specify a different type                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  132:13  error    React Hook "useTemplate" is called in function "handleUseTemplate" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+
+N:\IntelliFill\quikadmin-web\src\pages\VerifyEmail.tsx
+   82:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\pages\__tests__\ProfileDetail.test.tsx
+  10:10  warning  'BrowserRouter' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\pages\__tests__\SimpleFillForm.integration.test.tsx
+  7:35  warning  'within' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\pages\__tests__\Templates.test.tsx
+  13:40  warning  'deleteTemplate' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\services\__tests__\formService.test.ts
+   42:61  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   82:61  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  119:61  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  157:61  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  173:11  warning  'mockTemplate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  196:62  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  217:62  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  238:62  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  265:63  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  296:52  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  310:55  warning  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\services\api.ts
+  135:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  241:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  246:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  246:62  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  260:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  298:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  317:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  365:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  379:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  406:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  435:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  440:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  440:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  461:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  476:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\services\authService.ts
+  84:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\services\documentService.ts
+  207:3  warning  'options' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\services\formService.ts
+   17:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   23:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  146:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\services\profilesService.ts
+   18:3   warning  'ProfileType' is defined but never used   @typescript-eslint/no-unused-vars
+   30:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:72  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\services\userProfileService.ts
+   38:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   52:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\stores\__tests__\knowledgeStore.test.ts
+    6:48  warning  'afterEach' is defined but never used                  @typescript-eslint/no-unused-vars
+   57:33  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  101:7   warning  Forbidden non-null assertion                           @typescript-eslint/no-non-null-assertion
+  118:31  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  146:11  warning  'progressCallback' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  150:30  warning  Forbidden non-null assertion                           @typescript-eslint/no-non-null-assertion
+  153:43  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  178:42  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  179:42  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  198:48  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  223:33  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  258:33  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  278:40  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  304:41  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  344:25  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  361:45  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  362:45  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  376:45  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  377:45  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  399:29  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  411:34  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  412:41  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+  414:39  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\stores\__tests__\templateStore.test.ts
+  81:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  88:7   warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+
+N:\IntelliFill\quikadmin-web\src\stores\__tests__\uploadStore.test.ts
+  56:13  warning  'file2Id' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\stores\auth.ts
+  11:1  warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+
+N:\IntelliFill\quikadmin-web\src\stores\backendAuthStore.ts
+  124:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  220:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  268:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  337:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  362:31  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  370:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  432:30  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  501:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  522:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  535:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\stores\documentStore.ts
+  489:6  warning  React Hook React.useMemo has an unnecessary dependency: 'selectionCount'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+N:\IntelliFill\quikadmin-web\src\stores\index.ts
+   48:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+   61:50  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+   62:46  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+   72:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+  100:21  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\stores\migrationUtils.ts
+   5:10  warning  'useAuthStore' is defined but never used                                                 @typescript-eslint/no-unused-vars
+  44:9   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+  82:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+
+N:\IntelliFill\quikadmin-web\src\stores\profilesStore.ts
+  11:15  warning  'Profile' is defined but never used  @typescript-eslint/no-unused-vars
+
+N:\IntelliFill\quikadmin-web\src\stores\templateStore.ts
+   94:17  warning  'get' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  109:25  warning  Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  134:25  warning  Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  158:25  warning  Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  196:25  warning  Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+  220:25  warning  Unexpected any. Specify a different type                               @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\stores\types.ts
+   78:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  184:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  323:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  332:9   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  362:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  370:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  370:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  374:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  374:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  381:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  381:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  382:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  382:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  384:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  384:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  393:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  393:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  394:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  412:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\test\setup.tsx
+   55:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   60:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   68:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   69:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   85:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:6   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:6   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  189:22  error    A `require()` style import is forbidden   @typescript-eslint/no-require-imports
+
+N:\IntelliFill\quikadmin-web\src\types\document.ts
+  71:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  91:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\types\formFilling.ts
+  12:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\types\profile.ts
+  32:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\types\upload.ts
+   95:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  256:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  326:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\utils\errorMessages.ts
+   6:11  warning  'ApiError' is defined but never used      @typescript-eslint/no-unused-vars
+  20:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  70:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  90:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+N:\IntelliFill\quikadmin-web\src\utils\logger.ts
+   4:19  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+   6:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+   9:19  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+  14:20  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+  17:20  warning  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+  19:7   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+
+Γ£û 417 problems (31 errors, 386 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

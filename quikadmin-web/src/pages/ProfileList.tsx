@@ -1,8 +1,6 @@
 /**
  * ProfileList page - Profile management dashboard
- * B2C-focused: Profiles represent different identities a user fills forms for
- * Features: Search, filters, grid/table view, pagination, new profile modal
- * @module pages/ProfileList
+ * Redesigned with "Deep Ocean" aesthetic (Glassmorphism + Linear Style)
  */
 
 import * as React from 'react';
@@ -10,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Search,
@@ -17,18 +16,20 @@ import {
   List,
   Building2,
   User,
-  MoreVertical,
+  MoreHorizontal,
   Pencil,
   Trash2,
   Archive,
   RotateCcw,
   X,
   Users,
+  Briefcase,
+  Calendar
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -60,7 +61,47 @@ import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { ProfileFormModal } from '@/components/features/profile-form-modal';
 
-// =================== PROFILE CARD COMPONENT ===================
+// =================== ANIMATION VARIANTS ===================
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 }
+};
+
+const StatusBadge = ({ profile }: { profile: Profile }) => (
+  profile.status === 'ARCHIVED' ? (
+    <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] h-5 px-1.5">Archived</Badge>
+  ) : null
+);
+
+const TypeIcon = ({ profile }: { profile: Profile }) => (
+  <div
+    className={cn(
+      'flex h-8 w-8 items-center justify-center rounded-lg ring-1 ring-inset',
+      profile.type === 'BUSINESS'
+        ? 'bg-blue-500/10 text-blue-600 ring-blue-500/20'
+        : 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/20'
+    )}
+  >
+    {profile.type === 'BUSINESS' ? (
+      <Building2 className="h-4 w-4" />
+    ) : (
+      <User className="h-4 w-4" />
+    )}
+  </div>
+);
+
+// =================== COMPONENTS ===================
 
 interface ProfileCardProps {
   profile: Profile;
@@ -68,103 +109,138 @@ interface ProfileCardProps {
   onDelete: (profile: Profile) => void;
   onArchive: (profile: Profile) => void;
   onRestore: (profile: Profile) => void;
+  viewMode: 'grid' | 'table';
 }
 
-function ProfileCard({ profile, onEdit, onDelete, onArchive, onRestore }: ProfileCardProps) {
+function ProfileCard({ profile, onEdit, onDelete, onArchive, onRestore, viewMode }: ProfileCardProps) {
   const navigate = useNavigate();
 
   const handleCardClick = () => {
     navigate(`/profiles/${profile.id}`);
   };
 
-  return (
-    <Card
-      className={cn(
-        'group cursor-pointer transition-all hover:shadow-md',
-        profile.status === 'ARCHIVED' && 'opacity-60'
-      )}
-      onClick={handleCardClick}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-full',
-                profile.type === 'BUSINESS'
-                  ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-                  : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300'
-              )}
-            >
-              {profile.type === 'BUSINESS' ? (
-                <Building2 className="h-5 w-5" />
-              ) : (
-                <User className="h-5 w-5" />
-              )}
-            </div>
-            <div>
-              <CardTitle className="text-base font-medium">{profile.name}</CardTitle>
-              <CardDescription className="text-xs">
-                {profile.type === 'BUSINESS' ? 'Business' : 'Personal'}
-              </CardDescription>
-            </div>
+
+
+  if (viewMode === 'grid') {
+    return (
+      <motion.div variants={itemVariants} layoutId={profile.id}>
+        <div
+          className={cn(
+            'group relative flex flex-col justify-between p-5 h-full rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all hover:border-primary/20 hover:bg-card hover:shadow-lg hover:shadow-primary/5 cursor-pointer',
+            profile.status === 'ARCHIVED' && 'opacity-60 grayscale'
+          )}
+          onClick={handleCardClick}
+        >
+          <div className="flex items-start justify-between mb-4">
+            <TypeIcon profile={profile} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground -mr-2">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(profile); }}>
+                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                </DropdownMenuItem>
+                {profile.status === 'ACTIVE' ? (
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(profile); }}>
+                    <Archive className="mr-2 h-4 w-4" /> Archive
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRestore(profile); }}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(profile); }}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(profile); }}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              {profile.status === 'ACTIVE' ? (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(profile); }}>
-                  <Archive className="mr-2 h-4 w-4" />
-                  Archive
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRestore(profile); }}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Restore
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={(e) => { e.stopPropagation(); onDelete(profile); }}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-
-      <CardContent className="pt-0">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-4">
-            {profile.notes && (
-              <span className="text-xs truncate max-w-[150px]">{profile.notes}</span>
-            )}
+          <div>
+            <h3 className="font-heading font-medium text-lg leading-tight mb-1 group-hover:text-primary transition-colors">{profile.name}</h3>
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              {profile.type === 'BUSINESS' ? 'Business Account' : 'Personal Account'} 
+              <StatusBadge profile={profile} />
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            {profile.status === 'ARCHIVED' && (
-              <Badge variant="secondary" className="text-xs">
-                Archived
-              </Badge>
-            )}
-            <span className="text-xs">
-              {format(new Date(profile.updatedAt), 'MMM d, yyyy')}
+
+          {profile.notes && (
+            <p className="mt-4 text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/30 p-2 rounded-md">
+              {profile.notes}
+            </p>
+          )}
+
+          <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+               <Calendar className="h-3 w-3" />
+               {format(new Date(profile.updatedAt), 'MMM d, yyyy')}
             </span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </motion.div>
+    );
+  }
+
+  // Table (Linear) view
+  return (
+    <motion.div variants={itemVariants} layoutId={profile.id}>
+      <div
+        className={cn(
+          'group flex items-center gap-4 p-3 rounded-lg border border-transparent transition-all hover:bg-card/80 hover:border-border/50 hover:shadow-sm cursor-pointer',
+          profile.status === 'ARCHIVED' && 'opacity-60'
+        )}
+        onClick={handleCardClick}
+      >
+        <TypeIcon profile={profile} />
+        
+        <div className="flex-1 min-w-0 grid grid-cols-12 gap-4 items-center">
+          <div className="col-span-12 sm:col-span-5 md:col-span-4">
+            <h3 className="font-medium text-sm group-hover:text-primary transition-colors truncate">{profile.name}</h3>
+            <div className="flex items-center gap-2 sm:hidden mt-1">
+               <span className="text-xs text-muted-foreground">{profile.type === 'BUSINESS' ? 'Business' : 'Personal'}</span>
+               <StatusBadge profile={profile} />
+            </div>
+          </div>
+          
+          <div className="hidden sm:block sm:col-span-3 md:col-span-3 text-sm text-muted-foreground">
+             <span className="flex items-center gap-2">
+                {profile.type === 'BUSINESS' ? 'Business' : 'Personal'}
+                <StatusBadge profile={profile} />
+             </span>
+          </div>
+          
+          <div className="hidden md:block col-span-3 text-xs text-muted-foreground truncate">
+             {profile.notes || '-'}
+          </div>
+
+           <div className="hidden sm:block col-span-4 md:col-span-2 text-right text-xs text-muted-foreground">
+             {format(new Date(profile.updatedAt), 'MMM d')}
+          </div>
+        </div>
+
+        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(profile); }}>
+                   Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(profile); }}>
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -188,9 +264,7 @@ export default function ProfileList() {
 
   // Update filter when debounced search changes
   React.useEffect(() => {
-    if (debouncedSearch !== filter.search) {
-      // Filter is already updated in setSearchQuery
-    }
+    // Keep internal filter sync logic
   }, [debouncedSearch]);
 
   // Fetch profiles
@@ -204,113 +278,75 @@ export default function ProfileList() {
     placeholderData: keepPreviousData,
   });
 
-  // Delete mutation
+  // Mutations (Simplified for brevity, assuming same logic as before)
   const deleteMutation = useMutation({
     mutationFn: (id: string) => profilesService.delete(id),
     onSuccess: () => {
       toast.success('Profile deleted');
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
     },
-    onError: () => {
-      toast.error('Failed to delete profile');
-    },
+    onError: () => toast.error('Failed to delete profile'),
   });
 
-  // Archive mutation
   const archiveMutation = useMutation({
     mutationFn: (id: string) => profilesService.archive(id),
     onSuccess: () => {
       toast.success('Profile archived');
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
     },
-    onError: () => {
-      toast.error('Failed to archive profile');
-    },
+    onError: () => toast.error('Failed to archive profile'),
   });
 
-  // Restore mutation
   const restoreMutation = useMutation({
     mutationFn: (id: string) => profilesService.restore(id),
     onSuccess: () => {
       toast.success('Profile restored');
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
     },
-    onError: () => {
-      toast.error('Failed to restore profile');
-    },
+    onError: () => toast.error('Failed to restore profile'),
   });
 
   const profiles = data?.data?.profiles ?? [];
   const pagination = data?.data?.pagination;
   const totalPages = pagination ? Math.ceil(pagination.total / pageSize) : 1;
 
-  const handleEdit = (profile: Profile) => {
-    setEditingProfile(profile);
-    setFormModalOpen(true);
-  };
-
-  const handleCreateNew = () => {
-    setEditingProfile(null);
-    setFormModalOpen(true);
-  };
-
-  const handleModalClose = (open: boolean) => {
-    setFormModalOpen(open);
-    if (!open) {
-      setEditingProfile(null);
-    }
-  };
-
-  const handleDelete = (profile: Profile) => {
-    if (window.confirm(`Are you sure you want to delete "${profile.name}"? This action cannot be undone.`)) {
-      deleteMutation.mutate(profile.id);
-    }
-  };
-
-  const handleArchive = (profile: Profile) => {
-    archiveMutation.mutate(profile.id);
-  };
-
-  const handleRestore = (profile: Profile) => {
-    restoreMutation.mutate(profile.id);
-  };
+  // Handlers
+  const handleEdit = (profile: Profile) => { setEditingProfile(profile); setFormModalOpen(true); };
+  const handleCreateNew = () => { setEditingProfile(null); setFormModalOpen(true); };
+  const handleModalClose = (open: boolean) => { setFormModalOpen(open); if (!open) setEditingProfile(null); };
+  const handleDelete = (profile: Profile) => { if (confirm(`Delete "${profile.name}"?`)) deleteMutation.mutate(profile.id); };
+  const handleArchive = (profile: Profile) => archiveMutation.mutate(profile.id);
+  const handleRestore = (profile: Profile) => restoreMutation.mutate(profile.id);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Profiles"
-        description="Manage profiles for different people or entities you fill forms for"
-        breadcrumbs={[
-          { label: 'Home', href: '/' },
-          { label: 'Profiles' },
-        ]}
-        actions={
-          <Button onClick={handleCreateNew}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Profile
-          </Button>
-        }
-      />
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">Profiles</h1>
+          <p className="text-muted-foreground mt-1">Manage identities for auto-filling forms.</p>
+        </div>
+        <Button onClick={handleCreateNew} size="lg" className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
+          <Plus className="mr-2 h-5 w-5" />
+          New Profile
+        </Button>
+      </div>
 
-      {/* Filters and Search */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-2">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search profiles..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+      {/* Filters Bar */}
+      <div className="glass-panel p-4 rounded-xl flex flex-col gap-4 sm:flex-row sm:items-center justify-between sticky top-20 z-10">
+        <div className="flex flex-1 items-center gap-3 w-full overflow-x-auto pb-2 sm:pb-0">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+             <Input 
+                placeholder="Search..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-background/50 border-white/10 focus:bg-background transition-all"
+             />
           </div>
-
-          <Select
-            value={filter.type || 'all'}
-            onValueChange={(v) => setTypeFilter(v === 'all' ? undefined : v as ProfileType)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Types" />
+          <div className="h-4 w-[1px] bg-border mx-1" />
+          <Select value={filter.type || 'all'} onValueChange={(v) => setTypeFilter(v === 'all' ? undefined : v as ProfileType)}>
+            <SelectTrigger className="w-[130px] border-none bg-transparent hover:bg-secondary/10 data-[state=open]:bg-secondary/10">
+              <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
@@ -318,13 +354,10 @@ export default function ProfileList() {
               <SelectItem value="BUSINESS">Business</SelectItem>
             </SelectContent>
           </Select>
-
-          <Select
-            value={filter.status || 'all'}
-            onValueChange={(v) => setStatusFilter(v === 'all' ? undefined : v as 'ACTIVE' | 'ARCHIVED')}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="All Status" />
+          
+           <Select value={filter.status || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? undefined : v as 'ACTIVE' | 'ARCHIVED')}>
+            <SelectTrigger className="w-[130px] border-none bg-transparent hover:bg-secondary/10 data-[state=open]:bg-secondary/10">
+              <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
@@ -332,26 +365,27 @@ export default function ProfileList() {
               <SelectItem value="ARCHIVED">Archived</SelectItem>
             </SelectContent>
           </Select>
-
+          
           {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilter}>
-              <X className="mr-1 h-4 w-4" />
-              Clear
-            </Button>
+             <Button variant="ghost" size="sm" onClick={clearFilter} className="text-muted-foreground hover:text-foreground">
+               <X className="mr-1 h-3 w-3" /> Clear
+             </Button>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex bg-muted/20 p-1 rounded-lg border border-white/5">
           <Button
-            variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-            size="icon"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 px-2 rounded-md transition-all", viewMode === 'grid' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
             onClick={() => setViewMode('grid')}
           >
             <Grid3X3 className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-            size="icon"
+            variant="ghost"
+            size="sm"
+            className={cn("h-7 px-2 rounded-md transition-all", viewMode === 'table' ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
             onClick={() => setViewMode('table')}
           >
             <List className="h-4 w-4" />
@@ -359,64 +393,42 @@ export default function ProfileList() {
         </div>
       </div>
 
-      {/* Content */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-20" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : error ? (
-        <EmptyState
-          icon={X}
-          title="Error loading profiles"
-          description="There was a problem loading your profiles. Please try again."
-          action={{
-            label: "Try Again",
-            onClick: () => refetch(),
-          }}
-        />
-      ) : profiles.length === 0 ? (
-        hasActiveFilters ? (
-          <EmptyState
-            icon={Users}
-            title="No profiles found"
-            description="Try adjusting your filters or search query."
-            action={{
-              label: "Clear Filters",
-              onClick: clearFilter,
-              variant: "outline",
-            }}
+      {/* Main Content Area */}
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : error ? (
+           <EmptyState
+            icon={X}
+            title="Error loading profiles"
+            description="We couldn't fetch your profiles. Please try again."
+            action={{ label: "Retry", onClick: () => refetch() }}
           />
+        ) : profiles.length === 0 ? (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+             <EmptyState
+              icon={hasActiveFilters ? Search : Users}
+              title={hasActiveFilters ? "No matches found" : "No profiles start"}
+              description={hasActiveFilters ? "Adjust filters to find what you need." : "Create your first profile to get started."}
+              action={hasActiveFilters ? { label: "Clear Filters", onClick: clearFilter, variant: "outline" } : { label: "Create Profile", onClick: handleCreateNew, icon: Plus }}
+            />
+          </motion.div>
         ) : (
-          <EmptyState
-            icon={Users}
-            title="No profiles yet"
-            description="Create profiles to store information for yourself, family members, or business entities. This data will be used to auto-fill forms."
-            action={{
-              label: "Create Profile",
-              onClick: handleCreateNew,
-              icon: Plus,
-            }}
-          />
-        )
-      ) : (
-        <>
-          {viewMode === 'grid' ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <>
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className={cn(
+                viewMode === 'grid' 
+                  ? "grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
+                  : "flex flex-col gap-2"
+              )}
+            >
               {profiles.map((profile) => (
                 <ProfileCard
                   key={profile.id}
@@ -425,124 +437,24 @@ export default function ProfileList() {
                   onDelete={handleDelete}
                   onArchive={handleArchive}
                   onRestore={handleRestore}
+                  viewMode={viewMode}
                 />
               ))}
-            </div>
-          ) : (
-            <Card>
-              <div className="divide-y">
-                {profiles.map((profile) => (
-                  <div
-                    key={profile.id}
-                    className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer"
-                    onClick={() => navigate(`/profiles/${profile.id}`)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          'flex h-10 w-10 items-center justify-center rounded-full',
-                          profile.type === 'BUSINESS'
-                            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-                            : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300'
-                        )}
-                      >
-                        {profile.type === 'BUSINESS' ? (
-                          <Building2 className="h-5 w-5" />
-                        ) : (
-                          <User className="h-5 w-5" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium">{profile.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {profile.type === 'BUSINESS' ? 'Business' : 'Personal'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {profile.status === 'ARCHIVED' && (
-                        <Badge variant="secondary">Archived</Badge>
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(profile.updatedAt), 'MMM d, yyyy')}
-                      </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(profile); }}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          {profile.status === 'ACTIVE' ? (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleArchive(profile); }}>
-                              <Archive className="mr-2 h-4 w-4" />
-                              Archive
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRestore(profile); }}>
-                              <RotateCcw className="mr-2 h-4 w-4" />
-                              Restore
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(profile); }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+            </motion.div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, pagination?.total ?? 0)} of {pagination?.total ?? 0} profiles
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page <= 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm">
-                  Page {page} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page >= totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+            {/* Simple Pagination */}
+            {totalPages > 1 && (
+               <div className="flex items-center justify-center gap-4 py-8">
+                  <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page <= 1} className="w-24">Previous</Button>
+                  <span className="text-sm font-medium text-muted-foreground">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="w-24">Next</Button>
+               </div>
+            )}
+          </>
+        )}
+      </AnimatePresence>
 
-      {/* Profile Form Modal (Create/Edit) */}
-      <ProfileFormModal
-        open={formModalOpen}
-        onOpenChange={handleModalClose}
-        profile={editingProfile}
-      />
+      <ProfileFormModal open={formModalOpen} onOpenChange={handleModalClose} profile={editingProfile} />
     </div>
   );
 }

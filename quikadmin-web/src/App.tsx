@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/theme-provider';
-import { ModernLayout } from '@/components/modern-layout';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { initializeStores } from '@/stores/index';
 
@@ -49,11 +49,11 @@ function PageLoadingSpinner() {
 function ProtectedLayout() {
   return (
     <ProtectedRoute>
-      <ModernLayout>
+      <AppLayout>
         <Suspense fallback={<PageLoadingSpinner />}>
           <Outlet />
         </Suspense>
-      </ModernLayout>
+      </AppLayout>
     </ProtectedRoute>
   );
 }

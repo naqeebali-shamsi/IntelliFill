@@ -231,6 +231,7 @@ export function useUpload(options: UseUploadOptions = {}) {
    */
   const enqueueFileRef = useRef<((uploadFile: UploadFile) => Promise<void>) | null>(null);
 
+
   const enqueueFile = useCallback(
     async (uploadFile: UploadFile) => {
       if (!queueRef.current) return;
@@ -242,7 +243,9 @@ export function useUpload(options: UseUploadOptions = {}) {
   );
 
   // Store latest enqueueFile in ref
-  enqueueFileRef.current = enqueueFile;
+  useEffect(() => {
+    enqueueFileRef.current = enqueueFile;
+  }, [enqueueFile]);
 
   /**
    * Auto-process queue when files are added

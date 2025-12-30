@@ -171,7 +171,7 @@ export { ThemeProvider, useTheme } from "./theme-provider"
 export { ModeToggle } from "./mode-toggle"
 
 // Layout
-export { ModernLayout } from "./modern-layout"
+
 
 // Auth
 export { ProtectedRoute } from "./ProtectedRoute"

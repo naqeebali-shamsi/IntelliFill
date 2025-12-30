@@ -1,6 +1,18 @@
+/**
+ * ConnectedDashboard - Main overview for PRO agencies
+ * Redesigned with "Deep Ocean" aesthetic
+ */
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +31,9 @@ import {
   FolderOpen,
   RefreshCw,
   Inbox,
+  Sparkles,
+  Zap,
+  Activity
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -36,13 +51,31 @@ import {
 } from '@/components/ui/table';
 import { useStatistics, useJobs, useTemplates, useQueueMetrics } from '@/hooks/useApiData';
 import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { StatusBadge } from '@/components/features/status-badge';
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+};
 
 export default function ConnectedDashboard() {
   const navigate = useNavigate();
-  const { data: statistics, loading: statsLoading, error: statsError } = useStatistics();
-  const { jobs, loading: jobsLoading, error: jobsError } = useJobs(5);
-  const { templates, loading: templatesLoading, error: templatesError } = useTemplates();
-  const { metrics: queueMetrics, loading: queueLoading, error: queueError } = useQueueMetrics();
+  const { data: statistics, loading: statsLoading } = useStatistics();
+  const { jobs, loading: jobsLoading } = useJobs(5);
+  const { templates, loading: templatesLoading } = useTemplates();
+  const { metrics: queueMetrics, loading: queueLoading } = useQueueMetrics();
 
   const [progress, setProgress] = React.useState(0);
 
@@ -55,31 +88,6 @@ export default function ConnectedDashboard() {
     }
   }, [queueMetrics]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
-            Completed
-          </Badge>
-        );
-      case 'processing':
-        return (
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
-            Processing
-          </Badge>
-        );
-      case 'failed':
-        return (
-          <Badge className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
-            Failed
-          </Badge>
-        );
-      default:
-        return <Badge>Unknown</Badge>;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     try {
       return formatDistanceToNow(new Date(dateString), { addSuffix: true });
@@ -87,6 +95,13 @@ export default function ConnectedDashboard() {
       return dateString;
     }
   };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
 
   const stats = statistics
     ? [
@@ -96,8 +111,8 @@ export default function ConnectedDashboard() {
           change: `${statistics.trends?.documents?.change > 0 ? '+' : ''}${statistics.trends?.documents?.change || 0}%`,
           trend: statistics.trends?.documents?.trend || 'up',
           icon: FileText,
-          color: 'text-blue-600',
-          bgColor: 'bg-blue-100 dark:bg-blue-900/20',
+          color: 'text-primary',
+          bg: 'bg-primary/10',
         },
         {
           title: 'Processed Today',
@@ -105,17 +120,17 @@ export default function ConnectedDashboard() {
           change: `${statistics.trends?.processedToday?.change > 0 ? '+' : ''}${statistics.trends?.processedToday?.change || 0}%`,
           trend: statistics.trends?.processedToday?.trend || 'up',
           icon: CheckCircle,
-          color: 'text-green-600',
-          bgColor: 'bg-green-100 dark:bg-green-900/20',
+          color: 'text-green-500',
+          bg: 'bg-green-500/10',
         },
         {
           title: 'In Progress',
           value: statistics.trends?.inProgress?.value || 0,
           change: `${statistics.trends?.inProgress?.change > 0 ? '+' : ''}${statistics.trends?.inProgress?.change || 0}%`,
           trend: statistics.trends?.inProgress?.trend || 'down',
-          icon: Clock,
-          color: 'text-orange-600',
-          bgColor: 'bg-orange-100 dark:bg-orange-900/20',
+          icon: Sparkles,
+          color: 'text-amber-500',
+          bg: 'bg-amber-500/10',
         },
         {
           title: 'Failed',
@@ -123,286 +138,213 @@ export default function ConnectedDashboard() {
           change: `${statistics.trends?.failed?.change > 0 ? '+' : ''}${statistics.trends?.failed?.change || 0}%`,
           trend: statistics.trends?.failed?.trend || 'down',
           icon: AlertCircle,
-          color: 'text-red-600',
-          bgColor: 'bg-red-100 dark:bg-red-900/20',
+          color: 'text-red-500',
+          bg: 'bg-red-500/10',
         },
       ]
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-8 pb-20">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.location.reload()}
-            disabled={statsLoading || jobsLoading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${statsLoading || jobsLoading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+           <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
+              {getGreeting()}, <span className="text-primary">Team</span>
+           </h1>
+           <p className="text-muted-foreground mt-1">Here's what's happening with your documents today.</p>
         </div>
-        <p className="text-muted-foreground">
-          Welcome back! Here's an overview of your document processing activity.
-        </p>
+        <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()} disabled={statsLoading} className="border-border/50 hover:bg-secondary/20">
+               <RefreshCw className={cn("mr-2 h-4 w-4", statsLoading && "animate-spin")} />
+               Refresh
+            </Button>
+            <Button onClick={() => navigate('/upload')} className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
+                <Upload className="mr-2 h-4 w-4" /> Upload New
+            </Button>
+        </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statsLoading ? (
-          <Card className="col-span-full">
-            <CardContent className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">Loading statistics...</span>
-            </CardContent>
-          </Card>
-        ) : (
-          stats.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={stat.title}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                  <div className={`rounded-full p-2 ${stat.bgColor}`}>
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    {stat.trend === 'up' ? (
-                      <ArrowUpRight className="mr-1 h-3 w-3 text-green-600" />
-                    ) : (
-                      <ArrowDownRight className="mr-1 h-3 w-3 text-red-600" />
-                    )}
-                    <span className={stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}>
-                      {stat.change}
-                    </span>
-                    <span className="ml-1">from last month</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Recent Documents - Takes 2 columns */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Recent Documents</CardTitle>
-                <CardDescription>Your recently processed documents</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/history')}>
-                View All
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {jobsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading documents...</span>
-              </div>
-            ) : jobs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Inbox className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <h3 className="font-medium text-lg mb-1">No documents yet</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Upload your first document to get started
-                </p>
-                <Button onClick={() => navigate('/upload')}>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Document
-                </Button>
-              </div>
+      <motion.div 
+         variants={containerVariants}
+         initial="hidden"
+         animate="show"
+         className="space-y-6"
+      >
+        {/* Stats Grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {statsLoading ? (
+               Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-32 rounded-xl bg-muted/20 animate-pulse" />
+               ))
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Job</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobs.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium font-mono text-xs">
-                              {job.id.slice(0, 8)}...
+                stats.map((stat, i) => {
+                    const Icon = stat.icon;
+                    return (
+                        <motion.div key={i} variants={itemVariants} className="glass-panel p-6 rounded-xl relative overflow-hidden group hover:border-primary/20 transition-colors">
+                            <div className="relative z-10 flex justify-between items-start">
+                                <div>
+                                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                                    <h3 className="text-2xl font-bold font-heading mt-2">{stat.value}</h3>
+                                </div>
+                                <div className={cn("p-2 rounded-lg", stat.bg)}>
+                                    <Icon className={cn("h-5 w-5", stat.color)} />
+                                </div>
                             </div>
-                            {job.documentsCount && (
-                              <div className="text-xs text-muted-foreground">
-                                {job.documentsCount} doc(s)
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {job.type?.replace(/_/g, ' ') || 'Processing'}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(job.status)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(job.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/job/${job.id}`)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            
+                            <div className="relative z-10 flex items-center mt-4 text-xs font-medium">
+                                {stat.trend === 'up' ? (
+                                    <div className="flex items-center text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded mr-2">
+                                        <ArrowUpRight className="h-3 w-3 mr-1" /> {stat.change}
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded mr-2">
+                                        <ArrowDownRight className="h-3 w-3 mr-1" /> {stat.change}
+                                    </div>
+                                )}
+                                <span className="text-muted-foreground/60">processed vs last week</span>
+                            </div>
+                             
+                            {/* Decorative gradient blob */}
+                            <div className={cn("absolute -bottom-4 -right-4 h-24 w-24 rounded-full blur-2xl opacity-20 pointer-events-none group-hover:opacity-30 transition-opacity", stat.bg.replace('/10', ''))} />
+                        </motion.div>
+                    );
+                })
             )}
-          </CardContent>
-        </Card>
-
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Processing Progress */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Processing Queue</CardTitle>
-              <CardDescription>Current processing status</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {queueLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Documents in queue</span>
-                      <span className="font-medium">
-                        {queueMetrics?.active || 0} /{' '}
-                        {(queueMetrics?.waiting || 0) + (queueMetrics?.active || 0)}
-                      </span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Average processing time</span>
-                      <span className="font-medium">
-                        {statistics?.averageProcessingTime || 0} min
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Success rate</span>
-                      <span className="font-medium text-green-600">
-                        {statistics?.successRate || 0}%
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Popular Templates */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Popular Templates</CardTitle>
-              <CardDescription>Most frequently used templates</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {templatesLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : templates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center">
-                  <FolderOpen className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground mb-3">No templates yet</p>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/templates')}>
-                    Create Template
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {templates.slice(0, 4).map((template) => (
-                    <div key={template.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-full bg-primary/10 p-2">
-                          <FolderOpen className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{template.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {template.usage || 0} uses
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              <Button
-                className="w-full justify-start"
-                variant="outline"
-                onClick={() => navigate('/upload')}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Upload New Document
-              </Button>
-              <Button
-                className="w-full justify-start"
-                variant="outline"
-                onClick={() => navigate('/templates')}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Create Template
-              </Button>
-              <Button
-                className="w-full justify-start"
-                variant="outline"
-                onClick={() => navigate('/documents')}
-              >
-                <FolderOpen className="mr-2 h-4 w-4" />
-                View Documents
-              </Button>
-            </CardContent>
-          </Card>
         </div>
-      </div>
+
+        {/* Main Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-3">
+            {/* Recent Documents */}
+            <motion.div variants={itemVariants} className="lg:col-span-2 glass-panel rounded-xl overflow-hidden flex flex-col h-full border border-white/10">
+                <div className="p-6 border-b border-border/50 flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-lg">Recent Documents</CardTitle>
+                        <CardDescription>Latest processing activity</CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => navigate('/history')} className="text-xs text-primary hover:text-primary/80">
+                        View All History <ArrowUpRight className="ml-1 h-3 w-3" />
+                    </Button>
+                </div>
+                
+                <div className="p-0 flex-1">
+                    {jobsLoading ? (
+                         <div className="space-y-4 p-6">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="h-12 w-full bg-muted/20 animate-pulse rounded-lg" />
+                            ))}
+                         </div>
+                    ) : jobs.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
+                            <Inbox className="h-12 w-12 opacity-20 mb-4" />
+                            <p>No recent documents</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col">
+                            {jobs.map((job) => (
+                                <div key={job.id} className="flex items-center gap-4 p-4 hover:bg-white/5 border-b border-white/5 last:border-0 transition-colors group">
+                                     <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-background border border-white/10 shrink-0">
+                                         <FileText className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                     </div>
+                                     <div className="flex-1 min-w-0">
+                                         <div className="flex items-center gap-2">
+                                             <span className="font-medium truncate text-foreground">{job.type?.replace(/_/g, ' ') || 'Processing'}</span>
+                                             <StatusBadge status={job.status as any} size="sm" />
+                                         </div>
+                                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                                             <span className="font-mono">{job.id.slice(0, 8)}</span>
+                                             <span>•</span>
+                                             <span>{formatDate(job.createdAt)}</span>
+                                         </div>
+                                     </div>
+                                     <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => navigate(`/job/${job.id}`)}>
+                                         <Eye className="h-4 w-4" />
+                                     </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+
+            {/* Right Column: Processing & Quick Actions */}
+            <motion.div variants={itemVariants} className="space-y-6">
+                {/* Processing Queue Widget */}
+                <div className="glass-card p-6 rounded-xl border border-white/10 relative overflow-hidden">
+                     <div className="relative z-10">
+                        <h3 className="font-medium flex items-center gap-2 mb-4">
+                            <Activity className="h-4 w-4 text-primary" /> Processing Queue
+                        </h3>
+                        
+                        {queueLoading ? (
+                             <div className="h-20 bg-muted/20 animate-pulse rounded" />
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex justify-between text-xs mb-2">
+                                        <span className="text-muted-foreground">Active Jobs</span>
+                                        <span className="font-medium">{queueMetrics?.active || 0} / {(queueMetrics?.waiting || 0) + (queueMetrics?.active || 0)}</span>
+                                    </div>
+                                    <Progress value={progress} className="h-2" />
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground mb-0.5">Avg Time</p>
+                                        <p className="font-medium text-lg font-mono">{statistics?.averageProcessingTime || '0'}m</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-muted-foreground mb-0.5">Success Rate</p>
+                                        <p className="font-medium text-lg font-mono text-green-500">{statistics?.successRate || '0'}%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                     </div>
+                     <div className="absolute top-0 right-0 h-32 w-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                </div>
+
+                {/* Quick Actions */}
+                <div className="glass-panel p-6 rounded-xl border border-white/10">
+                    <h3 className="font-medium flex items-center gap-2 mb-4">
+                        <Zap className="h-4 w-4 text-amber-500" /> Quick Actions
+                    </h3>
+                    <div className="grid gap-3">
+                        <Button variant="outline" className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group" onClick={() => navigate('/upload')}>
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                <Upload className="h-4 w-4" />
+                            </div>
+                            <div className="text-left">
+                                <div className="font-medium text-sm">Upload Document</div>
+                                <div className="text-[10px] text-muted-foreground">Start new processing job</div>
+                            </div>
+                        </Button>
+                        
+                        <Button variant="outline" className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group" onClick={() => navigate('/templates')}>
+                            <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mr-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                                <FileText className="h-4 w-4" />
+                            </div>
+                            <div className="text-left">
+                                <div className="font-medium text-sm">Create Template</div>
+                                <div className="text-[10px] text-muted-foreground">Setup reusable form mapping</div>
+                            </div>
+                        </Button>
+
+                         <Button variant="outline" className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group" onClick={() => navigate('/documents')}>
+                            <div className="h-8 w-8 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mr-3 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                                <FolderOpen className="h-4 w-4" />
+                            </div>
+                            <div className="text-left">
+                                <div className="font-medium text-sm">Browse Library</div>
+                                <div className="text-[10px] text-muted-foreground">Access all processed files</div>
+                            </div>
+                        </Button>
+                    </div>
+                </div>
+                
+            </motion.div>
+        </div>
+      </motion.div>
     </div>
   );
 }
