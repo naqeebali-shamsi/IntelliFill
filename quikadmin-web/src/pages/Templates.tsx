@@ -1,6 +1,6 @@
 /**
  * Templates Page
- * 
+ *
  * Manages field mapping templates. Users can:
  * - Browse saved templates
  * - Create new templates
@@ -8,25 +8,35 @@
  * - Navigate to form filling with a template
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FileText,
+  Clock,
+  LayoutTemplate,
+  Sparkles,
+  Plus,
+  Search,
+  Trash2,
+  Loader2,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  FileText, 
-  Eye, 
-  Trash2, 
-  Plus,
-  Search,
-  Clock,
-  Loader2,
-  AlertCircle,
-  ArrowRight,
-} from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -47,19 +57,189 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getTemplates, createTemplate, deleteTemplate, getPublicTemplates, useTemplate } from '@/services/formService';
+
+import {
+  getTemplates,
+  createTemplate,
+  deleteTemplate,
+  getPublicTemplates,
+  useTemplate as incrementTemplateUsage,
+} from '@/services/formService';
 import type { MappingTemplate } from '@/types/formFilling';
-import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 },
+};
+
+// Start of extracted components
+const StatCard = ({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  delay = 0,
+}: {
+  title: string;
+  value: string | number;
+  subtitle: string;
+  icon: any;
+  delay?: number;
+}) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay }}
+    className="glass-panel p-6 rounded-xl relative overflow-hidden group"
+  >
+    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+      <Icon className="h-16 w-16 -rotate-12" />
+    </div>
+    <div className="relative z-10">
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium text-muted-foreground">{title}</span>
+      </div>
+      <div className="text-3xl font-heading font-bold text-foreground mb-1">{value}</div>
+      <p className="text-xs text-muted-foreground/80">{subtitle}</p>
+    </div>
+  </motion.div>
+);
+
+interface TemplateCardProps {
+  template: MappingTemplate;
+  onUse: (template: MappingTemplate) => void;
+  onDelete?: (id: string) => void;
+  isPublic?: boolean;
+}
+
+const TemplateCard = ({ template, onUse, onDelete, isPublic }: TemplateCardProps) => {
+  const getFieldCount = (t: MappingTemplate) => Object.keys(t.mappings || {}).length;
+  const formatDate = (d?: string) =>
+    d
+      ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'Unknown';
+
+  return (
+    <motion.div variants={itemVariants} layoutId={template.id} className="h-full">
+      <div className="group relative h-full flex flex-col justify-between p-5 rounded-xl border border-white/5 bg-card/40 backdrop-blur-sm transition-all hover:bg-card/60 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
+        {/* Header */}
+        <div className="mb-4">
+          <div className="flex items-start justify-between mb-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary mb-2 ring-1 ring-inset ring-primary/20">
+              <LayoutTemplate className="h-5 w-5" />
+            </div>
+            {isPublic && (
+              <Badge
+                variant="outline"
+                className="bg-secondary/10 text-secondary border-secondary/20"
+              >
+                Public
+              </Badge>
+            )}
+          </div>
+
+          <h3
+            className="font-heading font-semibold text-lg leading-tight mb-1 group-hover:text-primary transition-colors line-clamp-1"
+            title={template.name}
+          >
+            {template.name}
+          </h3>
+          <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+            {template.description || 'No description provided.'}
+          </p>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-3 mb-6">
+          <div className="flex items-center justify-between text-xs text-muted-foreground bg-white/5 p-2 rounded-lg">
+            <span>Form Type</span>
+            <span className="font-medium text-foreground">{template.formType || 'Custom'}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <FileText className="h-3 w-3" />
+              <span>{getFieldCount(template)} Fields</span>
+            </div>
+            <div className="flex items-center gap-1.5 justify-end">
+              <Clock className="h-3 w-3" />
+              <span>{formatDate(template.updatedAt || template.createdAt)}</span>
+            </div>
+          </div>
+
+          {isPublic && template.author && (
+            <div className="text-xs text-muted-foreground border-t border-white/5 pt-2 mt-2">
+              By {template.author.firstName} {template.author.lastName}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-auto">
+          <Button
+            className="flex-1 shadow-lg shadow-primary/10 group-hover:shadow-primary/20 transition-all text-xs"
+            size="sm"
+            onClick={() => onUse(template)}
+          >
+            <Sparkles className="mr-2 h-3 w-3" />
+            Use Template
+          </Button>
+
+          {!isPublic && onDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete "{template.name}"? This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onDelete(template.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 export default function Templates() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Dialog State
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateDescription, setNewTemplateDescription] = useState('');
@@ -67,7 +247,11 @@ export default function Templates() {
   const [activeTab, setActiveTab] = useState('my-templates');
 
   // Fetch user's templates
-  const { data: templates = [], isLoading, error } = useQuery({
+  const {
+    data: templates = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['templates'],
     queryFn: getTemplates,
   });
@@ -78,22 +262,21 @@ export default function Templates() {
     queryFn: getPublicTemplates,
   });
 
-  // Create template mutation
+  // Create mutation
   const createMutation = useMutation({
     mutationFn: createTemplate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
       toast.success('Template created successfully');
       setCreateDialogOpen(false);
-      setNewTemplateName('');
-      setNewTemplateDescription('');
+      resetForm();
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to create template');
     },
   });
 
-  // Delete template mutation
+  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: deleteTemplate,
     onSuccess: () => {
@@ -105,11 +288,11 @@ export default function Templates() {
     },
   });
 
-  const filteredTemplates = templates.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (template.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  const resetForm = () => {
+    setNewTemplateName('');
+    setNewTemplateDescription('');
+    setNewTemplateFormType('CUSTOM');
+  };
 
   const handleCreateTemplate = () => {
     if (!newTemplateName.trim()) {
@@ -121,20 +304,17 @@ export default function Templates() {
       name: newTemplateName.trim(),
       description: newTemplateDescription.trim() || undefined,
       formType: newTemplateFormType,
-      fieldMappings: [], // Empty mappings - user will create mappings in form filling page
-      mappings: {}, // Keep for backwards compatibility
+      fieldMappings: [], // Empty mappings
+      mappings: {},
     });
   };
 
   const handleUseTemplate = async (template: MappingTemplate) => {
-    // Increment usage count
     try {
-      await useTemplate(template.id);
+      await incrementTemplateUsage(template.id);
     } catch (error) {
       console.warn('Failed to increment usage count:', error);
     }
-
-    // Navigate to form filling page with template preselected
     navigate('/fill-form', { state: { templateId: template.id } });
   };
 
@@ -142,476 +322,208 @@ export default function Templates() {
     deleteMutation.mutate(templateId);
   };
 
-  const getFieldCount = (template: MappingTemplate): number => {
-    return Object.keys(template.mappings || {}).length;
-  };
+  const filteredTemplates = useMemo(() => {
+    const list = activeTab === 'my-templates' ? templates : publicTemplates;
+    if (!searchTerm) return list;
+    return list.filter(
+      (t) =>
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (t.description || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [activeTab, templates, publicTemplates, searchTerm]);
 
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return 'Unknown';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch {
-      return 'Unknown';
-    }
-  };
-
-  const TemplateCard = ({ template }: { template: MappingTemplate }) => (
-    <Card className="h-full flex flex-col hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg truncate">{template.name}</CardTitle>
-            {template.description && (
-              <CardDescription className="mt-1 line-clamp-2">
-                {template.description}
-              </CardDescription>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Field Mappings:</span>
-            <span className="font-medium">{getFieldCount(template)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Created:</span>
-            <span className="font-medium">{formatDate(template.createdAt)}</span>
-          </div>
-          {template.updatedAt && template.updatedAt !== template.createdAt && (
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Updated:</span>
-              <span className="font-medium">{formatDate(template.updatedAt)}</span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-      <CardContent className="pt-0">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            onClick={() => handleUseTemplate(template)}
-          >
-            <ArrowRight className="mr-2 h-3 w-3" />
-            Use Template
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Template</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete the template "{template.name}"?
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => handleDeleteTemplate(template.id)}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </CardContent>
-    </Card>
+  // Derived stats
+  const totalFields = useMemo(
+    () => templates.reduce((sum, t) => sum + Object.keys(t.mappings || {}).length, 0),
+    [templates]
   );
+  const mostRecent = useMemo(() => {
+    if (templates.length === 0) return 'None';
+    const sorted = [...templates].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return new Date(sorted[0].createdAt).toLocaleDateString();
+  }, [templates]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-7xl mx-auto pb-20">
+      {/* Header */}
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Templates</h1>
-        <p className="text-muted-foreground">
-          Manage your field mapping templates for quick form filling
+        <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
+          Template Library
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Manage your field mapping templates for automation.
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{templates.length}</div>
-            <p className="text-xs text-muted-foreground">Saved mapping templates</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Fields</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {templates.reduce((sum, t) => sum + getFieldCount(t), 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Across all templates</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold">
-              {templates.length > 0 
-                ? formatDate(templates.sort((a, b) => 
-                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                  )[0]?.createdAt)
-                : 'No templates'}
-            </div>
-            <p className="text-xs text-muted-foreground">Most recent template</p>
-          </CardContent>
-        </Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard
+          title="Total Templates"
+          value={templates.length}
+          subtitle="Saved in your library"
+          icon={LayoutTemplate}
+          delay={0}
+        />
+        <StatCard
+          title="Total Fields Mapped"
+          value={totalFields}
+          subtitle="Across all templates"
+          icon={FileText}
+          delay={0.1}
+        />
+        <StatCard
+          title="Last Activity"
+          value={mostRecent}
+          subtitle="Most recent template"
+          icon={Clock}
+          delay={0.2}
+        />
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load templates. Please try refreshing the page.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Main Content */}
+      <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+            <TabsList className="bg-white/5 border border-white/10">
+              <TabsTrigger value="my-templates">My Templates</TabsTrigger>
+              <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-      {/* Templates List with Tabs */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle>Template Library</CardTitle>
-              <CardDescription>
-                Browse and manage your field mapping templates
-              </CardDescription>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search templates..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 bg-background/50 border-white/10 focus:bg-background transition-all"
+              />
             </div>
+
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Template
+                <Button className="shadow-lg shadow-primary/20 hover:shadow-primary/30">
+                  <Plus className="mr-2 h-4 w-4" /> New Template
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create New Template</DialogTitle>
                   <DialogDescription>
-                    Create a new template. You'll be able to add field mappings when you use it.
+                    Start with a blank template. You can add field mappings during the form filling
+                    process.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="template-name">Template Name *</Label>
+                    <Label htmlFor="t-name">Template Name</Label>
                     <Input
-                      id="template-name"
-                      placeholder="e.g., Customer Information Form"
+                      id="t-name"
                       value={newTemplateName}
                       onChange={(e) => setNewTemplateName(e.target.value)}
+                      placeholder="e.g. Visa Application Setup"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="template-form-type">Form Type *</Label>
+                    <Label htmlFor="t-type">Form Type</Label>
                     <Select value={newTemplateFormType} onValueChange={setNewTemplateFormType}>
-                      <SelectTrigger id="template-form-type">
-                        <SelectValue placeholder="Select form type" />
+                      <SelectTrigger id="t-type">
+                        <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="W2">W-2 Wage and Tax Statement</SelectItem>
-                        <SelectItem value="I9">I-9 Employment Eligibility</SelectItem>
-                        <SelectItem value="PASSPORT">Passport Application</SelectItem>
-                        <SelectItem value="JOB_APPLICATION">Job Application</SelectItem>
                         <SelectItem value="CUSTOM">Custom Form</SelectItem>
+                        <SelectItem value="W2">W-2 Wage Statement</SelectItem>
+                        <SelectItem value="I9">I-9 Eligibility</SelectItem>
+                        <SelectItem value="PASSPORT">Passport Application</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="template-description">Description (Optional)</Label>
+                    <Label htmlFor="t-desc">Description</Label>
                     <Textarea
-                      id="template-description"
-                      placeholder="Describe when to use this template..."
+                      id="t-desc"
                       value={newTemplateDescription}
                       onChange={(e) => setNewTemplateDescription(e.target.value)}
-                      rows={3}
+                      placeholder="Optional description..."
                     />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setCreateDialogOpen(false);
-                      setNewTemplateName('');
-                      setNewTemplateDescription('');
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                     Cancel
                   </Button>
                   <Button
                     onClick={handleCreateTemplate}
-                    disabled={createMutation.isPending || !newTemplateName.trim()}
+                    disabled={createMutation.isPending || !newTemplateName}
                   >
                     {createMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      'Create Template'
+                      'Create'
                     )}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search templates..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
+        </div>
+
+        <AnimatePresence mode="wait">
+          {isLoading || isLoadingPublic ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <Loader2 className="h-10 w-10 animate-spin mb-4 text-primary/50" />
+              <p>Loading library...</p>
             </div>
-
-            {/* Tabs for My Templates and Marketplace */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="my-templates">My Templates</TabsTrigger>
-                <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="my-templates" className="space-y-4">
-            {/* Templates Grid/List */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading templates...</span>
-              </div>
-            ) : filteredTemplates.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {searchTerm ? 'No templates found' : 'No templates yet'}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm
-                    ? 'Try adjusting your search terms'
-                    : 'Create your first template to get started'}
-                </p>
-                {!searchTerm && (
-                  <Button onClick={() => setCreateDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Template
-                  </Button>
-                )}
-              </div>
-            ) : viewMode === 'grid' ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredTemplates.map(template => (
-                  <TemplateCard key={template.id} template={template} />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredTemplates.map(template => (
-                  <Card key={template.id}>
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <FileText className="h-8 w-8 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold truncate">{template.name}</h3>
-                            <Badge variant="secondary">{getFieldCount(template)} fields</Badge>
-                          </div>
-                          {template.description && (
-                            <p className="text-sm text-muted-foreground truncate">
-                              {template.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            <span>Created {formatDate(template.createdAt)}</span>
-                            {template.updatedAt && template.updatedAt !== template.createdAt && (
-                              <span>Updated {formatDate(template.updatedAt)}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUseTemplate(template)}
-                        >
-                          <ArrowRight className="mr-2 h-3 w-3" />
-                          Use
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Template</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete "{template.name}"? This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteTemplate(template.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-              </TabsContent>
-
-              <TabsContent value="marketplace" className="space-y-4">
-                {/* Marketplace Templates Grid/List */}
-                {isLoadingPublic ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">Loading marketplace templates...</span>
-                  </div>
-                ) : publicTemplates.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No public templates available</h3>
-                    <p className="text-muted-foreground">
-                      Check back later for community-shared templates
-                    </p>
-                  </div>
-                ) : viewMode === 'grid' ? (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {publicTemplates.map(template => (
-                      <Card key={template.id} className="h-full flex flex-col hover:shadow-md transition-shadow">
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <CardTitle className="text-lg truncate">{template.name}</CardTitle>
-                              <CardDescription className="mt-1 line-clamp-2">
-                                {template.description || 'No description'}
-                              </CardDescription>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="flex-1">
-                          <div className="space-y-2 text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Form Type:</span>
-                              <Badge variant="outline">{template.formType || 'CUSTOM'}</Badge>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Usage Count:</span>
-                              <span className="font-medium">{template.usageCount || 0}</span>
-                            </div>
-                            {template.author && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground">Author:</span>
-                                <span className="font-medium text-xs">
-                                  {template.author.firstName} {template.author.lastName}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                        <CardContent className="pt-0">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => handleUseTemplate(template)}
-                          >
-                            <ArrowRight className="mr-2 h-3 w-3" />
-                            Use Template
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {publicTemplates.map(template => (
-                      <Card key={template.id}>
-                        <CardContent className="flex items-center justify-between p-4">
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <FileText className="h-8 w-8 text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold truncate">{template.name}</h3>
-                                <Badge variant="outline">{template.formType || 'CUSTOM'}</Badge>
-                                <Badge variant="secondary">{template.usageCount || 0} uses</Badge>
-                              </div>
-                              {template.description && (
-                                <p className="text-sm text-muted-foreground truncate">
-                                  {template.description}
-                                </p>
-                              )}
-                              {template.author && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  by {template.author.firstName} {template.author.lastName}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => handleUseTemplate(template)}
-                          >
-                            <ArrowRight className="mr-2 h-3 w-3" />
-                            Use
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
-        </CardContent>
-      </Card>
+          ) : filteredTemplates.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="py-10"
+            >
+              <EmptyState
+                icon={activeTab === 'my-templates' ? LayoutTemplate : Search}
+                title={
+                  activeTab === 'my-templates' ? 'No templates created' : 'No marketplace templates'
+                }
+                description={
+                  activeTab === 'my-templates'
+                    ? 'Create your first template to start automating form filling.'
+                    : 'Check back later for shared templates.'
+                }
+                action={
+                  activeTab === 'my-templates'
+                    ? {
+                        label: 'Create Template',
+                        onClick: () => setCreateDialogOpen(true),
+                        icon: Plus,
+                      }
+                    : undefined
+                }
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            >
+              {filteredTemplates.map((template) => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onUse={handleUseTemplate}
+                  onDelete={activeTab === 'my-templates' ? handleDeleteTemplate : undefined}
+                  isPublic={activeTab === 'marketplace'}
+                />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

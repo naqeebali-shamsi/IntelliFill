@@ -1,3 +1,11 @@
+---
+title: 'ADR-001: Document vs DocumentSource Relationship Design'
+description: 'Architecture decision record for the relationship between Document and DocumentSource models'
+category: 'explanation'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # ADR-001: Document vs DocumentSource Relationship Design
 
 **Status:** Accepted
@@ -22,6 +30,7 @@ IntelliFill has two distinct document-related models that serve different purpos
    - Supports RAG (Retrieval-Augmented Generation) workflows
 
 The challenge was determining how these models should relate to each other, considering:
+
 - Backward compatibility with existing form-filling features
 - Multi-tenant data isolation requirements
 - Future extensibility for AI-powered features
@@ -69,41 +78,50 @@ model DocumentSource {
 ## Alternatives Considered
 
 ### Option A: Single Unified Model
+
 Extend the existing `Document` model to include vector search fields.
 
 **Pros:**
+
 - Simpler schema
 - Single source of truth for documents
 - No relationship complexity
 
 **Cons:**
+
 - Violates single responsibility principle
 - Form-filling documents would need vector columns even if not used
 - Harder to implement organization-scoped vs user-scoped access
 - Migration complexity for existing data
 
 ### Option B: Strict Foreign Key Relationship
+
 Make `linkedDocumentId` a required foreign key with cascade behavior.
 
 **Pros:**
+
 - Strong referential integrity
 - Clear ownership chain
 - Automatic cleanup on Document deletion
 
 **Cons:**
+
 - Prevents standalone knowledge base documents
 - Complex cascade behavior with soft deletes
 - Tight coupling between systems
 - Migration challenges
 
 ### Option C: Inheritance/Polymorphism
+
 Use table inheritance where DocumentSource extends Document.
 
 **Pros:**
+
 - Shared base attributes
 - Clean OOP design
 
 **Cons:**
+
 - Prisma doesn't support table inheritance natively
 - Complex query patterns
 - Performance implications
@@ -145,7 +163,7 @@ async function linkDocumentToKnowledgeBase(
 ): Promise<DocumentSource> {
   // 1. Validate Document exists
   const document = await prisma.document.findUnique({
-    where: { id: documentId }
+    where: { id: documentId },
   });
 
   if (!document) {
@@ -163,8 +181,8 @@ async function linkDocumentToKnowledgeBase(
       mimeType: document.fileType,
       fileSize: document.fileSize,
       storageUrl: document.storageUrl,
-      status: 'PENDING'
-    }
+      status: 'PENDING',
+    },
   });
 }
 ```
@@ -178,7 +196,7 @@ async function getDocumentSourceWithLinkedDoc(
   organizationId: string
 ): Promise<DocumentSourceWithDoc | null> {
   const source = await prisma.documentSource.findFirst({
-    where: { id: sourceId, organizationId }
+    where: { id: sourceId, organizationId },
   });
 
   if (!source || !source.linkedDocumentId) {
@@ -187,7 +205,7 @@ async function getDocumentSourceWithLinkedDoc(
 
   // Fetch linked document if exists
   const linkedDoc = await prisma.document.findUnique({
-    where: { id: source.linkedDocumentId }
+    where: { id: source.linkedDocumentId },
   });
 
   return { ...source, linkedDocument: linkedDoc };
@@ -213,6 +231,6 @@ The following scenarios have been validated:
 
 ## Changelog
 
-| Date | Author | Description |
-|------|--------|-------------|
+| Date       | Author   | Description                         |
+| ---------- | -------- | ----------------------------------- |
 | 2025-12-11 | AI Agent | Initial decision and implementation |

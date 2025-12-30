@@ -1,3 +1,11 @@
+---
+title: 'Tutorials'
+description: 'Learning-oriented lessons that take the reader through a series of steps to complete a project'
+category: 'tutorials'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Tutorials
 
 Tutorials are **learning-oriented** lessons that take the reader through a series of steps to complete a project. They focus on learning by doing.
@@ -11,6 +19,7 @@ Tutorials are **learning-oriented** lessons that take the reader through a serie
 **Time**: 30 minutes
 
 Set up your development environment from scratch:
+
 - Install prerequisites (Node.js, Bun, Docker)
 - Clone the repository
 - Configure environment variables
@@ -22,6 +31,7 @@ Set up your development environment from scratch:
 **Time**: 15 minutes
 
 Upload and process your first document:
+
 - Log in to the application
 - Upload a sample document
 - Watch OCR extraction in action
@@ -33,6 +43,7 @@ Upload and process your first document:
 **Time**: 20 minutes
 
 Learn how IntelliFill processes documents:
+
 - Document upload flow
 - OCR extraction process
 - Data extraction and validation
@@ -71,4 +82,3 @@ After completing tutorials, explore:
 - [How-To Guides](../how-to/) - Solve specific problems
 - [Reference](../reference/) - Technical specifications
 - [Explanation](../explanation/) - Understand why things work
-

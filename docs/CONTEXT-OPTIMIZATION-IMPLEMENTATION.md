@@ -1,3 +1,11 @@
+---
+title: 'Context Optimization Implementation Guide'
+description: "Actionable optimizations for IntelliFill's Claude Code context usage based on Anthropic engineering research"
+category: 'how-to'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # IntelliFill Context Optimization Implementation Guide
 
 **Based on Anthropic's God-Tier Engineering Research + Expert MIT/Carnegie Mellon/Harvard Level Deliberation**
@@ -15,18 +23,18 @@ This guide synthesizes research from 16 Anthropic engineering blog posts and exp
 
 ## Research Foundation (Anthropic Sources)
 
-| Article | Key Insight | IntelliFill Application |
-|---------|-------------|------------------------|
-| [Advanced Tool Use](https://www.anthropic.com/engineering/advanced-tool-use) | `defer_loading: true` = 85% token reduction | Apply to MCP tools |
-| [Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) | Code execution = 98.7% token savings | Progressive tool disclosure |
-| [Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills) | Skills lazy-load vs MCP upfront | Replace MCPs with Skills |
-| [Claude Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk) | Context compaction + subagent isolation | Document pipeline design |
-| [Effective Context Engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) | 84% reduction with compaction + Memory Tool | /compact at 70% |
-| [Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system) | Token usage explains 80% of performance | Optimize token budget |
-| [The Think Tool](https://www.anthropic.com/engineering/claude-think-tool) | 54% improvement for complex reasoning | Use for policy compliance |
-| [Effective Harnesses](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) | Progress files + git state | Checkpoint-based resumption |
-| [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents) | 5 tools > 20 overlapping | Minimal tool sets |
-| [Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval) | 67% retrieval failure reduction | Document chunking strategy |
+| Article                                                                                                            | Key Insight                                 | IntelliFill Application     |
+| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | --------------------------- |
+| [Advanced Tool Use](https://www.anthropic.com/engineering/advanced-tool-use)                                       | `defer_loading: true` = 85% token reduction | Apply to MCP tools          |
+| [Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)                           | Code execution = 98.7% token savings        | Progressive tool disclosure |
+| [Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)        | Skills lazy-load vs MCP upfront             | Replace MCPs with Skills    |
+| [Claude Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk)                | Context compaction + subagent isolation     | Document pipeline design    |
+| [Effective Context Engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) | 84% reduction with compaction + Memory Tool | /compact at 70%             |
+| [Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)                   | Token usage explains 80% of performance     | Optimize token budget       |
+| [The Think Tool](https://www.anthropic.com/engineering/claude-think-tool)                                          | 54% improvement for complex reasoning       | Use for policy compliance   |
+| [Effective Harnesses](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)           | Progress files + git state                  | Checkpoint-based resumption |
+| [Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)                       | 5 tools > 20 overlapping                    | Minimal tool sets           |
+| [Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval)                                 | 67% retrieval failure reduction             | Document chunking strategy  |
 
 ---
 
@@ -63,6 +71,7 @@ This guide synthesizes research from 16 Anthropic engineering blog posts and exp
 #### 1.2 Use `/mcp` for On-Demand Activation
 
 During session, use `/mcp` command or:
+
 - `@puppeteer enable` - When browser testing needed
 - `@magic enable` - When building UI components
 - `@sequential-thinking enable` - When complex reasoning needed
@@ -82,13 +91,13 @@ During session, use `/mcp` command or:
 
 Based on expert deliberation:
 
-| Capability | Keep as MCP | Convert to Skill | Rationale |
-|------------|-------------|------------------|-----------|
-| context7 | ✅ | | Docs lookup essential, low overhead |
-| task-master | ✅ | | Core workflow management |
-| puppeteer | | ✅ browser-testing | Rarely used, ~4.8k savings |
-| magic/21st | | ✅ ui-components | Rarely used, ~3.4k savings |
-| sequential-thinking | | ❌ Remove | Rarely needed, /ultrathink exists |
+| Capability          | Keep as MCP | Convert to Skill   | Rationale                           |
+| ------------------- | ----------- | ------------------ | ----------------------------------- |
+| context7            | ✅          |                    | Docs lookup essential, low overhead |
+| task-master         | ✅          |                    | Core workflow management            |
+| puppeteer           |             | ✅ browser-testing | Rarely used, ~4.8k savings          |
+| magic/21st          |             | ✅ ui-components   | Rarely used, ~3.4k savings          |
+| sequential-thinking |             | ❌ Remove          | Rarely needed, /ultrathink exists   |
 
 **Already implemented**: `browser-testing/SKILL.md` and `ui-components/SKILL.md`
 
@@ -104,17 +113,17 @@ description: |
   - trigger 1
   - trigger 2
 triggers:
-  - "keyword phrase"
-  - "natural language pattern"
+  - 'keyword phrase'
+  - 'natural language pattern'
 tool_access:
   allowed: [Read, Edit, Write, Bash(npm test*)]
   denied: [Bash(rm*)]
 dependencies: [skill-1, skill-2]
 complexity: low | medium | high
 progressive_sections:
-  - id: "basics"
+  - id: 'basics'
     lines: 1-200
-  - id: "advanced"
+  - id: 'advanced'
     lines: 201-500
     optional: true
 ---
@@ -161,7 +170,7 @@ interface PipelineCheckpoint {
   documentId: string;
   stage: 'upload' | 'ocr' | 'extraction' | 'storage';
   stageData: Record<string, unknown>;
-  contextSummary: string;  // Max 200 chars
+  contextSummary: string; // Max 200 chars
   timestamp: Date;
 }
 
@@ -185,9 +194,9 @@ description: |
   ORCHESTRATE document processing: upload → OCR → extraction → storage.
   Coordinates specialized workers with isolated contexts.
 triggers:
-  - "process document"
-  - "upload PDF"
-  - "extract fields"
+  - 'process document'
+  - 'upload PDF'
+  - 'extract fields'
 complexity: high
 ---
 
@@ -198,6 +207,7 @@ Coordinates document processing with context-isolated workers.
 ## Pipeline Stages
 
 ### Stage 1: Upload & Validation
+
 **Worker**: upload-validator
 **Context budget**: 20k tokens
 **Skills loaded**: file-upload only
@@ -206,6 +216,7 @@ Coordinates document processing with context-isolated workers.
 **Checkpoint**: `.taskmaster/checkpoints/upload-{id}.json`
 
 ### Stage 2: OCR Processing
+
 **Worker**: ocr-processor
 **Context budget**: 30k tokens
 **Skills loaded**: queue-worker only
@@ -215,6 +226,7 @@ Coordinates document processing with context-isolated workers.
 **Checkpoint**: `.taskmaster/checkpoints/ocr-{id}.json`
 
 ### Stage 3: Field Extraction
+
 **Worker**: field-extractor
 **Context budget**: 25k tokens
 **Skills loaded**: form-automation only
@@ -223,6 +235,7 @@ Coordinates document processing with context-isolated workers.
 **Checkpoint**: `.taskmaster/checkpoints/extraction-{id}.json`
 
 ### Stage 4: Database Storage
+
 **Worker**: Main agent (no isolation needed)
 **Skills loaded**: prisma-database
 **Input**: { documentId, fields, mappings }
@@ -250,18 +263,23 @@ Based on Anthropic's "keep CLAUDE.md body under 500 lines" guidance:
 # IntelliFill CLAUDE.md
 
 ## Quick Start (100 lines)
+
 Essential commands, ports, package managers
 
 ## Architecture Overview (150 lines)
+
 High-level structure, key directories, tech stack
 
 ## Common Workflows (150 lines)
+
 Most frequent development tasks
 
 ## API Quick Reference (100 lines)
+
 Core endpoints (full docs linked)
 
 ## Links to Detailed Guides
+
 - [Authentication Deep Dive](./docs/guides/auth-deep-dive.md)
 - [Queue Processing Patterns](./docs/guides/queue-patterns.md)
 - [Database Operations](./docs/guides/database-guide.md)
@@ -286,18 +304,19 @@ docs/guides/
 
 #### 5.1 Session Management
 
-| Trigger | Action | Reason |
-|---------|--------|--------|
-| Different task type | `/clear` | Prevent context drift |
-| 70% context usage | `/compact` | Preserve quality before overflow |
-| Long session | `/compact keep logic` | Preserve key reasoning |
-| Complex reasoning | `ultrathink` | Maximum thinking budget |
+| Trigger             | Action                | Reason                           |
+| ------------------- | --------------------- | -------------------------------- |
+| Different task type | `/clear`              | Prevent context drift            |
+| 70% context usage   | `/compact`            | Preserve quality before overflow |
+| Long session        | `/compact keep logic` | Preserve key reasoning           |
+| Complex reasoning   | `ultrathink`          | Maximum thinking budget          |
 
 #### 5.2 Document Placement
 
 From Anthropic's research (30% quality improvement):
 
 **DO**: Place longform data at TOP, queries/instructions BELOW
+
 ```
 <document>
   <content>... large PDF content ...</content>
@@ -307,6 +326,7 @@ Now extract the following fields: ...
 ```
 
 **DON'T**: Mix instructions with data
+
 ```
 Extract fields from this:
 <document>... content ...</document>
@@ -316,6 +336,7 @@ What about this field?
 #### 5.3 Progressive Skill Loading
 
 Skills implement three-level disclosure:
+
 1. **Metadata** (always loaded): Name + 1-line description
 2. **Core** (loaded when relevant): Main SKILL.md content
 3. **Detail** (loaded on demand): Referenced sub-files
@@ -325,6 +346,7 @@ Skills implement three-level disclosure:
 ## Implementation Checklist
 
 ### Week 1 (Quick Wins)
+
 - [x] Create minimal `.mcp.json` configuration
 - [x] Create `scripts/mcp-toggle.ps1` for mode switching
 - [x] Optimize `CLAUDE.local.md` to ~800 tokens
@@ -333,18 +355,21 @@ Skills implement three-level disclosure:
 - [x] Document context optimization in `docs/context-optimization.md`
 
 ### Week 2 (Skills & Pipeline)
+
 - [ ] Add progressive disclosure metadata to all skills
 - [ ] Create `document-pipeline` orchestration skill
 - [ ] Implement checkpoint system for pipeline stages
 - [ ] Restructure backend CLAUDE.md to 500 lines + linked guides
 
 ### Week 3 (Advanced)
+
 - [ ] Integrate checkpoints with Task Master
 - [ ] Add context-aware task routing
 - [ ] Implement metrics collection for context usage
 - [ ] Create skill permissions matrix
 
 ### Week 4 (Validation)
+
 - [ ] Measure actual token savings
 - [ ] Document performance improvements
 - [ ] Refine based on real usage patterns
@@ -355,27 +380,28 @@ Skills implement three-level disclosure:
 
 ### Token Savings Projection
 
-| Phase | Tokens Saved | % of 200k Context |
-|-------|--------------|-------------------|
-| Phase 1: MCP + CLAUDE.local | ~12k | 6% |
-| Phase 2: Skills Architecture | ~5k | 2.5% |
-| Phase 3: Pipeline Isolation | ~15-20k/run | 7.5-10%/run |
-| Phase 4: Progressive Disclosure | ~3-5k | 1.5-2.5% |
-| **Total Base Savings** | **~20-22k** | **10-11%** |
+| Phase                           | Tokens Saved | % of 200k Context |
+| ------------------------------- | ------------ | ----------------- |
+| Phase 1: MCP + CLAUDE.local     | ~12k         | 6%                |
+| Phase 2: Skills Architecture    | ~5k          | 2.5%              |
+| Phase 3: Pipeline Isolation     | ~15-20k/run  | 7.5-10%/run       |
+| Phase 4: Progressive Disclosure | ~3-5k        | 1.5-2.5%          |
+| **Total Base Savings**          | **~20-22k**  | **10-11%**        |
 
 ### Workflow Impact
 
-| Workflow | Before | After | Improvement |
-|----------|--------|-------|-------------|
-| Document Processing | Full context load | Isolated workers | 40% faster |
-| Knowledge Ingestion | Single context | Checkpoint resume | 60% more reliable |
-| Multi-document Batch | N × full load | Shared patterns | 3-5x throughput |
+| Workflow             | Before            | After             | Improvement       |
+| -------------------- | ----------------- | ----------------- | ----------------- |
+| Document Processing  | Full context load | Isolated workers  | 40% faster        |
+| Knowledge Ingestion  | Single context    | Checkpoint resume | 60% more reliable |
+| Multi-document Batch | N × full load     | Shared patterns   | 3-5x throughput   |
 
 ---
 
 ## Authoritative Sources
 
 ### Anthropic Engineering Blog
+
 - [Advanced Tool Use](https://www.anthropic.com/engineering/advanced-tool-use)
 - [Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)
 - [Agent Skills](https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills)
@@ -390,12 +416,14 @@ Skills implement three-level disclosure:
 - [Writing Effective Tools](https://www.anthropic.com/engineering/writing-tools-for-agents)
 
 ### Claude Documentation
+
 - [Subagents](https://docs.claude.com/en/docs/claude-code/sub-agents)
 - [Agent Skills](https://docs.claude.com/en/docs/agent-sdk/skills)
 - [MCP Integration](https://docs.claude.com/en/docs/claude-code/mcp)
 - [Settings](https://docs.claude.com/en/docs/claude-code/settings)
 
 ### Skills vs MCP
+
 - [Claude Skills Explained](https://claude.com/blog/skills-explained)
 - [Skills vs MCP Comparison](https://intuitionlabs.ai/articles/claude-skills-vs-mcp)
 

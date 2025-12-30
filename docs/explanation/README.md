@@ -1,3 +1,11 @@
+---
+title: 'Explanation'
+description: 'Understanding-oriented conceptual discussions that clarify and illuminate particular topics'
+category: 'explanation'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Explanation
 
 Explanation documentation is **understanding-oriented** and provides conceptual discussions that clarify and illuminate particular topics. It deepens understanding.

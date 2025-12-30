@@ -1,3 +1,11 @@
+---
+title: 'Field-Level Encryption Strategy'
+description: "Technical reference for IntelliFill's field-level encryption system for protecting dynamically-extracted PII"
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Field-Level Encryption Strategy
 
 **Last Updated**: 2025-12-17
@@ -16,12 +24,12 @@ This document provides the technical reference for IntelliFill's field-level enc
 
 ### Algorithm Selection
 
-| Component | Algorithm | Key Size | Notes |
-|-----------|-----------|----------|-------|
-| Symmetric Encryption | AES-256-GCM | 256-bit | Authenticated encryption |
-| Key Derivation | HKDF-SHA256 | 256-bit output | Tenant key derivation |
-| Blind Index | HMAC-SHA256 | 256-bit output | Searchable encryption |
-| Nonce/IV | Random | 96-bit (12 bytes) | Unique per encryption |
+| Component            | Algorithm   | Key Size          | Notes                    |
+| -------------------- | ----------- | ----------------- | ------------------------ |
+| Symmetric Encryption | AES-256-GCM | 256-bit           | Authenticated encryption |
+| Key Derivation       | HKDF-SHA256 | 256-bit output    | Tenant key derivation    |
+| Blind Index          | HMAC-SHA256 | 256-bit output    | Searchable encryption    |
+| Nonce/IV             | Random      | 96-bit (12 bytes) | Unique per encryption    |
 
 ### Why AES-256-GCM?
 
@@ -41,6 +49,7 @@ This document provides the technical reference for IntelliFill's field-level enc
 ```
 
 **Storage in Database**:
+
 - `extractedDataEncrypted`: Ciphertext + Auth Tag (combined)
 - `extractedDataNonce`: 12-byte nonce stored separately
 - `encryptionKeyVersion`: Integer tracking key version
@@ -90,13 +99,13 @@ function deriveTenantKey(masterKey: Buffer, companyId: string, version: number):
 
 ### Key Properties
 
-| Property | Value | Rationale |
-|----------|-------|-----------|
-| **Master Key Storage** | Environment variable | Phase 1 simplicity |
-| **Master Key Format** | Base64-encoded 32 bytes | Easy handling |
-| **Tenant Isolation** | Derived keys per company | One breach doesn't expose all |
-| **Key Versioning** | Integer version in DB | Supports rotation |
-| **Rotation Period** | Annual (recommended) | Balance security/operations |
+| Property               | Value                    | Rationale                     |
+| ---------------------- | ------------------------ | ----------------------------- |
+| **Master Key Storage** | Environment variable     | Phase 1 simplicity            |
+| **Master Key Format**  | Base64-encoded 32 bytes  | Easy handling                 |
+| **Tenant Isolation**   | Derived keys per company | One breach doesn't expose all |
+| **Key Versioning**     | Integer version in DB    | Supports rotation             |
+| **Rotation Period**    | Annual (recommended)     | Balance security/operations   |
 
 ### Master Key Generation
 
@@ -111,6 +120,7 @@ openssl rand -base64 32
 ### Future Key Management (Phase 2)
 
 For production at scale, migrate to:
+
 - **AWS KMS**: Managed key storage with automatic rotation
 - **HashiCorp Vault**: Self-hosted secrets management
 - **Azure Key Vault**: For Azure deployments
@@ -171,22 +181,22 @@ Before creating a blind index, values are normalized:
 ```typescript
 function normalizeForIndex(value: string): string {
   return value
-    .toLowerCase()           // Case insensitive
-    .trim()                  // Remove whitespace
-    .replace(/\s+/g, ' ')    // Normalize internal spaces
-    .normalize('NFC');       // Unicode normalization
+    .toLowerCase() // Case insensitive
+    .trim() // Remove whitespace
+    .replace(/\s+/g, ' ') // Normalize internal spaces
+    .normalize('NFC'); // Unicode normalization
 }
 ```
 
 ### Searchable Fields
 
-| Field | Document Types | Index Purpose |
-|-------|---------------|---------------|
-| `passport_number` | Passport | Document lookup |
-| `emirates_id` | Emirates ID, Visa | Person lookup |
-| `full_name` | All | Person search |
-| `license_number` | Trade License | Business lookup |
-| `company_name` | Trade License | Business search |
+| Field             | Document Types    | Index Purpose   |
+| ----------------- | ----------------- | --------------- |
+| `passport_number` | Passport          | Document lookup |
+| `emirates_id`     | Emirates ID, Visa | Person lookup   |
+| `full_name`       | All               | Person search   |
+| `license_number`  | Trade License     | Business lookup |
+| `company_name`    | Trade License     | Business search |
 
 ### Search Query Pattern
 
@@ -200,10 +210,10 @@ async function findByPassport(passportNumber: string, companyId: string) {
       blindIndexes: {
         some: {
           fieldName: 'passport_number',
-          indexHash: indexHash
-        }
-      }
-    }
+          indexHash: indexHash,
+        },
+      },
+    },
   });
 }
 ```
@@ -308,7 +318,7 @@ try {
     logger.error('Decryption authentication failed', {
       documentId,
       keyVersion: payload.keyVersion,
-      error: 'DATA_TAMPERING_DETECTED'
+      error: 'DATA_TAMPERING_DETECTED',
     });
     throw new SecurityError('Document data integrity check failed');
   }
@@ -318,7 +328,7 @@ try {
     logger.error('Invalid encryption key', {
       documentId,
       companyId,
-      error: 'KEY_DERIVATION_FAILED'
+      error: 'KEY_DERIVATION_FAILED',
     });
     throw new ConfigurationError('Encryption configuration error');
   }
@@ -334,7 +344,7 @@ function ensureEncryptionKey(): void {
   if (!process.env.ENCRYPTION_MASTER_KEY) {
     throw new ConfigurationError(
       'ENCRYPTION_MASTER_KEY environment variable not configured. ' +
-      'Generate with: openssl rand -base64 32'
+        'Generate with: openssl rand -base64 32'
     );
   }
 
@@ -390,13 +400,13 @@ function decrypt(payload: EncryptedPayload, companyId: string): any {
 
 ### Benchmarks
 
-| Operation | Average Time | P99 Time | Memory |
-|-----------|-------------|----------|--------|
-| Encrypt 1KB JSON | 2.3ms | 4.1ms | 8KB |
-| Decrypt 1KB JSON | 2.1ms | 3.8ms | 8KB |
-| Encrypt 100KB JSON | 8.5ms | 15.2ms | 256KB |
-| Decrypt 100KB JSON | 7.2ms | 13.1ms | 256KB |
-| Create blind index | 0.3ms | 0.8ms | 1KB |
+| Operation          | Average Time | P99 Time | Memory |
+| ------------------ | ------------ | -------- | ------ |
+| Encrypt 1KB JSON   | 2.3ms        | 4.1ms    | 8KB    |
+| Decrypt 1KB JSON   | 2.1ms        | 3.8ms    | 8KB    |
+| Encrypt 100KB JSON | 8.5ms        | 15.2ms   | 256KB  |
+| Decrypt 100KB JSON | 7.2ms        | 13.1ms   | 256KB  |
+| Create blind index | 0.3ms        | 0.8ms    | 1KB    |
 
 ### Optimization Tips
 
@@ -424,7 +434,7 @@ class EncryptionService {
 
     this.keyCache.set(cacheKey, {
       key,
-      expires: Date.now() + this.KEY_CACHE_TTL
+      expires: Date.now() + this.KEY_CACHE_TTL,
     });
 
     return key;
@@ -437,6 +447,7 @@ class EncryptionService {
 ## Security Audit Checklist
 
 ### Key Management
+
 - [ ] Master key stored securely (not in code/git)
 - [ ] Master key is 256 bits (32 bytes)
 - [ ] Different keys for encryption vs blind index
@@ -444,6 +455,7 @@ class EncryptionService {
 - [ ] Key rotation procedure documented
 
 ### Encryption
+
 - [ ] Using AES-256-GCM (authenticated encryption)
 - [ ] Unique nonce per encryption operation
 - [ ] Nonce stored separately from ciphertext
@@ -451,6 +463,7 @@ class EncryptionService {
 - [ ] No ECB mode usage
 
 ### Implementation
+
 - [ ] Prisma middleware handles all encrypt/decrypt
 - [ ] Legacy data migration path exists
 - [ ] Decryption errors logged securely (no PII)
@@ -458,6 +471,7 @@ class EncryptionService {
 - [ ] No plaintext PII in logs
 
 ### Compliance
+
 - [ ] Encryption meets PHIPA requirements
 - [ ] Key management meets PIPEDA
 - [ ] Audit trail for key access
@@ -472,6 +486,7 @@ class EncryptionService {
 **Cause**: Data was modified after encryption, or wrong key used.
 
 **Check**:
+
 1. Verify `encryptionKeyVersion` matches available keys
 2. Check if data was corrupted in transit/storage
 3. Verify `companyId` is correct (affects key derivation)
@@ -481,6 +496,7 @@ class EncryptionService {
 **Cause**: Document was created before encryption was enabled.
 
 **Solution**:
+
 1. Check `_needsMigration` flag on returned document
 2. Run migration job to encrypt legacy data
 3. Or handle legacy data in application code
@@ -490,6 +506,7 @@ class EncryptionService {
 **Cause**: Normalization mismatch or different companyId.
 
 **Check**:
+
 1. Ensure search value is normalized same as stored
 2. Verify searching with correct companyId
 3. Check if blind index was created for that field

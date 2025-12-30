@@ -1,3 +1,11 @@
+---
+title: 'Dynamic PII Architecture: Final Design'
+description: "Architecture for handling dynamically-discovered PII in IntelliFill's document extraction pipeline"
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Dynamic PII Architecture: Final Design
 
 **Last Updated**: 2025-12-17
@@ -21,6 +29,7 @@ This document defines the architecture for handling dynamically-discovered PII i
 **Decision**: Encrypt all extracted data by default, with selective decryption based on access control.
 
 **Rationale**:
+
 - Provides immediate PHIPA/PIPEDA compliance
 - Conservative approach - treats all extracted data as PII
 - Reduces classification error risk (false negatives)
@@ -31,6 +40,7 @@ This document defines the architecture for handling dynamically-discovered PII i
 **Decision**: Per-tenant keys derived from master key using HKDF.
 
 **Rationale**:
+
 - Tenant isolation - one key compromise doesn't affect others
 - Master key stored in environment variable (Phase 1), migrateable to AWS KMS/Vault (Phase 2)
 - Key rotation support via key versioning
@@ -40,16 +50,16 @@ This document defines the architecture for handling dynamically-discovered PII i
 
 **Decision**: Maintain plaintext blind indexes for these searchable fields only:
 
-| Field | Reason | Search Type |
-|-------|--------|-------------|
-| `documentType` | Filter documents by type | Exact match |
-| `clientId` | Associate with client | Exact match |
-| `issueDate` | Date-based filtering | Range |
-| `expiryDate` | Expiration alerts | Range |
-| `status` | Workflow state | Exact match |
-| `passportNumber` (blind index) | Lookup by passport | Exact match |
-| `emiratesId` (blind index) | Lookup by Emirates ID | Exact match |
-| `clientName` (blind index) | Client lookup | Exact match |
+| Field                          | Reason                   | Search Type |
+| ------------------------------ | ------------------------ | ----------- |
+| `documentType`                 | Filter documents by type | Exact match |
+| `clientId`                     | Associate with client    | Exact match |
+| `issueDate`                    | Date-based filtering     | Range       |
+| `expiryDate`                   | Expiration alerts        | Range       |
+| `status`                       | Workflow state           | Exact match |
+| `passportNumber` (blind index) | Lookup by passport       | Exact match |
+| `emiratesId` (blind index)     | Lookup by Emirates ID    | Exact match |
+| `clientName` (blind index)     | Client lookup            | Exact match |
 
 All other extracted data remains encrypted and only accessible on explicit decrypt.
 
@@ -58,6 +68,7 @@ All other extracted data remains encrypted and only accessible on explicit decry
 **Decision**: Lazy migration with background backfill.
 
 **Implementation**:
+
 1. New documents encrypted on write
 2. Existing documents decrypted transparently (read-time detection)
 3. Background job encrypts unencrypted documents
@@ -239,13 +250,7 @@ export class EncryptionService {
     const salt = Buffer.from(`tenant:${companyId}:v${keyVersion}`, 'utf8');
     const info = Buffer.from('intellifill-pii-encryption', 'utf8');
 
-    return crypto.hkdfSync(
-      'sha256',
-      Buffer.from(masterKey, 'base64'),
-      salt,
-      info,
-      this.KEY_LENGTH
-    );
+    return crypto.hkdfSync('sha256', Buffer.from(masterKey, 'base64'), salt, info, this.KEY_LENGTH);
   }
 
   /**
@@ -260,13 +265,7 @@ export class EncryptionService {
     const salt = Buffer.from(`blind-index:${companyId}`, 'utf8');
     const info = Buffer.from('intellifill-blind-index', 'utf8');
 
-    return crypto.hkdfSync(
-      'sha256',
-      Buffer.from(masterKey, 'base64'),
-      salt,
-      info,
-      this.KEY_LENGTH
-    );
+    return crypto.hkdfSync('sha256', Buffer.from(masterKey, 'base64'), salt, info, this.KEY_LENGTH);
   }
 
   /**
@@ -277,14 +276,11 @@ export class EncryptionService {
     const nonce = crypto.randomBytes(this.NONCE_LENGTH);
 
     const cipher = crypto.createCipheriv(this.ALGORITHM, key, nonce, {
-      authTagLength: this.AUTH_TAG_LENGTH
+      authTagLength: this.AUTH_TAG_LENGTH,
     });
 
     const plaintext = Buffer.from(JSON.stringify(data), 'utf8');
-    const encrypted = Buffer.concat([
-      cipher.update(plaintext),
-      cipher.final()
-    ]);
+    const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
 
     const authTag = cipher.getAuthTag();
 
@@ -295,7 +291,7 @@ export class EncryptionService {
       companyId,
       keyVersion,
       plaintextLength: plaintext.length,
-      ciphertextLength: ciphertext.length
+      ciphertextLength: ciphertext.length,
     });
 
     return { ciphertext, nonce, keyVersion };
@@ -313,21 +309,18 @@ export class EncryptionService {
     const encrypted = ciphertext.subarray(0, -this.AUTH_TAG_LENGTH);
 
     const decipher = crypto.createDecipheriv(this.ALGORITHM, key, nonce, {
-      authTagLength: this.AUTH_TAG_LENGTH
+      authTagLength: this.AUTH_TAG_LENGTH,
     });
     decipher.setAuthTag(authTag);
 
-    const decrypted = Buffer.concat([
-      decipher.update(encrypted),
-      decipher.final()
-    ]);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 
     const data = JSON.parse(decrypted.toString('utf8')) as T;
 
     logger.debug('Data decrypted', {
       companyId,
       keyVersion,
-      ciphertextLength: ciphertext.length
+      ciphertextLength: ciphertext.length,
     });
 
     return { data, keyVersion, wasLegacy: false };
@@ -354,10 +347,7 @@ export class EncryptionService {
    */
   matchesBlindIndex(value: string, indexHash: string, companyId: string): boolean {
     const computedHash = this.createBlindIndex(value, companyId);
-    return crypto.timingSafeEqual(
-      Buffer.from(computedHash, 'hex'),
-      Buffer.from(indexHash, 'hex')
-    );
+    return crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(indexHash, 'hex'));
   }
 
   /**
@@ -376,11 +366,7 @@ export class EncryptionService {
   /**
    * Migrates legacy data to encrypted format
    */
-  migrateLegacyData<T>(
-    legacyData: T,
-    companyId: string,
-    keyVersion: number = 1
-  ): EncryptedPayload {
+  migrateLegacyData<T>(legacyData: T, companyId: string, keyVersion: number = 1): EncryptedPayload {
     logger.info('Migrating legacy data to encrypted format', { companyId });
     return this.encrypt(legacyData, companyId, keyVersion);
   }
@@ -414,81 +400,166 @@ export interface ClassificationResult {
 }
 
 // Known UAE document type templates
-const DOCUMENT_TEMPLATES: Record<string, {
-  piiFields: string[];
-  phiFields: string[];
-  sensitiveFields: string[];
-  publicFields: string[];
-}> = {
-  'UAE_PASSPORT': {
-    piiFields: ['full_name', 'name', 'passport_number', 'passport_no', 'date_of_birth', 'dob',
-                'nationality', 'place_of_birth', 'photo', 'given_name', 'surname', 'sex', 'gender'],
+const DOCUMENT_TEMPLATES: Record<
+  string,
+  {
+    piiFields: string[];
+    phiFields: string[];
+    sensitiveFields: string[];
+    publicFields: string[];
+  }
+> = {
+  UAE_PASSPORT: {
+    piiFields: [
+      'full_name',
+      'name',
+      'passport_number',
+      'passport_no',
+      'date_of_birth',
+      'dob',
+      'nationality',
+      'place_of_birth',
+      'photo',
+      'given_name',
+      'surname',
+      'sex',
+      'gender',
+    ],
     phiFields: [],
     sensitiveFields: [],
-    publicFields: ['issue_date', 'expiry_date', 'document_type', 'type', 'country_code', 'mrz']
+    publicFields: ['issue_date', 'expiry_date', 'document_type', 'type', 'country_code', 'mrz'],
   },
-  'UAE_EMIRATES_ID': {
-    piiFields: ['full_name', 'name', 'emirates_id', 'id_number', 'date_of_birth', 'dob',
-                'nationality', 'photo', 'sponsor_id', 'card_number'],
+  UAE_EMIRATES_ID: {
+    piiFields: [
+      'full_name',
+      'name',
+      'emirates_id',
+      'id_number',
+      'date_of_birth',
+      'dob',
+      'nationality',
+      'photo',
+      'sponsor_id',
+      'card_number',
+    ],
     phiFields: [],
     sensitiveFields: [],
-    publicFields: ['issue_date', 'expiry_date', 'document_type', 'card_expiry']
+    publicFields: ['issue_date', 'expiry_date', 'document_type', 'card_expiry'],
   },
-  'UAE_TRADE_LICENSE': {
-    piiFields: ['owner_name', 'owner_emirates_id', 'owner_passport', 'contact_person',
-                'phone', 'mobile', 'email', 'address'],
+  UAE_TRADE_LICENSE: {
+    piiFields: [
+      'owner_name',
+      'owner_emirates_id',
+      'owner_passport',
+      'contact_person',
+      'phone',
+      'mobile',
+      'email',
+      'address',
+    ],
     phiFields: [],
     sensitiveFields: ['license_number', 'capital', 'share_capital'],
-    publicFields: ['company_name', 'trade_name', 'issue_date', 'expiry_date', 'legal_form',
-                   'activities', 'jurisdiction', 'registration_number']
+    publicFields: [
+      'company_name',
+      'trade_name',
+      'issue_date',
+      'expiry_date',
+      'legal_form',
+      'activities',
+      'jurisdiction',
+      'registration_number',
+    ],
   },
-  'UAE_VISA': {
-    piiFields: ['full_name', 'passport_number', 'nationality', 'date_of_birth', 'sponsor_name',
-                'sponsor_id', 'unified_number', 'photo'],
+  UAE_VISA: {
+    piiFields: [
+      'full_name',
+      'passport_number',
+      'nationality',
+      'date_of_birth',
+      'sponsor_name',
+      'sponsor_id',
+      'unified_number',
+      'photo',
+    ],
     phiFields: [],
     sensitiveFields: [],
-    publicFields: ['visa_type', 'issue_date', 'expiry_date', 'entry_permit_number', 'profession']
+    publicFields: ['visa_type', 'issue_date', 'expiry_date', 'entry_permit_number', 'profession'],
   },
-  'UAE_LABOUR_CONTRACT': {
-    piiFields: ['employee_name', 'employer_name', 'emirates_id', 'passport_number',
-                'nationality', 'address', 'phone', 'email'],
+  UAE_LABOUR_CONTRACT: {
+    piiFields: [
+      'employee_name',
+      'employer_name',
+      'emirates_id',
+      'passport_number',
+      'nationality',
+      'address',
+      'phone',
+      'email',
+    ],
     phiFields: [],
     sensitiveFields: ['salary', 'basic_salary', 'total_salary', 'allowances', 'bank_account'],
-    publicFields: ['contract_date', 'start_date', 'end_date', 'job_title', 'contract_type']
-  }
+    publicFields: ['contract_date', 'start_date', 'end_date', 'job_title', 'contract_type'],
+  },
 };
 
 // Field name patterns that indicate PII
 const PII_KEY_PATTERNS = [
   { pattern: /^(full_?)?name$/i, classification: 'PII' as const, confidence: 0.95 },
-  { pattern: /^(first|last|given|sur|family)_?name$/i, classification: 'PII' as const, confidence: 0.95 },
+  {
+    pattern: /^(first|last|given|sur|family)_?name$/i,
+    classification: 'PII' as const,
+    confidence: 0.95,
+  },
   { pattern: /email|e-mail|mail_address/i, classification: 'PII' as const, confidence: 0.95 },
-  { pattern: /phone|mobile|tel|fax/i, classification: 'PII' as const, confidence: 0.90 },
+  { pattern: /phone|mobile|tel|fax/i, classification: 'PII' as const, confidence: 0.9 },
   { pattern: /passport/i, classification: 'PII' as const, confidence: 0.95 },
   { pattern: /emirates_?id|eid/i, classification: 'PII' as const, confidence: 0.95 },
-  { pattern: /visa_?(number|no)/i, classification: 'PII' as const, confidence: 0.90 },
-  { pattern: /address|street|city|zip|postal|po_box/i, classification: 'PII' as const, confidence: 0.85 },
+  { pattern: /visa_?(number|no)/i, classification: 'PII' as const, confidence: 0.9 },
+  {
+    pattern: /address|street|city|zip|postal|po_box/i,
+    classification: 'PII' as const,
+    confidence: 0.85,
+  },
   { pattern: /dob|date_?of_?birth|birth_?date/i, classification: 'PII' as const, confidence: 0.95 },
-  { pattern: /^age$/i, classification: 'PII' as const, confidence: 0.80 },
+  { pattern: /^age$/i, classification: 'PII' as const, confidence: 0.8 },
   { pattern: /nationality|citizenship/i, classification: 'PII' as const, confidence: 0.85 },
   { pattern: /gender|sex/i, classification: 'PII' as const, confidence: 0.85 },
   { pattern: /ssn|social_?security/i, classification: 'PII' as const, confidence: 0.99 },
-  { pattern: /salary|income|wage|payment|compensation/i, classification: 'SENSITIVE' as const, confidence: 0.90 },
+  {
+    pattern: /salary|income|wage|payment|compensation/i,
+    classification: 'SENSITIVE' as const,
+    confidence: 0.9,
+  },
   { pattern: /bank|account|iban|swift/i, classification: 'SENSITIVE' as const, confidence: 0.95 },
-  { pattern: /medical|health|diagnosis|prescription|treatment/i, classification: 'PHI' as const, confidence: 0.95 },
+  {
+    pattern: /medical|health|diagnosis|prescription|treatment/i,
+    classification: 'PHI' as const,
+    confidence: 0.95,
+  },
 ];
 
 // Value patterns that indicate PII regardless of key name
 const PII_VALUE_PATTERNS = [
-  { pattern: /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i, classification: 'PII' as const, reason: 'email_format' },
+  {
+    pattern: /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i,
+    classification: 'PII' as const,
+    reason: 'email_format',
+  },
   { pattern: /^\+?\d{10,15}$/, classification: 'PII' as const, reason: 'phone_format' },
-  { pattern: /^784-\d{4}-\d{7}-\d{1}$/, classification: 'PII' as const, reason: 'emirates_id_format' },
+  {
+    pattern: /^784-\d{4}-\d{7}-\d{1}$/,
+    classification: 'PII' as const,
+    reason: 'emirates_id_format',
+  },
   { pattern: /^\d{3}-\d{2}-\d{4}$/, classification: 'PII' as const, reason: 'ssn_format' },
-  { pattern: /^[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}([A-Z0-9]?){0,16}$/i, classification: 'SENSITIVE' as const, reason: 'iban_format' },
+  {
+    pattern: /^[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}([A-Z0-9]?){0,16}$/i,
+    classification: 'SENSITIVE' as const,
+    reason: 'iban_format',
+  },
 ];
 
 export class PIIClassificationService {
-
   /**
    * Detects document type from extracted text
    */
@@ -496,34 +567,44 @@ export class PIIClassificationService {
     const text = extractedText.toUpperCase();
 
     // UAE Passport detection
-    if (text.includes('PASSPORT') &&
-        (text.includes('UNITED ARAB EMIRATES') || text.includes('UAE') || text.includes('EMIRATS'))) {
+    if (
+      text.includes('PASSPORT') &&
+      (text.includes('UNITED ARAB EMIRATES') || text.includes('UAE') || text.includes('EMIRATS'))
+    ) {
       return 'UAE_PASSPORT';
     }
 
     // Emirates ID detection
-    if (text.includes('EMIRATES') && text.includes('IDENTITY') ||
-        text.includes('ID CARD') && text.includes('UAE') ||
-        /784-\d{4}-\d{7}-\d{1}/.test(extractedText)) {
+    if (
+      (text.includes('EMIRATES') && text.includes('IDENTITY')) ||
+      (text.includes('ID CARD') && text.includes('UAE')) ||
+      /784-\d{4}-\d{7}-\d{1}/.test(extractedText)
+    ) {
       return 'UAE_EMIRATES_ID';
     }
 
     // Trade License detection
-    if ((text.includes('TRADE') || text.includes('COMMERCIAL')) && text.includes('LICENSE') ||
-        text.includes('DEPARTMENT OF ECONOMIC DEVELOPMENT') ||
-        text.includes('DED') && text.includes('LICENSE')) {
+    if (
+      ((text.includes('TRADE') || text.includes('COMMERCIAL')) && text.includes('LICENSE')) ||
+      text.includes('DEPARTMENT OF ECONOMIC DEVELOPMENT') ||
+      (text.includes('DED') && text.includes('LICENSE'))
+    ) {
       return 'UAE_TRADE_LICENSE';
     }
 
     // Visa detection
-    if (text.includes('VISA') &&
-        (text.includes('ENTRY') || text.includes('RESIDENCE') || text.includes('PERMIT'))) {
+    if (
+      text.includes('VISA') &&
+      (text.includes('ENTRY') || text.includes('RESIDENCE') || text.includes('PERMIT'))
+    ) {
       return 'UAE_VISA';
     }
 
     // Labour Contract detection
-    if ((text.includes('LABOUR') || text.includes('LABOR') || text.includes('EMPLOYMENT')) &&
-        text.includes('CONTRACT')) {
+    if (
+      (text.includes('LABOUR') || text.includes('LABOR') || text.includes('EMPLOYMENT')) &&
+      text.includes('CONTRACT')
+    ) {
       return 'UAE_LABOUR_CONTRACT';
     }
 
@@ -533,10 +614,7 @@ export class PIIClassificationService {
   /**
    * Classifies all extracted fields
    */
-  classifyFields(
-    fields: Record<string, any>,
-    documentType: string | null
-  ): ClassificationResult {
+  classifyFields(fields: Record<string, any>, documentType: string | null): ClassificationResult {
     const classifiedFields: ClassifiedField[] = [];
     let piiCount = 0;
     let publicCount = 0;
@@ -545,9 +623,11 @@ export class PIIClassificationService {
       const classified = this.classifyField(key, value, documentType);
       classifiedFields.push(classified);
 
-      if (classified.classification === 'PII' ||
-          classified.classification === 'PHI' ||
-          classified.classification === 'SENSITIVE') {
+      if (
+        classified.classification === 'PII' ||
+        classified.classification === 'PHI' ||
+        classified.classification === 'SENSITIVE'
+      ) {
         piiCount++;
       } else {
         publicCount++;
@@ -558,25 +638,21 @@ export class PIIClassificationService {
       documentType,
       totalFields: classifiedFields.length,
       piiCount,
-      publicCount
+      publicCount,
     });
 
     return {
       documentType,
       fields: classifiedFields,
       piiFieldCount: piiCount,
-      publicFieldCount: publicCount
+      publicFieldCount: publicCount,
     };
   }
 
   /**
    * Classifies a single field
    */
-  private classifyField(
-    key: string,
-    value: any,
-    documentType: string | null
-  ): ClassifiedField {
+  private classifyField(key: string, value: any, documentType: string | null): ClassifiedField {
     const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
     const stringValue = String(value);
 
@@ -591,7 +667,13 @@ export class PIIClassificationService {
         return { key, value, classification: 'PHI', confidence: 1.0, reason: 'template_phi' };
       }
       if (template.sensitiveFields.includes(normalizedKey)) {
-        return { key, value, classification: 'SENSITIVE', confidence: 1.0, reason: 'template_sensitive' };
+        return {
+          key,
+          value,
+          classification: 'SENSITIVE',
+          confidence: 1.0,
+          reason: 'template_sensitive',
+        };
       }
       if (template.publicFields.includes(normalizedKey)) {
         return { key, value, classification: 'PUBLIC', confidence: 1.0, reason: 'template_public' };
@@ -614,11 +696,11 @@ export class PIIClassificationService {
 
     // 4. Heuristic: If uncertain and looks like personal data, mark as SENSITIVE
     if (this.looksLikePII(normalizedKey, stringValue)) {
-      return { key, value, classification: 'SENSITIVE', confidence: 0.60, reason: 'heuristic' };
+      return { key, value, classification: 'SENSITIVE', confidence: 0.6, reason: 'heuristic' };
     }
 
     // 5. Default: PUBLIC
-    return { key, value, classification: 'PUBLIC', confidence: 0.50, reason: 'default' };
+    return { key, value, classification: 'PUBLIC', confidence: 0.5, reason: 'default' };
   }
 
   /**
@@ -648,16 +730,22 @@ export class PIIClassificationService {
    */
   getBlindIndexFields(documentType: string | null): string[] {
     // Core searchable fields across all document types
-    const coreFields = ['passport_number', 'passport_no', 'emirates_id', 'id_number',
-                        'full_name', 'name'];
+    const coreFields = [
+      'passport_number',
+      'passport_no',
+      'emirates_id',
+      'id_number',
+      'full_name',
+      'name',
+    ];
 
     // Document-specific searchable fields
     const typeSpecificFields: Record<string, string[]> = {
-      'UAE_PASSPORT': ['passport_number', 'full_name'],
-      'UAE_EMIRATES_ID': ['emirates_id', 'id_number', 'full_name'],
-      'UAE_TRADE_LICENSE': ['license_number', 'company_name', 'owner_name'],
-      'UAE_VISA': ['unified_number', 'entry_permit_number', 'full_name'],
-      'UAE_LABOUR_CONTRACT': ['employee_name', 'employer_name']
+      UAE_PASSPORT: ['passport_number', 'full_name'],
+      UAE_EMIRATES_ID: ['emirates_id', 'id_number', 'full_name'],
+      UAE_TRADE_LICENSE: ['license_number', 'company_name', 'owner_name'],
+      UAE_VISA: ['unified_number', 'entry_permit_number', 'full_name'],
+      UAE_LABOUR_CONTRACT: ['employee_name', 'employer_name'],
     };
 
     if (documentType && typeSpecificFields[documentType]) {
@@ -694,8 +782,11 @@ export function encryptionMiddleware(): Prisma.Middleware {
       }
 
       // Decrypt on read
-      if (params.action === 'findUnique' || params.action === 'findFirst' ||
-          params.action === 'findMany') {
+      if (
+        params.action === 'findUnique' ||
+        params.action === 'findFirst' ||
+        params.action === 'findMany'
+      ) {
         const result = await next(params);
         return decryptDocumentResult(result);
       }
@@ -707,8 +798,11 @@ export function encryptionMiddleware(): Prisma.Middleware {
         params.args.data = await encryptClientProfileData(params.args.data);
       }
 
-      if (params.action === 'findUnique' || params.action === 'findFirst' ||
-          params.action === 'findMany') {
+      if (
+        params.action === 'findUnique' ||
+        params.action === 'findFirst' ||
+        params.action === 'findMany'
+      ) {
         const result = await next(params);
         return decryptClientProfileResult(result);
       }
@@ -753,9 +847,9 @@ async function encryptDocumentData(data: any): Promise<any> {
       encryptionKeyVersion: encrypted.keyVersion,
       blindIndexes: {
         createMany: {
-          data: blindIndexes
-        }
-      }
+          data: blindIndexes,
+        },
+      },
     };
   }
 
@@ -793,7 +887,7 @@ function createBlindIndexes(
     if (value) {
       indexes.push({
         fieldName: normalizedFieldName,
-        indexHash: encryptionService.createBlindIndex(value, companyId)
+        indexHash: encryptionService.createBlindIndex(value, companyId),
       });
     }
   }
@@ -801,7 +895,7 @@ function createBlindIndexes(
   logger.debug('Created blind indexes', {
     companyId,
     documentType,
-    indexCount: indexes.length
+    indexCount: indexes.length,
   });
 
   return indexes;
@@ -830,7 +924,7 @@ async function decryptSingleDocument(doc: any): Promise<any> {
         {
           ciphertext: doc.extractedDataEncrypted,
           nonce: doc.extractedDataNonce,
-          keyVersion: doc.encryptionKeyVersion || 1
+          keyVersion: doc.encryptionKeyVersion || 1,
         },
         companyId
       );
@@ -839,7 +933,7 @@ async function decryptSingleDocument(doc: any): Promise<any> {
         ...doc,
         extractedData: decrypted.data,
         _encrypted: true,
-        _keyVersion: decrypted.keyVersion
+        _keyVersion: decrypted.keyVersion,
       };
     } catch (error) {
       logger.error('Failed to decrypt document', { documentId: doc.id, error });
@@ -853,7 +947,7 @@ async function decryptSingleDocument(doc: any): Promise<any> {
     return {
       ...doc,
       _encrypted: false,
-      _needsMigration: true
+      _needsMigration: true,
     };
   }
 
@@ -875,22 +969,22 @@ async function encryptClientProfileData(data: any): Promise<any> {
   const blindIndexes: Record<string, string | null> = {
     nameBlindIndex: null,
     passportBlindIndex: null,
-    emiratesIdBlindIndex: null
+    emiratesIdBlindIndex: null,
   };
 
   if (profileData.name) {
-    blindIndexes.nameBlindIndex = encryptionService.createBlindIndex(
-      profileData.name, companyId
-    );
+    blindIndexes.nameBlindIndex = encryptionService.createBlindIndex(profileData.name, companyId);
   }
   if (profileData.passportNumber) {
     blindIndexes.passportBlindIndex = encryptionService.createBlindIndex(
-      profileData.passportNumber, companyId
+      profileData.passportNumber,
+      companyId
     );
   }
   if (profileData.emiratesId) {
     blindIndexes.emiratesIdBlindIndex = encryptionService.createBlindIndex(
-      profileData.emiratesId, companyId
+      profileData.emiratesId,
+      companyId
     );
   }
 
@@ -903,7 +997,7 @@ async function encryptClientProfileData(data: any): Promise<any> {
     dataEncrypted: encrypted.ciphertext,
     dataNonce: encrypted.nonce,
     encryptionKeyVersion: encrypted.keyVersion,
-    ...blindIndexes
+    ...blindIndexes,
   };
 }
 
@@ -928,7 +1022,7 @@ async function decryptSingleClientProfile(profile: any): Promise<any> {
         {
           ciphertext: profile.dataEncrypted,
           nonce: profile.dataNonce,
-          keyVersion: profile.encryptionKeyVersion || 1
+          keyVersion: profile.encryptionKeyVersion || 1,
         },
         companyId
       );
@@ -937,7 +1031,7 @@ async function decryptSingleClientProfile(profile: any): Promise<any> {
         ...profile,
         data: decrypted.data,
         _encrypted: true,
-        _keyVersion: decrypted.keyVersion
+        _keyVersion: decrypted.keyVersion,
       };
     } catch (error) {
       logger.error('Failed to decrypt client profile', { profileId: profile.id, error });
@@ -950,7 +1044,7 @@ async function decryptSingleClientProfile(profile: any): Promise<any> {
     return {
       ...profile,
       _encrypted: false,
-      _needsMigration: true
+      _needsMigration: true,
     };
   }
 
@@ -967,7 +1061,10 @@ async function decryptSingleClientProfile(profile: any): Promise<any> {
 ```typescript
 // Additions to src/extractors/DataExtractor.ts
 
-import { piiClassificationService, ClassificationResult } from '../services/pii/PIIClassificationService';
+import {
+  piiClassificationService,
+  ClassificationResult,
+} from '../services/pii/PIIClassificationService';
 
 export interface ExtractedDataWithClassification extends ExtractedData {
   classification: ClassificationResult;
@@ -980,22 +1077,21 @@ export class DataExtractor {
   /**
    * Extracts and classifies data from a document
    */
-  async extractWithClassification(document: ParsedDocument): Promise<ExtractedDataWithClassification> {
+  async extractWithClassification(
+    document: ParsedDocument
+  ): Promise<ExtractedDataWithClassification> {
     const extracted = await this.extract(document);
 
     // Detect document type from content
     const documentType = piiClassificationService.detectDocumentType(document.content);
 
     // Classify all fields
-    const classification = piiClassificationService.classifyFields(
-      extracted.fields,
-      documentType
-    );
+    const classification = piiClassificationService.classifyFields(extracted.fields, documentType);
 
     return {
       ...extracted,
       classification,
-      rawText: document.content
+      rawText: document.content,
     };
   }
 }
@@ -1057,21 +1153,21 @@ export class DocumentSearchService {
     if (filters.passportNumber) {
       blindIndexFilters.push({
         fieldName: 'passport_number',
-        indexHash: encryptionService.createBlindIndex(filters.passportNumber, companyId)
+        indexHash: encryptionService.createBlindIndex(filters.passportNumber, companyId),
       });
     }
 
     if (filters.emiratesId) {
       blindIndexFilters.push({
         fieldName: 'emirates_id',
-        indexHash: encryptionService.createBlindIndex(filters.emiratesId, companyId)
+        indexHash: encryptionService.createBlindIndex(filters.emiratesId, companyId),
       });
     }
 
     if (filters.clientName) {
       blindIndexFilters.push({
         fieldName: 'full_name',
-        indexHash: encryptionService.createBlindIndex(filters.clientName, companyId)
+        indexHash: encryptionService.createBlindIndex(filters.clientName, companyId),
       });
     }
 
@@ -1079,26 +1175,26 @@ export class DocumentSearchService {
     if (blindIndexFilters.length > 0) {
       where.blindIndexes = {
         some: {
-          OR: blindIndexFilters.map(f => ({
+          OR: blindIndexFilters.map((f) => ({
             fieldName: f.fieldName,
-            indexHash: f.indexHash
-          }))
-        }
+            indexHash: f.indexHash,
+          })),
+        },
       };
     }
 
     logger.debug('Searching documents', {
       companyId,
       filters: Object.keys(filters),
-      blindIndexCount: blindIndexFilters.length
+      blindIndexCount: blindIndexFilters.length,
     });
 
     return this.prisma.document.findMany({
       where,
       include: {
-        blindIndexes: true
+        blindIndexes: true,
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
   }
 }
@@ -1124,7 +1220,9 @@ export class EncryptionMigrationJob {
   /**
    * Migrates all unencrypted documents to encrypted format
    */
-  async migrateAllDocuments(batchSize: number = 100): Promise<{ migrated: number; failed: number }> {
+  async migrateAllDocuments(
+    batchSize: number = 100
+  ): Promise<{ migrated: number; failed: number }> {
     let migrated = 0;
     let failed = 0;
     let cursor: string | undefined;
@@ -1136,12 +1234,12 @@ export class EncryptionMigrationJob {
       const documents = await this.prisma.document.findMany({
         where: {
           extractedData: { not: null },
-          extractedDataEncrypted: null
+          extractedDataEncrypted: null,
         },
         take: batchSize,
         skip: cursor ? 1 : 0,
         cursor: cursor ? { id: cursor } : undefined,
-        orderBy: { id: 'asc' }
+        orderBy: { id: 'asc' },
       });
 
       if (documents.length === 0) {
@@ -1163,7 +1261,7 @@ export class EncryptionMigrationJob {
       logger.info('Migration batch complete', {
         migrated,
         failed,
-        lastDocumentId: cursor
+        lastDocumentId: cursor,
       });
     }
 
@@ -1198,17 +1296,17 @@ export class EncryptionMigrationJob {
           extractedData: null, // Clear legacy field
           extractedDataEncrypted: encrypted.ciphertext,
           extractedDataNonce: encrypted.nonce,
-          encryptionKeyVersion: encrypted.keyVersion
-        }
+          encryptionKeyVersion: encrypted.keyVersion,
+        },
       }),
       // Create blind indexes
       this.prisma.blindIndex.createMany({
-        data: blindIndexData.map(bi => ({
+        data: blindIndexData.map((bi) => ({
           documentId: doc.id,
-          ...bi
+          ...bi,
         })),
-        skipDuplicates: true
-      })
+        skipDuplicates: true,
+      }),
     ]);
 
     logger.debug('Document migrated', { documentId: doc.id, documentType });
@@ -1243,7 +1341,7 @@ export class EncryptionMigrationJob {
       if (value) {
         indexes.push({
           fieldName: normalizedFieldName,
-          indexHash: encryptionService.createBlindIndex(value, companyId)
+          indexHash: encryptionService.createBlindIndex(value, companyId),
         });
       }
     }
@@ -1266,15 +1364,33 @@ import { logger } from './logger';
 
 // Fields that should never be logged (even redacted)
 const NEVER_LOG_FIELDS = new Set([
-  'password', 'secret', 'token', 'key', 'apiKey', 'authorization',
-  'creditCard', 'cvv', 'ssn'
+  'password',
+  'secret',
+  'token',
+  'key',
+  'apiKey',
+  'authorization',
+  'creditCard',
+  'cvv',
+  'ssn',
 ]);
 
 // Fields that should be redacted
 const PII_FIELDS = new Set([
-  'email', 'phone', 'name', 'firstName', 'lastName', 'fullName',
-  'passportNumber', 'emiratesId', 'address', 'dateOfBirth', 'dob',
-  'salary', 'bankAccount', 'iban'
+  'email',
+  'phone',
+  'name',
+  'firstName',
+  'lastName',
+  'fullName',
+  'passportNumber',
+  'emiratesId',
+  'address',
+  'dateOfBirth',
+  'dob',
+  'salary',
+  'bankAccount',
+  'iban',
 ]);
 
 /**
@@ -1294,7 +1410,7 @@ export function sanitizeForLogging(obj: any, depth: number = 0): any {
 
   if (typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeForLogging(item, depth + 1));
+    return obj.map((item) => sanitizeForLogging(item, depth + 1));
   }
 
   const sanitized: any = {};
@@ -1342,10 +1458,18 @@ function isEmiratesIdLike(str: string): boolean {
 
 function isPIIFieldName(key: string): boolean {
   const piiPatterns = [
-    /name/i, /email/i, /phone/i, /passport/i, /emirates/i,
-    /address/i, /birth/i, /salary/i, /bank/i, /account/i
+    /name/i,
+    /email/i,
+    /phone/i,
+    /passport/i,
+    /emirates/i,
+    /address/i,
+    /birth/i,
+    /salary/i,
+    /bank/i,
+    /account/i,
   ];
-  return piiPatterns.some(pattern => pattern.test(key));
+  return piiPatterns.some((pattern) => pattern.test(key));
 }
 
 /**
@@ -1366,7 +1490,7 @@ export const piiSafeLogger = {
 
   debug: (message: string, data?: any) => {
     logger.debug(message, data ? sanitizeForLogging(data) : undefined);
-  }
+  },
 };
 ```
 
@@ -1408,53 +1532,57 @@ echo "IMPORTANT: Store this key securely. Loss of this key means loss of all enc
 
 ## Compliance Mapping
 
-| Requirement | Implementation |
-|-------------|----------------|
-| **PHIPA: Data at rest encryption** | AES-256-GCM for all extracted PII |
-| **PHIPA: Access controls** | Tenant isolation via derived keys |
-| **PIPEDA: Consent** | Only extract from user-uploaded documents |
-| **PIPEDA: Retention limits** | Supports data deletion with key destruction |
-| **SOC 2: Encryption** | AES-256-GCM with authenticated encryption |
-| **SOC 2: Key management** | HKDF-derived tenant keys, version-controlled |
-| **SOC 2: Audit trail** | Encryption/decryption logged (without PII) |
-| **Vanta: Data classification** | PIIClassificationService with confidence scores |
-| **Vanta: Automated detection** | Pattern-based + template-based classification |
+| Requirement                        | Implementation                                  |
+| ---------------------------------- | ----------------------------------------------- |
+| **PHIPA: Data at rest encryption** | AES-256-GCM for all extracted PII               |
+| **PHIPA: Access controls**         | Tenant isolation via derived keys               |
+| **PIPEDA: Consent**                | Only extract from user-uploaded documents       |
+| **PIPEDA: Retention limits**       | Supports data deletion with key destruction     |
+| **SOC 2: Encryption**              | AES-256-GCM with authenticated encryption       |
+| **SOC 2: Key management**          | HKDF-derived tenant keys, version-controlled    |
+| **SOC 2: Audit trail**             | Encryption/decryption logged (without PII)      |
+| **Vanta: Data classification**     | PIIClassificationService with confidence scores |
+| **Vanta: Automated detection**     | Pattern-based + template-based classification   |
 
 ---
 
 ## Performance Characteristics
 
-| Operation | Expected Latency | Notes |
-|-----------|------------------|-------|
-| Encryption | 5-15ms | Per document, depends on data size |
-| Decryption | 5-15ms | Per document |
-| Blind index creation | 1-2ms | Per field |
-| Blind index lookup | Standard DB query | Uses indexed HMAC hash |
-| Classification | 2-5ms | Per document |
+| Operation            | Expected Latency  | Notes                              |
+| -------------------- | ----------------- | ---------------------------------- |
+| Encryption           | 5-15ms            | Per document, depends on data size |
+| Decryption           | 5-15ms            | Per document                       |
+| Blind index creation | 1-2ms             | Per field                          |
+| Blind index lookup   | Standard DB query | Uses indexed HMAC hash             |
+| Classification       | 2-5ms             | Per document                       |
 
 ---
 
 ## Implementation Priority
 
 ### Week 1: Core Encryption
+
 1. Generate master key and configure environment
 2. Implement EncryptionService
 3. Add encrypted fields to Prisma schema
 4. Run migration to add new fields
 
 ### Week 2: Middleware Integration
+
 1. Implement Prisma middleware
 2. Update DataExtractor integration
 3. Add blind index creation
 4. Test encryption/decryption flow
 
 ### Week 3: Classification Engine
+
 1. Implement PIIClassificationService
 2. Add document templates
 3. Integrate classification into extraction
 4. Test classification accuracy
 
 ### Week 4: Migration & Search
+
 1. Implement DocumentSearchService
 2. Build migration job
 3. Run migration in staging
@@ -1465,8 +1593,8 @@ echo "IMPORTANT: Store this key securely. Loss of this key means loss of all enc
 ## Related Documents
 
 - [Architecture Options Analysis](./dynamic-pii-architecture-options.md)
-- [Instrumentation Strategy](../reference/monitoring/instrumentation-strategy.md)
-- [Compliance Requirements](./compliance-requirements.md)
+- [Instrumentation Strategy](../monitoring/instrumentation-strategy.md)
+- [Security Model](../../explanation/security-model.md)
 
 ---
 

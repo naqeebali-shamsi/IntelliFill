@@ -1,0 +1,158 @@
+{
+  "generatedAt": "2025-12-30T05:30:00.000Z",
+  "totalFiles": 235,
+  "summary": {
+    "docsRoot": 55,
+    "quikadminDocs": 121,
+    "quikadminWebDocs": 44,
+    "claudeMdFiles": 4,
+    "skillFiles": 15,
+    "totalReadmes": 78
+  },
+  "claudeMdFiles": [
+    {
+      "path": "CLAUDE.local.md",
+      "lines": 64,
+      "category": "ai-context",
+      "aiPriority": "critical",
+      "status": "active",
+      "notes": "Root AI context - concise and optimized"
+    },
+    {
+      "path": "quikadmin/CLAUDE.md",
+      "lines": 1518,
+      "category": "ai-context",
+      "aiPriority": "critical",
+      "status": "needs-optimization",
+      "notes": "Backend context - TOO LONG, needs splitting to <500 lines"
+    },
+    {
+      "path": "quikadmin-web/CLAUDE.md",
+      "lines": 555,
+      "category": "ai-context",
+      "aiPriority": "critical",
+      "status": "active",
+      "notes": "Frontend context - acceptable length"
+    },
+    {
+      "path": "quikadmin/.taskmaster/CLAUDE.md",
+      "lines": 422,
+      "category": "ai-context",
+      "aiPriority": "important",
+      "status": "active",
+      "notes": "TaskMaster integration context"
+    }
+  ],
+  "docsRoot": {
+    "path": "docs/",
+    "totalFiles": 55,
+    "structure": {
+      "tutorials": ["README.md", "getting-started.md", "first-document.md", "understanding-workflow.md"],
+      "how-to": {
+        "deployment": ["docker-deployment.md", "upstash-redis-setup.md", "render-deployment.md"],
+        "development": ["database-setup.md", "local-setup.md", "testing.md"],
+        "troubleshooting": ["auth-issues.md", "database-issues.md", "deployment-issues.md"]
+      },
+      "reference": {
+        "api": ["endpoints.md"],
+        "architecture": ["system-overview.md", "extracted-data-lifecycle.md"],
+        "configuration": ["environment.md"],
+        "database": ["schema.md"],
+        "monitoring": ["instrumentation-strategy.md"],
+        "security": ["field-level-encryption.md"]
+      },
+      "explanation": {
+        "root": ["data-flow.md", "security-model.md", "architecture-decisions.md"],
+        "adr": ["ADR-001-document-processing-pipeline.md"]
+      },
+      "ai-development": ["agentic-workflows.md", "mcp-integration.md"],
+      "prd": ["PRD.md", "PRD-vector-search-implementation.md", "PRD-vector-search-implementation-v2.md"],
+      "strategy": ["go-to-market-plan-2025-12.md", "UNIFIED_IMPLEMENTATION_STRATEGY.md", "MULTI_AGENT_FEASIBILITY_ANALYSIS.md"],
+      "architecture": ["dynamic-pii-architecture.md", "dynamic-pii-architecture-options.md"],
+      "decisions": ["ADR-001-document-relationship-design.md"],
+      "guides": {
+        "user": ["chrome-extension.md"],
+        "developer": ["extension-architecture.md"]
+      },
+      "to-archive": {
+        "claude-audit": ["claude_setup_report.md", "claude_setup_addendum.md", "taskmaster_provider_check.md"],
+        "debug": ["evidence_bundle.md"],
+        "sales": ["gemini-prompts.md"],
+        "tech-debt": ["tech-stability-audit-2025-12.md"]
+      },
+      "meta": ["DOCUMENTATION_MIGRATION_GUIDE.md", "STRUCTURE_DIAGRAM.md", "templates/"]
+    }
+  },
+  "quikadminDocs": {
+    "path": "quikadmin/docs/",
+    "totalFiles": 121,
+    "status": "needs-consolidation",
+    "notes": "Parallel documentation structure - likely duplicates main docs/",
+    "structure": {
+      "00-quick-start": "Getting started guides",
+      "01-current-state": "Current implementation docs",
+      "02-guides": "Developer guides",
+      "03-reference": "API reference",
+      "04-future-vision": "Roadmap and future features",
+      "06-archive": "Archived old docs",
+      "deployment": "Deployment guides",
+      "design": "Design docs",
+      "development": "Development guides",
+      "getting-started": "Getting started",
+      "infrastructure": "Infrastructure docs",
+      "research": "Research notes"
+    }
+  },
+  "quikadminWebDocs": {
+    "path": "quikadmin-web/docs/",
+    "totalFiles": 44,
+    "status": "needs-review",
+    "notes": "Frontend-specific documentation",
+    "structure": {
+      "api": ["endpoints/", "types/"],
+      "architecture": ["diagrams/"],
+      "components": ["forms/", "layout/", "ui/"],
+      "deployment": "Deployment guides",
+      "development": ["setup/", "standards/", "workflow/"],
+      "getting-started": "Getting started",
+      "guides": ["api-integration/", "components/", "performance/", "state-management/", "testing/"],
+      "reference": ["configuration/", "troubleshooting/"]
+    }
+  },
+  "skills": {
+    "path": ".claude/skills/",
+    "totalFiles": 15,
+    "files": [
+      "auth-flow/SKILL.md",
+      "backend-api/SKILL.md",
+      "browser-testing/SKILL.md",
+      "docker-devops/SKILL.md",
+      "documentation/SKILL.md",
+      "e2e-testing/SKILL.md",
+      "file-upload/SKILL.md",
+      "frontend-component/SKILL.md",
+      "frontend-design/SKILL.md",
+      "prisma-database/SKILL.md",
+      "queue-worker/SKILL.md",
+      "testing/SKILL.md",
+      "ui-components/SKILL.md",
+      "zustand-store/SKILL.md"
+    ]
+  },
+  "issues": {
+    "duplication": [
+      "docs/ vs quikadmin/docs/ - parallel structures with likely duplicates",
+      "quikadmin/docs-archive/ - archived docs may overlap with docs/",
+      "quikadmin-web/docs/ - frontend docs may overlap with quikadmin/docs/"
+    ],
+    "optimization": ["quikadmin/CLAUDE.md at 1518 lines needs reduction to <500 lines", "Total ~220 markdown files across 3+ locations is hard to maintain"],
+    "structure": ["quikadmin/docs/ uses numbered prefix (00-06) while docs/ uses Diataxis", "No clear single source of truth for documentation"]
+  },
+  "recommendations": [
+    "Consolidate to single docs/ directory as source of truth",
+    "Archive quikadmin/docs/ and quikadmin-web/docs/ redundant content",
+    "Split quikadmin/CLAUDE.md into essential context + links to docs/",
+    "Standardize on Diataxis structure (tutorials, how-to, reference, explanation)",
+    "Add frontmatter to all docs for AI discoverability"
+  ]
+}

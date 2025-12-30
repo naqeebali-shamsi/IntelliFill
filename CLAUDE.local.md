@@ -61,4 +61,23 @@ See `docs/context-optimization.md` for details.
 - Skills: `.claude/skills/`
 - API Ref: `docs/reference/api/`
 
-Last Updated: 2025-12-14
+## Automatic Memory System
+
+This project has an automatic memory system configured via hooks in `.claude/settings.local.json`:
+
+| Hook               | Trigger          | Action                           |
+| ------------------ | ---------------- | -------------------------------- |
+| `UserPromptSubmit` | Every prompt     | Reminds to check relevant docs   |
+| `PostToolUse`      | After Edit/Write | Reminds to update docs if needed |
+
+**Quick Reference (from `.claude/skills/memory-system/`):**
+
+| Task Type   | Check First                                        | Update After |
+| ----------- | -------------------------------------------------- | ------------ |
+| Backend API | `quikadmin/CLAUDE.md`, `docs/reference/api/`       | Same         |
+| Frontend    | `quikadmin-web/CLAUDE.md`                          | Same         |
+| Database    | `prisma/schema.prisma`, `docs/reference/database/` | Same         |
+| Auth        | `docs/explanation/security-model.md`               | Same         |
+| Deployment  | `docs/how-to/deployment/`                          | Same         |
+
+Last Updated: 2025-12-30

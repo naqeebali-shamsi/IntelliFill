@@ -1,3 +1,11 @@
+---
+title: 'Upstash Redis Setup'
+description: 'Guide for setting up Upstash Redis for IntelliFill when deployed on Render'
+category: 'how-to'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Upstash Redis Setup for IntelliFill on Render
 
 This guide walks you through setting up Upstash Redis for IntelliFill when deployed on Render.
@@ -10,6 +18,7 @@ Render doesn't provide managed Redis. Upstash is the recommended solution becaus
 - **Serverless** - no server management
 - **Global replication** - low latency
 - **REST API fallback** - works in edge environments
+- **TLS enabled by default** - secure connections out of the box
 
 ## Setup Steps
 
@@ -35,14 +44,16 @@ Render doesn't provide managed Redis. Upstash is the recommended solution becaus
 
 After creation, you'll see your database dashboard. Copy these values:
 
-| Value          | Example                                                | Used For           |
-| -------------- | ------------------------------------------------------ | ------------------ |
-| **Endpoint**   | `usw1-example.upstash.io`                              | Connection host    |
-| **Port**       | `6379`                                                 | Connection port    |
-| **Password**   | `AbCd1234...`                                          | Authentication     |
-| **Redis URL**  | `redis://default:AbCd...@usw1-example.upstash.io:6379` | Primary connection |
-| **REST URL**   | `https://usw1-example.upstash.io`                      | REST API fallback  |
-| **REST Token** | `AXyz789...`                                           | REST API auth      |
+| Value          | Example                                                 | Used For           |
+| -------------- | ------------------------------------------------------- | ------------------ |
+| **Endpoint**   | `usw1-example.upstash.io`                               | Connection host    |
+| **Port**       | `6379`                                                  | Connection port    |
+| **Password**   | `AbCd1234...`                                           | Authentication     |
+| **Redis URL**  | `rediss://default:AbCd...@usw1-example.upstash.io:6379` | Primary connection |
+| **REST URL**   | `https://usw1-example.upstash.io`                       | REST API fallback  |
+| **REST Token** | `AXyz789...`                                            | REST API auth      |
+
+**IMPORTANT**: Note the `rediss://` protocol (with double 's') - this indicates TLS is enabled. Upstash requires TLS connections by default.
 
 ### 4. Configure Render Environment Variables
 
@@ -50,7 +61,7 @@ After creation, you'll see your database dashboard. Copy these values:
 2. Add these environment variables:
 
 ```
-REDIS_URL=redis://default:YOUR_PASSWORD@YOUR_ENDPOINT:6379
+REDIS_URL=rediss://default:YOUR_PASSWORD@YOUR_ENDPOINT:6379
 UPSTASH_REDIS_REST_URL=https://YOUR_ENDPOINT
 UPSTASH_REDIS_REST_TOKEN=YOUR_REST_TOKEN
 ```
@@ -58,10 +69,12 @@ UPSTASH_REDIS_REST_TOKEN=YOUR_REST_TOKEN
 **Example with real format:**
 
 ```
-REDIS_URL=redis://default:AbCdEf123456GhIjKl@usw1-cool-redis-12345.upstash.io:6379
+REDIS_URL=rediss://default:AbCdEf123456GhIjKl@usw1-cool-redis-12345.upstash.io:6379
 UPSTASH_REDIS_REST_URL=https://usw1-cool-redis-12345.upstash.io
 UPSTASH_REDIS_REST_TOKEN=AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQq
 ```
+
+**CRITICAL**: Use `rediss://` (with double 's') NOT `redis://`. The extra 's' enables TLS encryption which Upstash requires.
 
 3. Click **Save Changes**
 4. Render will automatically redeploy with the new variables
@@ -94,6 +107,63 @@ Expected response with Redis connected:
 }
 ```
 
+## Bull Queue TLS Configuration
+
+If you're using Bull queues for background job processing, you need to configure TLS correctly for Upstash connections.
+
+### Detecting Upstash and Configuring TLS
+
+```typescript
+import Bull from 'bull';
+
+const redisUrl = process.env.REDIS_URL;
+const isUpstash = redisUrl?.includes('upstash.io');
+const isTLS = redisUrl?.startsWith('rediss://');
+
+// Create queue with proper TLS settings
+const queue = new Bull('document-processing', {
+  redis: redisUrl,
+  defaultJobOptions: {
+    removeOnComplete: true,
+    removeOnFail: false,
+  },
+});
+
+// If using manual Redis options:
+const queueWithOptions = new Bull('ocr-processing', {
+  redis: {
+    host: 'your-endpoint.upstash.io',
+    port: 6379,
+    password: 'your-password',
+    tls: isTLS ? { rejectUnauthorized: false } : undefined,
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  },
+});
+```
+
+### Common Bull + Upstash Issues
+
+1. **Self-signed certificate errors**: Set `rejectUnauthorized: false` in TLS options
+2. **Connection timeouts**: Set `maxRetriesPerRequest: null` for long-running jobs
+3. **Ready check failures**: Set `enableReadyCheck: false` for serverless Redis
+
+### ioredis Direct Configuration
+
+If using ioredis directly (not through Bull):
+
+```typescript
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL, {
+  tls: process.env.REDIS_URL?.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
+  maxRetriesPerRequest: null,
+  lazyConnect: true,
+});
+```
+
+---
+
 ## Troubleshooting
 
 ### Connection Refused
@@ -104,7 +174,7 @@ Expected response with Redis connected:
 
 1. Verify `REDIS_URL` format is correct
 2. Check Upstash dashboard for the correct endpoint
-3. Ensure TLS is enabled if using `rediss://` protocol
+3. Ensure you're using `rediss://` protocol (TLS required)
 
 ### Authentication Failed
 
@@ -126,6 +196,34 @@ Expected response with Redis connected:
 2. Verify no firewall blocking outbound port 6379
 3. Check Upstash dashboard for service status
 
+### TLS Certificate Errors
+
+**Symptom**: `unable to verify the first certificate` or `DEPTH_ZERO_SELF_SIGNED_CERT`
+
+**Solutions**:
+
+1. Add `rejectUnauthorized: false` to TLS options:
+
+   ```typescript
+   tls: {
+     rejectUnauthorized: false;
+   }
+   ```
+
+2. Ensure you're using `rediss://` not `redis://` in REDIS_URL
+
+3. For Bull queues, configure TLS at the queue level (see Bull Queue TLS Configuration above)
+
+### Protocol Mismatch Errors
+
+**Symptom**: `ERR_SSL_WRONG_VERSION_NUMBER` or TLS handshake failures
+
+**Solutions**:
+
+1. Verify you're using `rediss://` (TLS) not `redis://` (plain)
+2. Check that your Redis client library supports TLS
+3. Update ioredis to version 5.x or later for better TLS support
+
 ## Free Tier Limits
 
 Upstash free tier includes:
@@ -146,6 +244,8 @@ For production with higher traffic, consider upgrading to Pay-as-you-go ($0.2 pe
 
 ## Related Documentation
 
+- [Deployment Troubleshooting](../troubleshooting/deployment-issues.md)
+- [Environment Variables](../../reference/configuration/environment.md)
+- [Docker Deployment](./docker-deployment.md)
 - [Render Environment Variables](https://render.com/docs/environment-variables)
 - [Upstash Documentation](https://docs.upstash.com/redis)
-- [IntelliFill Deployment Guide](./render-deployment.md)

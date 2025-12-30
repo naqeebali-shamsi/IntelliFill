@@ -1,3 +1,11 @@
+---
+title: 'PRD: Vector Search & Document Intelligence v2'
+description: 'Reviewed and approved PRD for vector search implementation with critical fixes'
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Product Requirements Document: Vector Search & Document Intelligence
 
 **Document Version:** 2.0 (Post-Review)
@@ -10,24 +18,24 @@
 
 ## Review Summary
 
-| Review | Score | Status |
-|--------|-------|--------|
+| Review                 | Score  | Status                |
+| ---------------------- | ------ | --------------------- |
 | Technical Architecture | 7.5/10 | Approved with changes |
-| Security | 6.5/10 | Approved with changes |
-| Performance | 7/10 | Approved with changes |
+| Security               | 6.5/10 | Approved with changes |
+| Performance            | 7/10   | Approved with changes |
 
 ### Critical Issues Identified (Must Fix Before Implementation)
 
-| ID | Category | Issue | Priority |
-|----|----------|-------|----------|
-| ARCH-001 | Architecture | Prisma + pgvector integration incomplete | CRITICAL |
-| ARCH-002 | Architecture | Missing Organization model in schema | CRITICAL |
-| VULN-001 | Security | Insufficient org-level isolation in vector queries | CRITICAL |
-| VULN-002 | Security | Malicious file upload vulnerabilities | CRITICAL |
-| VULN-003 | Security | Embedding poisoning & data leakage | CRITICAL |
-| VULN-004 | Security | Google API key exposure & quota exhaustion | CRITICAL |
-| VULN-005 | Security | SQL injection in raw vector queries | CRITICAL |
-| PERF-001 | Performance | Memory exhaustion during large document processing | CRITICAL |
+| ID       | Category     | Issue                                              | Priority |
+| -------- | ------------ | -------------------------------------------------- | -------- |
+| ARCH-001 | Architecture | Prisma + pgvector integration incomplete           | CRITICAL |
+| ARCH-002 | Architecture | Missing Organization model in schema               | CRITICAL |
+| VULN-001 | Security     | Insufficient org-level isolation in vector queries | CRITICAL |
+| VULN-002 | Security     | Malicious file upload vulnerabilities              | CRITICAL |
+| VULN-003 | Security     | Embedding poisoning & data leakage                 | CRITICAL |
+| VULN-004 | Security     | Google API key exposure & quota exhaustion         | CRITICAL |
+| VULN-005 | Security     | SQL injection in raw vector queries                | CRITICAL |
+| PERF-001 | Performance  | Memory exhaustion during large document processing | CRITICAL |
 
 ---
 
@@ -44,12 +52,12 @@ This PRD outlines the implementation of document scanning, intelligent chunking,
 
 ### Success Metrics
 
-| Metric | Target | Measurement Method |
-|--------|--------|-------------------|
-| Form field auto-fill accuracy | >85% | User acceptance rate of suggestions |
-| Document processing time | <30 seconds/page | Performance monitoring |
-| Search relevance | >90% precision@5 | User feedback + click-through |
-| User adoption | 60% of users using search within 30 days | Analytics |
+| Metric                        | Target                                   | Measurement Method                  |
+| ----------------------------- | ---------------------------------------- | ----------------------------------- |
+| Form field auto-fill accuracy | >85%                                     | User acceptance rate of suggestions |
+| Document processing time      | <30 seconds/page                         | Performance monitoring              |
+| Search relevance              | >90% precision@5                         | User feedback + click-through       |
+| User adoption                 | 60% of users using search within 30 days | Analytics                           |
 
 ---
 
@@ -59,13 +67,13 @@ This PRD outlines the implementation of document scanning, intelligent chunking,
 
 #### 1.1 Supported Document Types
 
-| Format | Library | Priority |
-|--------|---------|----------|
-| PDF (text-based) | `pdf-parse` | P0 |
-| PDF (scanned/image) | `Tesseract.js` (existing) | P0 |
-| DOCX | `mammoth` | P1 |
-| Images (JPG, PNG) | `Tesseract.js` | P0 |
-| Plain Text | Native | P1 |
+| Format              | Library                   | Priority |
+| ------------------- | ------------------------- | -------- |
+| PDF (text-based)    | `pdf-parse`               | P0       |
+| PDF (scanned/image) | `Tesseract.js` (existing) | P0       |
+| DOCX                | `mammoth`                 | P1       |
+| Images (JPG, PNG)   | `Tesseract.js`            | P0       |
+| Plain Text          | Native                    | P1       |
 
 #### 1.2 Text Extraction Service
 
@@ -122,18 +130,19 @@ async function validateFileType(buffer: Buffer, expectedType: string): Promise<b
 
 // REQ-SEC-002: Filename sanitization for path traversal prevention
 function sanitizeFilename(filename: string): string {
-  return path.basename(filename)
-    .replace(/\0/g, '')           // Remove null bytes
-    .replace(/\.\./g, '')         // Remove path traversal
-    .replace(/[<>:"|?*]/g, '_');  // Remove invalid chars
+  return path
+    .basename(filename)
+    .replace(/\0/g, '') // Remove null bytes
+    .replace(/\.\./g, '') // Remove path traversal
+    .replace(/[<>:"|?*]/g, '_'); // Remove invalid chars
 }
 
 // REQ-SEC-003: Decompression limits
 const FILE_LIMITS = {
-  MAX_FILE_SIZE: 10 * 1024 * 1024,           // 10MB
-  MAX_DECOMPRESSED_SIZE: 100 * 1024 * 1024,  // 100MB
-  MAX_EXTRACTION_TIME: 30000,                 // 30 seconds
-  MAX_PAGES: 50
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+  MAX_DECOMPRESSED_SIZE: 100 * 1024 * 1024, // 100MB
+  MAX_EXTRACTION_TIME: 30000, // 30 seconds
+  MAX_PAGES: 50,
 };
 
 // REQ-SEC-004: PDF security validation
@@ -141,7 +150,7 @@ async function validatePDF(buffer: Buffer): Promise<void> {
   const { PDFDocument } = await import('pdf-lib');
   const pdfDoc = await PDFDocument.load(buffer, {
     ignoreEncryption: false,
-    throwOnInvalidObject: true
+    throwOnInvalidObject: true,
   });
 
   // Check for JavaScript (potential XSS)
@@ -179,22 +188,22 @@ Based on industry best practices research, implement a **hybrid chunking approac
 
 interface ChunkingConfig {
   strategy: 'semantic' | 'fixed' | 'hybrid';
-  targetChunkSize: number;      // Target: 400 tokens (~1600 chars)
-  maxChunkSize: number;         // Maximum: 800 tokens (~3200 chars)
-  minChunkSize: number;         // Minimum: 100 tokens (~400 chars)
-  overlapTokens: number;        // Target: 60 tokens (15% of 400)
+  targetChunkSize: number; // Target: 400 tokens (~1600 chars)
+  maxChunkSize: number; // Maximum: 800 tokens (~3200 chars)
+  minChunkSize: number; // Minimum: 100 tokens (~400 chars)
+  overlapTokens: number; // Target: 60 tokens (15% of 400)
   preserveSentences: boolean;
-  charsPerToken: number;        // 4 chars/token for English
+  charsPerToken: number; // 4 chars/token for English
 }
 
 const DEFAULT_CONFIG: ChunkingConfig = {
   strategy: 'hybrid',
-  targetChunkSize: 400,         // Conservative target (was 512)
-  maxChunkSize: 800,            // Safety margin (was 1024)
+  targetChunkSize: 400, // Conservative target (was 512)
+  maxChunkSize: 800, // Safety margin (was 1024)
   minChunkSize: 100,
-  overlapTokens: 60,            // 15% overlap
+  overlapTokens: 60, // 15% overlap
   preserveSentences: true,
-  charsPerToken: 4              // Character-based estimation
+  charsPerToken: 4, // Character-based estimation
 };
 
 // Document-type specific configurations (NEW)
@@ -202,15 +211,15 @@ const CHUNKING_STRATEGIES: Record<string, ChunkingConfig> = {
   PASSPORT: {
     ...DEFAULT_CONFIG,
     strategy: 'fixed',
-    targetChunkSize: 200,       // Small chunks for structured data
-    preserveSentences: false
+    targetChunkSize: 200, // Small chunks for structured data
+    preserveSentences: false,
   },
   BANK_STATEMENT: {
     ...DEFAULT_CONFIG,
     strategy: 'semantic',
-    targetChunkSize: 500        // Larger for transaction groups
+    targetChunkSize: 500, // Larger for transaction groups
   },
-  DEFAULT: DEFAULT_CONFIG
+  DEFAULT: DEFAULT_CONFIG,
 };
 ```
 
@@ -218,23 +227,23 @@ const CHUNKING_STRATEGIES: Record<string, ChunkingConfig> = {
 
 ```typescript
 interface DocumentChunk {
-  id: string;                   // UUID
-  sourceId: string;             // FK to source document
-  organizationId: string;       // FK for multi-tenancy (REQUIRED)
-  userId: string;               // FK to uploading user
+  id: string; // UUID
+  sourceId: string; // FK to source document
+  organizationId: string; // FK for multi-tenancy (REQUIRED)
+  userId: string; // FK to uploading user
 
   // Content
-  text: string;                 // Chunk text content
-  tokenCount: number;           // Estimated token count
+  text: string; // Chunk text content
+  tokenCount: number; // Estimated token count
 
   // Position metadata
-  chunkIndex: number;           // Order within document
-  pageNumber?: number;          // Source page (if applicable)
-  sectionHeader?: string;       // Nearest section header
+  chunkIndex: number; // Order within document
+  pageNumber?: number; // Source page (if applicable)
+  sectionHeader?: string; // Nearest section header
 
   // Vector (stored separately via raw SQL)
   // embedding: number[];       // 768-dimensional vector
-  embeddingModel: string;       // Model used for embedding
+  embeddingModel: string; // Model used for embedding
 
   // Timestamps
   createdAt: Date;
@@ -257,11 +266,11 @@ interface DocumentChunk {
 
 #### 3.1 Embedding Model Selection
 
-| Option | Dimensions | Cost | Latency | Recommendation |
-|--------|------------|------|---------|----------------|
-| Google text-embedding-004 | 768 | Free tier available | Fast | **Primary** |
-| OpenAI text-embedding-3-small | 1536 | $0.02/1M tokens | Medium | Fallback |
-| Local (sentence-transformers) | 384-768 | Infrastructure only | Variable | Future option |
+| Option                        | Dimensions | Cost                | Latency  | Recommendation |
+| ----------------------------- | ---------- | ------------------- | -------- | -------------- |
+| Google text-embedding-004     | 768        | Free tier available | Fast     | **Primary**    |
+| OpenAI text-embedding-3-small | 1536       | $0.02/1M tokens     | Medium   | Fallback       |
+| Local (sentence-transformers) | 384-768    | Infrastructure only | Variable | Future option  |
 
 **Decision**: Use **Google text-embedding-004** as primary (768 dimensions) for cost-effectiveness and speed.
 
@@ -282,10 +291,10 @@ interface EmbeddingConfig {
   model: string;
   dimensions: number;
   batchSize: number;
-  maxConcurrentBatches: number;  // NEW: Parallel processing
+  maxConcurrentBatches: number; // NEW: Parallel processing
   rateLimitDelay: number;
   maxRetries: number;
-  dailyQuotaLimit: number;       // NEW: Cost control
+  dailyQuotaLimit: number; // NEW: Cost control
 }
 
 const GOOGLE_CONFIG: EmbeddingConfig = {
@@ -293,10 +302,10 @@ const GOOGLE_CONFIG: EmbeddingConfig = {
   model: 'text-embedding-004',
   dimensions: 768,
   batchSize: 100,
-  maxConcurrentBatches: 3,       // NEW: Process 3 batches in parallel
-  rateLimitDelay: 500,           // UPDATED: Reduced from 1000ms
+  maxConcurrentBatches: 3, // NEW: Process 3 batches in parallel
+  rateLimitDelay: 500, // UPDATED: Reduced from 1000ms
   maxRetries: 3,
-  dailyQuotaLimit: 10000         // NEW: Per-organization limit
+  dailyQuotaLimit: 10000, // NEW: Per-organization limit
 };
 
 // Embedding validation (NEW - Security requirement)
@@ -307,7 +316,7 @@ function validateEmbeddingInput(embedding: number[]): void {
   if (embedding.length !== 768) {
     throw new Error('Invalid embedding dimensions');
   }
-  if (embedding.some(n => !Number.isFinite(n))) {
+  if (embedding.some((n) => !Number.isFinite(n))) {
     throw new Error('Invalid embedding values');
   }
 }
@@ -321,7 +330,7 @@ function validateEmbeddingInput(embedding: number[]): void {
 // REQ-SEC-005: Use environment variables with rotation support
 interface SecretsConfig {
   primaryKey: string;
-  secondaryKey?: string;  // For rotation
+  secondaryKey?: string; // For rotation
   keyRotatedAt?: Date;
 }
 
@@ -338,7 +347,7 @@ async function getEmbeddingApiKey(): Promise<string> {
 // Key rotation support
 const ACTIVE_KEYS = [
   process.env.GOOGLE_API_KEY_PRIMARY,
-  process.env.GOOGLE_API_KEY_SECONDARY
+  process.env.GOOGLE_API_KEY_SECONDARY,
 ].filter(Boolean);
 
 async function embedWithFallback(text: string): Promise<number[]> {
@@ -371,6 +380,7 @@ async function embedWithFallback(text: string): Promise<number[]> {
 #### 4.1 Database Choice: pgvector
 
 **Rationale**: IntelliFill already uses PostgreSQL (Neon). pgvector:
+
 - No additional infrastructure required
 - Integrates with existing Prisma ORM
 - Cost-effective (no separate vector DB fees)
@@ -603,7 +613,7 @@ class VectorStorageService {
     `;
 
     // Filter by minimum score
-    return results.filter(r => r.similarity >= minScore);
+    return results.filter((r) => r.similarity >= minScore);
   }
 
   /**
@@ -626,7 +636,7 @@ class VectorStorageService {
     if (embedding.length !== 768) {
       throw new Error(`Invalid embedding dimensions: ${embedding.length}`);
     }
-    if (embedding.some(n => !Number.isFinite(n))) {
+    if (embedding.some((n) => !Number.isFinite(n))) {
       throw new Error('Invalid embedding values');
     }
   }
@@ -685,7 +695,8 @@ import { z } from 'zod';
 
 // Input validation schema (NEW - Security requirement)
 const searchSchema = z.object({
-  query: z.string()
+  query: z
+    .string()
     .min(3, 'Query too short')
     .max(1000, 'Query too long')
     .regex(/^[\w\s\-.,!?'"()]+$/i, 'Invalid characters'),
@@ -694,14 +705,18 @@ const searchSchema = z.object({
   hybridMode: z.enum(['vector', 'keyword', 'both']).default('vector'),
   hybridWeight: z.number().min(0).max(1).default(0.7),
   rerank: z.boolean().default(false),
-  filters: z.object({
-    sourceIds: z.array(z.string().uuid()).max(10).optional(),
-    dateRange: z.object({
-      from: z.date().optional(),
-      to: z.date().optional()
-    }).optional(),
-    pageNumbers: z.array(z.number()).optional()
-  }).optional()
+  filters: z
+    .object({
+      sourceIds: z.array(z.string().uuid()).max(10).optional(),
+      dateRange: z
+        .object({
+          from: z.date().optional(),
+          to: z.date().optional(),
+        })
+        .optional(),
+      pageNumbers: z.array(z.number()).optional(),
+    })
+    .optional(),
 });
 
 // Search Response
@@ -717,9 +732,9 @@ interface SearchResult {
   sourceTitle: string;
   text: string;
 
-  vectorScore: number;      // Cosine similarity
-  keywordScore?: number;    // BM25 score (if hybrid)
-  finalScore: number;       // Combined/reranked score
+  vectorScore: number; // Cosine similarity
+  keywordScore?: number; // BM25 score (if hybrid)
+  finalScore: number; // Combined/reranked score
 
   pageNumber?: number;
   sectionHeader?: string;
@@ -736,15 +751,15 @@ interface SearchResult {
 
 ```typescript
 const RATE_LIMITS = {
-  upload: { window: '1m', max: 10 },      // 10 uploads/minute (unchanged)
-  search: { window: '1m', max: 20 },      // REDUCED from 100 to 20
-  suggest: { window: '1m', max: 30 },     // REDUCED from 200 to 30
+  upload: { window: '1m', max: 10 }, // 10 uploads/minute (unchanged)
+  search: { window: '1m', max: 20 }, // REDUCED from 100 to 20
+  suggest: { window: '1m', max: 30 }, // REDUCED from 200 to 30
 };
 
 // Additional: Organization-level quotas
 const ORG_LIMITS = {
   upload: { daily: 100, monthly: 3000 },
-  embedding: { daily: 1000, monthly: 30000 }
+  embedding: { daily: 1000, monthly: 30000 },
 };
 ```
 
@@ -778,10 +793,10 @@ import { auditLogger } from '../middleware/auditLogger';
 const router = Router();
 
 // REQUIRED middleware chain for ALL endpoints
-router.use(authenticateSupabase);      // Verify JWT
-router.use(validateOrganization);      // Validate org membership
-router.use(rateLimiter);               // Rate limiting
-router.use(auditLogger);               // Audit all requests
+router.use(authenticateSupabase); // Verify JWT
+router.use(validateOrganization); // Validate org membership
+router.use(rateLimiter); // Rate limiting
+router.use(auditLogger); // Audit all requests
 ```
 
 #### 6.2 Organization Isolation
@@ -803,7 +818,7 @@ async function validateOrganization(req: Request, res: Response, next: NextFunct
 
   // Verify user belongs to organization
   const membership = await prisma.user.findFirst({
-    where: { id: userId, organizationId }
+    where: { id: userId, organizationId },
   });
 
   if (!membership) {
@@ -845,7 +860,7 @@ async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
     logger.warn('Potential embedding probing attack', {
       userId: entry.userId,
       organizationId: entry.organizationId,
-      searchCount: recentSearches
+      searchCount: recentSearches,
     });
     // Alert security team
   }
@@ -879,9 +894,9 @@ async function logAuditEvent(entry: AuditLogEntry): Promise<void> {
 import v8 from 'v8';
 
 const MEMORY_THRESHOLDS = {
-  WARNING: 0.75,   // 75% heap usage
-  CRITICAL: 0.85,  // 85% heap usage
-  MAX_CONCURRENT_UPLOADS: 5
+  WARNING: 0.75, // 75% heap usage
+  CRITICAL: 0.85, // 85% heap usage
+  MAX_CONCURRENT_UPLOADS: 5,
 };
 
 class MemoryManager {
@@ -948,7 +963,7 @@ async function processLargePDF(
         sourceId,
         organizationId,
         ...chunk,
-        embedding
+        embedding,
       });
     }
 
@@ -957,7 +972,7 @@ async function processLargePDF(
 
     // Allow GC to run every 5 pages
     if (pageNum % 5 === 0) {
-      await new Promise(resolve => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
     }
   }
 }
@@ -993,7 +1008,9 @@ class CircuitBreaker {
     this.failureCount++;
     if (this.failureCount >= this.threshold) {
       this.state = 'OPEN';
-      setTimeout(() => { this.state = 'HALF_OPEN'; }, this.resetTimeout);
+      setTimeout(() => {
+        this.state = 'HALF_OPEN';
+      }, this.resetTimeout);
     }
   }
 
@@ -1020,6 +1037,7 @@ class CircuitBreaker {
 ### 8. Implementation Phases (UPDATED)
 
 #### Phase 0: Prerequisites (REQUIRED Before Phase 1)
+
 - [ ] Add Organization model to Prisma schema (or confirm existing)
 - [ ] Implement VectorStorageService abstraction
 - [ ] Create file validation service with security checks
@@ -1028,6 +1046,7 @@ class CircuitBreaker {
 - [ ] Clarify Document vs DocumentSource relationship
 
 #### Phase 1: Foundation
+
 - [ ] Enable pgvector extension on Neon database
 - [ ] Create database migrations with RLS policies
 - [ ] Implement DocumentExtractionService with security checks
@@ -1035,6 +1054,7 @@ class CircuitBreaker {
 - [ ] Add unit tests including security scenarios
 
 #### Phase 2: Embeddings & Storage
+
 - [ ] Implement EmbeddingService with Google API
 - [ ] Implement VectorStorageService with parameterized queries
 - [ ] Extend existing ocrQueue for knowledge processing
@@ -1042,6 +1062,7 @@ class CircuitBreaker {
 - [ ] Implement checkpointing for recovery
 
 #### Phase 3: Search API
+
 - [ ] Implement semantic search endpoint with validation
 - [ ] Implement hybrid search (semantic + keyword)
 - [ ] Add search result ranking and scoring
@@ -1049,12 +1070,14 @@ class CircuitBreaker {
 - [ ] Add rate limiting per organization
 
 #### Phase 4: Form Integration
+
 - [ ] Implement field suggestion API
 - [ ] Integrate with existing form filling workflow
 - [ ] Add confidence scoring for suggestions
 - [ ] UI integration for suggestions
 
 #### Phase 5: Security Hardening & Optimization
+
 - [ ] Penetration testing for multi-tenant isolation
 - [ ] Load testing with 100K+ vectors
 - [ ] Performance optimization based on metrics
@@ -1107,6 +1130,7 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 ### 10. Acceptance Criteria (UPDATED)
 
 #### Must Have (P0)
+
 - [ ] Upload PDF/DOCX/TXT documents with security validation
 - [ ] Process into searchable chunks with organization isolation
 - [ ] Semantic search returns relevant results with >80% precision
@@ -1116,6 +1140,7 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 - [ ] Audit logging for all operations
 
 #### Should Have (P1)
+
 - [ ] Form field suggestions with confidence scores
 - [ ] Hybrid search (semantic + keyword)
 - [ ] Real-time processing status updates
@@ -1123,6 +1148,7 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 - [ ] Circuit breaker for system stability
 
 #### Nice to Have (P2)
+
 - [ ] Multiple embedding provider support
 - [ ] Custom chunking configurations per document type
 - [ ] Search analytics dashboard
@@ -1133,6 +1159,7 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 ## Appendix A: Security Checklist
 
 ### Pre-Implementation
+
 - [ ] Organization model exists in schema
 - [ ] RLS policies defined
 - [ ] VectorStorageService with parameterized queries
@@ -1140,6 +1167,7 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 - [ ] API key rotation strategy documented
 
 ### Pre-Launch
+
 - [ ] Penetration testing completed
 - [ ] IDOR testing passed
 - [ ] Multi-tenant isolation verified
@@ -1147,6 +1175,7 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 - [ ] Audit logs reviewed
 
 ### Post-Launch
+
 - [ ] Daily audit log review
 - [ ] Weekly dependency scanning
 - [ ] Monthly security review
@@ -1156,10 +1185,10 @@ ORG_DAILY_EMBEDDING_LIMIT=1000
 
 ## Appendix B: Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2025-12-11 | AI Assistant | Initial draft |
-| 2.0 | 2025-12-11 | AI Assistant | Post-review updates |
+| Version | Date       | Author       | Changes             |
+| ------- | ---------- | ------------ | ------------------- |
+| 1.0     | 2025-12-11 | AI Assistant | Initial draft       |
+| 2.0     | 2025-12-11 | AI Assistant | Post-review updates |
 
 ### Changes in v2.0
 

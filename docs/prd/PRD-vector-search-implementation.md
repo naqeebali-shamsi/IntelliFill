@@ -1,3 +1,11 @@
+---
+title: 'PRD: Vector Search & Document Intelligence v1'
+description: 'Initial PRD for vector search, intelligent chunking, and embedding generation capabilities'
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'draft'
+---
+
 # Product Requirements Document: Vector Search & Document Intelligence
 
 **Document Version:** 1.0
@@ -21,12 +29,12 @@ This PRD outlines the implementation of document scanning, intelligent chunking,
 
 ### Success Metrics
 
-| Metric | Target | Measurement Method |
-|--------|--------|-------------------|
-| Form field auto-fill accuracy | >85% | User acceptance rate of suggestions |
-| Document processing time | <30 seconds/page | Performance monitoring |
-| Search relevance | >90% precision@5 | User feedback + click-through |
-| User adoption | 60% of users using search within 30 days | Analytics |
+| Metric                        | Target                                   | Measurement Method                  |
+| ----------------------------- | ---------------------------------------- | ----------------------------------- |
+| Form field auto-fill accuracy | >85%                                     | User acceptance rate of suggestions |
+| Document processing time      | <30 seconds/page                         | Performance monitoring              |
+| Search relevance              | >90% precision@5                         | User feedback + click-through       |
+| User adoption                 | 60% of users using search within 30 days | Analytics                           |
 
 ---
 
@@ -36,13 +44,13 @@ This PRD outlines the implementation of document scanning, intelligent chunking,
 
 #### 1.1 Supported Document Types
 
-| Format | Library | Priority |
-|--------|---------|----------|
-| PDF (text-based) | `pdf-parse` | P0 |
-| PDF (scanned/image) | `Tesseract.js` (existing) | P0 |
-| DOCX | `mammoth` | P1 |
-| Images (JPG, PNG) | `Tesseract.js` | P0 |
-| Plain Text | Native | P1 |
+| Format              | Library                   | Priority |
+| ------------------- | ------------------------- | -------- |
+| PDF (text-based)    | `pdf-parse`               | P0       |
+| PDF (scanned/image) | `Tesseract.js` (existing) | P0       |
+| DOCX                | `mammoth`                 | P1       |
+| Images (JPG, PNG)   | `Tesseract.js`            | P0       |
+| Plain Text          | Native                    | P1       |
 
 #### 1.2 Text Extraction Service
 
@@ -99,11 +107,11 @@ Based on industry best practices research, implement a **hybrid chunking approac
 
 interface ChunkingConfig {
   strategy: 'semantic' | 'fixed' | 'hybrid';
-  targetChunkSize: number;      // Target: 512 tokens (~2000 chars)
-  maxChunkSize: number;         // Maximum: 1024 tokens (~4000 chars)
-  minChunkSize: number;         // Minimum: 100 tokens (~400 chars)
-  overlapPercentage: number;    // Target: 15% overlap
-  preserveSentences: boolean;   // Always true
+  targetChunkSize: number; // Target: 512 tokens (~2000 chars)
+  maxChunkSize: number; // Maximum: 1024 tokens (~4000 chars)
+  minChunkSize: number; // Minimum: 100 tokens (~400 chars)
+  overlapPercentage: number; // Target: 15% overlap
+  preserveSentences: boolean; // Always true
 }
 
 const DEFAULT_CONFIG: ChunkingConfig = {
@@ -112,7 +120,7 @@ const DEFAULT_CONFIG: ChunkingConfig = {
   maxChunkSize: 1024,
   minChunkSize: 100,
   overlapPercentage: 15,
-  preserveSentences: true
+  preserveSentences: true,
 };
 ```
 
@@ -120,23 +128,23 @@ const DEFAULT_CONFIG: ChunkingConfig = {
 
 ```typescript
 interface DocumentChunk {
-  id: string;                   // UUID
-  documentId: string;           // FK to source document
-  organizationId: string;       // FK for multi-tenancy
-  userId: string;               // FK to uploading user
+  id: string; // UUID
+  documentId: string; // FK to source document
+  organizationId: string; // FK for multi-tenancy
+  userId: string; // FK to uploading user
 
   // Content
-  text: string;                 // Chunk text content
-  tokenCount: number;           // Token count for the chunk
+  text: string; // Chunk text content
+  tokenCount: number; // Token count for the chunk
 
   // Position metadata
-  chunkIndex: number;           // Order within document
-  pageNumber?: number;          // Source page (if applicable)
-  sectionHeader?: string;       // Nearest section header
+  chunkIndex: number; // Order within document
+  pageNumber?: number; // Source page (if applicable)
+  sectionHeader?: string; // Nearest section header
 
   // Vector
-  embedding: number[];          // 768-dimensional vector
-  embeddingModel: string;       // Model used for embedding
+  embedding: number[]; // 768-dimensional vector
+  embeddingModel: string; // Model used for embedding
 
   // Timestamps
   createdAt: Date;
@@ -158,11 +166,11 @@ interface DocumentChunk {
 
 #### 3.1 Embedding Model Selection
 
-| Option | Dimensions | Cost | Latency | Recommendation |
-|--------|------------|------|---------|----------------|
-| Google text-embedding-004 | 768 | Free tier available | Fast | **Primary** |
-| OpenAI text-embedding-3-small | 1536 | $0.02/1M tokens | Medium | Fallback |
-| Local (sentence-transformers) | 384-768 | Infrastructure only | Variable | Future option |
+| Option                        | Dimensions | Cost                | Latency  | Recommendation |
+| ----------------------------- | ---------- | ------------------- | -------- | -------------- |
+| Google text-embedding-004     | 768        | Free tier available | Fast     | **Primary**    |
+| OpenAI text-embedding-3-small | 1536       | $0.02/1M tokens     | Medium   | Fallback       |
+| Local (sentence-transformers) | 384-768    | Infrastructure only | Variable | Future option  |
 
 **Decision**: Use **Google text-embedding-004** as primary (768 dimensions) for cost-effectiveness and speed.
 
@@ -184,8 +192,8 @@ interface EmbeddingConfig {
   provider: 'google' | 'openai' | 'local';
   model: string;
   dimensions: number;
-  batchSize: number;          // Max texts per API call
-  rateLimitDelay: number;     // ms between batches
+  batchSize: number; // Max texts per API call
+  rateLimitDelay: number; // ms between batches
   maxRetries: number;
 }
 
@@ -195,7 +203,7 @@ const GOOGLE_CONFIG: EmbeddingConfig = {
   dimensions: 768,
   batchSize: 100,
   rateLimitDelay: 1000,
-  maxRetries: 3
+  maxRetries: 3,
 };
 ```
 
@@ -214,6 +222,7 @@ const GOOGLE_CONFIG: EmbeddingConfig = {
 #### 4.1 Database Choice: pgvector
 
 **Rationale**: IntelliFill already uses PostgreSQL (Neon). pgvector:
+
 - No additional infrastructure required
 - Integrates with existing Prisma ORM
 - Cost-effective (no separate vector DB fees)
@@ -399,16 +408,16 @@ POST   /api/knowledge/suggest            // Get field suggestions for form
 ```typescript
 // Search Request
 interface SearchRequest {
-  query: string;                    // Natural language query
-  topK?: number;                    // Number of results (default: 5)
-  minScore?: number;                // Minimum similarity score (0-1)
+  query: string; // Natural language query
+  topK?: number; // Number of results (default: 5)
+  minScore?: number; // Minimum similarity score (0-1)
   filters?: {
-    sourceIds?: string[];           // Filter by specific sources
+    sourceIds?: string[]; // Filter by specific sources
     dateRange?: {
       from?: Date;
       to?: Date;
     };
-    pageNumbers?: number[];         // Filter by page numbers
+    pageNumbers?: number[]; // Filter by page numbers
   };
 }
 
@@ -416,7 +425,7 @@ interface SearchRequest {
 interface SearchResponse {
   results: SearchResult[];
   totalResults: number;
-  queryTime: number;                // ms
+  queryTime: number; // ms
 }
 
 interface SearchResult {
@@ -424,10 +433,10 @@ interface SearchResult {
   sourceId: string;
   sourceTitle: string;
   text: string;
-  score: number;                    // Similarity score (0-1)
+  score: number; // Similarity score (0-1)
   pageNumber?: number;
   sectionHeader?: string;
-  highlights?: string[];            // Matched text snippets
+  highlights?: string[]; // Matched text snippets
 }
 ```
 
@@ -436,10 +445,10 @@ interface SearchResult {
 ```typescript
 // Suggest fields for form filling
 interface SuggestRequest {
-  formId: string;                   // Target form
-  fieldNames: string[];             // Fields to get suggestions for
-  context?: string;                 // Additional context
-  maxSuggestions?: number;          // Per field (default: 3)
+  formId: string; // Target form
+  fieldNames: string[]; // Fields to get suggestions for
+  context?: string; // Additional context
+  maxSuggestions?: number; // Per field (default: 3)
 }
 
 interface SuggestResponse {
@@ -543,15 +552,15 @@ interface FieldSuggestion {
 
 #### 7.1 Error Scenarios
 
-| Scenario | Handling | Recovery |
-|----------|----------|----------|
-| Invalid file type | Reject immediately | Return error to client |
-| File too large | Reject immediately | Return error with size limit |
-| OCR failure | Retry 2x, then fail | Mark source as 'failed', store error |
-| Embedding API timeout | Retry with backoff | Resume from last successful chunk |
-| Embedding API quota | Queue for later | Exponential backoff, notify admin |
-| DB write failure | Rollback transaction | Retry entire chunk batch |
-| Partial processing | Track progress | Resume from checkpoint |
+| Scenario              | Handling             | Recovery                             |
+| --------------------- | -------------------- | ------------------------------------ |
+| Invalid file type     | Reject immediately   | Return error to client               |
+| File too large        | Reject immediately   | Return error with size limit         |
+| OCR failure           | Retry 2x, then fail  | Mark source as 'failed', store error |
+| Embedding API timeout | Retry with backoff   | Resume from last successful chunk    |
+| Embedding API quota   | Queue for later      | Exponential backoff, notify admin    |
+| DB write failure      | Rollback transaction | Retry entire chunk batch             |
+| Partial processing    | Track progress       | Resume from checkpoint               |
 
 #### 7.2 Checkpointing
 
@@ -586,9 +595,9 @@ interface ProcessingCheckpoint {
 
 ```typescript
 const RATE_LIMITS = {
-  upload: { window: '1m', max: 10 },       // 10 uploads/minute
-  search: { window: '1m', max: 100 },      // 100 searches/minute
-  suggest: { window: '1m', max: 200 },     // 200 suggestions/minute
+  upload: { window: '1m', max: 10 }, // 10 uploads/minute
+  search: { window: '1m', max: 100 }, // 100 searches/minute
+  suggest: { window: '1m', max: 200 }, // 200 suggestions/minute
 };
 ```
 
@@ -596,19 +605,20 @@ const RATE_LIMITS = {
 
 ### 9. Performance Requirements
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| Document upload response | <500ms | Async processing, immediate response |
-| Full document processing | <30s/page | Including OCR if needed |
-| Search query latency | <100ms | p95 with HNSW index |
-| Embedding generation | <2s for 100 chunks | Batch processing |
-| Concurrent uploads | 10 per organization | Queue-based processing |
+| Metric                   | Target              | Notes                                |
+| ------------------------ | ------------------- | ------------------------------------ |
+| Document upload response | <500ms              | Async processing, immediate response |
+| Full document processing | <30s/page           | Including OCR if needed              |
+| Search query latency     | <100ms              | p95 with HNSW index                  |
+| Embedding generation     | <2s for 100 chunks  | Batch processing                     |
+| Concurrent uploads       | 10 per organization | Queue-based processing               |
 
 ---
 
 ### 10. Implementation Phases
 
 #### Phase 1: Foundation (Week 1-2)
+
 - [ ] Enable pgvector extension on Neon database
 - [ ] Create database migrations for new tables
 - [ ] Implement DocumentExtractionService
@@ -616,24 +626,28 @@ const RATE_LIMITS = {
 - [ ] Add basic unit tests
 
 #### Phase 2: Embeddings & Storage (Week 3)
+
 - [ ] Implement EmbeddingService with Google API
 - [ ] Implement VectorStorageService
 - [ ] Create Bull queue worker for async processing
 - [ ] Add integration tests
 
 #### Phase 3: Search API (Week 4)
+
 - [ ] Implement semantic search endpoint
 - [ ] Implement hybrid search (semantic + keyword)
 - [ ] Add search result ranking and scoring
 - [ ] Implement caching layer
 
 #### Phase 4: Form Integration (Week 5)
+
 - [ ] Implement field suggestion API
 - [ ] Integrate with existing form filling workflow
 - [ ] Add confidence scoring for suggestions
 - [ ] UI integration for suggestions
 
 #### Phase 5: Polish & Optimization (Week 6)
+
 - [ ] Performance optimization
 - [ ] Error handling refinement
 - [ ] Monitoring and alerting setup
@@ -749,17 +763,20 @@ const METRICS = {
 ### 15. Acceptance Criteria
 
 #### Must Have (P0)
+
 - [ ] Upload PDF/DOCX/TXT documents and process into searchable chunks
 - [ ] Semantic search returns relevant results with >80% precision
 - [ ] Organization data isolation verified
 - [ ] Processing completes within 30s/page
 
 #### Should Have (P1)
+
 - [ ] Form field suggestions with confidence scores
 - [ ] Hybrid search (semantic + keyword)
 - [ ] Real-time processing status updates
 
 #### Nice to Have (P2)
+
 - [ ] Multiple embedding provider support
 - [ ] Custom chunking configurations per document type
 - [ ] Search analytics dashboard
@@ -770,14 +787,14 @@ const METRICS = {
 
 ### A. Glossary
 
-| Term | Definition |
-|------|------------|
-| **Embedding** | Dense vector representation of text for semantic similarity |
-| **Chunk** | A segment of document text, sized for embedding models |
-| **pgvector** | PostgreSQL extension for vector similarity search |
-| **HNSW** | Hierarchical Navigable Small World - fast approximate nearest neighbor algorithm |
-| **Cosine Similarity** | Measure of similarity between two vectors (0-1 scale) |
-| **RAG** | Retrieval-Augmented Generation - using retrieved context to enhance AI responses |
+| Term                  | Definition                                                                       |
+| --------------------- | -------------------------------------------------------------------------------- |
+| **Embedding**         | Dense vector representation of text for semantic similarity                      |
+| **Chunk**             | A segment of document text, sized for embedding models                           |
+| **pgvector**          | PostgreSQL extension for vector similarity search                                |
+| **HNSW**              | Hierarchical Navigable Small World - fast approximate nearest neighbor algorithm |
+| **Cosine Similarity** | Measure of similarity between two vectors (0-1 scale)                            |
+| **RAG**               | Retrieval-Augmented Generation - using retrieved context to enhance AI responses |
 
 ### B. References
 
@@ -788,15 +805,16 @@ const METRICS = {
 
 ### C. Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2025-12-11 | AI Assistant | Initial draft |
+| Version | Date       | Author       | Changes       |
+| ------- | ---------- | ------------ | ------------- |
+| 1.0     | 2025-12-11 | AI Assistant | Initial draft |
 
 ---
 
 **Document Status:** Draft - Awaiting Review
 
 **Next Steps:**
+
 1. Technical Architecture Review
 2. Security & Performance Review
 3. Stakeholder Approval

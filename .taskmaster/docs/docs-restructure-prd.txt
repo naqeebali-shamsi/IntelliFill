@@ -1,0 +1,55 @@
+# Documentation Restructuring PRD
+
+## Overview
+Audit, review, structure, and consolidate all documentation in the IntelliFill project to optimize for Claude Code AI agent consumption and developer experience.
+
+## Goals
+1. Create a unified, well-organized documentation structure
+2. Eliminate duplication and outdated content
+3. Optimize documentation for AI agent token efficiency
+4. Follow industry best practices (Diataxis framework)
+
+## Requirements
+
+### Task 1: Documentation Discovery
+Audit all existing documentation files across the codebase:
+- docs/ directory and all subdirectories
+- CLAUDE.md and CLAUDE.local.md files in root and subdirectories
+- README.md files throughout the project
+- Inline code documentation patterns
+- .claude/skills/ directory
+Create a comprehensive inventory of all documentation assets.
+
+### Task 2: Documentation Review
+Analyze all discovered documentation for:
+- Content quality and accuracy
+- Completeness of coverage
+- Gaps in documentation
+- Duplicated content across files
+- Outdated or stale information
+- Inconsistencies in style and format
+Create a detailed report of findings.
+
+### Task 3: Documentation Structure Design
+Design an optimal folder hierarchy following:
+- Diataxis framework (tutorials, how-to, reference, explanation)
+- Claude Code best practices for CLAUDE.md files
+- Monorepo documentation patterns
+- Token-efficient organization for AI consumption
+Produce a proposed structure with rationale.
+
+### Task 4: Documentation Consolidation
+Execute the restructuring:
+- Merge duplicate content into single sources of truth
+- Reorganize files into the new structure
+- Update all cross-references and links
+- Ensure consistent formatting and style
+- Archive or remove obsolete content
+- Update root CLAUDE.md with new structure
+
+## Success Criteria
+- All documentation in logical, discoverable locations
+- No duplicate content
+- Clear separation between tutorials, guides, reference, and explanations
+- CLAUDE.md files optimized for AI agent context
+- All internal links working

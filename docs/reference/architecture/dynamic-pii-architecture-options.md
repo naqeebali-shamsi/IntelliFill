@@ -1,3 +1,11 @@
+---
+title: 'Dynamic PII Architecture: Options Analysis'
+description: 'Analysis of architecture options for handling dynamically-discovered PII'
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Dynamic PII Architecture: Options Analysis
 
 **Last Updated**: 2025-12-17
@@ -77,11 +85,13 @@ Document.extractedData = AES256_GCM_encrypt({
 ```
 
 **Pros:**
+
 - ✅ Simple to implement
 - ✅ Maximum security - all data encrypted
 - ✅ Compliant by default
 
 **Cons:**
+
 - ❌ Cannot search/filter on encrypted data
 - ❌ Must decrypt to display anything
 - ❌ Performance cost on every read
@@ -119,6 +129,7 @@ interface ClassifiedField {
 ```
 
 **Classification Engine:**
+
 ```typescript
 class PIIClassifier {
   // Known PII field patterns
@@ -170,12 +181,14 @@ class PIIClassifier {
 ```
 
 **Pros:**
+
 - ✅ Public fields remain searchable
 - ✅ Flexible classification rules
 - ✅ Can evolve classification over time
 - ✅ Analytics on non-PII fields
 
 **Cons:**
+
 - ❌ Classification errors possible (miss PII)
 - ❌ More complex implementation
 - ❌ Classification rules need maintenance
@@ -190,19 +203,19 @@ class PIIClassifier {
 ```typescript
 // Known document type templates
 const DOCUMENT_TEMPLATES = {
-  'UAE_PASSPORT': {
+  UAE_PASSPORT: {
     piiFields: ['full_name', 'passport_number', 'date_of_birth', 'nationality', 'place_of_birth'],
     phiFields: [],
     sensitiveFields: ['photo'],
     publicFields: ['issue_date', 'expiry_date', 'document_type'],
   },
-  'UAE_EMIRATES_ID': {
+  UAE_EMIRATES_ID: {
     piiFields: ['full_name', 'emirates_id', 'date_of_birth', 'nationality', 'photo'],
     phiFields: [],
     sensitiveFields: ['sponsor_id'],
     publicFields: ['issue_date', 'expiry_date', 'card_number'],
   },
-  'UAE_TRADE_LICENSE': {
+  UAE_TRADE_LICENSE: {
     piiFields: ['owner_name', 'owner_emirates_id', 'owner_passport'],
     sensitiveFields: ['license_number', 'capital', 'activities'],
     publicFields: ['company_name', 'issue_date', 'expiry_date', 'legal_form'],
@@ -238,12 +251,14 @@ async function classifyExtractedData(
 ```
 
 **Pros:**
+
 - ✅ High accuracy for known document types
 - ✅ Explicit control over classification
 - ✅ Easy to audit and explain
 - ✅ Can add new templates as needed
 
 **Cons:**
+
 - ❌ Requires manual template maintenance
 - ❌ Unknown documents still need heuristics
 - ❌ Document type detection can fail
@@ -285,12 +300,14 @@ class AIClassifier {
 ```
 
 **Pros:**
+
 - ✅ Highly accurate for ambiguous cases
 - ✅ Understands context (e.g., "John" in a form vs. product name)
 - ✅ No manual template maintenance
 - ✅ Can explain classification decisions
 
 **Cons:**
+
 - ❌ Latency (200-500ms per document)
 - ❌ Cost per API call
 - ❌ Data sent to external service (privacy concern!)
@@ -352,12 +369,14 @@ async function findDocumentsByPassport(passportNumber: string): Promise<Document
 ```
 
 **Pros:**
+
 - ✅ Maximum privacy - no plaintext PII in database
 - ✅ Still searchable via blind indexes
 - ✅ Compliant with strictest regulations
 - ✅ Decryption only when explicitly needed
 
 **Cons:**
+
 - ❌ Complex implementation
 - ❌ Cannot do partial/fuzzy search
 - ❌ Key management is critical
@@ -368,31 +387,34 @@ async function findDocumentsByPassport(passportNumber: string): Promise<Document
 
 ## Recommendation Matrix
 
-| Criteria | Opt 1 (Encrypt All) | Opt 2 (Classify) | Opt 3 (Templates) | Opt 4 (AI) | Opt 5 (Zero-K) |
-|----------|---------------------|------------------|-------------------|------------|----------------|
-| **Security** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Searchability** | ⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **Complexity** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐ |
-| **Performance** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
-| **Maintainability** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ |
-| **Compliance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Time to Implement** | 1-2 weeks | 3-4 weeks | 4-6 weeks | 2-3 weeks | 6-8 weeks |
+| Criteria              | Opt 1 (Encrypt All) | Opt 2 (Classify) | Opt 3 (Templates) | Opt 4 (AI) | Opt 5 (Zero-K) |
+| --------------------- | ------------------- | ---------------- | ----------------- | ---------- | -------------- |
+| **Security**          | ⭐⭐⭐⭐⭐          | ⭐⭐⭐⭐         | ⭐⭐⭐⭐          | ⭐⭐⭐     | ⭐⭐⭐⭐⭐     |
+| **Searchability**     | ⭐                  | ⭐⭐⭐⭐         | ⭐⭐⭐⭐          | ⭐⭐⭐⭐   | ⭐⭐⭐         |
+| **Complexity**        | ⭐⭐⭐⭐⭐          | ⭐⭐⭐           | ⭐⭐⭐            | ⭐⭐       | ⭐             |
+| **Performance**       | ⭐⭐⭐              | ⭐⭐⭐⭐         | ⭐⭐⭐⭐⭐        | ⭐⭐       | ⭐⭐⭐         |
+| **Maintainability**   | ⭐⭐⭐⭐⭐          | ⭐⭐⭐           | ⭐⭐              | ⭐⭐⭐⭐   | ⭐⭐           |
+| **Compliance**        | ⭐⭐⭐⭐⭐          | ⭐⭐⭐⭐         | ⭐⭐⭐⭐          | ⭐⭐⭐     | ⭐⭐⭐⭐⭐     |
+| **Time to Implement** | 1-2 weeks           | 3-4 weeks        | 4-6 weeks         | 2-3 weeks  | 6-8 weeks      |
 
 ---
 
 ## Recommended Approach: Hybrid (Option 1 + 3)
 
 ### Phase 1: Encrypt All (Immediate Security)
+
 1. Encrypt entire `extractedData` JSON blob with AES-256-GCM
 2. Encrypt entire `ClientProfile.data` JSON blob
 3. This provides immediate compliance
 
 ### Phase 2: Add Document Templates (Searchability)
+
 1. Define templates for known UAE document types
 2. Store non-PII fields in plaintext for search/filter
 3. Keep PII fields encrypted with blind indexes
 
 ### Phase 3: Refine with Classification Engine (Quality)
+
 1. Build classification engine for unknown documents
 2. Use templates + heuristics (not AI for runtime)
 3. Log classification decisions for audit
@@ -441,22 +463,26 @@ model BlindIndex {
 ## Implementation Priority
 
 ### Week 1-2: Immediate Security
+
 1. Add `encryptJSON/decryptJSON` functions for large JSON blobs
 2. Add Prisma middleware to encrypt `Document.extractedData`
 3. Add Prisma middleware to encrypt `ClientProfile.data`
 4. Update read paths to decrypt on access
 
 ### Week 3-4: Key Management
+
 1. Implement key derivation (per-tenant keys)
 2. Add key rotation support
 3. Document key backup/recovery process
 
 ### Week 5-6: Blind Indexes
+
 1. Design blind index schema
 2. Implement HMAC-based indexing
 3. Add search capability for encrypted fields
 
 ### Week 7-8: Document Templates
+
 1. Define templates for top 5 UAE document types
 2. Implement document type detection
 3. Add template-based field classification

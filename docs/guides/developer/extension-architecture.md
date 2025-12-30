@@ -1,3 +1,11 @@
+---
+title: 'Chrome Extension Developer Guide'
+description: 'Technical architecture and implementation details for the IntelliFill Chrome Extension'
+category: 'how-to'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # IntelliFill Chrome Extension - Developer Guide
 
 ## Architecture Overview
@@ -56,21 +64,25 @@ extension/
 **Purpose**: Extension configuration and permissions
 
 **Key Features**:
+
 - Manifest V3 compliance
 - Minimal permissions (storage, activeTab)
 - Content scripts injected on all URLs
 - Background service worker for API calls
 
 **Important Fields**:
+
 ```json
 {
   "manifest_version": 3,
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["http://localhost:3000/*"],
-  "content_scripts": [{
-    "matches": ["<all_urls>"],
-    "run_at": "document_end"
-  }]
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "run_at": "document_end"
+    }
+  ]
 }
 ```
 
@@ -79,6 +91,7 @@ extension/
 **Purpose**: Handle API communication, authentication, and caching
 
 **Responsibilities**:
+
 - Authentication (login/logout)
 - API requests with JWT tokens
 - Profile data caching (5 minutes)
@@ -107,16 +120,17 @@ async function clearAuthToken()
 
 **Message Handlers**:
 
-| Action | Description | Response |
-|--------|-------------|----------|
-| `login` | Authenticate user | `{ success, user, token }` |
-| `logout` | Clear authentication | `{ success }` |
-| `getProfile` | Fetch user profile | `{ success, profile }` |
-| `getCurrentUser` | Get user details | `{ success, user }` |
-| `isAuthenticated` | Check auth status | `{ authenticated }` |
-| `clearCache` | Clear profile cache | `{ success }` |
+| Action            | Description          | Response                   |
+| ----------------- | -------------------- | -------------------------- |
+| `login`           | Authenticate user    | `{ success, user, token }` |
+| `logout`          | Clear authentication | `{ success }`              |
+| `getProfile`      | Fetch user profile   | `{ success, profile }`     |
+| `getCurrentUser`  | Get user details     | `{ success, user }`        |
+| `isAuthenticated` | Check auth status    | `{ authenticated }`        |
+| `clearCache`      | Clear profile cache  | `{ success }`              |
 
 **Caching Strategy**:
+
 - Cache duration: 5 minutes
 - Cache key: `profile` in chrome.storage.local
 - Cache timestamp: `profileTimestamp`
@@ -129,6 +143,7 @@ async function clearAuthToken()
 **Purpose**: Detect and categorize form fields on web pages
 
 **Key Features**:
+
 - Detects input types: text, email, tel, date, number, textarea, select
 - Auto-categorizes fields by analyzing name, id, placeholder, aria-label
 - Filters out excluded fields (password, hidden, disabled)
@@ -136,6 +151,7 @@ async function clearAuthToken()
 - MutationObserver for dynamic forms
 
 **Field Types**:
+
 ```javascript
 const FieldType = {
   TEXT: 'text',
@@ -145,11 +161,12 @@ const FieldType = {
   ADDRESS: 'address',
   SSN: 'ssn',
   NUMBER: 'number',
-  UNKNOWN: 'unknown'
+  UNKNOWN: 'unknown',
 };
 ```
 
 **Detection Patterns**:
+
 ```javascript
 const FIELD_PATTERNS = {
   [FieldType.EMAIL]: [/email/i, /e[-_]?mail/i, /mail/i],
@@ -160,11 +177,12 @@ const FIELD_PATTERNS = {
 ```
 
 **Public API**:
+
 ```javascript
-FieldDetector.detectFields()           // Returns array of field metadata
-FieldDetector.detectFieldType(element) // Returns FieldType
-FieldDetector.getFieldIdentifier(element) // Returns field name/id
-FieldDetector.observeDOMChanges(callback) // Monitor for new fields
+FieldDetector.detectFields(); // Returns array of field metadata
+FieldDetector.detectFieldType(element); // Returns FieldType
+FieldDetector.getFieldIdentifier(element); // Returns field name/id
+FieldDetector.observeDOMChanges(callback); // Monitor for new fields
 ```
 
 #### b. Autocomplete Injector (lib/autocomplete-injector.js)
@@ -172,6 +190,7 @@ FieldDetector.observeDOMChanges(callback) // Monitor for new fields
 **Purpose**: Inject autocomplete dropdown into detected fields
 
 **Key Features**:
+
 - Suggestion ranking algorithm (ported from suggestionEngine.ts)
 - Dropdown creation and positioning
 - Keyboard navigation (arrows, enter, escape)
@@ -191,11 +210,13 @@ relevanceScore =
 ```
 
 **Similarity Calculation**:
+
 - Exact match: 100
 - Substring match: 90 × (shorter/longer)
 - Levenshtein distance: 100 × (1 - distance/maxLength)
 
 **Dropdown Structure**:
+
 ```html
 <div class="intellifill-autocomplete-dropdown">
   <div class="intellifill-autocomplete-item" data-value="...">
@@ -211,10 +232,11 @@ relevanceScore =
 ```
 
 **Public API**:
+
 ```javascript
-AutocompleteInjector.injectAutocomplete(fieldData, profile)
-AutocompleteInjector.removeAutocomplete(element)
-AutocompleteInjector.getSuggestions(fieldName, fieldType, currentValue, profile)
+AutocompleteInjector.injectAutocomplete(fieldData, profile);
+AutocompleteInjector.removeAutocomplete(element);
+AutocompleteInjector.getSuggestions(fieldName, fieldType, currentValue, profile);
 ```
 
 #### c. Main Content Script (content-script.js)
@@ -222,6 +244,7 @@ AutocompleteInjector.getSuggestions(fieldName, fieldType, currentValue, profile)
 **Purpose**: Entry point that orchestrates field detection and autocomplete injection
 
 **Responsibilities**:
+
 - Initialize extension on page load
 - Fetch user profile from background script
 - Detect and process all form fields
@@ -232,6 +255,7 @@ AutocompleteInjector.getSuggestions(fieldName, fieldType, currentValue, profile)
 **Lifecycle**:
 
 1. **Initialization**
+
    ```javascript
    - Check if extension is enabled
    - Load cached profile or fetch fresh
@@ -240,6 +264,7 @@ AutocompleteInjector.getSuggestions(fieldName, fieldType, currentValue, profile)
    ```
 
 2. **Field Processing**
+
    ```javascript
    - Detect all fields using FieldDetector
    - Filter already processed fields
@@ -255,6 +280,7 @@ AutocompleteInjector.getSuggestions(fieldName, fieldType, currentValue, profile)
    ```
 
 **Keyboard Shortcuts**:
+
 ```javascript
 Ctrl+Shift+F → Force show suggestions on focused field
 Ctrl+Shift+R → Refresh profile from server
@@ -288,6 +314,7 @@ Ctrl+Shift+R → Refresh profile from server
    - Sign out button
 
 **State Management**:
+
 ```javascript
 - currentUser: User object from API
 - currentProfile: Profile object with fields
@@ -295,6 +322,7 @@ Ctrl+Shift+R → Refresh profile from server
 ```
 
 **Interactions**:
+
 - Login → Call background.login() → Show main view
 - Logout → Call background.logout() → Show login view
 - Toggle → Update storage → Notify all tabs
@@ -367,17 +395,18 @@ Re-process all fields with new data
 ## API Integration
 
 ### Base URL
+
 ```javascript
 const API_BASE_URL = 'http://localhost:3000/api';
 ```
 
 ### Endpoints Used
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/auth/login` | POST | User authentication |
-| `/users/me` | GET | Get current user details |
-| `/users/me/profile` | GET | Get aggregated user profile |
+| Endpoint            | Method | Purpose                     |
+| ------------------- | ------ | --------------------------- |
+| `/auth/login`       | POST   | User authentication         |
+| `/users/me`         | GET    | Get current user details    |
+| `/users/me/profile` | GET    | Get aggregated user profile |
 
 ### Request Format
 
@@ -386,10 +415,10 @@ const API_BASE_URL = 'http://localhost:3000/api';
 fetch(`${API_BASE_URL}/endpoint`, {
   method: 'GET',
   headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  }
-})
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  },
+});
 ```
 
 ### Response Format
@@ -420,80 +449,90 @@ fetch(`${API_BASE_URL}/endpoint`, {
 
 ### chrome.storage.local
 
-| Key | Type | Description | Duration |
-|-----|------|-------------|----------|
-| `authToken` | string | JWT authentication token | Until logout |
-| `profile` | object | Cached user profile | 5 minutes |
-| `profileTimestamp` | number | Cache timestamp (ms) | With profile |
-| `enabled` | boolean | Extension enabled state | Persistent |
-| `apiEndpoint` | string | API base URL | Persistent |
+| Key                | Type    | Description              | Duration     |
+| ------------------ | ------- | ------------------------ | ------------ |
+| `authToken`        | string  | JWT authentication token | Until logout |
+| `profile`          | object  | Cached user profile      | 5 minutes    |
+| `profileTimestamp` | number  | Cache timestamp (ms)     | With profile |
+| `enabled`          | boolean | Extension enabled state  | Persistent   |
+| `apiEndpoint`      | string  | API base URL             | Persistent   |
 
 ### Data Lifecycle
 
 ```javascript
 // Set data
-chrome.storage.local.set({ key: value })
+chrome.storage.local.set({ key: value });
 
 // Get data
 chrome.storage.local.get(['key'], (result) => {
   const value = result.key;
-})
+});
 
 // Remove data
-chrome.storage.local.remove(['key'])
+chrome.storage.local.remove(['key']);
 
 // Clear all
-chrome.storage.local.clear()
+chrome.storage.local.clear();
 ```
 
 ## Security Considerations
 
 ### 1. Token Storage
+
 - JWT tokens stored in `chrome.storage.local` (encrypted by browser)
 - Tokens cleared on logout
 - Automatic clearing on 401 errors
 
 ### 2. Content Security Policy (CSP)
+
 - No `eval()` or inline scripts
 - All scripts loaded from extension files
 - No external script loading
 
 ### 3. Permissions
+
 - **Minimal permissions**: Only `storage` and `activeTab`
 - **Host permissions**: Only for API endpoints
 - **No broad access**: No `<all_urls>` in permissions
 
 ### 4. Data Sanitization
+
 - All user input sanitized before API requests
 - All API responses validated before use
 - DOM manipulation uses textContent (not innerHTML)
 
 ### 5. HTTPS
+
 - Production API must use HTTPS
 - No mixed content
 
 ## Performance Optimization
 
 ### 1. Debouncing
+
 - Input events debounced (300ms)
 - Prevents excessive API calls
 
 ### 2. Caching
+
 - Profile cached for 5 minutes
 - Reduces API load
 - Faster suggestion display
 
 ### 3. Lazy Processing
+
 - Fields processed on-demand
 - Only visible fields processed
 - Dynamic fields processed as they appear
 
 ### 4. Memory Management
+
 - Dropdowns removed when fields removed
 - MutationObserver cleaned up
 - Event listeners properly removed
 
 ### 5. Throttling
+
 - Scroll/resize events throttled
 - Prevents excessive repositioning
 
@@ -521,42 +560,51 @@ chrome.storage.local.clear()
 ### Test Websites
 
 **E-commerce**:
+
 - Amazon checkout
 - eBay registration
 
 **Social Media**:
+
 - Facebook signup
 - LinkedIn profile
 - Twitter settings
 
 **Job Portals**:
+
 - Indeed applications
 - LinkedIn Jobs
 
 **Government**:
+
 - USCIS forms
 - State DMV sites
 
 **Email**:
+
 - Gmail compose
 - Outlook settings
 
 **Forms**:
+
 - Google Forms
 - Microsoft Forms
 - Typeform
 
 **Development**:
+
 - GitHub settings
 - GitLab profile
 
 ### Browser Compatibility
 
 Tested on:
+
 - Chrome 120+ (Manifest V3)
 - Chromium-based browsers (Edge, Brave, Opera)
 
 Not supported:
+
 - Firefox (different extension API)
 - Safari (different extension API)
 
@@ -565,6 +613,7 @@ Not supported:
 ### Chrome DevTools
 
 1. **Content Script Debugging**
+
    ```
    1. Open website
    2. Press F12
@@ -573,6 +622,7 @@ Not supported:
    ```
 
 2. **Background Script Debugging**
+
    ```
    1. Go to chrome://extensions/
    2. Find IntelliFill
@@ -623,31 +673,34 @@ console.log('IntelliFill Popup:', message);
 ## Building for Production
 
 ### 1. Update Manifest
+
 ```json
 {
-  "host_permissions": [
-    "https://api.intellifill.com/*"
-  ]
+  "host_permissions": ["https://api.intellifill.com/*"]
 }
 ```
 
 ### 2. Generate Icons
+
 - Create proper 16x16, 48x48, 128x128 PNG icons
 - Replace placeholder icons
 
 ### 3. Test Thoroughly
+
 - Test on 20+ websites
 - Test all features
 - Check for console errors
 - Verify performance
 
 ### 4. Prepare Store Assets
+
 - 5 screenshots (1280x800 or 640x400)
 - Promotional images
 - Detailed description
 - Privacy policy
 
 ### 5. Package Extension
+
 ```bash
 # Create ZIP for Chrome Web Store
 cd extension
@@ -655,6 +708,7 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 ```
 
 ### 6. Submit to Chrome Web Store
+
 1. Create developer account ($5 fee)
 2. Upload ZIP file
 3. Fill in store listing details
@@ -663,6 +717,7 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 ## Chrome Web Store Requirements
 
 ### Manifest Requirements
+
 - ✅ Manifest V3
 - ✅ Clear, concise description
 - ✅ Minimal permissions
@@ -670,18 +725,21 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 - ✅ No remote code execution
 
 ### Code Requirements
+
 - ✅ No eval() or Function() constructor
 - ✅ No inline scripts (CSP compliant)
 - ✅ All scripts bundled with extension
 - ✅ No external libraries loaded at runtime
 
 ### Privacy Requirements
+
 - ✅ Privacy policy published
 - ✅ Clear explanation of data usage
 - ✅ No tracking without user consent
 - ✅ Secure data handling
 
 ### UI Requirements
+
 - ✅ Professional icons
 - ✅ Clear, user-friendly interface
 - ✅ Helpful error messages
@@ -690,6 +748,7 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 ## Future Enhancements
 
 ### Planned Features
+
 - [ ] Multi-language support (i18n)
 - [ ] Custom field mappings
 - [ ] Form templates
@@ -704,6 +763,7 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 - [ ] Analytics dashboard
 
 ### Performance Improvements
+
 - [ ] IndexedDB for larger profile data
 - [ ] Web Workers for heavy computation
 - [ ] Virtual scrolling for large dropdowns
@@ -711,6 +771,7 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 - [ ] Service Worker caching strategies
 
 ### Developer Experience
+
 - [ ] TypeScript migration
 - [ ] Build system (Webpack/Rollup)
 - [ ] Automated testing (Jest, Playwright)
@@ -724,17 +785,20 @@ zip -r ../intellifill-extension-v1.0.0.zip * -x "*.DS_Store" -x "node_modules/*"
 ### Setup Development Environment
 
 1. Clone repository
+
 ```bash
 git clone https://github.com/yourorg/intellifill.git
 cd intellifill/extension
 ```
 
 2. Load extension in Chrome
+
 ```
 chrome://extensions/ → Load unpacked → Select extension folder
 ```
 
 3. Make changes and reload
+
 ```
 chrome://extensions/ → Click reload icon
 ```

@@ -1,3 +1,11 @@
+---
+title: 'Context Optimization Guide'
+description: 'Strategies to reduce Claude Code context usage for the IntelliFill project'
+category: 'how-to'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Claude Code Context Optimization Guide
 
 This guide documents strategies to reduce Claude Code context usage for the IntelliFill project.
@@ -6,14 +14,14 @@ This guide documents strategies to reduce Claude Code context usage for the Inte
 
 Claude Code loads all configured MCP servers, agents, and memory files at startup. Before any conversation begins, significant context is consumed:
 
-| Component | Tokens | % of 200k |
-|-----------|--------|-----------|
-| System prompt | ~3.1k | 1.5% |
-| System tools | ~19.4k | 9.7% |
-| MCP tools | ~11.6k | 5.8% |
-| Custom agents | ~3.2k | 1.6% |
-| Memory files | ~3.2k | 1.6% |
-| **Total overhead** | **~40.5k** | **20%+** |
+| Component          | Tokens     | % of 200k |
+| ------------------ | ---------- | --------- |
+| System prompt      | ~3.1k      | 1.5%      |
+| System tools       | ~19.4k     | 9.7%      |
+| MCP tools          | ~11.6k     | 5.8%      |
+| Custom agents      | ~3.2k      | 1.6%      |
+| Memory files       | ~3.2k      | 1.6%      |
+| **Total overhead** | **~40.5k** | **20%+**  |
 
 This leaves less context for actual conversation and code.
 
@@ -54,52 +62,60 @@ The CLAUDE.local.md file at project root is loaded on every session. Keep it con
 
 ## MCP Server Token Usage
 
-| Server | Tools | Tokens | When Needed |
-|--------|-------|--------|-------------|
-| task-master-ai | (agents) | ~0 | Always - task management |
-| context7 | 2 | ~1.8k | Often - docs lookup |
-| sequential-thinking | 1 | ~1.6k | Rarely - complex reasoning |
-| magic | 4 | ~3.4k | Sometimes - UI generation |
-| puppeteer | 8 | ~4.8k | Rarely - browser testing |
+| Server              | Tools    | Tokens | When Needed                |
+| ------------------- | -------- | ------ | -------------------------- |
+| task-master-ai      | (agents) | ~0     | Always - task management   |
+| context7            | 2        | ~1.8k  | Often - docs lookup        |
+| sequential-thinking | 1        | ~1.6k  | Rarely - complex reasoning |
+| magic               | 4        | ~3.4k  | Sometimes - UI generation  |
+| puppeteer           | 8        | ~4.8k  | Rarely - browser testing   |
 
 ## Custom Agent Token Usage
 
-| Agent | Tokens | When Needed |
-|-------|--------|-------------|
-| taskmaster agents (3) | ~889 | Task-driven development |
-| frontend-developer | ~327 | React/UI work |
-| devops-automator | ~334 | CI/CD setup |
-| n8n-workflow-builder | ~464 | Automation workflows |
-| mobile-* agents | ~600+ | Mobile development |
+| Agent                 | Tokens | When Needed             |
+| --------------------- | ------ | ----------------------- |
+| taskmaster agents (3) | ~889   | Task-driven development |
+| frontend-developer    | ~327   | React/UI work           |
+| devops-automator      | ~334   | CI/CD setup             |
+| n8n-workflow-builder  | ~464   | Automation workflows    |
+| mobile-\* agents      | ~600+  | Mobile development      |
 
 ## Recommended Configurations
 
 ### Daily Development
+
 ```powershell
 .\scripts\mcp-toggle.ps1 -Mode minimal
 ```
+
 - taskmaster for task tracking
 - context7 for documentation lookup
 - ~2.8k tokens, saves ~9k vs full
 
 ### UI Component Work
+
 ```powershell
 .\scripts\mcp-toggle.ps1 -Mode ui
 ```
+
 - Add magic/21st.dev for component generation
 - ~6.2k tokens
 
 ### Browser Testing
+
 ```powershell
 .\scripts\mcp-toggle.ps1 -Mode browser
 ```
+
 - Add puppeteer for automated testing
 - ~7.6k tokens
 
 ### Complex Analysis
+
 ```powershell
 .\scripts\mcp-toggle.ps1 -Mode standard
 ```
+
 - Add sequential-thinking for complex reasoning
 - ~4.4k tokens
 
@@ -110,6 +126,7 @@ If you need to edit the global config directly:
 **Location**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 Remove servers you don't need:
+
 ```json
 {
   "mcpServers": {

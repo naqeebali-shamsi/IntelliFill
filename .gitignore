@@ -47,3 +47,14 @@ cypress.env.json
 # Temp files
 *.tmp
 *.temp
+
+# MCP/Tool artifacts
+.playwright-mcp/
+.serena/
+
+# Personal/temporary docs
+CODEBASE_REVIEW_*.md
+deployment-debugging-odyssey.md
+
+# Sample test files
+sample-pdfs/

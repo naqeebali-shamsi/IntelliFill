@@ -1,3 +1,11 @@
+---
+title: 'Reference'
+description: 'Information-oriented technical descriptions of the system machinery and how to operate it'
+category: 'reference'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # Reference
 
 Reference documentation is **information-oriented** and provides technical descriptions of the system. It describes the machinery and how to operate it.

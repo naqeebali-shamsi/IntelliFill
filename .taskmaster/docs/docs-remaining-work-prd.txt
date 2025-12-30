@@ -1,0 +1,48 @@
+# Documentation Remaining Work PRD
+
+## Overview
+Follow-up tasks identified during documentation restructuring that need completion.
+
+## Requirements
+
+### 1. Add YAML Frontmatter to Documentation Files
+Add consistent YAML frontmatter to all ~225 documentation files that are missing it.
+
+**Acceptance Criteria:**
+- All markdown files in docs/ have frontmatter with: title, description, category, lastUpdated, status
+- Use template from docs/.meta/templates/
+- Batch process files by directory to manage scope
+- Priority: tutorials/, how-to/, reference/, explanation/ directories first
+
+**Technical Notes:**
+- Previous attempt hit context limits - use batch processing approach
+- ~225 files need frontmatter based on quality-report.md
+- Categories: tutorials, how-to, reference, explanation, ai-development
+
+### 2. Migrate Unique Files from quikadmin/docs/
+Migrate 15 unique documentation files from quikadmin/docs/ to the main docs/ directory.
+
+**Acceptance Criteria:**
+- Files identified in docs/.meta/quikadmin-docs-review.md are migrated
+- Update all cross-references after migration
+- Remove migrated files from quikadmin/docs/
+- Verify no broken links after migration
+
+**Technical Notes:**
+- See docs/.meta/quikadmin-docs-review.md for specific files
+- Target locations based on Diataxis category
+- Update quikadmin/CLAUDE.md references if needed
+
+### 3. Archive Duplicate Files from quikadmin/docs/
+Archive ~95 duplicate/outdated files from quikadmin/docs/ that duplicate content in main docs/.
+
+**Acceptance Criteria:**
+- Create quikadmin/docs/_archive/ structure
+- Move identified duplicates to archive
+- Add README explaining archived status
+- Keep ~10 backend-specific files in quikadmin/docs/
+
+**Technical Notes:**
+- See docs/.meta/quikadmin-docs-review.md for file categorization
+- Duplicates identified: numbered prefix docs (100-600 series), old architecture docs
+- Preserve git history with git mv

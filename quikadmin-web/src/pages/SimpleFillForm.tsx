@@ -1,11 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileUp,
   Download,
@@ -16,10 +11,22 @@ import {
   AlertCircle,
   Info,
   User,
+  Check,
+  Upload,
+  Sparkles,
+  Settings2,
 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import api, { validateForm } from '@/services/api';
 import { toast } from 'sonner';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
+import api, { validateForm } from '@/services/api';
+
 import { FieldMappingTable } from '@/components/features/field-mapping-table';
 import { TemplateManager } from '@/components/features/template-manager';
 import { ProfileSelector } from '@/components/features/profile-selector';
@@ -75,6 +82,79 @@ interface ProfileDataResponse {
   };
 }
 
+// Animation Variants
+const stepVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 50 : -50,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 50 : -50,
+    opacity: 0,
+  }),
+};
+
+// Stepper Component
+const FormStepper = ({ currentStep }: { currentStep: 'upload' | 'map' | 'process' }) => {
+  const steps = [
+    { id: 'upload', label: 'Upload', icon: Upload },
+    { id: 'map', label: 'Review & Map', icon: Settings2 },
+    { id: 'process', label: 'Download', icon: Download },
+  ];
+
+  const getStepIndex = (stepId: string) => steps.findIndex((s) => s.id === stepId);
+  const currentIndex = getStepIndex(currentStep);
+
+  return (
+    <div className="relative flex items-center justify-between mb-8 px-4">
+      {/* Connector Lines */}
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-white/10 -z-10" />
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-in-out -z-10"
+        style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
+      />
+
+      {steps.map((step, index) => {
+        const isActive = index === currentIndex;
+        const isCompleted = index < currentIndex;
+        const Icon = step.icon;
+
+        return (
+          <div
+            key={step.id}
+            className="flex flex-col items-center bg-background/5 p-2 rounded-xl backdrop-blur-sm"
+          >
+            <div
+              className={cn(
+                'relative flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300',
+                isActive
+                  ? 'border-primary bg-primary text-primary-foreground shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-110'
+                  : isCompleted
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-muted bg-background text-muted-foreground'
+              )}
+            >
+              {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+            </div>
+            <span
+              className={cn(
+                'mt-2 text-xs font-medium transition-colors',
+                isActive || isCompleted ? 'text-foreground' : 'text-muted-foreground'
+              )}
+            >
+              {step.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export default function SimpleFillForm() {
   const [blankForm, setBlankForm] = useState<File | null>(null);
   const [filling, setFilling] = useState(false);
@@ -84,8 +164,9 @@ export default function SimpleFillForm() {
   const [mappings, setMappings] = useState<FieldMapping[]>([]);
   const [validatingForm, setValidatingForm] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [direction, setDirection] = useState(0); // For animation direction
 
-  // Fetch ALL user's aggregated data (fallback when no profile selected)
+  // Fetch ALL user's aggregated data
   const {
     data: userData,
     isLoading: loadingUserData,
@@ -93,7 +174,7 @@ export default function SimpleFillForm() {
   } = useQuery<UserDataResponse>({
     queryKey: ['user-data'],
     queryFn: () => api.get('/users/me/data').then((res) => res.data),
-    staleTime: 60000, // Cache for 1 minute
+    staleTime: 60000,
     retry: 1,
   });
 
@@ -105,20 +186,12 @@ export default function SimpleFillForm() {
   } = useQuery<ProfileDataResponse>({
     queryKey: ['profile-data', selectedProfile?.id],
     queryFn: () => api.get(`/clients/${selectedProfile!.id}/profile`).then((res) => res.data),
-    enabled: !!selectedProfile?.id, // Only fetch when a profile is selected
-    staleTime: 30000, // Cache for 30 seconds
+    enabled: !!selectedProfile?.id,
+    staleTime: 30000,
     retry: 1,
   });
 
-  // Compute the effective data to use for form filling
-  // Priority: Profile data > Document aggregated data
-  const effectiveData = useMemo((): {
-    fields: Record<string, any>;
-    fieldSources: Record<string, any>;
-    source: 'profile' | 'documents' | 'none';
-    fieldCount: number;
-  } => {
-    // If profile is selected and has data, use profile data
+  const effectiveData = useMemo(() => {
     if (selectedProfile && profileData?.data?.profile?.data) {
       const profileFields = profileData.data.profile.data;
       const fieldCount = Object.keys(profileFields).length;
@@ -126,36 +199,34 @@ export default function SimpleFillForm() {
         return {
           fields: profileFields,
           fieldSources: profileData.data.profile.fieldSources || {},
-          source: 'profile',
+          source: 'profile' as const,
           fieldCount,
         };
       }
     }
 
-    // Fall back to document-aggregated data
     if (userData?.data?.fields) {
       const fieldCount = Object.keys(userData.data.fields).length;
       return {
         fields: userData.data.fields,
         fieldSources: userData.fieldSources || {},
-        source: 'documents',
+        source: 'documents' as const,
         fieldCount,
       };
     }
 
-    return { fields: {}, fieldSources: {}, source: 'none', fieldCount: 0 };
+    return { fields: {}, fieldSources: {}, source: 'none' as const, fieldCount: 0 };
   }, [selectedProfile, profileData, userData]);
 
-  // Handle profile selection change
   const handleProfileChange = (profile: Profile | null) => {
     setSelectedProfile(profile);
-    // Reset form state when profile changes
     if (currentStep !== 'upload') {
       setBlankForm(null);
       setFormFields([]);
       setMappings([]);
       setResult(null);
       setCurrentStep('upload');
+      setDirection(-1);
     }
   };
 
@@ -172,12 +243,9 @@ export default function SimpleFillForm() {
       setFormFields([]);
       setMappings([]);
 
-      // Validate form and extract fields
       try {
         setValidatingForm(true);
         const validation = await validateForm(file);
-
-        // Convert field names to FormField objects
         const fields: FormField[] = validation.fields.map((name) => ({
           name,
           type: validation.fieldTypes?.[name] || 'text',
@@ -186,7 +254,6 @@ export default function SimpleFillForm() {
 
         setFormFields(fields);
 
-        // Check if we have any data to use
         if (effectiveData.fieldCount === 0) {
           if (selectedProfile) {
             toast.error('No profile data available. Please add data to this profile first.');
@@ -199,16 +266,17 @@ export default function SimpleFillForm() {
           return;
         }
 
-        // Auto-generate mappings from effective data (profile or documents)
         const autoMappings = generateAutoMappings(fields, effectiveData.fields);
         setMappings(autoMappings);
+
+        setDirection(1);
         setCurrentStep('map');
 
         const sourceDescription =
           effectiveData.source === 'profile'
             ? `profile "${selectedProfile?.name}"`
             : `${userData?.documentCount || 0} document(s)`;
-        toast.success(`Form uploaded: ${file.name} (${fields.length} fields detected)`, {
+        toast.success(`Form uploaded: ${file.name}`, {
           description: `Using ${effectiveData.fieldCount} fields from ${sourceDescription}`,
         });
       } catch (error: any) {
@@ -231,11 +299,8 @@ export default function SimpleFillForm() {
 
   const handleResetMapping = (formField: string) => {
     if (effectiveData.fieldCount === 0) return;
-
-    // Reset to auto-mapping using effective data
     const autoMappings = generateAutoMappings(formFields, effectiveData.fields);
     const autoMapping = autoMappings.find((m) => m.formField === formField);
-
     if (autoMapping) {
       setMappings((prev) => prev.map((m) => (m.formField === formField ? autoMapping : m)));
       toast.success('Mapping reset to auto-detection');
@@ -243,7 +308,6 @@ export default function SimpleFillForm() {
   };
 
   const handleLoadTemplate = (template: MappingTemplate) => {
-    // Apply template mappings to current mappings
     const updatedMappings = mappings.map((m) => ({
       ...m,
       documentField: template.mappings[m.formField] || m.documentField,
@@ -254,13 +318,12 @@ export default function SimpleFillForm() {
   };
 
   const handleContinueToFill = () => {
-    // Validate mappings
     const validation = validateMappings(formFields, mappings);
     if (!validation.valid) {
       toast.error(validation.errors[0]);
       return;
     }
-
+    setDirection(1);
     setCurrentStep('process');
     handleFillForm();
   };
@@ -270,21 +333,13 @@ export default function SimpleFillForm() {
 
     try {
       setFilling(true);
-
-      // Create form data with the blank form
       const formData = new FormData();
       formData.append('form', blankForm);
-
-      // Add custom mappings
       const mappingsRecord: Record<string, string> = {};
       mappings.forEach((m) => {
-        if (m.documentField) {
-          mappingsRecord[m.formField] = m.documentField;
-        }
+        if (m.documentField) mappingsRecord[m.formField] = m.documentField;
       });
 
-      // Add the effective data (profile or documents) to the request
-      // Wrap in { fields: ... } format expected by the backend
       const dataPayload =
         effectiveData.source === 'profile'
           ? { fields: effectiveData.fields }
@@ -293,7 +348,6 @@ export default function SimpleFillForm() {
       formData.append('mappings', JSON.stringify(mappingsRecord));
       formData.append('userData', JSON.stringify(dataPayload));
 
-      // Use the endpoint that fills using user data
       const response = await api.post('/users/me/fill-form', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -307,12 +361,11 @@ export default function SimpleFillForm() {
         warnings: response.data.warnings,
       });
 
-      toast.success('Form filled successfully!', {
-        description: `${response.data.filledFields} fields filled with ${(response.data.confidence * 100).toFixed(0)}% confidence`,
-      });
+      toast.success('Form filled successfully!');
     } catch (error: any) {
       console.error('Form filling failed:', error);
       toast.error(error.response?.data?.error || 'Failed to fill form');
+      setDirection(-1);
       setCurrentStep('map');
     } finally {
       setFilling(false);
@@ -324,20 +377,16 @@ export default function SimpleFillForm() {
     setFormFields([]);
     setMappings([]);
     setResult(null);
+    setDirection(-1);
     setCurrentStep('upload');
-    // Note: We don't reset selectedProfile to keep the user's profile choice
   };
 
   const handleDownload = async () => {
     if (!result?.downloadUrl) return;
-
     try {
-      // Use authenticated API request to download the file
       const response = await api.get(result.downloadUrl.replace(/^\/api/, ''), {
         responseType: 'blob',
       });
-
-      // Create blob URL and trigger download
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -347,350 +396,222 @@ export default function SimpleFillForm() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
       toast.success('Download started!');
     } catch (error: any) {
-      console.error('Download failed:', error);
       toast.error(error.response?.data?.error || 'Failed to download file');
     }
   };
 
-  const getFieldSource = (fieldName: string | null): string => {
-    if (!fieldName) return 'Unknown';
-
-    // For profile data, use the profile's field sources
-    if (effectiveData.source === 'profile') {
-      const source = effectiveData.fieldSources[fieldName];
-      return source || selectedProfile?.name || 'Profile';
-    }
-
-    // For document data, show document sources
-    if (!userData?.fieldSources) return 'Unknown';
-    const sources = userData.fieldSources[fieldName];
-    if (!sources || sources.length === 0) return 'Unknown';
-
-    if (sources.length === 1) {
-      return sources[0].fileName;
-    }
-
-    return `${sources[0].fileName} +${sources.length - 1} more`;
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-5xl mx-auto pb-20">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Intelligent Form Filling</h1>
-        <p className="text-muted-foreground">
-          Select a profile and upload a blank form to auto-fill it with your data
+        <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
+          Intelligent Fill
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Auto-fill PDF forms using your saved profile data.
         </p>
       </div>
 
-      {/* Profile Selection */}
-      <ProfileSelector
-        selectedProfile={selectedProfile}
-        onProfileChange={handleProfileChange}
-        disabled={currentStep !== 'upload'}
-      />
+      <FormStepper currentStep={currentStep} />
 
-      {/* Data Status Banner */}
-      {loadingUserData || loadingProfileData ? (
-        <Alert>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <AlertDescription>
-            {loadingProfileData ? 'Loading profile data...' : 'Loading your document data...'}
-          </AlertDescription>
-        </Alert>
-      ) : userDataError || profileDataError ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load your data. Please try refreshing the page.
-          </AlertDescription>
-        </Alert>
-      ) : !selectedProfile ? (
-        <Alert>
-          <User className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Select a profile</strong> to continue. Your profile data will be used to
-            auto-fill the form.
-          </AlertDescription>
-        </Alert>
-      ) : effectiveData.source === 'profile' && effectiveData.fieldCount > 0 ? (
-        <Alert>
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription>
-            <strong>Ready to fill forms!</strong> Using {effectiveData.fieldCount} fields from
-            profile "{selectedProfile.name}".
-          </AlertDescription>
-        </Alert>
-      ) : effectiveData.source === 'documents' && effectiveData.fieldCount > 0 ? (
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Profile has no data.</strong> Using {effectiveData.fieldCount} fields from{' '}
-            {userData?.documentCount || 0} processed document(s) instead. Consider adding data to
-            your profile for better results.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>No data available.</strong> Please add data to your profile or upload documents
-            to enable form filling.
-          </AlertDescription>
-        </Alert>
-      )}
+      <motion.div
+        key={currentStep}
+        custom={direction}
+        variants={stepVariants}
+        initial="enter"
+        animate="center"
+        exit="exit"
+        transition={{
+          x: { type: 'spring', stiffness: 300, damping: 30 },
+          opacity: { duration: 0.2 },
+        }}
+        className="glass-panel p-6 rounded-2xl border border-white/10"
+      >
+        {currentStep === 'upload' && (
+          <div className="space-y-8">
+            {/* Profile Selection - Prominent */}
+            <div className="bg-white/5 p-6 rounded-xl border border-white/5">
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                1. Select Identity Source
+              </h3>
+              <ProfileSelector
+                selectedProfile={selectedProfile}
+                onProfileChange={handleProfileChange}
+                disabled={currentStep !== 'upload'}
+              />
 
-      <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as any)}>
-        <TabsList>
-          <TabsTrigger value="upload" disabled={currentStep !== 'upload'}>
-            1. Upload Form
-          </TabsTrigger>
-          <TabsTrigger value="map" disabled={currentStep === 'upload' || !!result}>
-            2. Review Auto-Fill
-          </TabsTrigger>
-          <TabsTrigger value="process" disabled={!result}>
-            3. Download
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Step 1: Upload blank form */}
-        <TabsContent value="upload">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileUp className="h-5 w-5" />
-                Upload Blank Form
-              </CardTitle>
-              <CardDescription>
-                Select a PDF form to fill. We'll auto-fill it using data from the selected profile.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="form-upload">Blank Form (PDF)</Label>
-                  <Input
-                    id="form-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFormUpload}
-                    disabled={
-                      validatingForm ||
-                      loadingUserData ||
-                      loadingProfileData ||
-                      effectiveData.fieldCount === 0 ||
-                      !selectedProfile
-                    }
-                  />
-                  {!selectedProfile && (
-                    <p className="text-sm text-muted-foreground">
-                      Please select a profile above before uploading a form
-                    </p>
-                  )}
-                  {selectedProfile && effectiveData.fieldCount === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      Please add data to your profile or upload documents first
-                    </p>
-                  )}
-                </div>
-                {blankForm && (
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{blankForm.name}</span>
-                    {validatingForm ? (
-                      <Badge variant="outline" className="ml-auto">
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Analyzing...
-                      </Badge>
-                    ) : (
-                      <Badge variant="default" className="ml-auto">
-                        {formFields.length} fields detected
-                      </Badge>
-                    )}
+              {/* Data Status */}
+              <div className="mt-4">
+                {effectiveData.fieldCount > 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-emerald-500 bg-emerald-500/10 px-3 py-2 rounded-lg w-fit">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>
+                      Ready: {effectiveData.fieldCount} fields available from{' '}
+                      {effectiveData.source === 'profile' ? 'profile' : 'documents'}
+                    </span>
+                  </div>
+                ) : selectedProfile ? (
+                  <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-lg w-fit">
+                    <Info className="h-4 w-4" />
+                    <span>Profile has no data. Add data or upload documents to continue.</span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground ml-2">
+                    Select a profile to see available data.
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
 
-        {/* Step 2: Review and adjust field mappings */}
-        <TabsContent value="map">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Auto-Fill Preview</CardTitle>
-                  <CardDescription>
-                    Review AI-generated field mappings
-                    {selectedProfile ? ` for "${selectedProfile.name}"` : ''}.
-                    {effectiveData.source === 'profile'
-                      ? ` Using ${effectiveData.fieldCount} fields from profile.`
-                      : ` Using ${effectiveData.fieldCount} fields from ${userData?.documentCount || 0} document(s).`}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FieldMappingTable
-                    formFields={formFields}
-                    documentData={effectiveData.fields}
-                    mappings={mappings}
-                    onMappingChange={handleMappingChange}
-                    onResetMapping={handleResetMapping}
-                    fieldSources={
-                      effectiveData.source === 'profile' ? {} : userData?.fieldSources || {}
-                    }
-                  />
-                </CardContent>
-              </Card>
+            {/* Upload Drop Zone */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                2. Upload Target Form
+              </h3>
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep('upload')}>
-                  Back to Upload
-                </Button>
-                <Button onClick={handleContinueToFill} disabled={filling}>
-                  {filling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Filling Form...
-                    </>
+              <div
+                className={cn(
+                  'border-2 border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:bg-white/5 hover:border-primary/30 transition-all cursor-pointer relative',
+                  (!selectedProfile || effectiveData.fieldCount === 0) &&
+                    'opacity-50 pointer-events-none'
+                )}
+              >
+                <Input
+                  id="form-upload"
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFormUpload}
+                  disabled={validatingForm || !selectedProfile || effectiveData.fieldCount === 0}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
+                  {validatingForm ? (
+                    <Loader2 className="h-8 w-8 animate-spin" />
                   ) : (
-                    <>
-                      Fill Form
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </>
+                    <Upload className="h-8 w-8" />
                   )}
+                </div>
+                <h4 className="text-lg font-medium mb-1">
+                  {validatingForm ? 'Analyzing Form...' : 'Drop your PDF here'}
+                </h4>
+                <p className="text-sm text-muted-foreground">or click to browse</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 'map' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">Review Mappings</h2>
+                  <p className="text-sm text-muted-foreground">Verify how fields will be filled</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary">
+                    {mappings.filter((m) => m.documentField).length}/{formFields.length} Mapped
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="bg-background/20 rounded-xl border border-white/5 overflow-hidden">
+                <FieldMappingTable
+                  formFields={formFields}
+                  documentData={effectiveData.fields}
+                  mappings={mappings}
+                  onMappingChange={handleMappingChange}
+                  onResetMapping={handleResetMapping}
+                  fieldSources={
+                    effectiveData.source === 'profile' ? {} : userData?.fieldSources || {}
+                  }
+                />
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDirection(-1);
+                    setCurrentStep('upload');
+                  }}
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handleContinueToFill}
+                  disabled={filling}
+                  className="shadow-lg shadow-primary/20"
+                >
+                  {filling ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  Fill Form
                 </Button>
               </div>
             </div>
 
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Templates</CardTitle>
-                  <CardDescription className="text-sm">
-                    Save or load field mapping templates
-                  </CardDescription>
+                  <CardTitle className="text-base">Quick Templates</CardTitle>
+                  <CardDescription>Apply saved mappings</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <TemplateManager currentMappings={mappings} onLoadTemplate={handleLoadTemplate} />
                 </CardContent>
               </Card>
-
-              {/* Data Source Summary */}
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle className="text-base">Data Sources</CardTitle>
-                  <CardDescription className="text-sm">
-                    {effectiveData.source === 'profile'
-                      ? 'Profile data used for auto-fill'
-                      : 'Documents used for auto-fill'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {effectiveData.source === 'profile' && selectedProfile ? (
-                      <div className="flex items-start gap-2 text-sm">
-                        <User className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{selectedProfile.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {effectiveData.fieldCount} fields from profile
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      userData?.sources.map((source) => (
-                        <div key={source.documentId} className="flex items-start gap-2 text-sm">
-                          <FileText className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{source.fileName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {source.fields.length} fields
-                              {source.confidence &&
-                                ` • ${(source.confidence * 100).toFixed(0)}% confidence`}
-                            </p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
-        </TabsContent>
+        )}
 
-        {/* Step 3: Download result */}
-        <TabsContent value="process">
-          {result && (
-            <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                  <CheckCircle className="h-5 w-5" />
-                  Form Filled Successfully
-                </CardTitle>
-                <CardDescription>Your filled form is ready to download</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground block">Confidence</span>
-                    <span className="font-medium text-lg">
-                      {(result.confidence * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block">Fields Filled</span>
-                    <span className="font-medium text-lg">
-                      {result.filledFields}/{result.totalFields}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block">Data Source</span>
-                    <span className="font-medium text-lg">
-                      {effectiveData.source === 'profile'
-                        ? 'Profile'
-                        : `${userData?.documentCount || 0} doc(s)`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block">Completion</span>
-                    <span className="font-medium text-lg">
-                      {((result.filledFields / result.totalFields) * 100).toFixed(0)}%
-                    </span>
-                  </div>
+        {currentStep === 'process' && result && (
+          <div className="max-w-2xl mx-auto text-center py-10">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-green-500/5"
+            >
+              <CheckCircle className="h-10 w-10" />
+            </motion.div>
+
+            <h2 className="text-2xl font-bold mb-2">Form Filled Successfully!</h2>
+            <p className="text-muted-foreground mb-8">
+              Your document has been processed and is ready.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto mb-8">
+              <div className="bg-white/5 p-4 rounded-xl">
+                <div className="text-sm text-muted-foreground mb-1">Confidence Score</div>
+                <div className="text-2xl font-mono font-bold">
+                  {(result.confidence * 100).toFixed(0)}%
                 </div>
-
-                {result.warnings && result.warnings.length > 0 && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>Warnings:</strong>
-                      <ul className="list-disc list-inside mt-1 text-sm">
-                        {result.warnings.map((warning, i) => (
-                          <li key={i}>{warning}</li>
-                        ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={handleDownload}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Filled Form
-                  </Button>
-                  <Button variant="outline" onClick={handleReset}>
-                    Fill Another
-                  </Button>
+              </div>
+              <div className="bg-white/5 p-4 rounded-xl">
+                <div className="text-sm text-muted-foreground mb-1">Fields Filled</div>
+                <div className="text-2xl font-mono font-bold">
+                  {result.filledFields}/{result.totalFields}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+              </div>
+            </div>
+
+            <div className="flex gap-4 justify-center">
+              <Button variant="outline" onClick={handleReset}>
+                Start Over
+              </Button>
+              <Button onClick={handleDownload} size="lg" className="shadow-xl shadow-primary/20">
+                <Download className="mr-2 h-5 w-5" />
+                Download PDF
+              </Button>
+            </div>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 }

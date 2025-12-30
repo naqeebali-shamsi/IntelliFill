@@ -1,3 +1,11 @@
+---
+title: 'AI Development'
+description: 'Guides for AI-assisted development of IntelliFill including workflows, integrations, and best practices'
+category: 'ai-development'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # AI Development
 
 This section contains guides specifically for AI-assisted development of IntelliFill. It covers workflows, integrations, and best practices for working with AI agents.
@@ -9,6 +17,7 @@ This section contains guides specifically for AI-assisted development of Intelli
 ### [Agentic Workflows](./agentic-workflows.md)
 
 Working effectively with AI agents:
+
 - Session initialization
 - Context management
 - Task execution patterns
@@ -17,6 +26,7 @@ Working effectively with AI agents:
 ### [MCP Integration](./mcp-integration.md)
 
 Model Context Protocol setup and usage:
+
 - MCP server configuration
 - Available tools
 - Task Master integration
@@ -28,12 +38,12 @@ Model Context Protocol setup and usage:
 
 AI agents should read these files in order:
 
-| Order | File | Purpose |
-|-------|------|---------|
-| 1 | [CLAUDE.local.md](../../CLAUDE.local.md) | Local development context |
-| 2 | [AGENTS.md](../../AGENTS.md) | Unified agent guide |
-| 3 | [quikadmin/CLAUDE.md](../../quikadmin/CLAUDE.md) | Backend AI context |
-| 4 | [quikadmin-web/CLAUDE.md](../../quikadmin-web/CLAUDE.md) | Frontend AI context |
+| Order | File                                                     | Purpose                   |
+| ----- | -------------------------------------------------------- | ------------------------- |
+| 1     | [CLAUDE.local.md](../../CLAUDE.local.md)                 | Local development context |
+| 2     | [AGENTS.md](../../AGENTS.md)                             | Unified agent guide       |
+| 3     | [quikadmin/CLAUDE.md](../../quikadmin/CLAUDE.md)         | Backend AI context        |
+| 4     | [quikadmin-web/CLAUDE.md](../../quikadmin-web/CLAUDE.md) | Frontend AI context       |
 
 ---
 
@@ -68,6 +78,7 @@ IntelliFill/
 ### 4. Update Documentation
 
 When making changes:
+
 - Update relevant docs in `docs/`
 - Update API docs for endpoint changes
 - Update context files if architecture changes
@@ -121,4 +132,3 @@ See [MCP Integration](./mcp-integration.md) for full details.
 - [CLAUDE.local.md](../../CLAUDE.local.md) - Local development context
 - [AGENTS.md](../../AGENTS.md) - Unified agent guide
 - [.cursorrules](../../.cursorrules) - Cursor IDE rules
-

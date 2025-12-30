@@ -1,3 +1,11 @@
+---
+title: 'Chrome Extension User Guide'
+description: 'User guide for installing and using the IntelliFill Chrome Extension for intelligent form autofill'
+category: 'tutorials'
+lastUpdated: '2025-12-30'
+status: 'active'
+---
+
 # IntelliFill Chrome Extension - User Guide
 
 ## Overview
@@ -51,14 +59,14 @@ Your profile data will be automatically fetched and cached.
 
 IntelliFill supports several keyboard shortcuts for power users:
 
-| Shortcut | Action |
-|----------|--------|
+| Shortcut       | Action                                   |
+| -------------- | ---------------------------------------- |
 | `Ctrl+Shift+F` | Force show suggestions for focused field |
-| `Ctrl+Shift+R` | Refresh profile data from server |
-| `↑` / `↓` | Navigate through suggestions |
-| `Enter` | Select highlighted suggestion |
-| `Esc` | Close suggestion dropdown |
-| `Tab` | Close dropdown and move to next field |
+| `Ctrl+Shift+R` | Refresh profile data from server         |
+| `↑` / `↓`      | Navigate through suggestions             |
+| `Enter`        | Select highlighted suggestion            |
+| `Esc`          | Close suggestion dropdown                |
+| `Tab`          | Close dropdown and move to next field    |
 
 ## Features
 
@@ -94,6 +102,7 @@ Each suggestion shows a confidence badge:
 ### Dynamic Form Support
 
 IntelliFill works with:
+
 - Static HTML forms
 - Dynamically loaded forms (AJAX, React, Vue, Angular)
 - Single-page applications (SPAs)
@@ -105,39 +114,46 @@ IntelliFill works with:
 IntelliFill has been tested on:
 
 ### Email & Communication
+
 - Gmail (compose, settings)
 - Outlook.com
 - Yahoo Mail
 
 ### Social Media
+
 - Facebook (signup, profile)
 - LinkedIn (profile, job applications)
 - Twitter/X (signup, settings)
 
 ### Job Portals
+
 - Indeed (job applications)
 - LinkedIn Jobs
 - Monster.com
 - ZipRecruiter
 
 ### Government Forms
+
 - USCIS.gov (immigration forms)
 - IRS.gov (tax forms)
 - State DMV websites
 - Healthcare.gov
 
 ### E-Commerce
+
 - Amazon (checkout, address)
 - eBay (registration)
 - Shopify stores
 
 ### Productivity
+
 - Google Forms
 - Microsoft Forms
 - Typeform
 - JotForm
 
 ### Development
+
 - GitHub (profile settings)
 - GitLab
 - Stack Overflow
@@ -159,10 +175,12 @@ IntelliFill has been tested on:
 ### What Data is Collected?
 
 IntelliFill only accesses:
+
 - Form field names/labels (to match against your profile)
 - Your uploaded profile data (from your documents)
 
 IntelliFill does NOT:
+
 - Track your browsing history
 - Collect form data you type
 - Send data to third parties
@@ -175,6 +193,7 @@ IntelliFill does NOT:
 **Problem**: Suggestions don't appear
 
 **Solutions**:
+
 1. Check if you're logged in (click extension icon)
 2. Verify you have profile data uploaded
 3. Refresh the page
@@ -184,6 +203,7 @@ IntelliFill does NOT:
 **Problem**: "Not authenticated" error
 
 **Solutions**:
+
 1. Click the extension icon and sign in again
 2. Clear browser cache and cookies
 3. Check if the backend server is running
@@ -193,6 +213,7 @@ IntelliFill does NOT:
 **Problem**: Some fields aren't detected
 
 **Solutions**:
+
 1. Check if the field is visible and enabled
 2. Try clicking on the field to trigger detection
 3. Some fields may be intentionally excluded (passwords, captchas)
@@ -200,6 +221,7 @@ IntelliFill does NOT:
 **Problem**: Wrong suggestions appear
 
 **Solutions**:
+
 1. The field name might not match your profile data well
 2. Update your profile with more accurate data
 3. Use the keyboard shortcut to see all available suggestions
@@ -209,6 +231,7 @@ IntelliFill does NOT:
 **Problem**: Extension slows down the page
 
 **Solutions**:
+
 1. Disable the extension on specific sites (Settings → Manage Extensions)
 2. Clear cached profile data
 3. Reduce the number of open tabs
@@ -246,6 +269,7 @@ Upload new documents regularly to ensure your profile data is current and accura
 ### 2. Review Suggestions
 
 Always review autofilled data before submitting forms, especially for:
+
 - Legal documents
 - Financial applications
 - Government forms
@@ -253,6 +277,7 @@ Always review autofilled data before submitting forms, especially for:
 ### 3. Use Keyboard Shortcuts
 
 Learn the keyboard shortcuts for faster form filling:
+
 - `Ctrl+Shift+F` - Quick access to suggestions
 - Arrow keys - Navigate suggestions
 - Enter - Select and move on
@@ -260,6 +285,7 @@ Learn the keyboard shortcuts for faster form filling:
 ### 4. Confidence Levels
 
 Pay attention to confidence indicators:
+
 - Prefer **High** confidence suggestions
 - Verify **Medium** confidence values
 - Double-check **Low** confidence entries
@@ -285,6 +311,7 @@ We're starting with Chrome. Firefox and Safari versions are planned based on use
 ### How is this different from browser autofill?
 
 IntelliFill is smarter:
+
 - Uses your actual document data
 - Provides confidence scores
 - Works with complex field names
@@ -329,6 +356,7 @@ When reporting issues, include:
 ## What's Next?
 
 Planned features:
+
 - Multi-language support
 - Custom field mappings
 - Form templates

@@ -284,6 +284,7 @@ Generate:
 5. For the video: Record screen captures of your product and edit together
 
 **Tips:**
+
 - Feed Gemini screenshots of your actual product for more accurate descriptions
 - Ask Gemini to iterate on specific slides or sections if needed
 - Use Gemini's image generation for slide visuals if available

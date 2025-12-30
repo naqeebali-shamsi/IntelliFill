@@ -1,6 +1,10 @@
 # Documentation Migration Guide
 
-**Purpose:** Step-by-step guide for migrating to the new documentation architecture
+> **DEPRECATED (2025-12-30)**: This guide proposed a numbered prefix structure (00-06).
+> After review, we decided to keep the **Diataxis framework** structure (tutorials, how-to, reference, explanation).
+> See `proposed-structure.md` and `migration-plan.md` for the current approach.
+
+**Purpose:** Step-by-step guide for migrating to the new documentation architecture (DEPRECATED)
 
 ---
 
@@ -18,20 +22,20 @@
 
 ### Current → Proposed Structure
 
-| Current Location | Proposed Location | Notes |
-|-----------------|-------------------|-------|
-| `docs/CURRENT_ARCHITECTURE.md` | `docs/01-current-state/architecture/system-overview.md` | Consolidate with `architecture/current/system-overview.md` |
-| `docs/ARCHITECTURE_QUICK_REFERENCE.md` | `docs/01-current-state/architecture/quick-reference.md` | Already exists, just move |
-| `docs/architecture/current/system-overview.md` | `docs/01-current-state/architecture/system-overview.md` | Consolidate with CURRENT_ARCHITECTURE.md |
-| `docs/architecture/current/quick-reference.md` | `docs/01-current-state/architecture/quick-reference.md` | Keep as-is |
-| `docs/getting-started/` | `docs/00-quick-start/` | Rename and reorganize |
-| `docs/guides/` | `docs/02-guides/` | Keep structure, add metadata |
-| `docs/api/reference/` | `docs/01-current-state/api/endpoints/` | Reorganize |
-| `docs/reference/` | `docs/03-reference/` | Keep structure |
-| `docs/architecture/vision/` | `docs/04-future-vision/architecture/` | Move with clear warnings |
-| `docs/100-getting-started/` | `docs/06-archive/old-numbered-sections/` | Archive |
-| `docs/200-architecture/` | `docs/06-archive/old-numbered-sections/` | Archive |
-| `docs/300-api/` | `docs/06-archive/old-numbered-sections/` | Archive |
+| Current Location                               | Proposed Location                                       | Notes                                                      |
+| ---------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| `docs/CURRENT_ARCHITECTURE.md`                 | `docs/01-current-state/architecture/system-overview.md` | Consolidate with `architecture/current/system-overview.md` |
+| `docs/ARCHITECTURE_QUICK_REFERENCE.md`         | `docs/01-current-state/architecture/quick-reference.md` | Already exists, just move                                  |
+| `docs/architecture/current/system-overview.md` | `docs/01-current-state/architecture/system-overview.md` | Consolidate with CURRENT_ARCHITECTURE.md                   |
+| `docs/architecture/current/quick-reference.md` | `docs/01-current-state/architecture/quick-reference.md` | Keep as-is                                                 |
+| `docs/getting-started/`                        | `docs/00-quick-start/`                                  | Rename and reorganize                                      |
+| `docs/guides/`                                 | `docs/02-guides/`                                       | Keep structure, add metadata                               |
+| `docs/api/reference/`                          | `docs/01-current-state/api/endpoints/`                  | Reorganize                                                 |
+| `docs/reference/`                              | `docs/03-reference/`                                    | Keep structure                                             |
+| `docs/architecture/vision/`                    | `docs/04-future-vision/architecture/`                   | Move with clear warnings                                   |
+| `docs/100-getting-started/`                    | `docs/06-archive/old-numbered-sections/`                | Archive                                                    |
+| `docs/200-architecture/`                       | `docs/06-archive/old-numbered-sections/`                | Archive                                                    |
+| `docs/300-api/`                                | `docs/06-archive/old-numbered-sections/`                | Archive                                                    |
 
 ---
 
@@ -57,13 +61,13 @@ Create `docs/00-quick-start/ai-agent-setup.md`:
 
 ```markdown
 ---
-title: "AI Agent Setup Guide"
-id: "ai-agent-setup"
-version: "1.0.0"
-status: "active"
-phase: "current"
-ai_priority: "critical"
-ai_context_level: "foundational"
+title: 'AI Agent Setup Guide'
+id: 'ai-agent-setup'
+version: '1.0.0'
+status: 'active'
+phase: 'current'
+ai_priority: 'critical'
+ai_context_level: 'foundational'
 ai_required_reading: true
 ---
 
@@ -221,4 +225,3 @@ If issues arise:
 
 **Status:** Ready for implementation  
 **Last Updated:** 2025-01-XX
-
