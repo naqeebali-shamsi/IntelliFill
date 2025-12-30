@@ -1,33 +1,21 @@
 import { z } from 'zod';
 
 // Common field validations
-export const emailSchema = z
-  .string()
-  .email('Invalid email format')
-  .min(1, 'Email is required');
+export const emailSchema = z.string().email('Invalid email format').min(1, 'Email is required');
 
 export const phoneSchema = z
   .string()
   .min(1, 'Phone number is required')
-  .regex(
-    /^[\d\s\-\(\)\+\.]+$/,
-    'Invalid phone number format'
-  )
-  .refine(
-    (val) => {
-      const digits = val.replace(/\D/g, '');
-      return digits.length >= 10 && digits.length <= 15;
-    },
-    'Phone number must be between 10 and 15 digits'
-  );
+  .regex(/^[\d\s()+.-]+$/, 'Invalid phone number format')
+  .refine((val) => {
+    const digits = val.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 15;
+  }, 'Phone number must be between 10 and 15 digits');
 
 export const ssnSchema = z
   .string()
   .min(1, 'SSN is required')
-  .regex(
-    /^\d{3}-?\d{2}-?\d{4}$/,
-    'SSN must be in format XXX-XX-XXXX or XXXXXXXXX'
-  );
+  .regex(/^\d{3}-?\d{2}-?\d{4}$/, 'SSN must be in format XXX-XX-XXXX or XXXXXXXXX');
 
 export const dateSchema = z
   .string()
@@ -40,10 +28,7 @@ export const dateSchema = z
 export const zipCodeSchema = z
   .string()
   .min(1, 'ZIP code is required')
-  .regex(
-    /^\d{5}(-\d{4})?$/,
-    'ZIP code must be in format XXXXX or XXXXX-XXXX'
-  );
+  .regex(/^\d{5}(-\d{4})?$/, 'ZIP code must be in format XXXXX or XXXXX-XXXX');
 
 export const stateSchema = z
   .string()
@@ -87,11 +72,16 @@ export type EditFieldInput = z.infer<typeof editFieldSchema>;
 
 // Schema for adding a custom field
 export const addCustomFieldSchema = z.object({
-  fieldName: z.string()
+  fieldName: z
+    .string()
     .min(1, 'Field name is required')
     .max(50, 'Field name must be less than 50 characters')
-    .regex(/^[a-zA-Z0-9_\s-]+$/, 'Field name can only contain letters, numbers, spaces, hyphens, and underscores'),
-  fieldValue: z.string()
+    .regex(
+      /^[a-zA-Z0-9_\s-]+$/,
+      'Field name can only contain letters, numbers, spaces, hyphens, and underscores'
+    ),
+  fieldValue: z
+    .string()
     .min(1, 'Field value is required')
     .max(500, 'Field value must be less than 500 characters'),
 });
@@ -99,27 +89,29 @@ export const addCustomFieldSchema = z.object({
 export type AddCustomFieldInput = z.infer<typeof addCustomFieldSchema>;
 
 // Full profile schema (optional for bulk updates)
-export const profileSchema = z.object({
-  // Personal Information
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  middleName: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-  ssn: z.string().optional(),
+export const profileSchema = z
+  .object({
+    // Personal Information
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    middleName: z.string().optional(),
+    dateOfBirth: z.string().optional(),
+    ssn: z.string().optional(),
 
-  // Contact Information
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  mobile: z.string().optional(),
+    // Contact Information
+    email: z.string().email().optional(),
+    phone: z.string().optional(),
+    mobile: z.string().optional(),
 
-  // Address Information
-  street: z.string().optional(),
-  street2: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zip: z.string().optional(),
-  country: z.string().optional(),
-}).passthrough(); // Allow additional custom fields
+    // Address Information
+    street: z.string().optional(),
+    street2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip: z.string().optional(),
+    country: z.string().optional(),
+  })
+  .passthrough(); // Allow additional custom fields
 
 export type ProfileInput = z.infer<typeof profileSchema>;
 
@@ -135,7 +127,11 @@ export const getFieldValidator = (fieldKey: string): z.ZodSchema => {
   }
 
   // Phone fields
-  if (normalizedKey.includes('phone') || normalizedKey.includes('tel') || normalizedKey.includes('mobile')) {
+  if (
+    normalizedKey.includes('phone') ||
+    normalizedKey.includes('tel') ||
+    normalizedKey.includes('mobile')
+  ) {
     return phoneSchema;
   }
 
@@ -145,7 +141,11 @@ export const getFieldValidator = (fieldKey: string): z.ZodSchema => {
   }
 
   // Date fields
-  if (normalizedKey.includes('date') || normalizedKey.includes('dob') || normalizedKey === 'dateofbirth') {
+  if (
+    normalizedKey.includes('date') ||
+    normalizedKey.includes('dob') ||
+    normalizedKey === 'dateofbirth'
+  ) {
     return dateSchema;
   }
 
@@ -171,7 +171,10 @@ export const getFieldValidator = (fieldKey: string): z.ZodSchema => {
 /**
  * Validate a field value dynamically
  */
-export const validateField = (fieldKey: string, value: string): { success: boolean; error?: string } => {
+export const validateField = (
+  fieldKey: string,
+  value: string
+): { success: boolean; error?: string } => {
   try {
     const validator = getFieldValidator(fieldKey);
     validator.parse(value);

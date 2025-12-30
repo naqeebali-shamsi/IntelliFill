@@ -1,8 +1,6 @@
 import * as fs from 'fs/promises';
+import pdfParse from 'pdf-parse';
 import { logger } from '../utils/logger';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse = require('pdf-parse') as (buffer: Buffer) => Promise<{ text: string; numpages: number; info?: Record<string, unknown> }>;
 
 /**
  * Service for detecting document types and characteristics
@@ -31,7 +29,7 @@ export class DocumentDetectionService {
         path: pdfPath,
         pages: pageCount,
         textLength,
-        textPerPage
+        textPerPage,
       });
 
       // Heuristics for detecting scanned PDFs:
@@ -45,7 +43,9 @@ export class DocumentDetectionService {
       }
 
       if (textPerPage < 50) {
-        logger.info(`PDF detected as SCANNED (low text density ${textPerPage.toFixed(1)} chars/page): ${pdfPath}`);
+        logger.info(
+          `PDF detected as SCANNED (low text density ${textPerPage.toFixed(1)} chars/page): ${pdfPath}`
+        );
         return true; // Likely scanned with minimal OCR text
       }
 
@@ -54,13 +54,14 @@ export class DocumentDetectionService {
       const meaningfulRatio = textLength > 0 ? meaningfulChars / textLength : 0;
 
       if (meaningfulRatio < 0.1) {
-        logger.info(`PDF detected as SCANNED (low meaningful text ratio ${meaningfulRatio.toFixed(2)}): ${pdfPath}`);
+        logger.info(
+          `PDF detected as SCANNED (low meaningful text ratio ${meaningfulRatio.toFixed(2)}): ${pdfPath}`
+        );
         return true; // Mostly whitespace, likely scanned
       }
 
       logger.info(`PDF detected as TEXT-BASED (${textPerPage.toFixed(1)} chars/page): ${pdfPath}`);
       return false; // Has substantial text layer, use direct extraction
-
     } catch (error) {
       logger.error(`Error detecting PDF type for ${pdfPath}:`, error);
       // Default to scanned if detection fails - safer to OCR than miss content
@@ -110,7 +111,7 @@ export class DocumentDetectionService {
         textLength,
         textPerPage,
         isScanned,
-        metadata: data.info
+        metadata: data.info,
       };
     } catch (error) {
       logger.error(`Error getting PDF info for ${pdfPath}:`, error);

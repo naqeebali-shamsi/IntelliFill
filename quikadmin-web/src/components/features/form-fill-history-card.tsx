@@ -25,12 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyStateSimple } from '@/components/ui/empty-state';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { cn } from '@/lib/utils';
 
@@ -171,7 +166,9 @@ function HistoryEntryRow({ entry, showProfile = false }: HistoryEntryRowProps) {
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors group">
       {/* Form Icon */}
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', statusInfo.bgColor)}>
+      <div
+        className={cn('flex h-10 w-10 items-center justify-center rounded-lg', statusInfo.bgColor)}
+      >
         <FileText className={cn('h-5 w-5', statusInfo.color)} />
       </div>
 
@@ -190,14 +187,14 @@ function HistoryEntryRow({ entry, showProfile = false }: HistoryEntryRowProps) {
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formatDistanceToNow(new Date(entry.filledAt), { addSuffix: true })}</span>
               </TooltipTrigger>
-              <TooltipContent>
-                {format(new Date(entry.filledAt), 'PPpp')}
-              </TooltipContent>
+              <TooltipContent>{format(new Date(entry.filledAt), 'PPpp')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
           <span className="text-muted-foreground/50">|</span>
-          <span>{entry.fieldsUsed}/{entry.totalFields} fields</span>
+          <span>
+            {entry.fieldsUsed}/{entry.totalFields} fields
+          </span>
           <span className="text-muted-foreground/50">|</span>
           <span>{confidencePercent}% confidence</span>
 
@@ -323,7 +320,7 @@ export function FormFillHistoryCard({
   // Filter entries by profileId if provided
   const filteredEntries = React.useMemo(() => {
     const data = entries || mockHistoryEntries;
-    let filtered = profileId ? data.filter((e) => e.profileId === profileId) : data;
+    const filtered = profileId ? data.filter((e) => e.profileId === profileId) : data;
     return filtered.slice(0, limit);
   }, [entries, profileId, limit]);
 
@@ -353,9 +350,7 @@ export function FormFillHistoryCard({
           Form Fill History
         </CardTitle>
         <CardDescription>
-          {profileId
-            ? 'Forms filled using this profile\'s data'
-            : 'Recent forms you have filled'}
+          {profileId ? "Forms filled using this profile's data" : 'Recent forms you have filled'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -377,11 +372,7 @@ export function FormFillHistoryCard({
         ) : (
           <div className="space-y-1">
             {filteredEntries.map((entry) => (
-              <HistoryEntryRow
-                key={entry.id}
-                entry={entry}
-                showProfile={!profileId}
-              />
+              <HistoryEntryRow key={entry.id} entry={entry} showProfile={!profileId} />
             ))}
           </div>
         )}

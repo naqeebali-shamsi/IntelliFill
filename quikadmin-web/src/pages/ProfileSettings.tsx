@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Loader2,
   Download,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -74,7 +74,7 @@ export default function ProfileSettings() {
     data: profile,
     isLoading,
     error,
-    refetch
+    refetch,
   } = useQuery<UserProfile>({
     queryKey: ['userProfile'],
     queryFn: getProfile,
@@ -179,29 +179,52 @@ export default function ProfileSettings() {
         description: errorMessage,
       });
     }
-
   };
   // Categorize fields
+  // Extract profileFields to a stable variable for React Compiler memoization compatibility
+  const profileFields = profile?.fields;
   const categorizedFields = useMemo(() => {
-    if (!profile?.fields) return { personal: [], contact: [], address: [], custom: [] };
+    if (!profileFields) return { personal: [], contact: [], address: [], custom: [] };
 
     const personal: ProfileFieldValue[] = [];
     const contact: ProfileFieldValue[] = [];
     const address: ProfileFieldValue[] = [];
     const custom: ProfileFieldValue[] = [];
 
-    const personalKeys = ['firstname', 'first_name', 'lastname', 'last_name', 'middlename', 'middle_name', 'dateofbirth', 'date_of_birth', 'dob', 'ssn', 'social_security'];
+    const personalKeys = [
+      'firstname',
+      'first_name',
+      'lastname',
+      'last_name',
+      'middlename',
+      'middle_name',
+      'dateofbirth',
+      'date_of_birth',
+      'dob',
+      'ssn',
+      'social_security',
+    ];
     const contactKeys = ['email', 'phone', 'mobile', 'telephone', 'tel', 'fax'];
-    const addressKeys = ['street', 'street2', 'address', 'city', 'state', 'zip', 'zipcode', 'postal', 'country'];
+    const addressKeys = [
+      'street',
+      'street2',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'zipcode',
+      'postal',
+      'country',
+    ];
 
-    profile.fields.forEach((field) => {
+    profileFields.forEach((field) => {
       const normalizedKey = field.key.toLowerCase();
 
-      if (personalKeys.some(k => normalizedKey.includes(k))) {
+      if (personalKeys.some((k) => normalizedKey.includes(k))) {
         personal.push(field);
-      } else if (contactKeys.some(k => normalizedKey.includes(k))) {
+      } else if (contactKeys.some((k) => normalizedKey.includes(k))) {
         contact.push(field);
-      } else if (addressKeys.some(k => normalizedKey.includes(k))) {
+      } else if (addressKeys.some((k) => normalizedKey.includes(k))) {
         address.push(field);
       } else {
         custom.push(field);
@@ -209,7 +232,7 @@ export default function ProfileSettings() {
     });
 
     return { personal, contact, address, custom };
-  }, [profile?.fields]);
+  }, [profileFields]);
 
   // Filter fields based on search
   const filterFields = (fields: ProfileFieldValue[]) => {
@@ -285,8 +308,8 @@ export default function ProfileSettings() {
             <User className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Profile Data</h3>
             <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-              Your profile is empty. Upload and process documents to automatically extract
-              profile information, or add fields manually.
+              Your profile is empty. Upload and process documents to automatically extract profile
+              information, or add fields manually.
             </p>
             <div className="flex gap-2">
               <Button onClick={() => refreshMutation.mutate()}>
@@ -324,7 +347,8 @@ export default function ProfileSettings() {
           <CardContent>
             <div className="text-2xl font-bold">{profile.fields.length}</div>
             <p className="text-xs text-muted-foreground">
-              Extracted from {profile.documentCount} document{profile.documentCount !== 1 ? 's' : ''}
+              Extracted from {profile.documentCount} document
+              {profile.documentCount !== 1 ? 's' : ''}
             </p>
           </CardContent>
         </Card>
@@ -351,7 +375,8 @@ export default function ProfileSettings() {
             <div className="text-2xl font-bold">
               {(
                 profile.fields.reduce((sum, f) => sum + f.confidence, 0) / profile.fields.length
-              ).toFixed(1)}%
+              ).toFixed(1)}
+              %
             </div>
             <p className="text-xs text-muted-foreground">Data accuracy score</p>
           </CardContent>
@@ -392,9 +417,7 @@ export default function ProfileSettings() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Custom Field</DialogTitle>
-                <DialogDescription>
-                  Add a new field to your profile manually
-                </DialogDescription>
+                <DialogDescription>Add a new field to your profile manually</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit(onAddCustomField)} className="space-y-4">
                 <div className="space-y-2">
@@ -410,11 +433,7 @@ export default function ProfileSettings() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fieldValue">Field Value</Label>
-                  <Input
-                    id="fieldValue"
-                    placeholder="Enter value"
-                    {...register('fieldValue')}
-                  />
+                  <Input id="fieldValue" placeholder="Enter value" {...register('fieldValue')} />
                   {errors.fieldValue && (
                     <p className="text-sm text-destructive">{errors.fieldValue.message}</p>
                   )}
@@ -483,7 +502,9 @@ export default function ProfileSettings() {
                     onUpdate={async (key, value) => {
                       await updateFieldMutation.mutateAsync({ fieldKey: key, value });
                     }}
-                    onDelete={async (key) => { await deleteFieldMutation.mutateAsync(key); }}
+                    onDelete={async (key) => {
+                      await deleteFieldMutation.mutateAsync(key);
+                    }}
                     isUpdating={updatingField === field.key}
                     isDeleting={deletingField === field.key}
                   />
@@ -515,7 +536,9 @@ export default function ProfileSettings() {
                     onUpdate={async (key, value) => {
                       await updateFieldMutation.mutateAsync({ fieldKey: key, value });
                     }}
-                    onDelete={async (key) => { await deleteFieldMutation.mutateAsync(key); }}
+                    onDelete={async (key) => {
+                      await deleteFieldMutation.mutateAsync(key);
+                    }}
                     isUpdating={updatingField === field.key}
                     isDeleting={deletingField === field.key}
                   />
@@ -547,7 +570,9 @@ export default function ProfileSettings() {
                     onUpdate={async (key, value) => {
                       await updateFieldMutation.mutateAsync({ fieldKey: key, value });
                     }}
-                    onDelete={async (key) => { await deleteFieldMutation.mutateAsync(key); }}
+                    onDelete={async (key) => {
+                      await deleteFieldMutation.mutateAsync(key);
+                    }}
                     isUpdating={updatingField === field.key}
                     isDeleting={deletingField === field.key}
                   />
@@ -579,7 +604,9 @@ export default function ProfileSettings() {
                     onUpdate={async (key, value) => {
                       await updateFieldMutation.mutateAsync({ fieldKey: key, value });
                     }}
-                    onDelete={async (key) => { await deleteFieldMutation.mutateAsync(key); }}
+                    onDelete={async (key) => {
+                      await deleteFieldMutation.mutateAsync(key);
+                    }}
                     isUpdating={updatingField === field.key}
                     isDeleting={deletingField === field.key}
                   />
@@ -594,9 +621,7 @@ export default function ProfileSettings() {
       <Card className="border-destructive">
         <CardHeader>
           <CardTitle className="text-destructive">Danger Zone</CardTitle>
-          <CardDescription>
-            Irreversible actions that affect your entire profile
-          </CardDescription>
+          <CardDescription>Irreversible actions that affect your entire profile</CardDescription>
         </CardHeader>
         <CardContent>
           <AlertDialog>
@@ -610,9 +635,9 @@ export default function ProfileSettings() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete your aggregated
-                  profile data. Your documents will remain intact and can be used to regenerate
-                  your profile later.
+                  This action cannot be undone. This will permanently delete your aggregated profile
+                  data. Your documents will remain intact and can be used to regenerate your profile
+                  later.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

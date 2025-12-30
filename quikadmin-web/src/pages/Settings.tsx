@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User,
@@ -86,21 +86,28 @@ const SettingsRow = ({
 export default function Settings() {
   const user = useBackendAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('general');
-  const [accountForm, setAccountForm] = useState({
-    name: '',
-    email: '',
+
+  // Initialize form with user data if available, otherwise empty
+  const [accountForm, setAccountForm] = useState(() => ({
+    name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '',
+    email: user?.email || '',
     phone: '',
     company: '',
-  });
+  }));
 
+  // Track the user ID we've synced from to detect user changes
+  const syncedUserIdRef = useRef<string | null>(user?.id ?? null);
+
+  // Sync form when user changes (e.g., different user logs in)
+  // This is a legitimate use case for syncing external state to local state
   useEffect(() => {
-    if (user) {
-      setAccountForm({
+    if (user && user.id !== syncedUserIdRef.current) {
+      syncedUserIdRef.current = user.id;
+      setAccountForm((prev) => ({
+        ...prev,
         name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '',
         email: user.email || '',
-        phone: '',
-        company: '',
-      });
+      }));
     }
   }, [user]);
 

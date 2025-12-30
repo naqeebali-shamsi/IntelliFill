@@ -3,7 +3,7 @@
  * @module hooks/useJobPolling
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { getJobStatus } from '@/services/api';
 import { JobStatus, UseJobPollingOptions } from '@/types/upload';
@@ -94,11 +94,13 @@ export function useJobPolling(
         jobId: data.id,
         status: data.status,
         data: data.result,
-        metadata: data.metadata ? {
-          fileName: file.file.name,
-          fileSize: file.file.size,
-          ...(data.metadata as Record<string, any>),
-        } : undefined,
+        metadata: data.metadata
+          ? {
+              fileName: file.file.name,
+              fileSize: file.file.size,
+              ...(data.metadata as Record<string, any>),
+            }
+          : undefined,
       });
 
       toast.success(`${file.file.name} processed successfully`);
@@ -142,15 +144,128 @@ export function useJobPolling(
 
 /**
  * Hook for polling multiple jobs
+ * Uses useQueries to properly handle dynamic arrays of queries
  * @param jobIds - Array of job IDs to poll
  * @param options - Polling options
- * @returns Array of query results
+ * @returns Object with query results and status flags
  */
-export function useMultiJobPolling(
-  jobIds: string[],
-  options: UseJobPollingOptions = {}
-) {
-  const queries = jobIds.map((jobId) => useJobPolling(jobId, options));
+export function useMultiJobPolling(jobIds: string[], options: UseJobPollingOptions = {}) {
+  const { interval = 2000, enabled = true, onComplete, onError } = options;
+
+  const setFileResult = useUploadStore((state) => state.setFileResult);
+  const setFileError = useUploadStore((state) => state.setFileError);
+  const updateFileProgress = useUploadStore((state) => state.updateFileProgress);
+  const getFiles = () => useUploadStore.getState().files;
+
+  // Track processed jobs to avoid duplicate callbacks
+  const processedJobsRef = useRef<Set<string>>(new Set());
+
+  const queries = useQueries({
+    queries: jobIds.map((jobId) => ({
+      queryKey: ['job-status', jobId],
+      queryFn: async (): Promise<JobStatus> => {
+        const result = await getJobStatus(jobId);
+        return {
+          id: jobId,
+          status: result.status as 'pending' | 'processing' | 'completed' | 'failed',
+          progress: result.progress,
+          result: result.result,
+          error: result.error,
+        };
+      },
+      enabled: enabled && !!jobId,
+      refetchInterval: (query: { state: { data: JobStatus | undefined } }) => {
+        const data = query.state.data;
+        if (!data) return interval;
+        const isFinished = data.status === 'completed' || data.status === 'failed';
+        return isFinished ? false : interval;
+      },
+      refetchIntervalInBackground: false,
+      staleTime: 0,
+      gcTime: 5 * 60 * 1000,
+      retry: 3,
+      retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    })),
+  });
+
+  // Handle callbacks for completed/failed jobs
+  useEffect(() => {
+    queries.forEach((query, index) => {
+      const jobId = jobIds[index];
+      const data = query.data;
+
+      if (!data || !jobId) return;
+
+      // Skip if already processed
+      const processedKey = `${jobId}-${data.status}`;
+      if (processedJobsRef.current.has(processedKey)) return;
+
+      const file = getFiles().find((f) => f.jobId === jobId);
+      if (!file) return;
+
+      // Update progress
+      if (data.progress !== undefined) {
+        updateFileProgress(file.id, data.progress);
+      }
+
+      // Handle completion
+      if (data.status === 'completed') {
+        processedJobsRef.current.add(processedKey);
+
+        setFileResult(file.id, {
+          jobId: data.id,
+          status: data.status,
+          data: data.result,
+          metadata: data.metadata
+            ? {
+                fileName: file.file.name,
+                fileSize: file.file.size,
+                ...(data.metadata as Record<string, unknown>),
+              }
+            : undefined,
+        });
+
+        toast.success(`${file.file.name} processed successfully`);
+
+        if (onComplete) {
+          onComplete(data.result);
+        }
+      }
+
+      // Handle failure
+      if (data.status === 'failed') {
+        processedJobsRef.current.add(processedKey);
+
+        const errorMessage = data.error || 'Processing failed';
+        setFileError(file.id, errorMessage);
+
+        toast.error(`Failed to process ${file.file.name}: ${errorMessage}`);
+
+        if (onError) {
+          onError(errorMessage);
+        }
+      }
+    });
+  }, [queries, jobIds, onComplete, onError, setFileResult, setFileError, updateFileProgress]);
+
+  // Handle query errors
+  useEffect(() => {
+    queries.forEach((query, index) => {
+      const jobId = jobIds[index];
+      const error = query.error;
+
+      if (!error || !jobId) return;
+
+      const file = getFiles().find((f) => f.jobId === jobId);
+      if (file) {
+        setFileError(file.id, error.message || 'Job polling failed');
+      }
+
+      if (onError) {
+        onError(error.message);
+      }
+    });
+  }, [queries, jobIds, onError, setFileError]);
 
   return {
     queries,
@@ -170,14 +285,15 @@ export function useMultiJobPolling(
  */
 export function useQueueJobPolling(options: UseJobPollingOptions = {}) {
   // Only subscribe to the count of processing files to minimize re-renders
-  const processingCount = useUploadStore((state) =>
-    state.files.filter((f) => f.status === 'processing' && f.jobId).length
+  const processingCount = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'processing' && f.jobId).length
   );
 
   // Get actual job IDs using getState() to avoid subscription issues
   const getJobIds = () =>
-    useUploadStore.getState().files
-      .filter((f) => f.status === 'processing' && f.jobId)
+    useUploadStore
+      .getState()
+      .files.filter((f) => f.status === 'processing' && f.jobId)
       .map((f) => f.jobId!);
 
   // Get job IDs once when count changes
