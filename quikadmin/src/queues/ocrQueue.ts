@@ -135,7 +135,7 @@ export function isOCRQueueAvailable(): boolean {
  */
 if (ocrQueue) {
   ocrQueue.process(async (job) => {
-    const { documentId, filePath, options } = job.data;
+    const { documentId, userId, filePath, options } = job.data;
     const startTime = Date.now();
 
     try {
@@ -161,13 +161,18 @@ if (ocrQueue) {
         const progressPercent = 10 + progress.progress * 0.8;
         job.progress(progressPercent);
 
-        realtimeService.broadcast('queue_progress', {
-          jobId: job.id,
-          documentId,
-          progress: progressPercent,
-          stage: progress.stage,
-          message: progress.message,
-        });
+        // Send progress to specific user only (security: prevents data leakage to other users)
+        if (userId) {
+          realtimeService.sendToUser(userId, 'queue_progress', {
+            jobId: job.id,
+            documentId,
+            progress: progressPercent,
+            stage: progress.stage,
+            message: progress.message,
+          });
+        } else {
+          logger.warn('No userId for realtime OCR progress event', { jobId: job.id, documentId });
+        }
 
         logger.debug(`OCR Progress for ${documentId}: ${progress.stage} - ${progress.message}`);
       });
@@ -244,20 +249,32 @@ if (ocrQueue) {
       pageCount: result.pageCount,
     });
 
-    realtimeService.broadcast('queue_completed', {
-      jobId: job.id,
-      documentId: result.documentId,
-      result,
-    });
+    // Send completion event to specific user only (security: prevents data leakage to other users)
+    const userId = job.data.userId;
+    if (userId) {
+      realtimeService.sendToUser(userId, 'queue_completed', {
+        jobId: job.id,
+        documentId: result.documentId,
+        result,
+      });
+    } else {
+      logger.warn('No userId for realtime OCR completed event', { jobId: job.id });
+    }
   });
 
   ocrQueue.on('failed', (job, err) => {
     logger.error(`OCR job ${job.id} failed:`, err);
 
-    realtimeService.broadcast('queue_failed', {
-      jobId: job.id,
-      error: err.message,
-    });
+    // Send failure event to specific user only (security: prevents data leakage to other users)
+    const userId = job.data.userId;
+    if (userId) {
+      realtimeService.sendToUser(userId, 'queue_failed', {
+        jobId: job.id,
+        error: err.message,
+      });
+    } else {
+      logger.warn('No userId for realtime OCR failed event', { jobId: job.id });
+    }
 
     logger.info(
       `OCR job ${job.id} will retry. Attempt ${job.attemptsMade} of ${job.opts.attempts}`

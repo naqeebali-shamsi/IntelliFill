@@ -67,13 +67,13 @@ export function getRedisHealth(): { connected: boolean; client: any } {
     });
 
     redisClient.on('ready', () => {
-      logger.info('✅ Redis connected and ready');
+      logger.info('Redis connected and ready');
       redisConnected = true;
     });
 
     await redisClient.connect();
   } catch (err) {
-    logger.warn('⚠️  Failed to connect Redis for rate limiting - using memory store instead');
+    logger.warn('Failed to connect Redis for rate limiting - using memory store instead');
     redisConnected = false;
     redisClient = null;
   }
@@ -264,6 +264,7 @@ process.on('SIGTERM', async () => {
     await redisClient.quit();
   }
 });
+
 // ============================================================================
 // Knowledge Base Rate Limiters (Task #134)
 // Organization-scoped rate limiting for vector search endpoints
@@ -346,5 +347,38 @@ export const knowledgeUploadLimiter = rateLimit({
     const organizationId = (req as any).organizationId;
     const userId = (req as any).user?.id;
     return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
+  },
+});
+
+// ============================================================================
+// SSE (Server-Sent Events) Rate Limiter
+// Limits connection attempts to prevent abuse of long-lived connections
+// ============================================================================
+
+/**
+ * SSE connection rate limiter
+ * Production: 10 connection attempts per minute per user/IP
+ * This prevents rapid reconnection attempts that could overwhelm the server
+ * while still allowing legitimate reconnections after network issues
+ */
+export const sseConnectionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 100 : 10, // 10 connection attempts/minute in production
+  message: {
+    error: 'Too many connection attempts',
+    message: 'Rate limit exceeded for realtime connections. Please wait before reconnecting.',
+    retryAfter: 60,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('sse:' + key),
+    decrement: async (key: string) => store.decrement('sse:' + key),
+    resetKey: async (key: string) => store.resetKey('sse:' + key),
+  } as any,
+  keyGenerator: (req: Request) => {
+    // Use user ID if authenticated, otherwise fall back to IP
+    const userId = (req as any).user?.id;
+    return userId || req.ip || 'unknown';
   },
 });

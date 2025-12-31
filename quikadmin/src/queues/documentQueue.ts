@@ -133,12 +133,21 @@ export function isBatchQueueAvailable(): boolean {
 // Process document jobs
 if (documentQueue) {
   documentQueue.process(async (job) => {
-    const { documentId, filePath, options } = job.data;
+    const { documentId, userId, filePath, options } = job.data;
 
     try {
       // Update progress
       await job.progress(10);
-      realtimeService.broadcast('queue_progress', { jobId: job.id, documentId, progress: 10 });
+      // Send progress to specific user only (security: prevents data leakage to other users)
+      if (userId) {
+        realtimeService.sendToUser(userId, 'queue_progress', {
+          jobId: job.id,
+          documentId,
+          progress: 10,
+        });
+      } else {
+        logger.warn('No userId for realtime progress event', { jobId: job.id, documentId });
+      }
       logger.info(`Processing document ${documentId}`);
 
       // Initialize services (in production, these would be singleton instances)
@@ -233,16 +242,31 @@ if (batchQueue && documentQueue) {
 if (documentQueue) {
   documentQueue.on('completed', (job, result) => {
     logger.info(`Job ${job.id} completed`, { documentId: result.documentId });
-    realtimeService.broadcast('queue_completed', {
-      jobId: job.id,
-      documentId: result.documentId,
-      result,
-    });
+    // Send completion event to specific user only (security: prevents data leakage to other users)
+    const userId = job.data.userId;
+    if (userId) {
+      realtimeService.sendToUser(userId, 'queue_completed', {
+        jobId: job.id,
+        documentId: result.documentId,
+        result,
+      });
+    } else {
+      logger.warn('No userId for realtime completed event', { jobId: job.id });
+    }
   });
 
   documentQueue.on('failed', (job, err) => {
     logger.error(`Job ${job.id} failed:`, err);
-    realtimeService.broadcast('queue_failed', { jobId: job.id, error: err.message });
+    // Send failure event to specific user only (security: prevents data leakage to other users)
+    const userId = job.data.userId;
+    if (userId) {
+      realtimeService.sendToUser(userId, 'queue_failed', {
+        jobId: job.id,
+        error: err.message,
+      });
+    } else {
+      logger.warn('No userId for realtime failed event', { jobId: job.id });
+    }
   });
 }
 

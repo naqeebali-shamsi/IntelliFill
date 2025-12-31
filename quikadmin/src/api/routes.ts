@@ -19,6 +19,7 @@ import { realtimeService } from '../services/RealtimeService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
 import { validateFilePath } from '../utils/encryption';
+import { sseConnectionLimiter } from '../middleware/rateLimiter';
 
 // Configure multer storage to preserve file extensions
 const storage = multer.diskStorage({
@@ -127,14 +128,22 @@ export function setupRoutes(
   });
 
   // SSE Realtime endpoint
-  router.get('/realtime', optionalAuthSupabase, (req: Request, res: Response) => {
-    const userId = (req as unknown as { user?: { id: string } }).user?.id;
-    const clientId = realtimeService.registerClient(res, userId);
+  // Protected with rate limiting and authentication
+  // Only authenticated users can receive realtime updates
+  router.get(
+    '/realtime',
+    sseConnectionLimiter,
+    authenticateSupabase,
+    (req: Request, res: Response) => {
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const clientId = realtimeService.registerClient(res, userId);
+      if (!clientId) return; // Response already sent by registerClient (connection limit reached)
 
-    req.on('close', () => {
-      realtimeService.removeClient(clientId);
-    });
-  });
+      req.on('close', () => {
+        realtimeService.removeClient(clientId);
+      });
+    }
+  );
 
   // Ready check - verifies all services are operational
   router.get('/ready', async (req: Request, res: Response) => {

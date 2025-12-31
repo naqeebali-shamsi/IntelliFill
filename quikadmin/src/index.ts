@@ -24,6 +24,7 @@ import { setupRoutes } from './api/routes';
 import { logger } from './utils/logger';
 import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter';
 import { csrfProtection } from './middleware/csrf';
+import { realtimeService } from './services/RealtimeService';
 
 // Config validation happens automatically on import
 console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
@@ -256,11 +257,17 @@ async function startServer() {
       // Start Redis health monitoring after server is up
       const { startRedisHealthMonitoring } = await import('./utils/redisHealth');
       startRedisHealthMonitoring(30000); // Check every 30 seconds
+
+      // Start RealtimeService heartbeat for SSE connection health
+      realtimeService.startHeartbeat(30000); // Send heartbeat every 30 seconds
     });
 
     // Handle server shutdown
     const shutdownHandler = async () => {
       logger.info('Shutdown signal received, closing HTTP server');
+
+      // Shutdown RealtimeService (notify clients and close SSE connections)
+      realtimeService.shutdown();
 
       // Stop Redis health monitoring
       const { stopRedisHealthMonitoring } = await import('./utils/redisHealth');
