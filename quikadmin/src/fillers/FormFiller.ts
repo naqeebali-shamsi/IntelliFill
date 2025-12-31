@@ -1,4 +1,11 @@
-import { PDFDocument, PDFForm, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
+import {
+  PDFDocument,
+  PDFForm,
+  PDFTextField,
+  PDFCheckBox,
+  PDFDropdown,
+  PDFRadioGroup,
+} from 'pdf-lib';
 import * as fs from 'fs/promises';
 import { MappingResult } from '../mappers/FieldMapper';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
@@ -29,7 +36,7 @@ export class FormFiller {
 
       // Get all form fields
       const fields = form.getFields();
-      const fieldNames = fields.map(field => field.getName());
+      const fieldNames = fields.map((field) => field.getName());
 
       logger.info(`Found ${fields.length} form fields in PDF`);
 
@@ -37,7 +44,7 @@ export class FormFiller {
       for (const mapping of mappings.mappings) {
         try {
           const field = form.getField(mapping.formField);
-          
+
           if (!field) {
             warnings.push(`Field '${mapping.formField}' not found in form`);
             continue;
@@ -57,22 +64,26 @@ export class FormFiller {
           } else if (field instanceof PDFDropdown) {
             const options = field.getOptions();
             const valueStr = String(mapping.value);
-            
+
             if (options.includes(valueStr)) {
               field.select(valueStr);
               filledFields.push(mapping.formField);
             } else {
-              warnings.push(`Value '${valueStr}' not found in dropdown options for field '${mapping.formField}'`);
+              warnings.push(
+                `Value '${valueStr}' not found in dropdown options for field '${mapping.formField}'`
+              );
             }
           } else if (field instanceof PDFRadioGroup) {
             const options = field.getOptions();
             const valueStr = String(mapping.value);
-            
+
             if (options.includes(valueStr)) {
               field.select(valueStr);
               filledFields.push(mapping.formField);
             } else {
-              warnings.push(`Value '${valueStr}' not found in radio options for field '${mapping.formField}'`);
+              warnings.push(
+                `Value '${valueStr}' not found in radio options for field '${mapping.formField}'`
+              );
             }
           } else {
             warnings.push(`Unknown field type for '${mapping.formField}'`);
@@ -80,12 +91,14 @@ export class FormFiller {
 
           // Log low confidence mappings
           if (mapping.confidence < 0.7) {
-            warnings.push(`Low confidence (${(mapping.confidence * 100).toFixed(1)}%) for field '${mapping.formField}'`);
+            warnings.push(
+              `Low confidence (${(mapping.confidence * 100).toFixed(1)}%) for field '${mapping.formField}'`
+            );
           }
         } catch (error) {
           failedFields.push({
             field: mapping.formField,
-            reason: error instanceof Error ? error.message : 'Unknown error'
+            reason: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -109,7 +122,7 @@ export class FormFiller {
         filledFields,
         failedFields,
         outputPath,
-        warnings
+        warnings,
       };
     } catch (error) {
       logger.error('Form filling error:', error);
@@ -117,7 +130,7 @@ export class FormFiller {
     }
   }
 
-  private parseBoolean(value: any): boolean {
+  private parseBoolean(value: unknown): boolean {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
       const lower = value.toLowerCase();
@@ -136,7 +149,7 @@ export class FormFiller {
     for (let i = 0; i < pdfPaths.length; i++) {
       const pdfPath = pdfPaths[i];
       const outputPath = `${outputDir}/filled_form_${i + 1}.pdf`;
-      
+
       try {
         const result = await this.fillPDFForm(pdfPath, mappings, outputPath);
         results.push(result);
@@ -144,11 +157,13 @@ export class FormFiller {
         results.push({
           success: false,
           filledFields: [],
-          failedFields: [{
-            field: 'ALL',
-            reason: error instanceof Error ? error.message : 'Unknown error'
-          }],
-          warnings: [`Failed to process PDF: ${pdfPath}`]
+          failedFields: [
+            {
+              field: 'ALL',
+              reason: error instanceof Error ? error.message : 'Unknown error',
+            },
+          ],
+          warnings: [`Failed to process PDF: ${pdfPath}`],
         });
       }
     }
@@ -172,7 +187,7 @@ export class FormFiller {
       for (const field of fields) {
         const name = field.getName();
         fieldNames.push(name);
-        
+
         if (field instanceof PDFTextField) {
           fieldInfo[name] = 'text';
         } else if (field instanceof PDFCheckBox) {
@@ -188,7 +203,7 @@ export class FormFiller {
 
       return {
         fields: fieldNames,
-        fieldTypes: fieldInfo
+        fieldTypes: fieldInfo,
       };
     } catch (error) {
       logger.error('Form validation error:', error);

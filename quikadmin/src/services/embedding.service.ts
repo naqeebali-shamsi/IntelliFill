@@ -104,11 +104,7 @@ function getQuotaKey(organizationId: string): string {
   return `${organizationId}:${today}`;
 }
 
-function checkAndUpdateQuota(
-  organizationId: string,
-  count: number,
-  dailyLimit: number
-): boolean {
+function checkAndUpdateQuota(organizationId: string, count: number, dailyLimit: number): boolean {
   const key = getQuotaKey(organizationId);
   const today = new Date().toISOString().split('T')[0];
 
@@ -269,10 +265,7 @@ export class EmbeddingService {
    * @param organizationId - Organization ID for quota tracking (optional)
    * @returns Embedding result with 768-dimensional vector
    */
-  async generateEmbedding(
-    text: string,
-    organizationId?: string
-  ): Promise<EmbeddingResult> {
+  async generateEmbedding(text: string, organizationId?: string): Promise<EmbeddingResult> {
     // Validate input
     this.validateText(text);
 
@@ -331,10 +324,7 @@ export class EmbeddingService {
    * @param organizationId - Organization ID for quota tracking (optional)
    * @returns Batch embedding result
    */
-  async generateBatch(
-    texts: string[],
-    organizationId?: string
-  ): Promise<BatchEmbeddingResult> {
+  async generateBatch(texts: string[], organizationId?: string): Promise<BatchEmbeddingResult> {
     if (texts.length === 0) {
       return {
         embeddings: [],
@@ -563,6 +553,7 @@ export class EmbeddingService {
     }
 
     // Check for null bytes or control characters that could cause issues
+    // eslint-disable-next-line no-control-regex
     if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(text)) {
       throw new Error('Text contains invalid control characters');
     }
@@ -739,7 +730,10 @@ export function createEmbeddingService(config?: Partial<EmbeddingConfig>): Embed
 /**
  * Generate a cache key for text (utility function)
  */
-export function generateEmbeddingCacheKey(text: string, model: string = 'text-embedding-004'): string {
+export function generateEmbeddingCacheKey(
+  text: string,
+  model: string = 'text-embedding-004'
+): string {
   const normalized = text.trim().toLowerCase();
   const hash = crypto.createHash('sha256').update(`${model}:${normalized}`).digest('hex');
   return `emb:${hash}`;

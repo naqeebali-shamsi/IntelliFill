@@ -1,10 +1,7 @@
 import express, { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
-import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
-import { ValidationRule } from '../validators/ValidationService';
 import { createSupabaseAuthRoutes } from './supabase-auth.routes';
 import { createStatsRoutes } from './stats.routes';
 import { createDocumentRoutes } from './documents.routes';
@@ -16,16 +13,17 @@ import { createFormTemplateRoutes } from './form-template.routes';
 import { createFilledFormRoutes } from './filled-forms.routes';
 import { createKnowledgeRoutes } from './knowledge.routes';
 import { DatabaseService } from '../database/DatabaseService';
+import { IntelliFillService } from '../services/IntelliFillService';
+import { prisma } from '../utils/prisma';
+import { realtimeService } from '../services/RealtimeService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
 import { validateFilePath } from '../utils/encryption';
 
-const prisma = new PrismaClient();
-
 // Configure multer storage to preserve file extensions
 const storage = multer.diskStorage({
   destination: 'uploads/',
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     // Generate unique filename but preserve extension
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
@@ -119,12 +117,22 @@ export function setupRoutes(
   // Setup knowledge base routes (Vector Search - Phase 3)  // Mounted at /api/knowledge for vector search and document source management  const knowledgeRoutes = createKnowledgeRoutes();  app.use('/api/knowledge', knowledgeRoutes);
 
   // Health check
-  router.get('/health', (req: Request, res: Response) => {
+  router.get('/health', (_req: Request, res: Response) => {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       environment: process.env.NODE_ENV || 'development',
+    });
+  });
+
+  // SSE Realtime endpoint
+  router.get('/realtime', optionalAuthSupabase, (req: Request, res: Response) => {
+    const userId = (req as unknown as { user?: { id: string } }).user?.id;
+    const clientId = realtimeService.registerClient(res, userId);
+
+    req.on('close', () => {
+      realtimeService.removeClient(clientId);
     });
   });
 
@@ -206,7 +214,7 @@ export function setupRoutes(
     ]),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
         if (!files.document || !files.form) {

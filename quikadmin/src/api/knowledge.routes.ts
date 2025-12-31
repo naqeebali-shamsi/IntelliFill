@@ -12,18 +12,25 @@
  * @module api/knowledge.routes
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
-import { knowledgeSearchLimiter, knowledgeSuggestLimiter, knowledgeUploadLimiter } from '../middleware/rateLimiter';
+import {
+  knowledgeSearchLimiter,
+  knowledgeSuggestLimiter,
+  knowledgeUploadLimiter,
+} from '../middleware/rateLimiter';
 import { logger } from '../utils/logger';
-import { VectorStorageService, createVectorStorageService } from '../services/vectorStorage.service';
+import { createVectorStorageService } from '../services/vectorStorage.service';
 import { getEmbeddingService } from '../services/embedding.service';
-import { SearchCacheService, getSearchCacheService } from '../services/searchCache.service';
-import { FormSuggestionService, getFormSuggestionService, FormSuggestionsRequest } from '../services/formSuggestion.service';
+import { getSearchCacheService } from '../services/searchCache.service';
+import {
+  getFormSuggestionService,
+  FormSuggestionsRequest,
+} from '../services/formSuggestion.service';
 
 // ============================================================================
 // Types & Interfaces
@@ -44,7 +51,10 @@ interface KnowledgeRequest extends AuthenticatedRequest {
  * - minScore: 0-1 similarity threshold (default: 0.5)
  */
 const semanticSearchSchema = z.object({
-  query: z.string().min(3, 'Query must be at least 3 characters').max(1000, 'Query must not exceed 1000 characters'),
+  query: z
+    .string()
+    .min(3, 'Query must be at least 3 characters')
+    .max(1000, 'Query must not exceed 1000 characters'),
   topK: z.number().int().min(1).max(50).default(5),
   minScore: z.number().min(0).max(1).default(0.5),
   sourceIds: z.array(z.string().uuid()).optional(),
@@ -66,7 +76,9 @@ const hybridSearchSchema = semanticSearchSchema.extend({
 const formSuggestSchema = z.object({
   formId: z.string().uuid().optional(),
   fieldNames: z.array(z.string().min(1).max(100)).min(1).max(50),
-  fieldTypes: z.record(z.string(), z.enum(['text', 'date', 'email', 'phone', 'number', 'address', 'name'])).optional(),
+  fieldTypes: z
+    .record(z.string(), z.enum(['text', 'date', 'email', 'phone', 'number', 'address', 'name']))
+    .optional(),
   context: z.string().max(500).optional(),
   maxSuggestions: z.number().int().min(1).max(20).default(5),
 });
@@ -228,8 +240,12 @@ export function createKnowledgeRoutes(): Router {
     upload.single('document'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
-        const organizationId = req.organizationId!;
-        const userId = req.user!.id;
+        const organizationId = req.organizationId;
+        const userId = req.user?.id;
+
+        if (!organizationId || !userId) {
+          return res.status(401).json({ error: 'Authentication and organization required' });
+        }
 
         // Validate request body
         const bodyResult = uploadSourceSchema.safeParse(req.body);
@@ -299,10 +315,13 @@ export function createKnowledgeRoutes(): Router {
     auditLogger('knowledge:source:list'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
-        const organizationId = req.organizationId!;
+        const organizationId = req.organizationId;
+        if (!organizationId) {
+          return res.status(403).json({ error: 'Organization required' });
+        }
         const { status, limit = 50, offset = 0, search } = req.query;
 
-        const where: any = {
+        const where: Prisma.DocumentSourceWhereInput = {
           organizationId,
           deletedAt: null,
         };
@@ -436,12 +455,6 @@ export function createKnowledgeRoutes(): Router {
         // Invalidate search cache
         await searchCache.invalidateOrganization(organizationId);
 
-        logger.info('Knowledge source deleted', {
-          sourceId: id,
-          organizationId,
-          userId: req.user!.id,
-        });
-
         res.json({
           success: true,
           message: 'Document source deleted successfully',
@@ -545,12 +558,11 @@ export function createKnowledgeRoutes(): Router {
         const { query, topK, minScore, sourceIds } = result.data;
 
         // Check cache first
-        const cacheKey = searchCache.generateKey(
-          organizationId,
-          'semantic',
-          query,
-          { topK, minScore, sourceIds }
-        );
+        const cacheKey = searchCache.generateKey(organizationId, 'semantic', query, {
+          topK,
+          minScore,
+          sourceIds,
+        });
         const cachedResult = await searchCache.get(cacheKey);
         if (cachedResult) {
           logger.debug('Search cache hit', { organizationId, cacheKey });
@@ -643,12 +655,13 @@ export function createKnowledgeRoutes(): Router {
         }
 
         // Check cache first
-        const cacheKey = searchCache.generateKey(
-          organizationId,
-          'hybrid',
-          query,
-          { topK, minScore, sourceIds, hybridMode, vectorWeight }
-        );
+        const cacheKey = searchCache.generateKey(organizationId, 'hybrid', query, {
+          topK,
+          minScore,
+          sourceIds,
+          hybridMode,
+          vectorWeight,
+        });
         const cachedResult = await searchCache.get(cacheKey);
         if (cachedResult) {
           logger.debug('Hybrid search cache hit', { organizationId, cacheKey });
@@ -716,7 +729,10 @@ export function createKnowledgeRoutes(): Router {
     auditLogger('knowledge:suggest'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
-        const organizationId = req.organizationId!;
+        const organizationId = req.organizationId;
+        if (!organizationId) {
+          return res.status(403).json({ error: 'Organization required' });
+        }
         const { query, limit = 5 } = req.body;
 
         if (!query || query.length < 2) {
@@ -834,7 +850,10 @@ export function createKnowledgeRoutes(): Router {
     auditLogger('knowledge:suggest:field'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
-        const organizationId = req.organizationId!;
+        const organizationId = req.organizationId;
+        if (!organizationId) {
+          return res.status(403).json({ error: 'Organization required' });
+        }
 
         // Validate request
         const result = fieldSuggestSchema.safeParse(req.body);
@@ -850,7 +869,14 @@ export function createKnowledgeRoutes(): Router {
         const suggestionsResult = await formSuggestionService.getFieldSuggestions(
           {
             fieldName,
-            fieldType: fieldType as any,
+            fieldType: fieldType as
+              | 'text'
+              | 'date'
+              | 'email'
+              | 'phone'
+              | 'number'
+              | 'address'
+              | 'name',
             context,
             formContext,
           },
@@ -888,7 +914,10 @@ export function createKnowledgeRoutes(): Router {
     auditLogger('knowledge:suggest:contextual'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
-        const organizationId = req.organizationId!;
+        const organizationId = req.organizationId;
+        if (!organizationId) {
+          return res.status(403).json({ error: 'Organization required' });
+        }
 
         // Validate request
         const result = contextualSuggestSchema.safeParse(req.body);
@@ -941,7 +970,10 @@ export function createKnowledgeRoutes(): Router {
     auditLogger('knowledge:stats'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
-        const organizationId = req.organizationId!;
+        const organizationId = req.organizationId;
+        if (!organizationId) {
+          return res.status(403).json({ error: 'Organization required' });
+        }
 
         const [sourceStats, chunkCount, recentSources] = await Promise.all([
           prisma.documentSource.groupBy({

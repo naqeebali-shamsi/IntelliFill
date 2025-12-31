@@ -11,7 +11,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
-import { DocumentCategory, ClientDocumentStatus, ExtractionStatus } from '@prisma/client';
+import { DocumentCategory, ClientDocumentStatus, ExtractionStatus, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
@@ -23,7 +23,7 @@ import { FileValidationService } from '../services/fileValidation.service';
 // Configure multer for document uploads
 const storage = multer.diskStorage({
   destination: 'uploads/client-documents/',
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `doc-${uniqueSuffix}${ext}`);
@@ -33,7 +33,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedTypes.includes(ext)) {
@@ -115,7 +115,7 @@ export function createClientDocumentRoutes(): Router {
     upload.single('document'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId } = req.params;
 
         if (!userId) {
@@ -258,7 +258,7 @@ export function createClientDocumentRoutes(): Router {
       const { category, status, limit, offset } = validation.data;
 
       // Build where clause
-      const whereClause: any = { clientId };
+      const whereClause: Prisma.ClientDocumentWhereInput = { clientId };
       if (category) whereClause.category = category;
       if (status) whereClause.status = status;
 
@@ -323,7 +323,7 @@ export function createClientDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
 
         if (!userId) {
@@ -392,7 +392,7 @@ export function createClientDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
 
         if (!userId) {
@@ -462,7 +462,7 @@ export function createClientDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
 
         if (!userId) {
@@ -527,7 +527,7 @@ export function createClientDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
         const { sync = false, mergeToProfile = true, forceReprocess = false } = req.body;
 
@@ -763,7 +763,7 @@ export function createClientDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
 
         if (!userId) {

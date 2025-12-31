@@ -9,6 +9,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { User } from '@supabase/supabase-js';
 import { verifySupabaseToken } from '../utils/supabase';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
@@ -25,7 +26,7 @@ export interface AuthenticatedRequest extends Request {
     firstName?: string;
     lastName?: string;
   };
-  supabaseUser?: any; // Raw Supabase user object
+  supabaseUser?: User; // Raw Supabase user object
 }
 
 /**
@@ -144,7 +145,7 @@ export async function authenticateSupabase(
     }
 
     next();
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Supabase authentication error:', error);
     res.status(500).json({
       error: 'Internal Server Error',

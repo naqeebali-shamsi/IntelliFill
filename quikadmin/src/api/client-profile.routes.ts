@@ -15,14 +15,14 @@ import { z } from 'zod';
 
 // Profile data field schema
 const profileFieldSchema = z.object({
-  value: z.any(),
-  manuallyEdited: z.boolean().optional()
+  value: z.unknown(),
+  manuallyEdited: z.boolean().optional(),
 });
 
 // Update profile schema
 const updateProfileSchema = z.object({
-  data: z.record(z.any()).optional(),
-  fields: z.record(profileFieldSchema).optional()
+  data: z.record(z.unknown()).optional(),
+  fields: z.record(profileFieldSchema).optional(),
 });
 
 // Standard profile fields for UAE PRO agencies
@@ -90,7 +90,7 @@ const STANDARD_PROFILE_FIELDS = {
   designation: { category: 'employment', label: 'Designation' },
   salary: { category: 'employment', label: 'Salary' },
   laborCardNumber: { category: 'employment', label: 'Labor Card Number' },
-  laborCardExpiry: { category: 'employment', label: 'Labor Card Expiry' }
+  laborCardExpiry: { category: 'employment', label: 'Labor Card Expiry' },
 };
 
 export function createClientProfileRoutes(): Router {
@@ -101,7 +101,7 @@ export function createClientProfileRoutes(): Router {
    */
   router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user: { id: string } }).user.id;
       const { clientId } = req.params;
 
       if (!userId) {
@@ -112,8 +112,8 @@ export function createClientProfileRoutes(): Router {
       const client = await prisma.client.findFirst({
         where: { id: clientId, userId },
         include: {
-          profile: true
-        }
+          profile: true,
+        },
       });
 
       if (!client) {
@@ -127,16 +127,19 @@ export function createClientProfileRoutes(): Router {
           data: {
             clientId,
             data: {},
-            fieldSources: {}
-          }
+            fieldSources: {},
+          },
         });
       }
 
       // Organize data by category
-      const profileData = (profile.data || {}) as Record<string, any>;
-      const fieldSources = (profile.fieldSources || {}) as Record<string, any>;
+      const profileData = (profile.data || {}) as Record<string, unknown>;
+      const fieldSources = (profile.fieldSources || {}) as Record<string, unknown>;
 
-      const categorizedData: Record<string, any> = {
+      const categorizedData: Record<
+        string,
+        Record<string, { value: unknown; label: string; source: unknown }>
+      > = {
         personal: {},
         passport: {},
         emiratesId: {},
@@ -144,24 +147,25 @@ export function createClientProfileRoutes(): Router {
         company: {},
         contact: {},
         employment: {},
-        custom: {}
+        custom: {},
       };
 
       // Categorize known fields
       for (const [fieldName, value] of Object.entries(profileData)) {
-        const fieldInfo = STANDARD_PROFILE_FIELDS[fieldName as keyof typeof STANDARD_PROFILE_FIELDS];
+        const fieldInfo =
+          STANDARD_PROFILE_FIELDS[fieldName as keyof typeof STANDARD_PROFILE_FIELDS];
         if (fieldInfo) {
           categorizedData[fieldInfo.category][fieldName] = {
             value,
             label: fieldInfo.label,
-            source: fieldSources[fieldName] || null
+            source: fieldSources[fieldName] || null,
           };
         } else {
           // Custom field
           categorizedData.custom[fieldName] = {
             value,
             label: fieldName,
-            source: fieldSources[fieldName] || null
+            source: fieldSources[fieldName] || null,
           };
         }
       }
@@ -177,10 +181,10 @@ export function createClientProfileRoutes(): Router {
             data: profileData,
             categorizedData,
             fieldSources,
-            updatedAt: profile.updatedAt.toISOString()
+            updatedAt: profile.updatedAt.toISOString(),
           },
-          fieldDefinitions: STANDARD_PROFILE_FIELDS
-        }
+          fieldDefinitions: STANDARD_PROFILE_FIELDS,
+        },
       });
     } catch (error) {
       logger.error('Error fetching client profile:', error);
@@ -194,7 +198,7 @@ export function createClientProfileRoutes(): Router {
    */
   router.put('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user: { id: string } }).user.id;
       const { clientId } = req.params;
 
       if (!userId) {
@@ -206,14 +210,14 @@ export function createClientProfileRoutes(): Router {
       if (!validation.success) {
         return res.status(400).json({
           error: 'Validation failed',
-          details: validation.error.flatten().fieldErrors
+          details: validation.error.flatten().fieldErrors,
         });
       }
 
       // Verify client belongs to user
       const client = await prisma.client.findFirst({
         where: { id: clientId, userId },
-        include: { profile: true }
+        include: { profile: true },
       });
 
       if (!client) {
@@ -229,8 +233,8 @@ export function createClientProfileRoutes(): Router {
           data: {
             clientId,
             data: {},
-            fieldSources: {}
-          }
+            fieldSources: {},
+          },
         });
       }
 
@@ -248,7 +252,7 @@ export function createClientProfileRoutes(): Router {
           newFieldSources[key] = {
             ...(currentFieldSources[key] || {}),
             manuallyEdited: true,
-            editedAt: new Date().toISOString()
+            editedAt: new Date().toISOString(),
           };
         }
       }
@@ -260,7 +264,7 @@ export function createClientProfileRoutes(): Router {
           newFieldSources[key] = {
             ...(currentFieldSources[key] || {}),
             manuallyEdited: fieldData.manuallyEdited !== false,
-            editedAt: new Date().toISOString()
+            editedAt: new Date().toISOString(),
           };
         }
       }
@@ -270,8 +274,8 @@ export function createClientProfileRoutes(): Router {
         where: { id: profile.id },
         data: {
           data: newData,
-          fieldSources: newFieldSources
-        }
+          fieldSources: newFieldSources,
+        },
       });
 
       logger.info(`Profile updated for client: ${clientId} by user: ${userId}`);
@@ -284,9 +288,9 @@ export function createClientProfileRoutes(): Router {
             id: updatedProfile.id,
             data: newData,
             fieldSources: newFieldSources,
-            updatedAt: updatedProfile.updatedAt.toISOString()
-          }
-        }
+            updatedAt: updatedProfile.updatedAt.toISOString(),
+          },
+        },
       });
     } catch (error) {
       logger.error('Error updating client profile:', error);
@@ -297,192 +301,204 @@ export function createClientProfileRoutes(): Router {
   /**
    * PATCH /api/clients/:clientId/profile/fields/:fieldName - Update a single field
    */
-  router.patch('/fields/:fieldName', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, fieldName } = req.params;
-      const { value } = req.body;
+  router.patch(
+    '/fields/:fieldName',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { clientId, fieldName } = req.params;
+        const { value } = req.body;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      if (value === undefined) {
-        return res.status(400).json({ error: 'Value is required' });
-      }
+        if (value === undefined) {
+          return res.status(400).json({ error: 'Value is required' });
+        }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Get or create profile
-      let profile = client.profile;
-      if (!profile) {
-        profile = await prisma.clientProfile.create({
-          data: {
-            clientId,
-            data: {},
-            fieldSources: {}
-          }
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
         });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        // Get or create profile
+        let profile = client.profile;
+        if (!profile) {
+          profile = await prisma.clientProfile.create({
+            data: {
+              clientId,
+              data: {},
+              fieldSources: {},
+            },
+          });
+        }
+
+        const currentData = (profile.data || {}) as Record<string, any>;
+        const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
+
+        // Update single field
+        const newData = { ...currentData, [fieldName]: value };
+        const newFieldSources = {
+          ...currentFieldSources,
+          [fieldName]: {
+            ...(currentFieldSources[fieldName] || {}),
+            manuallyEdited: true,
+            editedAt: new Date().toISOString(),
+          },
+        };
+
+        // Update profile
+        await prisma.clientProfile.update({
+          where: { id: profile.id },
+          data: {
+            data: newData,
+            fieldSources: newFieldSources,
+          },
+        });
+
+        logger.info(`Profile field '${fieldName}' updated for client: ${clientId}`);
+
+        res.json({
+          success: true,
+          message: `Field '${fieldName}' updated successfully`,
+          data: {
+            fieldName,
+            value,
+            manuallyEdited: true,
+          },
+        });
+      } catch (error) {
+        logger.error('Error updating profile field:', error);
+        next(error);
       }
-
-      const currentData = (profile.data || {}) as Record<string, any>;
-      const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
-
-      // Update single field
-      const newData = { ...currentData, [fieldName]: value };
-      const newFieldSources = {
-        ...currentFieldSources,
-        [fieldName]: {
-          ...(currentFieldSources[fieldName] || {}),
-          manuallyEdited: true,
-          editedAt: new Date().toISOString()
-        }
-      };
-
-      // Update profile
-      await prisma.clientProfile.update({
-        where: { id: profile.id },
-        data: {
-          data: newData,
-          fieldSources: newFieldSources
-        }
-      });
-
-      logger.info(`Profile field '${fieldName}' updated for client: ${clientId}`);
-
-      res.json({
-        success: true,
-        message: `Field '${fieldName}' updated successfully`,
-        data: {
-          fieldName,
-          value,
-          manuallyEdited: true
-        }
-      });
-    } catch (error) {
-      logger.error('Error updating profile field:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * DELETE /api/clients/:clientId/profile/fields/:fieldName - Remove a field from profile
    */
-  router.delete('/fields/:fieldName', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId, fieldName } = req.params;
+  router.delete(
+    '/fields/:fieldName',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { clientId, fieldName } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      if (!client.profile) {
-        return res.status(404).json({ error: 'Profile not found' });
-      }
-
-      const currentData = (client.profile.data || {}) as Record<string, any>;
-      const currentFieldSources = (client.profile.fieldSources || {}) as Record<string, any>;
-
-      // Remove field
-      const { [fieldName]: removedData, ...newData } = currentData;
-      const { [fieldName]: removedSource, ...newFieldSources } = currentFieldSources;
-
-      // Update profile
-      await prisma.clientProfile.update({
-        where: { id: client.profile.id },
-        data: {
-          data: newData,
-          fieldSources: newFieldSources
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
 
-      logger.info(`Profile field '${fieldName}' removed for client: ${clientId}`);
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
+        });
 
-      res.json({
-        success: true,
-        message: `Field '${fieldName}' removed successfully`
-      });
-    } catch (error) {
-      logger.error('Error removing profile field:', error);
-      next(error);
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        if (!client.profile) {
+          return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        const currentData = (client.profile.data || {}) as Record<string, unknown>;
+        const currentFieldSources = (client.profile.fieldSources || {}) as Record<string, unknown>;
+
+        // Remove field
+        const { [fieldName]: removedData, ...newData } = currentData;
+        const { [fieldName]: removedSource, ...newFieldSources } = currentFieldSources;
+
+        // Update profile
+        await prisma.clientProfile.update({
+          where: { id: client.profile.id },
+          data: {
+            data: newData,
+            fieldSources: newFieldSources,
+          },
+        });
+
+        logger.info(`Profile field '${fieldName}' removed for client: ${clientId}`);
+
+        res.json({
+          success: true,
+          message: `Field '${fieldName}' removed successfully`,
+        });
+      } catch (error) {
+        logger.error('Error removing profile field:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/profile/export - Export profile data
    */
-  router.get('/export', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId } = req.params;
-      const format = (req.query.format as string) || 'json';
+  router.get(
+    '/export',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { clientId } = req.params;
+        const format = (req.query.format as string) || 'json';
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const profileData = (client.profile?.data || {}) as Record<string, any>;
-
-      if (format === 'csv') {
-        // Export as CSV
-        const rows = Object.entries(profileData).map(([key, value]) => {
-          const fieldInfo = STANDARD_PROFILE_FIELDS[key as keyof typeof STANDARD_PROFILE_FIELDS];
-          return `"${fieldInfo?.label || key}","${String(value).replace(/"/g, '""')}"`;
-        });
-        const csv = `"Field","Value"\n${rows.join('\n')}`;
-
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${client.name}-profile.csv"`);
-        return res.send(csv);
-      }
-
-      // Default: JSON export
-      res.json({
-        success: true,
-        data: {
-          client: {
-            id: client.id,
-            name: client.name,
-            type: client.type
-          },
-          profile: profileData,
-          exportedAt: new Date().toISOString()
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
-    } catch (error) {
-      logger.error('Error exporting profile:', error);
-      next(error);
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        const profileData = (client.profile?.data || {}) as Record<string, unknown>;
+
+        if (format === 'csv') {
+          // Export as CSV
+          const rows = Object.entries(profileData).map(([key, value]) => {
+            const fieldInfo = STANDARD_PROFILE_FIELDS[key as keyof typeof STANDARD_PROFILE_FIELDS];
+            return `"${fieldInfo?.label || key}","${String(value).replace(/"/g, '""')}"`;
+          });
+          const csv = `"Field","Value"\n${rows.join('\n')}`;
+
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="${client.name}-profile.csv"`);
+          return res.send(csv);
+        }
+
+        // Default: JSON export
+        res.json({
+          success: true,
+          data: {
+            client: {
+              id: client.id,
+              name: client.name,
+              type: client.type,
+            },
+            profile: profileData,
+            exportedAt: new Date().toISOString(),
+          },
+        });
+      } catch (error) {
+        logger.error('Error exporting profile:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/profile/fields - Get available field definitions
@@ -500,9 +516,9 @@ export function createClientProfileRoutes(): Router {
           company: 'Company Details',
           contact: 'Contact Information',
           employment: 'Employment Details',
-          custom: 'Custom Fields'
-        }
-      }
+          custom: 'Custom Fields',
+        },
+      },
     });
   });
 

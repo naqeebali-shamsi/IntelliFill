@@ -12,7 +12,7 @@
  * authentication via Prisma/bcrypt for E2E testing in Docker environments.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -21,7 +21,9 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Test mode configuration
 const isTestMode = process.env.NODE_ENV === 'test';
-const JWT_SECRET = process.env.JWT_SECRET || 'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
 
 /**
  * Check if Supabase is properly configured and available
@@ -87,7 +89,7 @@ export const supabaseAdmin: SupabaseClient = isTestMode
  * @param token - JWT token from Authorization header
  * @returns User object if valid, null if invalid
  */
-export async function verifySupabaseToken(token: string) {
+export async function verifySupabaseToken(token: string): Promise<User | null> {
   // Test mode: Verify local JWT tokens
   if (isTestMode) {
     try {
@@ -110,7 +112,7 @@ export async function verifySupabaseToken(token: string) {
           // Mock Supabase user structure
           email_confirmed_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         };
       }
 
@@ -124,7 +126,10 @@ export async function verifySupabaseToken(token: string) {
 
   // Production mode: Verify with Supabase
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabaseAdmin.auth.getUser(token);
 
     if (error) {
       console.error('Supabase token verification failed:', error.message);
@@ -144,9 +149,12 @@ export async function verifySupabaseToken(token: string) {
  * @param userId - Supabase user ID
  * @returns User object if found, null otherwise
  */
-export async function getSupabaseUser(userId: string) {
+export async function getSupabaseUser(userId: string): Promise<User | null> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+    const {
+      data: { user },
+      error,
+    } = await supabaseAdmin.auth.admin.getUserById(userId);
 
     if (error) {
       console.error('Failed to get Supabase user:', error.message);

@@ -35,19 +35,19 @@ export const initializeStores = async () => {
   try {
     // Import migration utilities
     const { migrateAuthData } = await import('./migrationUtils');
-    
+
     // Migrate legacy localStorage data before initializing stores
     migrateAuthData();
-    
+
     // Initialize auth first (required for other stores)
     const authStore = useAuthStore.getState();
     if (authStore.initialize) {
       await authStore.initialize();
     }
-    
-    console.log('✅ All stores initialized successfully');
+
+    // console.log('✅ All stores initialized successfully');
   } catch (error) {
-    console.error('❌ Store initialization error:', error);
+    // console.error('❌ Store initialization error:', error);
   }
 };
 
@@ -58,20 +58,20 @@ export const initializeStores = async () => {
  */
 export const cleanupStores = () => {
   try {
-    const authStore = useAuthStore.getState() as any;
-    const uiStore = useUIStore.getState() as any;
-    
+    const authStore = useAuthStore.getState() as unknown as { clearSession?: () => void };
+    const uiStore = useUIStore.getState() as unknown as { closeAllModals?: () => void };
+
     if (authStore.clearSession) {
       authStore.clearSession();
     }
-    
+
     if (uiStore.closeAllModals) {
       uiStore.closeAllModals();
     }
-    
-    console.log('✅ All stores cleaned up successfully');
+
+    // console.log('✅ All stores cleaned up successfully');
   } catch (error) {
-    console.error('❌ Store cleanup error:', error);
+    // console.error('❌ Store cleanup error:', error);
   }
 };
 
@@ -97,7 +97,7 @@ export const storePersistence = {
   },
 
   // Import store data
-  importAll: (data: any) => {
+  importAll: (data: Record<string, unknown>) => {
     if (data.auth) {
       localStorage.setItem('auth-storage', JSON.stringify(data.auth));
     }

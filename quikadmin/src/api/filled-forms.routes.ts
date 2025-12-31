@@ -14,6 +14,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import fs from 'fs/promises';
 import path from 'path';
@@ -23,14 +24,14 @@ import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } fr
 const generateFormSchema = z.object({
   templateId: z.string().uuid('Invalid template ID'),
   clientId: z.string().uuid('Invalid client ID'),
-  overrideData: z.record(z.any()).optional() // Optional data to override profile values
+  overrideData: z.record(z.unknown()).optional(), // Optional data to override profile values
 });
 
 const listFilledFormsSchema = z.object({
   clientId: z.string().uuid().optional(),
   templateId: z.string().uuid().optional(),
   limit: z.coerce.number().min(1).max(100).default(20),
-  offset: z.coerce.number().min(0).default(0)
+  offset: z.coerce.number().min(0).default(0),
 });
 
 /**
@@ -39,7 +40,7 @@ const listFilledFormsSchema = z.object({
 async function fillPdfForm(
   templatePath: string,
   fieldMappings: Record<string, string>,
-  profileData: Record<string, any>,
+  profileData: Record<string, unknown>,
   outputPath: string
 ): Promise<{
   success: boolean;
@@ -73,7 +74,9 @@ async function fillPdfForm(
       const value = profileData[profileFieldName];
 
       if (value === undefined || value === null || value === '') {
-        warnings.push(`No data for profile field '${profileFieldName}' (form field: ${formFieldName})`);
+        warnings.push(
+          `No data for profile field '${profileFieldName}' (form field: ${formFieldName})`
+        );
         continue;
       }
 
@@ -98,7 +101,7 @@ async function fillPdfForm(
             filledFields.push(formFieldName);
           } else {
             // Try case-insensitive match
-            const match = options.find(opt => opt.toLowerCase() === valueStr.toLowerCase());
+            const match = options.find((opt) => opt.toLowerCase() === valueStr.toLowerCase());
             if (match) {
               field.select(match);
               filledFields.push(formFieldName);
@@ -119,7 +122,9 @@ async function fillPdfForm(
           warnings.push(`Unknown field type for '${formFieldName}'`);
         }
       } catch (fieldError) {
-        warnings.push(`Failed to fill field '${formFieldName}': ${fieldError instanceof Error ? fieldError.message : 'Unknown error'}`);
+        warnings.push(
+          `Failed to fill field '${formFieldName}': ${fieldError instanceof Error ? fieldError.message : 'Unknown error'}`
+        );
       }
     }
 
@@ -132,19 +137,23 @@ async function fillPdfForm(
       success: true,
       filledFields,
       unmappedFields,
-      warnings
+      warnings,
     };
   } catch (error) {
     logger.error('Error filling PDF form:', error);
-    throw new Error(`Failed to fill PDF form: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Failed to fill PDF form: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
-function parseBoolean(value: any): boolean {
+function parseBoolean(value: unknown): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') {
     const lower = value.toLowerCase();
-    return lower === 'true' || lower === 'yes' || lower === '1' || lower === 'checked' || lower === 'x';
+    return (
+      lower === 'true' || lower === 'yes' || lower === '1' || lower === 'checked' || lower === 'x'
+    );
   }
   return Boolean(value);
 }
@@ -161,124 +170,128 @@ export function createFilledFormRoutes(): Router {
    * Takes a template ID and client ID, applies field mappings to profile data,
    * and generates a filled PDF form.
    */
-  router.post('/generate', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Validate request body
-      const validation = generateFormSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.flatten().fieldErrors
-        });
-      }
-
-      const { templateId, clientId, overrideData } = validation.data;
-
-      // Get the form template
-      const template = await prisma.formTemplate.findFirst({
-        where: { id: templateId, userId, isActive: true }
-      });
-
-      if (!template) {
-        return res.status(404).json({ error: 'Form template not found or not accessible' });
-      }
-
-      // Get the client and their profile
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Check template file exists
+  router.post(
+    '/generate',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await fs.access(template.fileUrl);
-      } catch {
-        return res.status(404).json({ error: 'Template file not found on disk' });
-      }
+        const userId = (req as unknown as { user: { id: string } }).user.id;
 
-      // Get profile data
-      const profileData = (client.profile?.data || {}) as Record<string, any>;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Merge with override data (override takes precedence)
-      const mergedData = { ...profileData, ...overrideData };
+        // Validate request body
+        const validation = generateFormSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
 
-      // Get field mappings
-      const fieldMappings = (template.fieldMappings || {}) as Record<string, string>;
+        const { templateId, clientId, overrideData } = validation.data;
 
-      if (Object.keys(fieldMappings).length === 0) {
-        return res.status(400).json({
-          error: 'No field mappings configured',
-          message: 'Please configure field mappings for this template before generating forms'
+        // Get the form template
+        const template = await prisma.formTemplate.findFirst({
+          where: { id: templateId, userId, isActive: true },
         });
-      }
 
-      // Generate unique output filename
-      const timestamp = Date.now();
-      const safeTemplateName = template.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-      const safeClientName = client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-      const outputFileName = `${safeClientName}_${safeTemplateName}_${timestamp}.pdf`;
-      const outputPath = `outputs/filled-forms/${outputFileName}`;
+        if (!template) {
+          return res.status(404).json({ error: 'Form template not found or not accessible' });
+        }
 
-      // Fill the form
-      const fillResult = await fillPdfForm(
-        template.fileUrl,
-        fieldMappings,
-        mergedData,
-        outputPath
-      );
+        // Get the client and their profile
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
+        });
 
-      // Create filled form record
-      const filledForm = await prisma.filledForm.create({
-        data: {
-          clientId,
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        // Check template file exists
+        try {
+          await fs.access(template.fileUrl);
+        } catch {
+          return res.status(404).json({ error: 'Template file not found on disk' });
+        }
+
+        // Get profile data
+        const profileData = (client.profile?.data || {}) as Record<string, any>;
+
+        // Merge with override data (override takes precedence)
+        const mergedData = { ...profileData, ...overrideData };
+
+        // Get field mappings
+        const fieldMappings = (template.fieldMappings || {}) as Record<string, string>;
+
+        if (Object.keys(fieldMappings).length === 0) {
+          return res.status(400).json({
+            error: 'No field mappings configured',
+            message: 'Please configure field mappings for this template before generating forms',
+          });
+        }
+
+        // Generate unique output filename
+        const timestamp = Date.now();
+        const safeTemplateName = template.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+        const safeClientName = client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+        const outputFileName = `${safeClientName}_${safeTemplateName}_${timestamp}.pdf`;
+        const outputPath = `outputs/filled-forms/${outputFileName}`;
+
+        // Fill the form
+        const fillResult = await fillPdfForm(
+          template.fileUrl,
+          fieldMappings,
+          mergedData,
+          outputPath
+        );
+
+        // Create filled form record
+        const filledForm = await prisma.filledForm.create({
+          data: {
+            clientId,
+            templateId,
+            userId,
+            fileUrl: outputPath,
+            dataSnapshot: mergedData,
+          },
+        });
+
+        logger.info(`Generated filled form: ${filledForm.id}`, {
           templateId,
-          userId,
-          fileUrl: outputPath,
-          dataSnapshot: mergedData
-        }
-      });
+          clientId,
+          filledFields: fillResult.filledFields.length,
+          unmappedFields: fillResult.unmappedFields.length,
+        });
 
-      logger.info(`Generated filled form: ${filledForm.id}`, {
-        templateId,
-        clientId,
-        filledFields: fillResult.filledFields.length,
-        unmappedFields: fillResult.unmappedFields.length
-      });
-
-      res.status(201).json({
-        success: true,
-        message: 'Form generated successfully',
-        data: {
-          filledForm: {
-            id: filledForm.id,
-            clientId: filledForm.clientId,
-            clientName: client.name,
-            templateId: filledForm.templateId,
-            templateName: template.name,
-            fileUrl: filledForm.fileUrl,
-            downloadUrl: `/api/filled-forms/${filledForm.id}/download`,
-            filledFieldsCount: fillResult.filledFields.length,
-            unmappedFieldsCount: fillResult.unmappedFields.length,
-            warnings: fillResult.warnings,
-            createdAt: filledForm.createdAt.toISOString()
-          }
-        }
-      });
-    } catch (error) {
-      logger.error('Error generating filled form:', error);
-      next(error);
+        res.status(201).json({
+          success: true,
+          message: 'Form generated successfully',
+          data: {
+            filledForm: {
+              id: filledForm.id,
+              clientId: filledForm.clientId,
+              clientName: client.name,
+              templateId: filledForm.templateId,
+              templateName: template.name,
+              fileUrl: filledForm.fileUrl,
+              downloadUrl: `/api/filled-forms/${filledForm.id}/download`,
+              filledFieldsCount: fillResult.filledFields.length,
+              unmappedFieldsCount: fillResult.unmappedFields.length,
+              warnings: fillResult.warnings,
+              createdAt: filledForm.createdAt.toISOString(),
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error generating filled form:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * POST /api/filled-forms/preview - Preview form filling without saving
@@ -286,120 +299,125 @@ export function createFilledFormRoutes(): Router {
    * Shows what data would be filled into which fields without actually
    * generating the PDF.
    */
-  router.post('/preview', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
+  router.post(
+    '/preview',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Validate request body
-      const validation = generateFormSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.flatten().fieldErrors
-        });
-      }
-
-      const { templateId, clientId, overrideData } = validation.data;
-
-      // Get the form template
-      const template = await prisma.formTemplate.findFirst({
-        where: { id: templateId, userId, isActive: true }
-      });
-
-      if (!template) {
-        return res.status(404).json({ error: 'Form template not found' });
-      }
-
-      // Get the client and their profile
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true }
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // Get profile data
-      const profileData = (client.profile?.data || {}) as Record<string, any>;
-      const mergedData = { ...profileData, ...overrideData };
-
-      // Get field mappings and detected fields
-      const fieldMappings = (template.fieldMappings || {}) as Record<string, string>;
-      const detectedFields = (template.detectedFields || []) as string[];
-
-      // Build preview
-      const preview: Array<{
-        formField: string;
-        profileField: string | null;
-        value: any;
-        status: 'filled' | 'unmapped' | 'missing_data';
-      }> = [];
-
-      for (const formField of detectedFields) {
-        const profileField = fieldMappings[formField] || null;
-        const value = profileField ? mergedData[profileField] : undefined;
-
-        let status: 'filled' | 'unmapped' | 'missing_data';
-        if (!profileField) {
-          status = 'unmapped';
-        } else if (value === undefined || value === null || value === '') {
-          status = 'missing_data';
-        } else {
-          status = 'filled';
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        preview.push({
-          formField,
-          profileField,
-          value: value ?? null,
-          status
+        // Validate request body
+        const validation = generateFormSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        const { templateId, clientId, overrideData } = validation.data;
+
+        // Get the form template
+        const template = await prisma.formTemplate.findFirst({
+          where: { id: templateId, userId, isActive: true },
         });
-      }
 
-      const filledCount = preview.filter(p => p.status === 'filled').length;
-      const unmappedCount = preview.filter(p => p.status === 'unmapped').length;
-      const missingDataCount = preview.filter(p => p.status === 'missing_data').length;
+        if (!template) {
+          return res.status(404).json({ error: 'Form template not found' });
+        }
 
-      res.json({
-        success: true,
-        data: {
-          template: {
-            id: template.id,
-            name: template.name,
-            totalFields: detectedFields.length
-          },
-          client: {
-            id: client.id,
-            name: client.name
-          },
-          preview,
-          summary: {
-            filledCount,
-            unmappedCount,
-            missingDataCount,
-            completionPercentage: detectedFields.length > 0
-              ? Math.round((filledCount / detectedFields.length) * 100)
-              : 0
+        // Get the client and their profile
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
+
+        // Get profile data
+        const profileData = (client.profile?.data || {}) as Record<string, any>;
+        const mergedData = { ...profileData, ...overrideData };
+
+        // Get field mappings and detected fields
+        const fieldMappings = (template.fieldMappings || {}) as Record<string, string>;
+        const detectedFields = (template.detectedFields || []) as string[];
+
+        // Build preview
+        const preview: Array<{
+          formField: string;
+          profileField: string | null;
+          value: any;
+          status: 'filled' | 'unmapped' | 'missing_data';
+        }> = [];
+
+        for (const formField of detectedFields) {
+          const profileField = fieldMappings[formField] || null;
+          const value = profileField ? mergedData[profileField] : undefined;
+
+          let status: 'filled' | 'unmapped' | 'missing_data';
+          if (!profileField) {
+            status = 'unmapped';
+          } else if (value === undefined || value === null || value === '') {
+            status = 'missing_data';
+          } else {
+            status = 'filled';
           }
+
+          preview.push({
+            formField,
+            profileField,
+            value: value ?? null,
+            status,
+          });
         }
-      });
-    } catch (error) {
-      logger.error('Error previewing form:', error);
-      next(error);
+
+        const filledCount = preview.filter((p) => p.status === 'filled').length;
+        const unmappedCount = preview.filter((p) => p.status === 'unmapped').length;
+        const missingDataCount = preview.filter((p) => p.status === 'missing_data').length;
+
+        res.json({
+          success: true,
+          data: {
+            template: {
+              id: template.id,
+              name: template.name,
+              totalFields: detectedFields.length,
+            },
+            client: {
+              id: client.id,
+              name: client.name,
+            },
+            preview,
+            summary: {
+              filledCount,
+              unmappedCount,
+              missingDataCount,
+              completionPercentage:
+                detectedFields.length > 0
+                  ? Math.round((filledCount / detectedFields.length) * 100)
+                  : 0,
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error previewing form:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/filled-forms - List all filled forms
    */
   router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user: { id: string } }).user.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -410,14 +428,14 @@ export function createFilledFormRoutes(): Router {
       if (!validation.success) {
         return res.status(400).json({
           error: 'Invalid query parameters',
-          details: validation.error.flatten().fieldErrors
+          details: validation.error.flatten().fieldErrors,
         });
       }
 
       const { clientId, templateId, limit, offset } = validation.data;
 
       // Build where clause
-      const whereClause: any = { userId };
+      const whereClause: Prisma.FilledFormWhereInput = { userId };
       if (clientId) whereClause.clientId = clientId;
       if (templateId) whereClause.templateId = templateId;
 
@@ -429,13 +447,13 @@ export function createFilledFormRoutes(): Router {
           skip: offset,
           include: {
             client: { select: { id: true, name: true } },
-            template: { select: { id: true, name: true, category: true } }
-          }
+            template: { select: { id: true, name: true, category: true } },
+          },
         }),
-        prisma.filledForm.count({ where: whereClause })
+        prisma.filledForm.count({ where: whereClause }),
       ]);
 
-      const formattedForms = filledForms.map(form => ({
+      const formattedForms = filledForms.map((form) => ({
         id: form.id,
         clientId: form.clientId,
         clientName: form.client.name,
@@ -444,7 +462,7 @@ export function createFilledFormRoutes(): Router {
         templateCategory: form.template.category,
         fileUrl: form.fileUrl,
         downloadUrl: `/api/filled-forms/${form.id}/download`,
-        createdAt: form.createdAt.toISOString()
+        createdAt: form.createdAt.toISOString(),
       }));
 
       res.json({
@@ -455,9 +473,9 @@ export function createFilledFormRoutes(): Router {
             total,
             limit,
             offset,
-            hasMore: (offset + limit) < total
-          }
-        }
+            hasMore: offset + limit < total,
+          },
+        },
       });
     } catch (error) {
       logger.error('Error listing filled forms:', error);
@@ -468,222 +486,242 @@ export function createFilledFormRoutes(): Router {
   /**
    * GET /api/filled-forms/:id - Get a single filled form
    */
-  router.get('/:id', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { id } = req.params;
+  router.get(
+    '/:id',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const filledForm = await prisma.filledForm.findFirst({
-        where: { id, userId },
-        include: {
-          client: { select: { id: true, name: true, type: true } },
-          template: { select: { id: true, name: true, category: true, fieldMappings: true } }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
 
-      if (!filledForm) {
-        return res.status(404).json({ error: 'Filled form not found' });
-      }
+        const filledForm = await prisma.filledForm.findFirst({
+          where: { id, userId },
+          include: {
+            client: { select: { id: true, name: true, type: true } },
+            template: { select: { id: true, name: true, category: true, fieldMappings: true } },
+          },
+        });
 
-      res.json({
-        success: true,
-        data: {
-          filledForm: {
-            id: filledForm.id,
-            clientId: filledForm.clientId,
-            clientName: filledForm.client.name,
-            clientType: filledForm.client.type,
-            templateId: filledForm.templateId,
-            templateName: filledForm.template.name,
-            templateCategory: filledForm.template.category,
-            fileUrl: filledForm.fileUrl,
-            downloadUrl: `/api/filled-forms/${filledForm.id}/download`,
-            dataSnapshot: filledForm.dataSnapshot,
-            createdAt: filledForm.createdAt.toISOString()
-          }
+        if (!filledForm) {
+          return res.status(404).json({ error: 'Filled form not found' });
         }
-      });
-    } catch (error) {
-      logger.error('Error fetching filled form:', error);
-      next(error);
+
+        res.json({
+          success: true,
+          data: {
+            filledForm: {
+              id: filledForm.id,
+              clientId: filledForm.clientId,
+              clientName: filledForm.client.name,
+              clientType: filledForm.client.type,
+              templateId: filledForm.templateId,
+              templateName: filledForm.template.name,
+              templateCategory: filledForm.template.category,
+              fileUrl: filledForm.fileUrl,
+              downloadUrl: `/api/filled-forms/${filledForm.id}/download`,
+              dataSnapshot: filledForm.dataSnapshot,
+              createdAt: filledForm.createdAt.toISOString(),
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error fetching filled form:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/filled-forms/:id/download - Download a filled form PDF
    */
-  router.get('/:id/download', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { id } = req.params;
-
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const filledForm = await prisma.filledForm.findFirst({
-        where: { id, userId },
-        include: {
-          client: { select: { name: true } },
-          template: { select: { name: true } }
-        }
-      });
-
-      if (!filledForm) {
-        return res.status(404).json({ error: 'Filled form not found' });
-      }
-
-      // Check file exists
+  router.get(
+    '/:id/download',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await fs.access(filledForm.fileUrl);
-      } catch {
-        return res.status(404).json({ error: 'PDF file not found on disk' });
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id } = req.params;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const filledForm = await prisma.filledForm.findFirst({
+          where: { id, userId },
+          include: {
+            client: { select: { name: true } },
+            template: { select: { name: true } },
+          },
+        });
+
+        if (!filledForm) {
+          return res.status(404).json({ error: 'Filled form not found' });
+        }
+
+        // Check file exists
+        try {
+          await fs.access(filledForm.fileUrl);
+        } catch {
+          return res.status(404).json({ error: 'PDF file not found on disk' });
+        }
+
+        // Generate download filename
+        const downloadName = `${filledForm.client.name}_${filledForm.template.name}.pdf`.replace(
+          /[^a-zA-Z0-9._-]/g,
+          '_'
+        );
+
+        res.download(filledForm.fileUrl, downloadName);
+      } catch (error) {
+        logger.error('Error downloading filled form:', error);
+        next(error);
       }
-
-      // Generate download filename
-      const downloadName = `${filledForm.client.name}_${filledForm.template.name}.pdf`
-        .replace(/[^a-zA-Z0-9._-]/g, '_');
-
-      res.download(filledForm.fileUrl, downloadName);
-    } catch (error) {
-      logger.error('Error downloading filled form:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * DELETE /api/filled-forms/:id - Delete a filled form
    */
-  router.delete('/:id', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { id } = req.params;
+  router.delete(
+    '/:id',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      const filledForm = await prisma.filledForm.findFirst({
-        where: { id, userId }
-      });
-
-      if (!filledForm) {
-        return res.status(404).json({ error: 'Filled form not found' });
-      }
-
-      // Delete file from disk
-      if (filledForm.fileUrl) {
-        await fs.unlink(filledForm.fileUrl).catch((err) => {
-          logger.warn(`Failed to delete filled form file: ${filledForm.fileUrl}`, err);
+        const filledForm = await prisma.filledForm.findFirst({
+          where: { id, userId },
         });
+
+        if (!filledForm) {
+          return res.status(404).json({ error: 'Filled form not found' });
+        }
+
+        // Delete file from disk
+        if (filledForm.fileUrl) {
+          await fs.unlink(filledForm.fileUrl).catch((err) => {
+            logger.warn(`Failed to delete filled form file: ${filledForm.fileUrl}`, err);
+          });
+        }
+
+        // Delete record
+        await prisma.filledForm.delete({
+          where: { id },
+        });
+
+        logger.info(`Filled form deleted: ${id}`);
+
+        res.json({
+          success: true,
+          message: 'Filled form deleted successfully',
+        });
+      } catch (error) {
+        logger.error('Error deleting filled form:', error);
+        next(error);
       }
-
-      // Delete record
-      await prisma.filledForm.delete({
-        where: { id }
-      });
-
-      logger.info(`Filled form deleted: ${id}`);
-
-      res.json({
-        success: true,
-        message: 'Filled form deleted successfully'
-      });
-    } catch (error) {
-      logger.error('Error deleting filled form:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * POST /api/filled-forms/:id/regenerate - Regenerate a filled form with current profile data
    */
-  router.post('/:id/regenerate', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { id } = req.params;
-
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      const existingForm = await prisma.filledForm.findFirst({
-        where: { id, userId },
-        include: {
-          template: true,
-          client: { include: { profile: true } }
-        }
-      });
-
-      if (!existingForm) {
-        return res.status(404).json({ error: 'Filled form not found' });
-      }
-
-      // Check template file exists
+  router.post(
+    '/:id/regenerate',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await fs.access(existingForm.template.fileUrl);
-      } catch {
-        return res.status(404).json({ error: 'Template file no longer available' });
-      }
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id } = req.params;
 
-      // Get current profile data
-      const profileData = (existingForm.client.profile?.data || {}) as Record<string, any>;
-      const fieldMappings = (existingForm.template.fieldMappings || {}) as Record<string, string>;
-
-      // Generate new output file
-      const timestamp = Date.now();
-      const safeTemplateName = existingForm.template.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-      const safeClientName = existingForm.client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-      const outputFileName = `${safeClientName}_${safeTemplateName}_${timestamp}.pdf`;
-      const outputPath = `outputs/filled-forms/${outputFileName}`;
-
-      // Fill the form
-      const fillResult = await fillPdfForm(
-        existingForm.template.fileUrl,
-        fieldMappings,
-        profileData,
-        outputPath
-      );
-
-      // Delete old file
-      if (existingForm.fileUrl) {
-        await fs.unlink(existingForm.fileUrl).catch(() => {});
-      }
-
-      // Update record
-      const updatedForm = await prisma.filledForm.update({
-        where: { id },
-        data: {
-          fileUrl: outputPath,
-          dataSnapshot: profileData
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
         }
-      });
 
-      logger.info(`Regenerated filled form: ${id}`);
+        const existingForm = await prisma.filledForm.findFirst({
+          where: { id, userId },
+          include: {
+            template: true,
+            client: { include: { profile: true } },
+          },
+        });
 
-      res.json({
-        success: true,
-        message: 'Form regenerated successfully',
-        data: {
-          filledForm: {
-            id: updatedForm.id,
-            fileUrl: updatedForm.fileUrl,
-            downloadUrl: `/api/filled-forms/${updatedForm.id}/download`,
-            filledFieldsCount: fillResult.filledFields.length,
-            warnings: fillResult.warnings,
-            createdAt: updatedForm.createdAt.toISOString()
-          }
+        if (!existingForm) {
+          return res.status(404).json({ error: 'Filled form not found' });
         }
-      });
-    } catch (error) {
-      logger.error('Error regenerating filled form:', error);
-      next(error);
+
+        // Check template file exists
+        try {
+          await fs.access(existingForm.template.fileUrl);
+        } catch {
+          return res.status(404).json({ error: 'Template file no longer available' });
+        }
+
+        // Get current profile data
+        const profileData = (existingForm.client.profile?.data || {}) as Record<string, any>;
+        const fieldMappings = (existingForm.template.fieldMappings || {}) as Record<string, string>;
+
+        // Generate new output file
+        const timestamp = Date.now();
+        const safeTemplateName = existingForm.template.name
+          .replace(/[^a-zA-Z0-9]/g, '-')
+          .toLowerCase();
+        const safeClientName = existingForm.client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+        const outputFileName = `${safeClientName}_${safeTemplateName}_${timestamp}.pdf`;
+        const outputPath = `outputs/filled-forms/${outputFileName}`;
+
+        // Fill the form
+        const fillResult = await fillPdfForm(
+          existingForm.template.fileUrl,
+          fieldMappings,
+          profileData,
+          outputPath
+        );
+
+        // Delete old file
+        if (existingForm.fileUrl) {
+          await fs.unlink(existingForm.fileUrl).catch(() => {});
+        }
+
+        // Update record
+        const updatedForm = await prisma.filledForm.update({
+          where: { id },
+          data: {
+            fileUrl: outputPath,
+            dataSnapshot: profileData,
+          },
+        });
+
+        logger.info(`Regenerated filled form: ${id}`);
+
+        res.json({
+          success: true,
+          message: 'Form regenerated successfully',
+          data: {
+            filledForm: {
+              id: updatedForm.id,
+              fileUrl: updatedForm.fileUrl,
+              downloadUrl: `/api/filled-forms/${updatedForm.id}/download`,
+              filledFieldsCount: fillResult.filledFields.length,
+              warnings: fillResult.warnings,
+              createdAt: updatedForm.createdAt.toISOString(),
+            },
+          },
+        });
+      } catch (error) {
+        logger.error('Error regenerating filled form:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   return router;
 }

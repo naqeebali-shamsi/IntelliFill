@@ -48,7 +48,7 @@ const PORT = process.env.PORT || 3002;
 // This enables correct client IP detection for rate limiting and logging
 if (config.server.nodeEnv === 'production') {
   app.set('trust proxy', 1);
-  console.log('   Trust proxy: enabled (production mode)');
+  logger.info('   Trust proxy: enabled (production mode)');
 }
 
 async function initializeApp() {

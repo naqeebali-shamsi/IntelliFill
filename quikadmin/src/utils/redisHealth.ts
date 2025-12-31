@@ -109,18 +109,56 @@ export async function verifyRedisAtStartup(): Promise<boolean> {
  */
 let redisHealthy = true;
 let healthCheckInterval: NodeJS.Timeout | null = null;
+let monitorClient: ReturnType<typeof createClient> | null = null;
+
+/**
+ * Check if Redis is available using a persistent client
+ */
+export async function checkRedisHealth(): Promise<boolean> {
+  if (!monitorClient) {
+    const redisUrl = getRedisUrl();
+    monitorClient = createClient({ url: redisUrl });
+    monitorClient.on('error', (err) => {
+      logger.error('Redis monitor client error:', err);
+      redisHealthy = false;
+    });
+    try {
+      await monitorClient.connect();
+    } catch (error) {
+      logger.error('Failed to connect Redis monitor client:', error);
+      return false;
+    }
+  }
+
+  try {
+    await monitorClient.ping();
+    healthState = {
+      connected: true,
+      lastCheck: Date.now(),
+      lastError: null,
+    };
+    return true;
+  } catch (error) {
+    healthState = {
+      connected: false,
+      lastCheck: Date.now(),
+      lastError: error instanceof Error ? error.message : 'Unknown error',
+    };
+    return false;
+  }
+}
 
 /**
  * Start continuous Redis health monitoring
  * Checks health periodically and logs status changes only
  */
-export function startRedisHealthMonitoring(intervalMs: number = 30000): void {
+export function startRedisHealthMonitoring(intervalMs: number = 120000): void {
   if (healthCheckInterval) {
     logger.warn('Redis health monitoring already running');
     return;
   }
 
-  logger.info('Starting Redis health monitoring', {
+  logger.info('Starting Redis health monitoring (Optimized)', {
     intervalMs,
     intervalSeconds: intervalMs / 1000,
   });

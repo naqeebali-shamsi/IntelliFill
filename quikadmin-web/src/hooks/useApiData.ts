@@ -1,33 +1,83 @@
-import { useState, useEffect } from 'react';
-import { getStatistics, getJobs, getTemplates, getQueueMetrics } from '@/services/api';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  getStatistics,
+  getJobs,
+  getTemplates,
+  getQueueMetrics,
+  API_BASE_URL,
+} from '@/services/api';
+
+// SSE Event types
+type SSEEvent = {
+  type: 'queue_progress' | 'queue_completed' | 'queue_failed' | 'connected' | 'ping';
+  data: any;
+  timestamp: string;
+};
+
+/**
+ * Hook for global real-time updates via SSE
+ */
+function useRealtime(onEvent?: (event: SSEEvent) => void) {
+  const eventCallback = useRef(onEvent);
+
+  useEffect(() => {
+    eventCallback.current = onEvent;
+  }, [onEvent]);
+
+  useEffect(() => {
+    // API_BASE_URL is /api, we want /api/realtime
+    const sseUrl = `${API_BASE_URL}/realtime`.replace('/api/api', '/api');
+    const eventSource = new EventSource(sseUrl, { withCredentials: true });
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data: SSEEvent = JSON.parse(event.data);
+        if (eventCallback.current) {
+          eventCallback.current(data);
+        }
+      } catch (err) {
+        console.error('Failed to parse SSE event:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE Connection error:', err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+}
 
 export function useStatistics() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const stats = await getStatistics();
-        setData(stats);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const stats = await getStatistics();
+      setData(stats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { data, loading, error };
+  useEffect(() => {
+    fetchData();
+    // Refresh every 2 minutes (SSE handles the important stuff)
+    const interval = setInterval(fetchData, 120000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  return { data, loading, error, refresh: fetchData };
 }
 
 export function useJobs(limit = 5) {
@@ -35,10 +85,10 @@ export function useJobs(limit = 5) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchJobs = async () => {
+  const fetchJobs = useCallback(
+    async (showLoading = true) => {
       try {
-        setLoading(true);
+        if (showLoading) setLoading(true);
         setError(null);
         const data = await getJobs();
         // Handle both array response and { jobs: [...] } response
@@ -48,17 +98,32 @@ export function useJobs(limit = 5) {
         setError(err instanceof Error ? err.message : 'Failed to fetch jobs');
         setJobs([]);
       } finally {
-        setLoading(false);
+        if (showLoading) setLoading(false);
       }
-    };
+    },
+    [limit]
+  );
 
+  // Listen for real-time updates
+  useRealtime(
+    useCallback(
+      (event) => {
+        if (['queue_completed', 'queue_failed', 'queue_progress'].includes(event.type)) {
+          fetchJobs(false);
+        }
+      },
+      [fetchJobs]
+    )
+  );
+
+  useEffect(() => {
     fetchJobs();
-    // Refresh every 10 seconds for processing status
-    const interval = setInterval(fetchJobs, 10000);
+    // Fallback refresh every 60 seconds
+    const interval = setInterval(() => fetchJobs(false), 60000);
     return () => clearInterval(interval);
-  }, [limit]);
+  }, [fetchJobs]);
 
-  return { jobs, loading, error };
+  return { jobs, loading, error, refresh: fetchJobs };
 }
 
 export function useTemplates() {
@@ -92,26 +157,38 @@ export function useQueueMetrics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getQueueMetrics();
-        setMetrics(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch queue metrics');
-        setMetrics(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMetrics();
-    // Refresh every 5 seconds for real-time updates
-    const interval = setInterval(fetchMetrics, 5000);
-    return () => clearInterval(interval);
+  const fetchMetrics = useCallback(async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      setError(null);
+      const data = await getQueueMetrics();
+      setMetrics(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch queue metrics');
+      setMetrics(null);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
   }, []);
 
-  return { metrics, loading, error };
+  // Listen for real-time updates
+  useRealtime(
+    useCallback(
+      (event) => {
+        if (['queue_completed', 'queue_failed', 'queue_progress'].includes(event.type)) {
+          fetchMetrics(false);
+        }
+      },
+      [fetchMetrics]
+    )
+  );
+
+  useEffect(() => {
+    fetchMetrics();
+    // Fallback refresh every 60 seconds
+    const interval = setInterval(() => fetchMetrics(false), 60000);
+    return () => clearInterval(interval);
+  }, [fetchMetrics]);
+
+  return { metrics, loading, error, refresh: fetchMetrics };
 }

@@ -1,133 +1,140 @@
-import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { useAuthStore } from '@/stores/auth'
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth';
 
 export default function ResetPassword() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const token = searchParams.get('token')
-  const email = searchParams.get('email')
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
+  const email = searchParams.get('email');
 
   const [formData, setFormData] = useState({
     password: '',
-    confirmPassword: ''
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [isTokenValid, setIsTokenValid] = useState(true)
-  const [resetSuccess, setResetSuccess] = useState(false)
+    confirmPassword: '',
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isTokenValid, setIsTokenValid] = useState(true);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
-  const { resetPassword, verifyResetToken } = useAuthStore()
+  const { resetPassword, verifyResetToken } = useAuthStore();
 
   // Validate token on mount
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
-        setIsTokenValid(false)
-        setError('Invalid or missing reset token')
-        return
+        setIsTokenValid(false);
+        setError('Invalid or missing reset token');
+        return;
       }
 
       try {
-        await verifyResetToken(token)
-        setIsTokenValid(true)
+        await verifyResetToken(token);
+        setIsTokenValid(true);
       } catch (err: any) {
-        setIsTokenValid(false)
-        setError(err.message || 'Invalid or expired reset link')
+        setIsTokenValid(false);
+        setError(err.message || 'Invalid or expired reset link');
       }
-    }
+    };
 
-    validateToken()
-  }, [token, verifyResetToken])
+    validateToken();
+  }, [token, verifyResetToken]);
 
   // Password strength validation
   const validatePassword = (password: string): string[] => {
-    const errors: string[] = []
+    const errors: string[] = [];
 
     if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long')
+      errors.push('Password must be at least 8 characters long');
     }
     if (!/[A-Z]/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter')
+      errors.push('Password must contain at least one uppercase letter');
     }
     if (!/[a-z]/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter')
+      errors.push('Password must contain at least one lowercase letter');
     }
     if (!/[0-9]/.test(password)) {
-      errors.push('Password must contain at least one number')
+      errors.push('Password must contain at least one number');
     }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-      errors.push('Password must contain at least one special character')
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+      errors.push('Password must contain at least one special character');
     }
 
-    return errors
-  }
+    return errors;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-    setError(null)
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setError(null);
 
     // Real-time password validation
     if (name === 'password') {
-      const errors = validatePassword(value)
-      setValidationErrors(errors)
+      const errors = validatePassword(value);
+      setValidationErrors(errors);
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
+      setError('Passwords do not match');
+      return;
     }
 
     // Validate password strength
-    const errors = validatePassword(formData.password)
+    const errors = validatePassword(formData.password);
     if (errors.length > 0) {
-      setError('Password does not meet requirements')
-      return
+      setError('Password does not meet requirements');
+      return;
     }
 
     if (!token) {
-      setError('Invalid reset token')
-      return
+      setError('Invalid reset token');
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      await resetPassword(token, formData.password)
-      setResetSuccess(true)
-      toast.success('Password reset successful!')
+      await resetPassword(token, formData.password);
+      setResetSuccess(true);
+      toast.success('Password reset successful!');
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate('/login', {
-          state: { message: 'Password reset successful. Please log in with your new password.' }
-        })
-      }, 3000)
+          state: { message: 'Password reset successful. Please log in with your new password.' },
+        });
+      }, 3000);
     } catch (err: any) {
-      console.error('Password reset error:', err)
-      setError(err.message || 'Failed to reset password. Please try again.')
-      toast.error(err.message || 'Password reset failed')
+      console.error('Password reset error:', err);
+      setError(err.message || 'Failed to reset password. Please try again.');
+      toast.error(err.message || 'Password reset failed');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Show error if token is invalid
   if (!isTokenValid) {
@@ -156,7 +163,7 @@ export default function ResetPassword() {
           </CardFooter>
         </Card>
       </div>
-    )
+    );
   }
 
   // Show success message
@@ -175,21 +182,17 @@ export default function ResetPassword() {
                 <p className="text-sm text-muted-foreground">
                   Your password has been successfully reset.
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Redirecting to login page...
-                </p>
+                <p className="text-sm text-muted-foreground">Redirecting to login page...</p>
               </div>
 
               <Link to="/login" className="w-full pt-4">
-                <Button className="w-full">
-                  Continue to login
-                </Button>
+                <Button className="w-full">Continue to login</Button>
               </Link>
             </div>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -217,7 +220,7 @@ export default function ResetPassword() {
                 <Input
                   id="password"
                   name="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter new password"
                   value={formData.password}
                   onChange={handleChange}
@@ -232,11 +235,7 @@ export default function ResetPassword() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
 
@@ -262,7 +261,7 @@ export default function ResetPassword() {
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
+                  type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="Confirm new password"
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -294,7 +293,11 @@ export default function ResetPassword() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || validationErrors.length > 0 || formData.password !== formData.confirmPassword}
+              disabled={
+                isLoading ||
+                validationErrors.length > 0 ||
+                formData.password !== formData.confirmPassword
+              }
             >
               {isLoading ? (
                 <>
@@ -311,10 +314,7 @@ export default function ResetPassword() {
 
             <div className="text-center text-sm text-gray-600 dark:text-gray-400">
               Remember your password?{' '}
-              <Link
-                to="/login"
-                className="font-medium text-primary hover:underline"
-              >
+              <Link to="/login" className="font-medium text-primary hover:underline">
                 Back to login
               </Link>
             </div>
@@ -322,5 +322,5 @@ export default function ResetPassword() {
         </form>
       </Card>
     </div>
-  )
+  );
 }

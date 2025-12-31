@@ -82,6 +82,7 @@ const MAGIC_NUMBERS: Record<string, { signature: number[]; offset: number }> = {
 /**
  * Characters that are invalid in filenames
  */
+// eslint-disable-next-line no-control-regex
 const INVALID_FILENAME_CHARS = /[<>:"|?*\x00-\x1f]/g;
 
 /**
@@ -164,9 +165,7 @@ export class FileValidationService {
       // 2. Check file size
       if (!this.validateFileSize(buffer, opts.maxFileSize!)) {
         result.isValid = false;
-        result.errors.push(
-          `File size ${buffer.length} exceeds maximum ${opts.maxFileSize} bytes`
-        );
+        result.errors.push(`File size ${buffer.length} exceeds maximum ${opts.maxFileSize} bytes`);
         return result;
       }
 
@@ -176,9 +175,7 @@ export class FileValidationService {
 
         // Verify declared type matches detected type
         if (declaredMimeType && result.detectedMimeType) {
-          if (
-            !this.mimeTypesMatch(declaredMimeType, result.detectedMimeType)
-          ) {
+          if (!this.mimeTypesMatch(declaredMimeType, result.detectedMimeType)) {
             result.securityFlags.push('MIME_TYPE_MISMATCH');
             logger.warn('MIME type mismatch detected', {
               declared: declaredMimeType,
@@ -189,23 +186,15 @@ export class FileValidationService {
         }
 
         // Check if detected type is allowed
-        if (
-          result.detectedMimeType &&
-          !opts.allowedMimeTypes!.includes(result.detectedMimeType)
-        ) {
+        if (result.detectedMimeType && !opts.allowedMimeTypes!.includes(result.detectedMimeType)) {
           result.isValid = false;
-          result.errors.push(
-            `File type ${result.detectedMimeType} is not allowed`
-          );
+          result.errors.push(`File type ${result.detectedMimeType} is not allowed`);
           return result;
         }
       }
 
       // 4. PDF-specific security validation
-      if (
-        result.detectedMimeType === 'application/pdf' ||
-        declaredMimeType === 'application/pdf'
-      ) {
+      if (result.detectedMimeType === 'application/pdf' || declaredMimeType === 'application/pdf') {
         const pdfValidation = await this.validatePDF(buffer);
         result.securityFlags.push(...pdfValidation.flags);
 
@@ -312,9 +301,7 @@ export class FileValidationService {
    * @returns Detected MIME type or null
    */
   detectMimeType(buffer: Buffer): string | null {
-    for (const [mimeType, { signature, offset }] of Object.entries(
-      MAGIC_NUMBERS
-    )) {
+    for (const [mimeType, { signature, offset }] of Object.entries(MAGIC_NUMBERS)) {
       if (this.checkMagicNumber(buffer, signature, offset)) {
         return mimeType;
       }
@@ -331,11 +318,7 @@ export class FileValidationService {
   /**
    * Check if buffer starts with expected magic number
    */
-  private checkMagicNumber(
-    buffer: Buffer,
-    signature: number[],
-    offset: number
-  ): boolean {
+  private checkMagicNumber(buffer: Buffer, signature: number[], offset: number): boolean {
     if (buffer.length < offset + signature.length) {
       return false;
     }
@@ -378,8 +361,7 @@ export class FileValidationService {
 
     // DOCX files are ZIP-based, so detected might be application/zip
     if (
-      declared ===
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
+      declared === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' &&
       detected === 'application/zip'
     ) {
       return true;
@@ -488,8 +470,7 @@ export class FileValidationService {
     const ext = path.extname(filename).toLowerCase();
     const expectedExtensions: Record<string, string[]> = {
       'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-        ['.docx'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'text/plain': ['.txt', '.text'],
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/png': ['.png'],

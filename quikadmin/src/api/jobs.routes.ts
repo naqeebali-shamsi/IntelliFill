@@ -140,7 +140,7 @@ router.get('/jobs/queue/stats', async (req: Request, res: Response) => {
 // Phase 6 Complete: Users can only see their own jobs (Supabase auth)
 router.get('/jobs/recent', authenticateSupabase, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as unknown as { user: { id: string } }).user.id;
 
     // Get recent jobs (last 10)
     const jobs = await documentQueue.getJobs(['completed', 'failed', 'active', 'waiting'], 0, 10);

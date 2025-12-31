@@ -305,9 +305,11 @@ export function createSupabaseAuthRoutes(): Router {
               },
             },
           });
-        } catch (prismaError: any) {
+        } catch (prismaError: unknown) {
           // Rollback: Delete user from Supabase if Prisma creation fails
-          logger.error('Prisma user creation failed, rolling back Supabase user:', prismaError);
+          const errorMessage =
+            prismaError instanceof Error ? prismaError.message : String(prismaError);
+          logger.error('Prisma user creation failed, rolling back Supabase user:', errorMessage);
 
           try {
             await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
@@ -316,7 +318,11 @@ export function createSupabaseAuthRoutes(): Router {
             logger.error('Supabase user rollback failed:', deleteError);
           }
 
-          if (prismaError.code === 'P2002') {
+          if (
+            typeof prismaError === 'object' &&
+            prismaError !== null &&
+            (prismaError as any).code === 'P2002'
+          ) {
             return res.status(409).json({
               error: 'User with this email already exists',
             });
@@ -326,7 +332,7 @@ export function createSupabaseAuthRoutes(): Router {
             error: 'Registration failed. Please try again.',
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('Registration error:', error);
         res.status(500).json({
           error: 'Registration failed. Please try again.',
@@ -558,7 +564,7 @@ export function createSupabaseAuthRoutes(): Router {
           },
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Login error:', error);
       res.status(500).json({
         error: 'Login failed. Please try again.',
@@ -586,7 +592,6 @@ export function createSupabaseAuthRoutes(): Router {
     async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const userId = req.user?.id;
-        const email = req.user?.email;
 
         // Sign out from Supabase (global scope - invalidates all sessions for this user)
         // Note: We use supabaseAdmin to ensure we can sign out the user even if their token is expired
@@ -605,7 +610,7 @@ export function createSupabaseAuthRoutes(): Router {
           success: true,
           message: 'Logout successful',
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('Logout error:', error);
         // Return success even if logout fails to prevent client-side issues
         res.json({
@@ -688,7 +693,7 @@ export function createSupabaseAuthRoutes(): Router {
           },
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Token refresh error:', error);
       res.status(401).json({
         error: 'Invalid or expired refresh token',
@@ -770,7 +775,7 @@ export function createSupabaseAuthRoutes(): Router {
             },
           },
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error('Get user profile error:', error);
         res.status(500).json({
           error: 'Failed to get user profile',

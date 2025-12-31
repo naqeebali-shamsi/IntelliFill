@@ -4,6 +4,7 @@ import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { OCRService, OCRProgress } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
+import { realtimeService } from '../services/RealtimeService';
 
 const prisma = new PrismaClient();
 
@@ -160,6 +161,14 @@ if (ocrQueue) {
         const progressPercent = 10 + progress.progress * 0.8;
         job.progress(progressPercent);
 
+        realtimeService.broadcast('queue_progress', {
+          jobId: job.id,
+          documentId,
+          progress: progressPercent,
+          stage: progress.stage,
+          message: progress.message,
+        });
+
         logger.debug(`OCR Progress for ${documentId}: ${progress.stage} - ${progress.message}`);
       });
 
@@ -231,14 +240,25 @@ if (ocrQueue) {
 if (ocrQueue) {
   ocrQueue.on('completed', (job, result) => {
     logger.info(`OCR job ${job.id} completed`, {
-      documentId: result.documentId,
       confidence: result.confidence,
       pageCount: result.pageCount,
+    });
+
+    realtimeService.broadcast('queue_completed', {
+      jobId: job.id,
+      documentId: result.documentId,
+      result,
     });
   });
 
   ocrQueue.on('failed', (job, err) => {
     logger.error(`OCR job ${job.id} failed:`, err);
+
+    realtimeService.broadcast('queue_failed', {
+      jobId: job.id,
+      error: err.message,
+    });
+
     logger.info(
       `OCR job ${job.id} will retry. Attempt ${job.attemptsMade} of ${job.opts.attempts}`
     );

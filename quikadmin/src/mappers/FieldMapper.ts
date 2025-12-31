@@ -4,7 +4,7 @@ import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 export interface FieldMapping {
   formField: string;
   dataSource: string;
-  value: any;
+  value: unknown;
   confidence: number;
   mappingMethod: string;
 }
@@ -103,8 +103,9 @@ export class FieldMapper {
     normalizedFormField: string,
     extractedData: ExtractedData,
     mappedDataFields: Set<string>
-  ): { source: string; value: any; confidence: number; method: string } | null {
-    let bestMatch: any = null;
+  ): { source: string; value: unknown; confidence: number; method: string } | null {
+    let bestMatch: { source: string; value: unknown; confidence: number; method: string } | null =
+      null;
     let bestConfidence = 0;
 
     // Check direct field matches
@@ -141,14 +142,12 @@ export class FieldMapper {
         bestMatch.confidence
       );
     }
-
-    return bestMatch;
   }
 
   private mapToEntity(
     formField: string,
     entities: ExtractedData['entities']
-  ): { source: string; value: any; confidence: number; method: string } | null {
+  ): { source: string; value: unknown; confidence: number; method: string } | null {
     const fieldLower = formField.toLowerCase();
 
     // Map based on common field patterns
@@ -274,7 +273,7 @@ export class FieldMapper {
     return matrix[str2.length][str1.length];
   }
 
-  private applyTypeValidation(field: string, value: any, confidence: number): number {
+  private applyTypeValidation(field: string, value: unknown, confidence: number): number {
     const fieldLower = field.toLowerCase();
     const valueStr = String(value);
 

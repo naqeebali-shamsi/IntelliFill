@@ -1,4 +1,4 @@
-import express, { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -27,7 +27,7 @@ const ALLOWED_MIMETYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/
 const documentUpload = multer({
   dest: 'uploads/documents/',
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (ALLOWED_EXTENSIONS.includes(ext) || ALLOWED_MIMETYPES.includes(file.mimetype)) {
       cb(null, true);
@@ -41,7 +41,7 @@ const documentUpload = multer({
 const upload = multer({
   dest: 'uploads/',
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     if (ext === '.pdf') {
       cb(null, true);
@@ -60,7 +60,7 @@ export function createDocumentRoutes(): Router {
    */
   router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user: { id: string } }).user.id;
       const { type, search, limit = 50 } = req.query;
 
       const documents = await prisma.document.findMany({
@@ -104,7 +104,7 @@ export function createDocumentRoutes(): Router {
     documentUpload.array('documents', 10),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const files = req.files as Express.Multer.File[];
 
         if (!files || files.length === 0) {
@@ -230,7 +230,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { documentIds } = req.body;
 
         if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
@@ -266,7 +266,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { threshold = 0.7 } = req.query;
 
         const { DocumentService } = await import('../services/DocumentService');
@@ -302,7 +302,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         const document = await prisma.document.findFirst({
@@ -341,7 +341,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         const document = await prisma.document.findFirst({
@@ -382,7 +382,7 @@ export function createDocumentRoutes(): Router {
     upload.single('form'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         // Get document with extracted data
@@ -464,7 +464,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         const document = await prisma.document.findFirst({
@@ -504,7 +504,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         // Get document from database

@@ -1,4 +1,4 @@
-import express, { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -6,12 +6,11 @@ import { DatabaseService } from '../database/DatabaseService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
-import { IntelliFillService } from '../services/IntelliFillService';
 
 // Configure multer for form validation file uploads
 const storage = multer.diskStorage({
   destination: 'uploads/',
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `form-validate-${uniqueSuffix}${ext}`);
@@ -23,7 +22,7 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
@@ -32,13 +31,13 @@ const upload = multer({
   },
 });
 
-export function createStatsRoutes(db: DatabaseService): Router {
+export function createStatsRoutes(_db: DatabaseService): Router {
   const router = Router();
 
   // Get dashboard statistics
   router.get('/statistics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
       // Get real statistics from database
       const [totalJobs, completedJobs, failedJobs, inProgressJobs, totalClients, totalDocuments] =
@@ -120,7 +119,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   // Get processing jobs (real data from database)
   router.get('/jobs', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = parseInt(req.query.offset as string) || 0;
       const status = req.query.status as string;
@@ -178,7 +177,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   router.get('/jobs/:jobId', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
       const job = await prisma.job.findFirst({
         where: {
@@ -221,7 +220,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   router.get('/jobs/:jobId/status', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
       const job = await prisma.job.findFirst({
         where: {
@@ -255,7 +254,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   // Get templates (real data from database)
   router.get('/templates', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
       // Get templates from the old Template model
       const templates = await prisma.template.findMany({
@@ -288,7 +287,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   // Create template (stores in database)
   router.post('/templates', authenticateSupabase, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
       const { name, description, formType, fields, isPublic } = req.body;
 
       // Validate required fields
@@ -340,7 +339,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   // Get queue metrics (real data from Bull queue if available, otherwise from database)
   router.get('/queue/metrics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
       // Get metrics from database job counts
       const [waiting, active, completed, failed] = await Promise.all([
@@ -398,7 +397,7 @@ export function createStatsRoutes(db: DatabaseService): Router {
   // Extract data endpoint - delegates to document processing service
   router.post('/extract', authenticateSupabase, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req as unknown as { user?: { id: string } }).user?.id;
       const { documentId } = req.body;
 
       if (!documentId) {

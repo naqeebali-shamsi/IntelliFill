@@ -1,42 +1,56 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, UserPlus, Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react'
-import { useAuthStore } from '@/stores/auth'
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, UserPlus, Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth';
 
 interface PasswordStrength {
-  score: number
+  score: number;
   requirements: {
-    length: boolean
-    uppercase: boolean
-    lowercase: boolean
-    number: boolean
-    special: boolean
-  }
+    length: boolean;
+    uppercase: boolean;
+    lowercase: boolean;
+    number: boolean;
+    special: boolean;
+  };
 }
 
+const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
+  <div className="flex items-center gap-1 text-xs">
+    {met ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-gray-400" />}
+    <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+  </div>
+);
+
 export default function Register() {
-  const navigate = useNavigate()
-  const [showPassword, setShowPassword] = useState(false)
-  const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [marketingConsent, setMarketingConsent] = useState(false)
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   // Get auth store state and actions
-  const { register, clearError } = useAuthStore()
-  const isLoading = useAuthStore((state) => state.isLoading)
-  const error = useAuthStore((state) => state.error)
+  const { register, clearError } = useAuthStore();
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
-  })
+    confirmPassword: '',
+  });
 
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
     score: 0,
@@ -45,9 +59,9 @@ export default function Register() {
       uppercase: false,
       lowercase: false,
       number: false,
-      special: false
-    }
-  })
+      special: false,
+    },
+  });
 
   const checkPasswordStrength = (password: string) => {
     const requirements = {
@@ -55,37 +69,37 @@ export default function Register() {
       uppercase: /[A-Z]/.test(password),
       lowercase: /[a-z]/.test(password),
       number: /\d/.test(password),
-      special: /[@$!%*?&]/.test(password)
-    }
+      special: /[@$!%*?&]/.test(password),
+    };
 
-    const score = Object.values(requirements).filter(Boolean).length
+    const score = Object.values(requirements).filter(Boolean).length;
 
     setPasswordStrength({
       score,
-      requirements
-    })
-  }
+      requirements,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    clearError()
+    e.preventDefault();
+    clearError();
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match')
-      return
+      toast.error('Passwords do not match');
+      return;
     }
 
     // Validate password strength
     if (passwordStrength.score < 4) {
-      toast.error('Password does not meet all requirements')
-      return
+      toast.error('Password does not meet all requirements');
+      return;
     }
 
     // Validate terms agreement
     if (!agreedToTerms) {
-      toast.error('You must agree to the terms and conditions')
-      return
+      toast.error('You must agree to the terms and conditions');
+      return;
     }
 
     try {
@@ -94,69 +108,58 @@ export default function Register() {
         password: formData.password,
         name: formData.name,
         acceptTerms: agreedToTerms,
-        marketingConsent
-      })
+        marketingConsent,
+      });
 
       // Get the auth state to check if tokens are present
-      const authState = useAuthStore.getState()
+      const authState = useAuthStore.getState();
 
       // Check if email verification is required (tokens will be null)
       if (!authState.tokens) {
         // Email verification required - redirect to verify-email page
-        toast.success('Registration successful! Please check your email for verification code.')
-        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`)
+        toast.success('Registration successful! Please check your email for verification code.');
+        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
       } else {
         // Development mode or verification disabled - direct login
-        toast.success('Registration successful! Welcome aboard!')
-        navigate('/dashboard')
+        toast.success('Registration successful! Welcome aboard!');
+        navigate('/dashboard');
       }
     } catch (err: any) {
-      console.error('Registration error:', err)
+      console.error('Registration error:', err);
       // Error is already set in the store by the register action
       // Show toast for better UX
       if (err.code === 'EMAIL_EXISTS') {
-        toast.error('An account with this email already exists')
+        toast.error('An account with this email already exists');
       } else if (err.code === 'RATE_LIMIT') {
-        toast.error('Too many registration attempts. Please try again later.')
+        toast.error('Too many registration attempts. Please try again later.');
       } else {
-        toast.error(err.message || 'Registration failed. Please try again.')
+        toast.error(err.message || 'Registration failed. Please try again.');
       }
     }
-  }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
+    const { name, value } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
-    }))
+      [name]: value,
+    }));
 
     // Check password strength when password changes
     if (name === 'password') {
-      checkPasswordStrength(value)
+      checkPasswordStrength(value);
     }
 
     // Clear error when user starts typing
-    if (error) clearError()
-  }
+    if (error) clearError();
+  };
 
   const getPasswordStrengthColor = () => {
-    if (passwordStrength.score <= 2) return 'bg-red-500'
-    if (passwordStrength.score <= 3) return 'bg-yellow-500'
-    if (passwordStrength.score <= 4) return 'bg-green-500'
-    return 'bg-green-600'
-  }
-
-  const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
-    <div className="flex items-center gap-1 text-xs">
-      {met ? (
-        <Check className="h-3 w-3 text-green-500" />
-      ) : (
-        <X className="h-3 w-3 text-gray-400" />
-      )}
-      <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
-    </div>
-  )
+    if (passwordStrength.score <= 2) return 'bg-red-500';
+    if (passwordStrength.score <= 3) return 'bg-yellow-500';
+    if (passwordStrength.score <= 4) return 'bg-green-500';
+    return 'bg-green-600';
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
@@ -215,7 +218,7 @@ export default function Register() {
                 <Input
                   id="password"
                   name="password"
-                  type={showPassword ? "text" : "password"}
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Create a strong password"
                   value={formData.password}
                   onChange={handleChange}
@@ -230,11 +233,7 @@ export default function Register() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
 
@@ -253,11 +252,23 @@ export default function Register() {
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-1">
-                    <RequirementItem met={passwordStrength.requirements.length} text="8+ characters" />
-                    <RequirementItem met={passwordStrength.requirements.uppercase} text="Uppercase" />
-                    <RequirementItem met={passwordStrength.requirements.lowercase} text="Lowercase" />
+                    <RequirementItem
+                      met={passwordStrength.requirements.length}
+                      text="8+ characters"
+                    />
+                    <RequirementItem
+                      met={passwordStrength.requirements.uppercase}
+                      text="Uppercase"
+                    />
+                    <RequirementItem
+                      met={passwordStrength.requirements.lowercase}
+                      text="Lowercase"
+                    />
                     <RequirementItem met={passwordStrength.requirements.number} text="Number" />
-                    <RequirementItem met={passwordStrength.requirements.special} text="Special char" />
+                    <RequirementItem
+                      met={passwordStrength.requirements.special}
+                      text="Special char"
+                    />
                   </div>
                 </div>
               )}
@@ -268,7 +279,7 @@ export default function Register() {
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
-                type={showPassword ? "text" : "password"}
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Confirm your password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
@@ -334,10 +345,7 @@ export default function Register() {
 
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               Already have an account?{' '}
-              <Link
-                to="/login"
-                className="font-medium text-primary hover:underline"
-              >
+              <Link to="/login" className="font-medium text-primary hover:underline">
                 Sign in
               </Link>
             </p>
@@ -345,5 +353,5 @@ export default function Register() {
         </form>
       </Card>
     </div>
-  )
+  );
 }

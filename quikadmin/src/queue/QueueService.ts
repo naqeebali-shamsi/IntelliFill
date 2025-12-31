@@ -60,7 +60,7 @@ export class QueueService {
       available: QueueService._isAvailable,
       message: QueueService._isAvailable
         ? 'Queue service is operational'
-        : 'Queue service unavailable - Redis not connected'
+        : 'Queue service unavailable - Redis not connected',
     };
   }
 
@@ -76,15 +76,16 @@ export class QueueService {
 
     // Check if Redis Sentinel is enabled
     if (process.env.REDIS_SENTINEL_ENABLED === 'true') {
-      const sentinelHosts = process.env.REDIS_SENTINEL_HOSTS?.split(',').map(host => {
-        const [hostName, port] = host.trim().split(':');
-        return { host: hostName, port: parseInt(port || '26379') };
-      }) || [];
+      const sentinelHosts =
+        process.env.REDIS_SENTINEL_HOSTS?.split(',').map((host) => {
+          const [hostName, port] = host.trim().split(':');
+          return { host: hostName, port: parseInt(port || '26379') };
+        }) || [];
 
       redisConfig = {
         sentinels: sentinelHosts,
         name: process.env.REDIS_SENTINEL_MASTER_NAME || 'mymaster',
-        password: process.env.REDIS_PASSWORD
+        password: process.env.REDIS_PASSWORD,
       };
     } else {
       // Standard Redis connection
@@ -102,25 +103,25 @@ export class QueueService {
           attempts: 3,
           backoff: {
             type: 'exponential',
-            delay: 2000
-          }
-        }
+            delay: 2000,
+          },
+        },
       });
 
       this.ocrQueue = new Bull('ocr-processing', redisConfig, {
         defaultJobOptions: {
           removeOnComplete: 50,
           removeOnFail: 100,
-          attempts: 2
-        }
+          attempts: 2,
+        },
       });
 
       this.mlTrainingQueue = new Bull('ml-training', redisConfig, {
         defaultJobOptions: {
           removeOnComplete: 10,
           removeOnFail: 50,
-          attempts: 1
-        }
+          attempts: 1,
+        },
       });
 
       this.setupProcessors();
@@ -139,12 +140,12 @@ export class QueueService {
     // Main processing queue processor
     this.processingQueue.process(5, async (job: Job<ProcessingJob>) => {
       const { type, documents, form, output, userId } = job.data;
-      
+
       logger.info(`Processing job ${job.id} of type ${type}`);
-      
+
       // Update job progress
       await job.progress(10);
-      
+
       try {
         // Store job start in database
         await this.databaseService.createJob({
@@ -153,32 +154,33 @@ export class QueueService {
           status: 'processing',
           userId,
           documentsCount: documents.length,
-          startedAt: new Date()
+          startedAt: new Date(),
         });
 
         let result;
-        
+
         switch (type) {
           case 'single':
             await job.progress(30);
             result = await this.intelliFillService.processSingle(documents[0], form, output);
             break;
-            
+
           case 'multiple':
             await job.progress(30);
             result = await this.intelliFillService.processMultiple(documents, form, output);
             break;
-            
-          case 'batch':
+
+          case 'batch': {
             await job.progress(30);
             const jobs = documents.map((doc, i) => ({
               documents: [doc],
               form,
-              output: `${output}_${i}.pdf`
+              output: `${output}_${i}.pdf`,
             }));
             result = await this.intelliFillService.batchProcess(jobs);
             break;
-            
+          }
+
           default:
             throw new Error(`Unknown job type: ${type}`);
         }
@@ -189,20 +191,20 @@ export class QueueService {
         await this.databaseService.updateJob(job.id as string, {
           status: 'completed',
           result,
-          completedAt: new Date()
+          completedAt: new Date(),
         });
 
         await job.progress(100);
-        
+
         return result;
       } catch (error) {
         // Store error in database
         await this.databaseService.updateJob(job.id as string, {
           status: 'failed',
           error: error instanceof Error ? error.message : 'Unknown error',
-          failedAt: new Date()
+          failedAt: new Date(),
         });
-        
+
         throw error;
       }
     });
@@ -210,24 +212,24 @@ export class QueueService {
     // OCR queue processor
     this.ocrQueue.process(2, async (job: Job) => {
       const { filePath, jobId } = job.data;
-      
+
       logger.info(`Processing OCR for file ${filePath}`);
-      
+
       // OCR processing would happen here
       // This is a placeholder for the actual OCR implementation
-      
+
       return { success: true, text: 'OCR processed text' };
     });
 
     // ML training queue processor
     this.mlTrainingQueue.process(1, async (job: Job) => {
       const { data, modelId } = job.data;
-      
+
       logger.info(`Training ML model ${modelId}`);
-      
+
       // ML training would happen here
       // This is a placeholder for the actual training implementation
-      
+
       return { success: true, modelId, accuracy: 0.95 };
     });
   }
@@ -252,11 +254,14 @@ export class QueueService {
     });
   }
 
-  async addJob(jobData: ProcessingJob, options?: Bull.JobOptions): Promise<Bull.Job<ProcessingJob>> {
+  async addJob(
+    jobData: ProcessingJob,
+    options?: Bull.JobOptions
+  ): Promise<Bull.Job<ProcessingJob>> {
     const job = await this.processingQueue.add(jobData, {
       priority: jobData.priority || 0,
       delay: 0,
-      ...options
+      ...options,
     });
 
     logger.info(`Added job ${job.id} to processing queue`);
@@ -286,7 +291,7 @@ export class QueueService {
     error?: string;
   }> {
     const job = await this.getJob(jobId);
-    
+
     if (!job) {
       return { status: 'not_found', progress: 0 };
     }
@@ -298,7 +303,7 @@ export class QueueService {
       status: state,
       progress: typeof progress === 'number' ? progress : 0,
       result: job.returnvalue,
-      error: job.failedReason
+      error: job.failedReason,
     };
   }
 
@@ -314,7 +319,7 @@ export class QueueService {
       this.processingQueue.getActiveCount(),
       this.processingQueue.getCompletedCount(),
       this.processingQueue.getFailedCount(),
-      this.processingQueue.getDelayedCount()
+      this.processingQueue.getDelayedCount(),
     ]);
 
     return { waiting, active, completed, failed, delayed };

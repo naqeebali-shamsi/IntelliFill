@@ -6,6 +6,7 @@ import { FieldMapper } from '../mappers/FieldMapper';
 import { FormFiller } from '../fillers/FormFiller';
 import { toJobStatusDTO } from '../dto/DocumentDTO';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
+import { realtimeService } from '../services/RealtimeService';
 
 // Job data interfaces
 export interface DocumentProcessingJob {
@@ -137,6 +138,7 @@ if (documentQueue) {
     try {
       // Update progress
       await job.progress(10);
+      realtimeService.broadcast('queue_progress', { jobId: job.id, documentId, progress: 10 });
       logger.info(`Processing document ${documentId}`);
 
       // Initialize services (in production, these would be singleton instances)
@@ -231,10 +233,16 @@ if (batchQueue && documentQueue) {
 if (documentQueue) {
   documentQueue.on('completed', (job, result) => {
     logger.info(`Job ${job.id} completed`, { documentId: result.documentId });
+    realtimeService.broadcast('queue_completed', {
+      jobId: job.id,
+      documentId: result.documentId,
+      result,
+    });
   });
 
   documentQueue.on('failed', (job, err) => {
     logger.error(`Job ${job.id} failed:`, err);
+    realtimeService.broadcast('queue_failed', { jobId: job.id, error: err.message });
   });
 }
 
