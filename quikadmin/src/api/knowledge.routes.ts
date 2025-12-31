@@ -17,7 +17,8 @@ import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
 import { Prisma, DocumentSourceStatus } from '@prisma/client';
-import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { requireOrganization, OrganizationRequest } from '../middleware/organizationContext';
 import { prisma } from '../utils/prisma';
 import {
   knowledgeSearchLimiter,
@@ -37,9 +38,8 @@ import {
 // Types & Interfaces
 // ============================================================================
 
-interface KnowledgeRequest extends AuthenticatedRequest {
-  organizationId?: string;
-}
+// Use OrganizationRequest from middleware (extends AuthenticatedRequest)
+type KnowledgeRequest = OrganizationRequest;
 
 // ============================================================================
 // Validation Schemas
@@ -116,43 +116,8 @@ const uploadSourceSchema = z.object({
 // Middleware
 // ============================================================================
 
-/**
- * Validate organization context for knowledge operations
- * Ensures user has an associated organization for data isolation
- */
-async function validateOrganization(
-  req: KnowledgeRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Authentication required' });
-      return;
-    }
-
-    // Get user's organization from database (uses singleton)
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { organizationId: true },
-    });
-
-    if (!user?.organizationId) {
-      res.status(403).json({
-        error: 'Organization required',
-        message: 'User must belong to an organization to access knowledge base',
-      });
-      return;
-    }
-
-    req.organizationId = user.organizationId;
-    next();
-  } catch (error) {
-    logger.error('Organization validation error:', error);
-    res.status(500).json({ error: 'Failed to validate organization' });
-  }
-}
+// Organization validation is handled by requireOrganization from organizationContext middleware
+// See: ../middleware/organizationContext.ts
 
 /**
  * Audit logging middleware for knowledge operations
@@ -233,7 +198,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/sources/upload',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeUploadLimiter,
     auditLogger('knowledge:source:upload'),
     upload.single('document'),
@@ -310,7 +275,7 @@ export function createKnowledgeRoutes(): Router {
   router.get(
     '/sources',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     auditLogger('knowledge:source:list'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
@@ -378,7 +343,7 @@ export function createKnowledgeRoutes(): Router {
   router.get(
     '/sources/:id',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     auditLogger('knowledge:source:get'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
@@ -422,7 +387,7 @@ export function createKnowledgeRoutes(): Router {
   router.delete(
     '/sources/:id',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     auditLogger('knowledge:source:delete'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
@@ -471,7 +436,7 @@ export function createKnowledgeRoutes(): Router {
   router.get(
     '/sources/:id/status',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     auditLogger('knowledge:source:status'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {
@@ -537,7 +502,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/search',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeSearchLimiter,
     auditLogger('knowledge:search:semantic'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
@@ -620,7 +585,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/search/hybrid',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeSearchLimiter,
     auditLogger('knowledge:search:hybrid'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
@@ -723,7 +688,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/suggest',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeSuggestLimiter,
     auditLogger('knowledge:suggest'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
@@ -788,7 +753,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/suggest/form',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeSuggestLimiter,
     auditLogger('knowledge:suggest:form'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
@@ -844,7 +809,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/suggest/field',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeSuggestLimiter,
     auditLogger('knowledge:suggest:field'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
@@ -908,7 +873,7 @@ export function createKnowledgeRoutes(): Router {
   router.post(
     '/suggest/contextual',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     knowledgeSuggestLimiter,
     auditLogger('knowledge:suggest:contextual'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
@@ -965,7 +930,7 @@ export function createKnowledgeRoutes(): Router {
   router.get(
     '/stats',
     authenticateSupabase,
-    validateOrganization,
+    requireOrganization,
     auditLogger('knowledge:stats'),
     async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
       try {

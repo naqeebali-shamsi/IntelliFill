@@ -344,10 +344,11 @@
         "description": "Create dedicated middleware for organizationId extraction, validation, and consistent enforcement across org-scoped endpoints",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-31T15:13:39.893Z"
       },
       {
         "id": "170",
@@ -374,9 +375,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-31T10:47:38.496Z",
+      "lastModified": "2025-12-31T15:13:39.895Z",
       "taskCount": 15,
-      "completedCount": 11,
+      "completedCount": 12,
       "tags": ["master"]
     }
   }
