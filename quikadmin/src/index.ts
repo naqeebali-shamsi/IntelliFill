@@ -25,6 +25,7 @@ import { logger } from './utils/logger';
 import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter';
 import { csrfProtection } from './middleware/csrf';
 import { realtimeService } from './services/RealtimeService';
+import { createAuditMiddleware } from './middleware/auditLogger';
 
 // Config validation happens automatically on import
 console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
@@ -145,6 +146,18 @@ async function initializeApp() {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(cookieParser());
+
+    // Global audit logging middleware - AFTER body parser, BEFORE routes
+    // Logs all API requests for compliance and security monitoring
+    app.use(
+      '/api/',
+      createAuditMiddleware({
+        excludePaths: ['/api/health', '/api/metrics', '/api/docs'],
+        includeRequestBody: true,
+        includeResponseBody: false, // Avoid logging sensitive response data
+      })
+    );
+    logger.info('Global audit middleware registered');
 
     // Apply rate limiting - BEFORE routes
     app.use('/api/', standardLimiter); // Standard rate limit for all API routes

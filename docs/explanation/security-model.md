@@ -2,8 +2,8 @@
 title: Security Model
 description: How security works in IntelliFill
 category: explanation
-tags: [security, authentication, authorization]
-lastUpdated: 2025-11-25
+tags: [security, authentication, authorization, rls, audit]
+lastUpdated: 2025-12-31
 ---
 
 # Security Model
@@ -196,6 +196,104 @@ const user = await prisma.user.findUnique({
 // Never do raw queries with user input
 // ❌ prisma.$queryRaw`SELECT * FROM users WHERE email = ${userInput}`
 ```
+
+---
+
+## Supabase Row-Level Security (RLS)
+
+### How It Works
+
+IntelliFill uses Supabase Row-Level Security for database-level access control. The RLS context is set per-request via the `supabaseAuth.ts` middleware.
+
+### RLS Context Flow
+
+```
+┌──────────┐         ┌──────────────────┐         ┌──────────────┐
+│  Client  │         │   supabaseAuth   │         │   Database   │
+│ Request  │────────▶│   Middleware     │────────▶│  (with RLS)  │
+└──────────┘         └──────────────────┘         └──────────────┘
+                            │
+                            ▼
+                     Sets RLS context:
+                     - request.jwt.claims
+                     - request.jwt.claim.sub (user ID)
+```
+
+### Error Handling
+
+RLS setup errors are logged at ERROR level with full context:
+
+```typescript
+// Logged fields on RLS failure:
+{
+  userId: string,
+  error: string,
+  stack: string,
+  endpoint: string
+}
+```
+
+### Production Hardening (RLS_FAIL_CLOSED)
+
+For production environments, enable fail-closed behavior:
+
+```env
+RLS_FAIL_CLOSED=true
+```
+
+When enabled:
+- RLS setup failures reject the request with 500 error
+- Prevents potential data access without proper RLS context
+- Recommended for production deployments
+
+When disabled (default):
+- RLS setup failures log error but continue
+- Request proceeds with limited/no RLS protection
+- Suitable for development only
+
+### Request Tracking
+
+The middleware sets `req.rlsContextSet` flag:
+- `true`: RLS context successfully established
+- `false`/undefined: RLS context failed or not set
+
+Services can check this flag for additional validation.
+
+---
+
+## Audit Logging
+
+### Global Audit Middleware
+
+All `/api/` routes are monitored by `createAuditMiddleware`:
+
+```typescript
+// Registered in index.ts
+app.use('/api', createAuditMiddleware({
+  logRequestBody: true,
+  excludePaths: ['/health', '/metrics', '/docs']
+}));
+```
+
+### What Gets Logged
+
+| Field | Description |
+|-------|-------------|
+| `method` | HTTP method (GET, POST, etc.) |
+| `path` | Request path |
+| `userId` | Authenticated user ID (if available) |
+| `ip` | Client IP address |
+| `userAgent` | Client user agent |
+| `statusCode` | Response status code |
+| `duration` | Request duration in ms |
+| `body` | Request body (sanitized) |
+
+### Excluded Endpoints
+
+These paths are not audited:
+- `/health` - Health checks
+- `/metrics` - Prometheus metrics
+- `/docs` - API documentation
 
 ---
 
@@ -401,4 +499,5 @@ const uploadConfig = {
 - [Architecture Decisions](./architecture-decisions.md)
 - [Environment Variables](../reference/configuration/environment.md)
 - [Auth Issues Troubleshooting](../how-to/troubleshooting/auth-issues.md)
+- [System Overview](../reference/architecture/system-overview.md)
 

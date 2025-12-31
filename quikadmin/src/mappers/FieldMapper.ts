@@ -142,6 +142,8 @@ export class FieldMapper {
         bestMatch.confidence
       );
     }
+
+    return bestMatch;
   }
 
   private mapToEntity(

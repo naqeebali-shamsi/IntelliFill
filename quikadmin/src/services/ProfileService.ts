@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { encryptJSON, decryptJSON } from '../utils/encryption';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 export interface ProfileField {
   key: string;

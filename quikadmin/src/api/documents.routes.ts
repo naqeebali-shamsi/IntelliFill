@@ -1,5 +1,4 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
@@ -16,8 +15,7 @@ import { getOCRJobStatus, getOCRQueueHealth, enqueueDocumentForOCR } from '../qu
 import { getJobStatus } from '../queues/documentQueue';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { OCRService } from '../services/OCRService';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];

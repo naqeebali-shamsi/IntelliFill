@@ -1,5 +1,4 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
@@ -10,8 +9,7 @@ import { encryptFile } from '../utils/encryption';
 import { logger } from '../utils/logger';
 import { createProfileRoutes } from './profile.routes';
 import { ExtractedData } from '../extractors/DataExtractor';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 // Validation schema for fill-form endpoint
 const fillFormBodySchema = z.object({

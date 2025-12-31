@@ -3,7 +3,7 @@ title: System Overview
 description: High-level architecture of the IntelliFill system
 category: reference
 tags: [architecture, system, design]
-lastUpdated: 2025-11-25
+lastUpdated: 2025-12-31
 ---
 
 # System Overview
@@ -271,12 +271,41 @@ Fills PDF forms with mapped data.
 
 ---
 
+## Database Connection Architecture
+
+### Prisma Singleton Pattern
+
+All services use a centralized Prisma singleton (`getPrismaClient()`) to prevent connection pool exhaustion:
+
+```typescript
+// utils/supabase.ts exports the singleton
+import { getPrismaClient } from '../utils/supabase';
+
+const prisma = getPrismaClient();
+```
+
+**Benefits**:
+- Prevents duplicate connections on serverless (Neon)
+- Enables connection keepalive for idle timeout prevention
+- Consistent connection handling across all services
+
+**Services using singleton**:
+- `DocumentService.ts`
+- `ProfileService.ts`
+- `TemplateService.ts`
+- `documents.routes.ts`
+- `knowledge.routes.ts`
+- `users.routes.ts`
+- `ocrQueue.ts`
+
+---
+
 ## Scalability Considerations
 
 ### Current Architecture
 
 - **Single server**: Backend runs on one instance
-- **Connection pooling**: Prisma manages database connections
+- **Connection pooling**: Prisma singleton manages database connections
 - **Job queue**: Bull handles async processing
 
 ### Scaling Options

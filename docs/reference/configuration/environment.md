@@ -2,8 +2,8 @@
 title: Environment Variables
 description: Complete reference for all IntelliFill environment variables
 category: reference
-tags: [configuration, environment, settings, redis, tls]
-lastUpdated: 2025-12-19
+tags: [configuration, environment, settings, redis, tls, security]
+lastUpdated: 2025-12-31
 ---
 
 # Environment Variables
@@ -187,6 +187,30 @@ LOG_LEVEL="debug"
 LOG_FORMAT="simple"
 LOG_DIR="./logs"
 ```
+
+---
+
+### Security Configuration
+
+| Variable          | Required | Default | Description                                        |
+| ----------------- | -------- | ------- | -------------------------------------------------- |
+| `RLS_FAIL_CLOSED` | No       | `false` | Reject requests when RLS context setup fails       |
+
+**Example**:
+
+```env
+# Production: fail-closed for security
+RLS_FAIL_CLOSED=true
+```
+
+**RLS_FAIL_CLOSED Behavior**:
+
+| Value   | Behavior                                           | Environment   |
+| ------- | -------------------------------------------------- | ------------- |
+| `true`  | Reject request with 500 on RLS setup failure       | Production    |
+| `false` | Log error, continue without RLS protection         | Development   |
+
+**Recommendation**: Always set `RLS_FAIL_CLOSED=true` in production to prevent potential data access without proper Row-Level Security context.
 
 ---
 

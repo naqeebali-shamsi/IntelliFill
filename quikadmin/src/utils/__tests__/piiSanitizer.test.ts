@@ -205,11 +205,7 @@ describe('PII Sanitizer', () => {
     });
 
     it('should detect and redact Emirates ID format', () => {
-      const emiratesIds = [
-        '784-1234-1234567-1',
-        '784-5678-7654321-2',
-        '784-0000-0000000-0',
-      ];
+      const emiratesIds = ['784-1234-1234567-1', '784-5678-7654321-2', '784-0000-0000000-0'];
 
       emiratesIds.forEach((id) => {
         const result = sanitizeForLogging({ value: id });
@@ -218,13 +214,7 @@ describe('PII Sanitizer', () => {
     });
 
     it('should not redact similar but invalid formats', () => {
-      const notPII = [
-        'not-an-email',
-        'missing@domain',
-        '123',
-        'example.com',
-        '12 34 56',
-      ];
+      const notPII = ['not-an-email', 'missing@domain', '123', 'example.com', '12 34 56'];
 
       notPII.forEach((value) => {
         const result = sanitizeForLogging({ value });
@@ -361,7 +351,7 @@ describe('PII Sanitizer', () => {
 
   describe('Edge cases', () => {
     it('should handle null values', () => {
-      const input = { value: null, email: null };
+      const input = { value: null as string | null, email: null as string | null };
       const result = sanitizeForLogging(input);
 
       expect(result.value).toBeNull();
@@ -369,7 +359,10 @@ describe('PII Sanitizer', () => {
     });
 
     it('should handle undefined values', () => {
-      const input = { value: undefined, email: undefined };
+      const input = {
+        value: undefined as string | undefined,
+        email: undefined as string | undefined,
+      };
       const result = sanitizeForLogging(input);
 
       expect(result.value).toBeUndefined();
@@ -384,7 +377,7 @@ describe('PII Sanitizer', () => {
     });
 
     it('should handle empty arrays', () => {
-      const input = { items: [] };
+      const input = { items: [] as unknown[] };
       const result = sanitizeForLogging(input);
 
       expect(result.items).toEqual([]);
@@ -418,7 +411,9 @@ describe('PII Sanitizer', () => {
       };
       const result = sanitizeForLogging(input);
 
-      expect(result.level1.level2.level3.level4.level5.level6.level7.level8.level9.level10.level11).toBe('[MAX_DEPTH]');
+      expect(
+        result.level1.level2.level3.level4.level5.level6.level7.level8.level9.level10.level11
+      ).toBe('[MAX_DEPTH]');
     });
 
     it('should handle non-object primitives', () => {

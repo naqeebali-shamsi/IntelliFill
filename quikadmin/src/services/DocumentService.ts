@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { enqueueDocumentForReprocessing } from '../queues/ocrQueue';
 import Bull from 'bull';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 export class DocumentService {
   /**

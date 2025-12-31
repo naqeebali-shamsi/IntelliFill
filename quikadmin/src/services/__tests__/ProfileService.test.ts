@@ -152,7 +152,7 @@ describe('ProfileService', () => {
       const mockDocuments = [
         {
           id: 'doc-1',
-          extractedData: null,
+          extractedData: null as string | null,
           confidence: 90,
           processedAt: new Date('2025-01-01'),
         },

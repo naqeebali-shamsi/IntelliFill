@@ -11,6 +11,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { prisma } from '../utils/prisma';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 // Profile data field schema
@@ -286,8 +287,8 @@ export function createClientProfileRoutes(): Router {
         data: {
           profile: {
             id: updatedProfile.id,
-            data: newData,
-            fieldSources: newFieldSources,
+            data: newData as Prisma.InputJsonValue,
+            fieldSources: newFieldSources as Prisma.InputJsonValue,
             updatedAt: updatedProfile.updatedAt.toISOString(),
           },
         },
@@ -358,8 +359,8 @@ export function createClientProfileRoutes(): Router {
         await prisma.clientProfile.update({
           where: { id: profile.id },
           data: {
-            data: newData,
-            fieldSources: newFieldSources,
+            data: newData as Prisma.InputJsonValue,
+            fieldSources: newFieldSources as Prisma.InputJsonValue,
           },
         });
 
@@ -421,8 +422,8 @@ export function createClientProfileRoutes(): Router {
         await prisma.clientProfile.update({
           where: { id: client.profile.id },
           data: {
-            data: newData,
-            fieldSources: newFieldSources,
+            data: newData as Prisma.InputJsonValue,
+            fieldSources: newFieldSources as Prisma.InputJsonValue,
           },
         });
 

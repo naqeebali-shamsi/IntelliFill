@@ -14,8 +14,6 @@
  * @module services/__tests__/DocumentService.test
  */
 
- 
-
 import { enqueueDocumentForReprocessing } from '../../queues/ocrQueue';
 import Bull from 'bull';
 
@@ -541,8 +539,8 @@ describe('DocumentService', () => {
     it('should handle documents with no reprocessing history', async () => {
       const mockHistory = {
         reprocessCount: 0,
-        lastReprocessedAt: null,
-        reprocessingHistory: null,
+        lastReprocessedAt: null as Date | null,
+        reprocessingHistory: null as unknown,
       };
 
       mockPrisma.document.findFirst.mockResolvedValue(mockHistory);
@@ -569,7 +567,7 @@ describe('DocumentService', () => {
     it('should handle null storageUrl gracefully', async () => {
       const mockDocument = {
         id: 'doc-1',
-        storageUrl: null,
+        storageUrl: null as string | null,
         reprocessCount: 0,
         status: 'COMPLETED',
       };

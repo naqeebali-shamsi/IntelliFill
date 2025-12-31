@@ -410,8 +410,8 @@ describe('Documents API Routes', () => {
         id: testDocumentId,
         fileName: 'test.pdf',
         status: 'PROCESSING',
-        confidence: null,
-        processedAt: null,
+        confidence: null as number | null,
+        processedAt: null as Date | null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -1,8 +1,7 @@
-import { PrismaClient, Template } from '@prisma/client';
+import { Template } from '@prisma/client';
 import { encryptJSON, decryptJSON } from '../utils/encryption';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 export interface FieldMapping {
   sourceField: string;

@@ -27,6 +27,7 @@ export interface AuthenticatedRequest extends Request {
     lastName?: string;
   };
   supabaseUser?: User; // Raw Supabase user object
+  rlsContextSet?: boolean; // Tracks if RLS context was successfully set
 }
 
 /**
@@ -139,9 +140,33 @@ export async function authenticateSupabase(
     // This enables database-level data isolation (defense in depth)
     try {
       await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
+      // Track successful RLS context setting
+      req.rlsContextSet = true;
     } catch (rlsError) {
-      // Log but don't fail - application-level filtering still works
-      logger.warn('Failed to set RLS context', { userId: dbUser.id, error: rlsError });
+      // Log at ERROR level - RLS failures are security-relevant
+      logger.error('SECURITY: Failed to set RLS context', {
+        userId: dbUser.id,
+        requestId: req.headers['x-request-id'] || 'N/A',
+        path: req.path,
+        method: req.method,
+        error: rlsError instanceof Error ? rlsError.message : String(rlsError),
+        stack: rlsError instanceof Error ? rlsError.stack : undefined,
+      });
+      req.rlsContextSet = false;
+
+      // In production, fail closed on RLS errors (configurable)
+      if (process.env.RLS_FAIL_CLOSED === 'true') {
+        res.status(500).json({
+          error: 'Internal Server Error',
+          message: 'Security context initialization failed',
+          code: 'RLS_CONTEXT_FAILED',
+        });
+        return;
+      }
+      // In development, continue but log warning about degraded security
+      logger.warn('Continuing without RLS context - application-level filtering only', {
+        userId: dbUser.id,
+      });
     }
 
     next();
@@ -251,7 +276,9 @@ export async function optionalAuthSupabase(
         // Set RLS user context for optional auth as well
         try {
           await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
+          req.rlsContextSet = true;
         } catch {
+          req.rlsContextSet = false;
           // Silent failure for optional auth
         }
       }

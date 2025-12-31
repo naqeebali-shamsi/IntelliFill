@@ -16,8 +16,9 @@ import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma, DocumentSourceStatus } from '@prisma/client';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+import { prisma } from '../utils/prisma';
 import {
   knowledgeSearchLimiter,
   knowledgeSuggestLimiter,
@@ -131,13 +132,11 @@ async function validateOrganization(
       return;
     }
 
-    // Get user's organization from database
-    const prisma = new PrismaClient();
+    // Get user's organization from database (uses singleton)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { organizationId: true },
     });
-    await prisma.$disconnect();
 
     if (!user?.organizationId) {
       res.status(403).json({
@@ -217,7 +216,7 @@ const upload = multer({
 
 export function createKnowledgeRoutes(): Router {
   const router = Router();
-  const prisma = new PrismaClient();
+  // Uses singleton prisma client from utils/prisma
   const vectorStorage = createVectorStorageService(prisma);
   const embeddingService = getEmbeddingService();
   const searchCache = getSearchCacheService();
@@ -327,7 +326,7 @@ export function createKnowledgeRoutes(): Router {
         };
 
         if (status) {
-          where.status = status;
+          where.status = status as DocumentSourceStatus;
         }
 
         if (search) {

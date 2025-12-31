@@ -323,9 +323,9 @@ describe('ocrQueue', () => {
         progress: jest.fn().mockReturnValue(75),
         timestamp: Date.now(),
         processedOn: Date.now() - 5000,
-        finishedOn: null,
-        returnvalue: null,
-        failedReason: null,
+        finishedOn: null as number | null,
+        returnvalue: null as unknown,
+        failedReason: null as string | null,
         attemptsMade: 1,
         opts: { attempts: 3 },
       };

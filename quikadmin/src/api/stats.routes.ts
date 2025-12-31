@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { DatabaseService } from '../database/DatabaseService';
+import { IntelliFillService } from '../services/IntelliFillService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';

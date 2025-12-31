@@ -50,8 +50,8 @@ describe('DocumentParser', () => {
         info: {
           Title: 'Test Document',
           Author: 'Test Author',
-        },
-        metadata: null,
+        } as Record<string, string>,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 
@@ -99,8 +99,8 @@ describe('DocumentParser', () => {
         text: '',
         numpages: 1,
         numrender: 1,
-        info: {},
-        metadata: null,
+        info: {} as Record<string, string>,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 
@@ -129,8 +129,8 @@ describe('DocumentParser', () => {
         text: '   \n\n\t\t  ',
         numpages: 1,
         numrender: 1,
-        info: {},
-        metadata: null,
+        info: {} as Record<string, string>,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 
@@ -155,13 +155,13 @@ describe('DocumentParser', () => {
     it('should flag scanned PDFs for OCR processing', async () => {
       const mockPdfBuffer = Buffer.from('%PDF-1.4 scanned content');
       const mockPdfData = {
-        text: null,
+        text: null as string | null,
         numpages: 5,
         numrender: 5,
         info: {
           Producer: 'Scanner Pro',
-        },
-        metadata: null,
+        } as Record<string, string>,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 
@@ -190,8 +190,8 @@ describe('DocumentParser', () => {
         text: multiPageText,
         numpages: 3,
         numrender: 3,
-        info: {},
-        metadata: null,
+        info: {} as Record<string, string>,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 
@@ -265,8 +265,8 @@ describe('DocumentParser', () => {
         text: 'Content without metadata',
         numpages: 1,
         numrender: 1,
-        info: null,
-        metadata: null,
+        info: null as Record<string, string> | null,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 
@@ -344,8 +344,8 @@ describe('DocumentParser', () => {
         numrender: 1,
         info: {
           Title: 'pdf-parse title',
-        },
-        metadata: null,
+        } as Record<string, string>,
+        metadata: null as Record<string, unknown> | null,
         version: '1.4',
       };
 

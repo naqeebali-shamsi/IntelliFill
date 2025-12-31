@@ -267,9 +267,9 @@ describe('documentQueue', () => {
         progress: jest.fn().mockReturnValue(50),
         timestamp: Date.now(),
         processedOn: Date.now() - 1000,
-        finishedOn: null,
-        returnvalue: null,
-        failedReason: null,
+        finishedOn: null as number | null,
+        returnvalue: null as unknown,
+        failedReason: null as string | null,
       };
 
       mockQueue.getJob.mockResolvedValue(mockJob);

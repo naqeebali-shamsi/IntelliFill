@@ -26,9 +26,9 @@ const mockJob = {
   progress: jest.fn(),
   getState: jest.fn().mockResolvedValue('waiting'),
   attemptsMade: 0,
-  processedOn: null,
-  finishedOn: null,
-  failedReason: null,
+  processedOn: null as number | null,
+  finishedOn: null as number | null,
+  failedReason: null as string | null,
   remove: jest.fn().mockResolvedValue(undefined),
   retry: jest.fn().mockResolvedValue(undefined),
 };

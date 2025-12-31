@@ -1,12 +1,10 @@
 import Bull from 'bull';
-import { PrismaClient } from '@prisma/client';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { OCRService, OCRProgress } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 import { realtimeService } from '../services/RealtimeService';
-
-const prisma = new PrismaClient();
+import { prisma } from '../utils/prisma';
 
 /**
  * Global error handlers to prevent OCR worker crashes from taking down the server
