@@ -16,6 +16,11 @@ import { createClient, SupabaseClient, User, AuthError } from '@supabase/supabas
 import jwt from 'jsonwebtoken';
 import CircuitBreaker from 'opossum';
 import { piiSafeLogger as logger } from './piiSafeLogger';
+import {
+  getTokenCacheService,
+  getTokenCacheMetrics,
+  shutdownTokenCache,
+} from '../services/tokenCache.service';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
@@ -198,16 +203,22 @@ export function isAuthCircuitOpen(): boolean {
 }
 
 /**
- * Verify JWT token
+ * Verify JWT token with caching
  *
  * In test mode: Verifies local JWT tokens created during test login
- * In production: Verifies Supabase-issued JWT tokens (protected by circuit breaker)
+ * In production: Verifies Supabase-issued JWT tokens with Redis/memory caching
+ *
+ * Flow:
+ * 1. Check token cache (Redis primary, in-memory fallback)
+ * 2. If cache hit, return cached user data
+ * 3. If cache miss, verify with Supabase (protected by circuit breaker)
+ * 4. Cache successful verifications for 5 minutes
  *
  * @param token - JWT token from Authorization header
  * @returns User object if valid, null if invalid
  */
 export async function verifySupabaseToken(token: string): Promise<User | null> {
-  // Test mode: Verify local JWT tokens
+  // Test mode: Verify local JWT tokens (no caching needed)
   if (isTestMode) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as {
@@ -244,13 +255,41 @@ export async function verifySupabaseToken(token: string): Promise<User | null> {
     }
   }
 
-  // Production mode: Verify with Supabase via circuit breaker
+  // Production mode: Check cache first, then verify with Supabase
   try {
+    // Step 1: Check token cache
+    const tokenCache = await getTokenCacheService();
+    const cachedData = await tokenCache.get(token);
+
+    if (cachedData) {
+      // Cache hit - reconstruct User object from cached data
+      logger.debug('[Auth] Token cache hit', { userId: cachedData.id });
+      return {
+        id: cachedData.id,
+        email: cachedData.email,
+        role: cachedData.role,
+        aud: cachedData.aud,
+        // Minimal user structure for cached data
+        app_metadata: {},
+        user_metadata: {},
+        email_confirmed_at: cachedData.cachedAt,
+        created_at: cachedData.cachedAt,
+        updated_at: cachedData.cachedAt,
+      } as User;
+    }
+
+    // Step 2: Cache miss - verify with Supabase via circuit breaker
     const { user, error } = await supabaseAuthCircuitBreaker.fire(token);
 
     if (error) {
       logger.warn('Supabase token verification failed', { error: error.message });
       return null;
+    }
+
+    // Step 3: Cache the successful verification
+    if (user) {
+      await tokenCache.set(token, user);
+      logger.debug('[Auth] Token cached after verification', { userId: user.id });
     }
 
     return user;
@@ -267,6 +306,28 @@ export async function verifySupabaseToken(token: string): Promise<User | null> {
     return null;
   }
 }
+
+/**
+ * Invalidate a token from the cache (e.g., on logout)
+ *
+ * @param token - JWT token to invalidate
+ */
+export async function invalidateToken(token: string): Promise<void> {
+  if (isTestMode) return;
+
+  try {
+    const tokenCache = await getTokenCacheService();
+    await tokenCache.invalidate(token);
+    logger.debug('[Auth] Token invalidated from cache');
+  } catch (error) {
+    logger.warn('[Auth] Failed to invalidate token from cache', {
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+  }
+}
+
+// Re-export token cache utilities for monitoring
+export { getTokenCacheMetrics, shutdownTokenCache };
 
 /**
  * Get user from Supabase by ID

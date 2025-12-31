@@ -25,9 +25,7 @@
             "id": 2,
             "title": "Parse File Content and Extract Metadata",
             "description": "Read each catalogued documentation file to extract content metadata including YAML frontmatter, title, category, line count, presence of code examples, and internal cross-references.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "For each file from Step 1:\n1. Read file content and count lines\n2. Detect and parse YAML frontmatter (title, description, category, tags, lastUpdated, status)\n3. Identify document category using Diataxis framework: 'tutorial', 'how-to', 'reference', 'explanation', 'ai-context', 'skill'\n4. Detect code blocks (```language) and count examples\n5. Extract internal markdown links to other documentation files\n6. Identify status indicators (active, draft, deprecated, archived)\n7. Parse last updated dates from frontmatter or file metadata\n\nSkills follow SKILL.md pattern, CLAUDE.md files are ai-context category.",
             "status": "pending",
             "testStrategy": "Validate frontmatter parsing on 10 random files. Confirm all 15 skills are categorized as 'skill'. Verify CLAUDE.md files marked as 'ai-context'.",
@@ -37,9 +35,7 @@
             "id": 3,
             "title": "Map Cross-References and Document Relationships",
             "description": "Analyze all documentation files to build a dependency graph showing which documents reference others, identifying orphaned documents and key hub documents.",
-            "dependencies": [
-              2
-            ],
+            "dependencies": [2],
             "details": "Process extracted cross-references from Step 2:\n1. Build adjacency list of document relationships (source -> [targets])\n2. Identify hub documents with high inbound links (docs/README.md, CLAUDE.local.md)\n3. Detect orphaned documents (no inbound links except from indexes)\n4. Map the documentation reading flow as defined in docs/.meta/STRUCTURE_DIAGRAM.md\n5. Categorize relationships: 'parent-child', 'related', 'depends-on', 'summarizes'\n6. Identify broken internal links (references to non-existent files)\n7. Track external links for later validation\n\nOutput relationship data compatible with docs/.meta/relationships.json format.",
             "status": "pending",
             "testStrategy": "Verify docs/README.md shows as hub with highest inbound links. Confirm no false orphan detection for intentionally standalone files. Check relationship types are correctly classified.",
@@ -49,9 +45,7 @@
             "id": 4,
             "title": "Classify Documents by Diataxis Category and AI Priority",
             "description": "Apply consistent categorization to all documents using the Diataxis framework (tutorials, how-to, reference, explanation) plus AI-specific categories (ai-context, skill), and assign AI consumption priority levels.",
-            "dependencies": [
-              2
-            ],
+            "dependencies": [2],
             "details": "For each document:\n1. Assign primary Diataxis category based on path and content:\n   - docs/tutorials/* -> 'tutorial'\n   - docs/how-to/* -> 'how-to'\n   - docs/reference/* -> 'reference'\n   - docs/explanation/* -> 'explanation'\n   - docs/ai-development/* -> 'ai-development'\n   - .claude/skills/* -> 'skill'\n   - **/CLAUDE.md, CLAUDE.local.md -> 'ai-context'\n   - docs/prd/* -> 'prd'\n   - docs/architecture/* -> 'architecture'\n   - docs/strategy/* -> 'strategy'\n2. Assign AI priority level: 'critical' (CLAUDE.md, quick-start), 'important' (architecture, api), 'reference' (database, config), 'archive' (debug, claude-audit)\n3. Map to proposed structure from docs/.meta/STRUCTURE_DIAGRAM.md\n4. Flag documents needing migration to new numbered structure (00-quick-start through 06-archive)",
             "status": "pending",
             "testStrategy": "Validate all tutorials are categorized as 'tutorial'. Confirm CLAUDE.md files have 'critical' AI priority. Verify category distribution matches expected Diataxis quadrants.",
@@ -61,10 +55,7 @@
             "id": 5,
             "title": "Generate Inventory JSON and Summary Report",
             "description": "Compile all discovered documentation data into a structured inventory.json file and generate a human-readable summary report with statistics, category breakdowns, and actionable insights.",
-            "dependencies": [
-              3,
-              4
-            ],
+            "dependencies": [3, 4],
             "details": "Generate docs/.meta/inventory.json with schema:\n```typescript\ninterface DocInventory {\n  generatedAt: string;\n  totalFiles: number;\n  files: Array<{\n    path: string;\n    title: string;\n    category: string;\n    format: 'markdown' | 'json';\n    lines: number;\n    lastModified: string;\n    hasFrontmatter: boolean;\n    crossReferences: string[];\n    status: 'active' | 'draft' | 'deprecated' | 'archived';\n    aiPriority: 'critical' | 'important' | 'reference' | 'archive';\n  }>;\n  statistics: {\n    byCategory: Record<string, number>;\n    byStatus: Record<string, number>;\n    byPriority: Record<string, number>;\n    totalLines: number;\n    avgLinesPerFile: number;\n  };\n}\n```\nAlso generate summary.md with: file counts, category distribution, CLAUDE.md stats, skills overview, and recommendations for Task 158.",
             "status": "pending",
             "testStrategy": "Validate inventory.json against defined TypeScript schema. Confirm totalFiles matches file system count. Verify summary.md includes all required sections and accurate statistics.",
@@ -80,9 +71,7 @@
         "details": "## Implementation Steps\n\n### 1. Quality Metrics to Evaluate\n```typescript\ninterface QualityReport {\n  file: string;\n  metrics: {\n    hasYamlFrontmatter: boolean;\n    hasLastUpdated: boolean;\n    codeExamplesValid: boolean;\n    linksValid: boolean;\n    contentFreshness: 'fresh' | 'stale' | 'outdated'; // <30d, 30-90d, >90d\n    readabilityScore: number;\n  };\n  issues: string[];\n  recommendations: string[];\n}\n```\n\n### 2. Identify Duplicated Content\nKnown duplications to investigate:\n- `docs/README.md` vs `docs/MAINTENANCE.md` (overlapping update triggers)\n- `docs/reference/architecture/system-overview.md` vs content in `quikadmin/CLAUDE.md`\n- Multiple environment variable references across files\n- API endpoint documentation scattered across multiple files\n\n### 3. Check for Outdated Content\n- Compare `lastUpdated` timestamps (many files show 2025-11-25 or earlier)\n- Validate code examples against current codebase\n- Check for references to non-existent files/endpoints\n- Verify tech stack versions match package.json\n\n### 4. Identify Documentation Gaps\n- **Missing**: No dedicated troubleshooting guide for frontend\n- **Missing**: No comprehensive error codes reference\n- **Missing**: Environment-specific deployment guides incomplete\n- **Incomplete**: docs/claude-audit/ appears to be partial setup reports\n- **Incomplete**: docs/debug/ contains evidence_bundle.md only\n\n### 5. Analyze CLAUDE.md Files\n- `quikadmin/CLAUDE.md` is 1500+ lines - may be over-optimized for single file\n- Contains numbered prefix system (00-06) that doesn't match actual structure\n- References non-existent paths like `docs/00-quick-start/ai-agent-setup.md`\n\n### 6. Cross-Reference Validation\n- Check all internal markdown links resolve\n- Verify YAML frontmatter consistency\n- Validate code reference paths exist\n\n### 7. Generate Report\nCreate `docs/.meta/quality-report.md` with:\n- Summary statistics\n- High-priority issues\n- Duplication map\n- Gap analysis\n- Recommendations",
         "testStrategy": "1. Run markdown link checker on all docs\n2. Validate all code examples compile/run\n3. Verify frontmatter on random sample of 10 files\n4. Cross-check tech versions against package.json\n5. Manual review of top 5 most-referenced documents\n6. Confirm all recommended paths in CLAUDE.md exist",
         "priority": "high",
-        "dependencies": [
-          "157"
-        ],
+        "dependencies": ["157"],
         "status": "done",
         "subtasks": [
           {
@@ -99,9 +88,7 @@
             "id": 2,
             "title": "Detect and Map Duplicate Content Across Documentation",
             "description": "Analyze documentation files to identify content duplication, overlapping information, and redundant sections across the docs/ directory, quikadmin/CLAUDE.md (1500+ lines), and .claude/skills/ files.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Create duplication analysis focusing on known overlaps:\n1. Compare `docs/README.md` update triggers table with `docs/MAINTENANCE.md` triggers (lines 19-28 vs 39-58)\n2. Analyze overlap between `docs/reference/architecture/system-overview.md` and `quikadmin/CLAUDE.md` architecture sections\n3. Find environment variable references scattered across: CLAUDE.local.md, docs/reference/configuration/environment.md, quikadmin/CLAUDE.md\n4. Check API endpoint documentation in `docs/reference/api/endpoints.md` vs `quikadmin/docs/01-current-state/api/endpoints/`\n5. Compare 15 skill files in `.claude/skills/` for overlapping patterns\n6. Use content similarity hashing or paragraph fingerprinting\n7. Output duplication map to `docs/.meta/duplication-map.json` showing file pairs, overlap percentage, and specific duplicated sections\n8. Flag `quikadmin/docs/` which has 90+ files potentially duplicating main docs/",
             "status": "pending",
             "testStrategy": "Verify duplication map identifies known duplicates (README.md vs MAINTENANCE.md table), confirm overlap detection between system-overview.md and CLAUDE.md, validate all 90+ quikadmin/docs files are analyzed for duplicates",
@@ -111,9 +98,7 @@
             "id": 3,
             "title": "Validate Internal Links and Code References",
             "description": "Check all internal markdown links, code file references, and path references across documentation to identify broken links and non-existent file references.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Create link validator that:\n1. Parse all markdown files for internal links [text](./path) and relative references\n2. Check `quikadmin/CLAUDE.md` lines 50-51 which reference `docs/00-quick-start/ai-agent-setup.md` - this path doesn't exist in current structure\n3. Validate references like `docs/01-current-state/` mentioned in CLAUDE.md exist with expected content\n4. Check `docs/.meta/STRUCTURE_DIAGRAM.md` proposed paths vs actual existing paths\n5. Verify code file references like `src/routes/auth/`, `prisma/schema.prisma` actually exist\n6. Validate cross-references in docs/README.md to ../AGENTS.md, ../CLAUDE.local.md, ../quikadmin/docs/\n7. Check that `quikadmin/docs/06-archive/` references are properly archived\n8. Output broken links report to `docs/.meta/broken-links.json` with source file, broken reference, and suggested fix\n9. Run equivalent to `npx markdown-link-check` on all 55 docs files",
             "status": "pending",
             "testStrategy": "Confirm broken link detection catches `docs/00-quick-start/ai-agent-setup.md` reference in CLAUDE.md, verify AGENTS.md reference is flagged if missing, validate all 55 docs files are scanned, ensure output includes actionable fix suggestions",
@@ -123,11 +108,7 @@
             "id": 4,
             "title": "Identify Documentation Gaps and Missing Content",
             "description": "Analyze the documentation structure to identify missing guides, incomplete sections, and gaps in coverage based on codebase features and Diátaxis framework requirements.",
-            "dependencies": [
-              1,
-              2,
-              3
-            ],
+            "dependencies": [1, 2, 3],
             "details": "Perform gap analysis for:\n1. **Missing guides identified in task**: No frontend troubleshooting guide (only auth-issues.md, database-issues.md exist), no error codes reference, incomplete environment-specific deployment guides\n2. **Incomplete directories**: `docs/claude-audit/` has 3 partial setup reports, `docs/debug/` only has evidence_bundle.md\n3. **CLAUDE.md numbered system mismatch**: References `00-06` prefix directories but actual docs/ uses Diátaxis (tutorials/, how-to/, reference/, explanation/)\n4. Check `docs/.meta/STRUCTURE_DIAGRAM.md` proposed structure vs what actually exists\n5. Identify features in codebase not documented: Bull queues, Redis caching, Tesseract.js OCR config, pdf-lib form filling options\n6. Check if `quikadmin-web/docs/` and `quikadmin/docs/` (mentioned as having 50+ files) are properly linked\n7. Verify all 15 skill files in `.claude/skills/` have complete documentation\n8. Output gap analysis to `docs/.meta/gap-analysis.json` with priority rankings",
             "status": "pending",
             "testStrategy": "Verify gap analysis identifies frontend troubleshooting as missing, confirms claude-audit/ is incomplete, flags mismatch between numbered prefix system and actual Diátaxis structure, validates all skill files are checked",
@@ -137,12 +118,7 @@
             "id": 5,
             "title": "Generate Comprehensive Quality Report with Recommendations",
             "description": "Consolidate all quality analysis findings into a comprehensive markdown report at docs/.meta/quality-report.md with summary statistics, prioritized issues, and actionable recommendations.",
-            "dependencies": [
-              1,
-              2,
-              3,
-              4
-            ],
+            "dependencies": [1, 2, 3, 4],
             "details": "Create `docs/.meta/quality-report.md` containing:\n1. **Summary statistics**: Total files analyzed (55+ in docs/, 90+ in quikadmin/docs/), frontmatter compliance rate (currently ~5%), freshness distribution, link validity rate\n2. **High-priority issues**: Ordered list of critical problems including stale timestamps (most files 2025-11-25), missing frontmatter on 50+ files, broken internal references\n3. **Duplication map summary**: Visual table of overlapping content from subtask 2, estimated token waste from duplicates\n4. **Gap analysis summary**: Missing documentation areas with business impact assessment\n5. **CLAUDE.md analysis**: Note 1500+ line length, recommend splitting, identify invalid path references\n6. **Recommendations section**: Prioritized action items including frontmatter standardization script, link fixes, consolidation targets, archive candidates\n7. **Cross-reference tech versions**: Compare package.json versions (Node 18, Express 4.18, Prisma 6, React 18, etc.) with docs/reference/architecture/system-overview.md versions\n8. Include visual markdown tables and mermaid diagrams where helpful",
             "status": "pending",
             "testStrategy": "Review generated quality-report.md for completeness, verify all sections from implementation details are present, confirm recommendations are actionable, validate statistics match actual file counts, cross-check version numbers against package.json",
@@ -158,10 +134,7 @@
         "details": "## Implementation Steps\n\n### 1. Proposed Directory Structure\nBased on existing `.meta/STRUCTURE_DIAGRAM.md` and Diataxis framework:\n\n```\ndocs/\n├── README.md                    # Main hub (entry point)\n├── MAINTENANCE.md               # Keep - valuable maintenance guide\n│\n├── tutorials/                   # KEEP - Learning-oriented (existing)\n│   ├── README.md\n│   ├── getting-started.md\n│   ├── first-document.md\n│   └── understanding-workflow.md\n│\n├── how-to/                      # KEEP - Problem-oriented (existing)\n│   ├── README.md\n│   ├── deployment/\n│   ├── development/\n│   └── troubleshooting/\n│\n├── reference/                   # KEEP - Information-oriented (existing)\n│   ├── README.md\n│   ├── api/\n│   ├── architecture/\n│   ├── configuration/\n│   ├── database/\n│   ├── monitoring/\n│   └── security/\n│\n├── explanation/                 # KEEP - Understanding-oriented (existing)\n│   ├── README.md\n│   ├── adr/                     # Architecture Decision Records\n│   ├── data-flow.md\n│   ├── security-model.md\n│   └── architecture-decisions.md\n│\n├── ai-development/              # KEEP - AI agent guides (existing)\n│   ├── README.md\n│   ├── agentic-workflows.md\n│   └── mcp-integration.md\n│\n├── guides/                      # MOVE to how-to/ or merge\n│   └── (merge with how-to/)\n│\n├── prd/                         # KEEP - Product requirements\n├── strategy/                    # KEEP - Strategic docs\n├── decisions/                   # CONSOLIDATE with explanation/adr/\n├── architecture/                # CONSOLIDATE with reference/architecture/\n│\n└── _archive/                    # NEW - Deprecated content\n    ├── claude-audit/\n    ├── debug/\n    ├── sales/\n    └── tech-debt/\n```\n\n### 2. CLAUDE.md Optimization Strategy\n```markdown\n## Root Level: CLAUDE.local.md\n- Keep concise (~65 lines) - GOOD\n- Focus on quick reference\n- Link to detailed docs\n\n## Backend: quikadmin/CLAUDE.md\n- Currently 1500+ lines - TOO LONG\n- Split into:\n  - Essential context (300 lines max)\n  - Link to docs/ for details\n  - Remove duplicate documentation protocols\n\n## Frontend: quikadmin-web/CLAUDE.md\n- Currently ~555 lines - ACCEPTABLE\n- Keep pattern examples\n- Remove redundant info\n```\n\n### 3. Token Optimization Strategies\n- Use index files (README.md) as navigation hubs\n- Implement lazy-loading documentation pattern\n- Keep CLAUDE.md files under 500 lines\n- Reference docs/ instead of duplicating\n\n### 4. Cross-Reference Design\n```yaml\n# Each doc should have\nfrontmatter:\n  title: string\n  category: tutorials|how-to|reference|explanation\n  relatedDocs: string[]\n  lastUpdated: date\n  status: active|deprecated\n```\n\n### 5. Output Deliverables\n- `docs/.meta/proposed-structure.md` - Visual structure diagram\n- `docs/.meta/migration-plan.md` - Step-by-step migration\n- Updated `docs/.meta/STRUCTURE_DIAGRAM.md`",
         "testStrategy": "1. Validate proposed structure against Diataxis principles\n2. Estimate token savings from CLAUDE.md optimization\n3. Review with stakeholders for practical concerns\n4. Test navigation flow for common developer tasks\n5. Verify all existing content has a home in new structure\n6. Measure estimated tokens for root CLAUDE context load",
         "priority": "medium",
-        "dependencies": [
-          "157",
-          "158"
-        ],
+        "dependencies": ["157", "158"],
         "status": "done",
         "subtasks": [
           {
@@ -178,9 +151,7 @@
             "id": 2,
             "title": "Design CLAUDE.md Token Optimization Strategy with Line Budgets",
             "description": "Create concrete optimization plan for reducing backend CLAUDE.md from 1137 lines to under 500 lines while preserving critical context. Define line budgets for each section and identify content to extract to docs/.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Backend CLAUDE.md (1137 lines) needs reduction to ~300-500 lines. Frontend CLAUDE.md (448 lines) is acceptable. Strategy document should include: 1) Section-by-section line budget (e.g., Quick Reference: 50 lines, Architecture: 100 lines, Development Protocols: 80 lines), 2) Identification of content to extract (detailed code examples, extensive command references, duplicated docs info), 3) Link replacement strategy using format 'See docs/reference/X.md for details', 4) Preserve: critical file paths, common commands, security protocols, testing patterns. Create docs/.meta/claude-md-optimization-plan.md with before/after line counts per section and extraction targets.",
             "status": "pending",
             "testStrategy": "Calculate estimated token savings (target: 40-50% reduction). Verify all extracted content has valid target paths in docs/. Ensure remaining content provides sufficient context for AI agents.",
@@ -190,9 +161,7 @@
             "id": 3,
             "title": "Design Cross-Reference and Metadata Schema for Documents",
             "description": "Define YAML frontmatter schema, cross-reference patterns, and navigation index structure to enable AI agents to efficiently traverse documentation while minimizing token consumption.",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Design comprehensive metadata system: 1) YAML frontmatter schema with fields: title, category (tutorials|how-to|reference|explanation), status (active|deprecated|draft), priority (critical|important|reference), relatedDocs[], codeReferences[], lastUpdated, aiHints{readFirst, skipFor, dependencies}. 2) Create docs/.meta/index.json structure for complete documentation graph with navigation hints. 3) Design ai-context.json format for lazy-loading documentation hints. 4) Specify README.md hub pattern for each major section with consistent navigation. Document in docs/.meta/metadata-schema.md. Consider existing templates in docs/.meta/templates/.",
             "status": "pending",
             "testStrategy": "Validate schema covers all use cases from existing frontmatter in doc templates. Test navigation flow from entry point to any document in 3 or fewer hops. Verify AI agents can determine document relevance from metadata alone.",
@@ -202,11 +171,7 @@
             "id": 4,
             "title": "Create Migration Plan with Consolidation Rules and Archive Strategy",
             "description": "Develop step-by-step migration plan document specifying file moves, content merges, link updates, and archive procedures. Include rollback strategy and verification checkpoints.",
-            "dependencies": [
-              1,
-              2,
-              3
-            ],
+            "dependencies": [1, 2, 3],
             "details": "Create docs/.meta/migration-plan.md with: 1) Phase 1: Create archive structure (_archive/claude-audit/, _archive/debug/, _archive/sales/, _archive/tech-debt/), 2) Phase 2: Consolidate duplicates - merge docs/architecture/ (2 files) into reference/architecture/, merge docs/decisions/ (1 ADR) into explanation/adr/, merge docs/guides/ content into how-to/, 3) Phase 3: Update all cross-references (identify ~20 internal links needing updates), 4) Phase 4: CLAUDE.md optimization - extract content per subtask 2 plan, 5) Phase 5: Validate with markdown-link-check. Include git commands for each move, verification steps after each phase, and rollback instructions. Estimate: 15-20 file moves, 3 content merges, 1 CLAUDE.md rewrite.",
             "status": "pending",
             "testStrategy": "Dry-run migration commands in test branch. Run npx markdown-link-check on migrated docs. Verify archived content remains accessible. Confirm CLAUDE.md files under 500 lines post-migration.",
@@ -222,9 +187,7 @@
         "details": "## Implementation Steps\n\n### 1. Create Archive Structure\n```bash\nmkdir -p docs/_archive/{claude-audit,debug,sales,tech-debt}\n\n# Move non-essential docs to archive\nmv docs/claude-audit/* docs/_archive/claude-audit/\nmv docs/debug/* docs/_archive/debug/\nmv docs/sales/* docs/_archive/sales/\nmv docs/tech-debt/* docs/_archive/tech-debt/\n```\n\n### 2. Consolidate Architecture Documentation\n```bash\n# Merge duplicate architecture docs\n# docs/architecture/*.md -> docs/reference/architecture/\nmv docs/architecture/dynamic-pii-architecture*.md docs/reference/architecture/\n\n# Update docs/decisions/ -> docs/explanation/adr/\nmv docs/decisions/*.md docs/explanation/adr/\n```\n\n### 3. Merge Duplicate Content\nPriority merges:\n1. Environment variables: Single source in `docs/reference/configuration/environment.md`\n2. API endpoints: Consolidate to `docs/reference/api/endpoints.md`\n3. Architecture overview: Single source in `docs/reference/architecture/system-overview.md`\n\n### 4. Optimize CLAUDE.md Files\n\n```markdown\n## quikadmin/CLAUDE.md Refactoring\n\nKEEP:\n- Project Overview section\n- Architecture Quick Reference  \n- Development Protocols (condensed)\n- Common Commands\n\nMOVE TO docs/:\n- Documentation Protocols (1000+ lines)\n- Detailed PR requirements\n- Detailed testing guidelines\n- CI/CD check examples\n\nTarget: ~500 lines\n```\n\n### 5. Update All Cross-References\n```typescript\n// Script to update internal links\nconst linkUpdates = {\n  'docs/architecture/current/': 'docs/reference/architecture/',\n  'docs/decisions/': 'docs/explanation/adr/',\n  'docs/getting-started/': 'docs/tutorials/',\n  // ... all path changes\n};\n```\n\n### 6. Add Missing Frontmatter\nEnsure all docs have:\n```yaml\n---\ntitle: Document Title\ndescription: Brief description\ncategory: tutorials|how-to|reference|explanation\nlastUpdated: 2025-12-30\nstatus: active\n---\n```\n\n### 7. Update Root Documentation Hub\nUpdate `docs/README.md` with:\n- Clear navigation structure\n- Quick links for common tasks\n- AI agent reading order\n- Updated last modified date\n\n### 8. Validate Internal Consistency\n```bash\n# Run link validation\nnpx markdown-link-check docs/**/*.md\n\n# Verify frontmatter\nfor file in docs/**/*.md; do\n  head -20 \"$file\" | grep -q '^---' || echo \"Missing frontmatter: $file\"\ndone\n```",
         "testStrategy": "1. Run `npx markdown-link-check` on all docs - 0 broken links\n2. Validate all moved files have correct path references\n3. Verify CLAUDE.md files are under 500 lines (except comprehensive backend)\n4. Test navigation from docs/README.md to all major sections\n5. Confirm archived content is still accessible but clearly marked\n6. Verify no duplicate content exists (grep for key phrases)\n7. Test AI agent context loading with new structure\n8. Confirm all code examples in docs still reference valid paths",
         "priority": "medium",
-        "dependencies": [
-          "159"
-        ],
+        "dependencies": ["159"],
         "status": "done",
         "subtasks": [
           {
@@ -241,9 +204,7 @@
             "id": 2,
             "title": "Consolidate Architecture and ADR Documentation",
             "description": "Merge duplicate architecture docs into reference/architecture/ and move decisions/ content to explanation/adr/ following Diataxis structure",
-            "dependencies": [
-              1
-            ],
+            "dependencies": [1],
             "details": "Move docs/architecture/dynamic-pii-architecture.md and dynamic-pii-architecture-options.md to docs/reference/architecture/. Move docs/decisions/ADR-001-document-relationship-design.md to docs/explanation/adr/ alongside existing ADR-001-document-processing-pipeline.md. Update docs/explanation/architecture-decisions.md to reference the consolidated ADR location. Remove empty architecture/ and decisions/ directories. Update cross-references in any files that link to old paths. Ensure proper YAML frontmatter on all moved files.",
             "status": "pending",
             "testStrategy": "Verify 3 files moved to correct locations, old directories removed, architecture-decisions.md references new ADR paths, run grep to confirm no remaining links to old paths",
@@ -253,10 +214,7 @@
             "id": 3,
             "title": "Add Missing Frontmatter and Standardize Metadata",
             "description": "Ensure all docs have consistent YAML frontmatter with title, description, category, lastUpdated, and status fields",
-            "dependencies": [
-              1,
-              2
-            ],
+            "dependencies": [1, 2],
             "details": "Scan all ~55 markdown files in docs/ for frontmatter presence using grep/head. For files missing frontmatter, add standard YAML header: title (from H1), description (one-line summary), category (tutorials|how-to|reference|explanation|ai-development), lastUpdated (2025-12-30), status (active). Priority files: tutorials/README.md, all moved architecture files, explanation/ files. Use consistent date format YYYY-MM-DD. Update lastUpdated on any files modified during consolidation. Create validation script or document checklist for future frontmatter compliance.",
             "status": "pending",
             "testStrategy": "Run 'head -20 docs/**/*.md | grep -c \"^---\"' to count frontmatter presence, verify all active docs have required fields, sample 10 random files for compliance",
@@ -266,10 +224,7 @@
             "id": 4,
             "title": "Update Cross-References and Internal Links",
             "description": "Find and update all internal documentation links affected by file moves, ensuring navigation remains intact",
-            "dependencies": [
-              1,
-              2
-            ],
+            "dependencies": [1, 2],
             "details": "Create mapping of path changes: docs/architecture/* -> docs/reference/architecture/*, docs/decisions/* -> docs/explanation/adr/*, docs/claude-audit/* -> docs/_archive/claude-audit/*, docs/debug/* -> docs/_archive/debug/*, docs/sales/* -> docs/_archive/sales/*, docs/tech-debt/* -> docs/_archive/tech-debt/*. Grep all .md files for old paths and update to new paths. Update docs/README.md quick links section. Update .meta/DOCUMENTATION_MIGRATION_GUIDE.md with completed migrations. Check CLAUDE.local.md and quikadmin/CLAUDE.md for any docs references. Verify no broken relative links remain.",
             "status": "pending",
             "testStrategy": "Run 'npx markdown-link-check docs/**/*.md' for all docs, grep for old paths returns 0 results, manually test navigation from docs/README.md to major sections",
@@ -279,10 +234,7 @@
             "id": 5,
             "title": "Update Documentation Hub and Validate Consolidation",
             "description": "Update docs/README.md hub with current structure, clear navigation, and run final validation to ensure zero broken links",
-            "dependencies": [
-              3,
-              4
-            ],
+            "dependencies": [3, 4],
             "details": "Update docs/README.md: refresh Documentation Structure section with current hierarchy, add _archive section noting archived content, update Quick Links for any path changes, set lastUpdated to 2025-12-30, verify AI agent reading order still valid. Add note about archived vs active content distinction. Update Project Structure diagram if needed. Run comprehensive validation: npx markdown-link-check on all docs, verify frontmatter with grep, test all tutorial/how-to links work. Document token savings if CLAUDE.md optimization was done. Create summary of consolidation changes for future reference.",
             "status": "pending",
             "testStrategy": "npx markdown-link-check returns 0 broken links, docs/README.md accurately reflects directory structure, navigation from hub reaches all major sections in 2 clicks, archived content accessible but clearly marked",
@@ -310,9 +262,7 @@
         "details": "## Implementation Details\n\n### Files to Migrate (from quikadmin-docs-review.md)\n\n| Source | Target | Priority |\n|--------|--------|----------|\n| `00-quick-start/ai-agent-setup.md` | `docs/ai-development/agent-setup.md` | High |\n| `01-current-state/architecture/quick-reference.md` | `docs/reference/architecture/quick-reference.md` | High |\n| `02-guides/development/implementing-auth.md` | `docs/how-to/development/implementing-auth.md` | High |\n| `02-guides/development/ocr-implementation.md` | `docs/how-to/development/ocr-implementation.md` | Medium |\n| `02-guides/development/pdf-implementation.md` | `docs/how-to/development/pdf-implementation.md` | Medium |\n| `02-guides/user/document-reprocessing.md` | `docs/tutorials/document-reprocessing.md` | Medium |\n| `02-guides/user/templates.md` | `docs/tutorials/template-usage.md` | Medium |\n| `research/pdf-library-comparison.md` | `docs/explanation/pdf-library-research.md` | Low |\n| `design/design-system.md` | `docs/reference/design/design-system.md` | Medium |\n\n### Content to Merge (into existing files)\n| Source | Target |\n|--------|--------|\n| `01-current-state/api/endpoints/profile.md` | Merge into `docs/reference/api/endpoints.md` |\n| `01-current-state/api/endpoints/templates.md` | Merge into `docs/reference/api/endpoints.md` |\n| `01-current-state/api/endpoints/document-reprocessing.md` | Merge into `docs/reference/api/endpoints.md` |\n| `01-current-state/architecture/system-overview.md` | Merge detailed content into `docs/reference/architecture/system-overview.md` |\n\n### Implementation Steps\n\n1. **Create target directories**\n```bash\nmkdir -p docs/reference/design\n# Other dirs already exist\n```\n\n2. **For each standalone migration**:\n   - Read source file\n   - Add YAML frontmatter (if missing)\n   - Update internal links (../../ -> ../ patterns)\n   - git mv to preserve history\n   - Update any files that referenced the old location\n\n3. **For merge operations**:\n   - Read both source and target files\n   - Identify unique content in source\n   - Append/integrate unique sections to target\n   - Delete source file after verification\n\n4. **Update cross-references**:\n   - Search all docs for references to old paths\n   - Update to new paths\n   - Update quikadmin/CLAUDE.md if it references migrated files\n\n### Pseudo-code\n```typescript\n// Standalone migrations\nconst migrations = [\n  { src: 'quikadmin/docs/00-quick-start/ai-agent-setup.md', \n    dest: 'docs/ai-development/agent-setup.md' },\n  // ... other migrations\n];\n\nfor (const m of migrations) {\n  // Use git mv to preserve history\n  await exec(`git mv \"${m.src}\" \"${m.dest}\"`);\n  \n  // Update internal links in migrated file\n  let content = await readFile(m.dest);\n  content = updateRelativeLinks(content, m.src, m.dest);\n  await writeFile(m.dest, content);\n}\n\n// Update references in all docs\nconst allDocs = await glob('docs/**/*.md');\nfor (const doc of allDocs) {\n  let content = await readFile(doc);\n  for (const m of migrations) {\n    content = content.replace(\n      new RegExp(escapeRegex(m.src), 'g'),\n      m.dest\n    );\n  }\n  await writeFile(doc, content);\n}\n```\n\n### Files to Keep in quikadmin/docs/ (Backend-Specific)\n- `03-reference/TEST_CREDENTIALS.md`\n- `01-current-state/architecture/SECURITY_ROTATION.md`",
         "testStrategy": "## Validation Approach\n\n### Pre-Migration Checklist\n1. Verify all source files exist\n2. Verify target directories exist\n3. Backup current state (git stash or commit first)\n\n### Post-Migration Verification\n1. **File Existence Check**:\n   - All 15 target files exist in docs/\n   - Source files removed (except backend-specific ones)\n\n2. **Link Integrity Test**:\n```bash\n# Find broken internal links\nfor f in docs/**/*.md; do\n  grep -oP '\\]\\(\\./[^)]+\\)' \"$f\" | while read link; do\n    target=$(echo $link | sed 's/.*\\.\\/\\([^)]*\\).*/\\1/')\n    dir=$(dirname \"$f\")\n    if [[ ! -f \"$dir/$target\" ]]; then\n      echo \"Broken link in $f: $target\"\n    fi\n  done\ndone\n```\n\n3. **Git History Check**:\n```bash\n# Verify git history preserved for migrated files\ngit log --follow docs/ai-development/agent-setup.md\n```\n\n4. **Reference Update Check**:\n```bash\n# No references to old paths should exist\ngrep -r \"quikadmin/docs/00-quick-start\" docs/ # Should return nothing\ngrep -r \"quikadmin/docs/02-guides\" docs/ # Should return nothing\n```\n\n### Success Criteria\n- [ ] All 15 unique files migrated to correct locations\n- [ ] Git history preserved for migrated files\n- [ ] No broken internal links in docs/\n- [ ] No references to old quikadmin/docs/ paths\n- [ ] quikadmin/CLAUDE.md updated if needed\n- [ ] Merged content integrated into target files",
         "priority": "high",
-        "dependencies": [
-          "161"
-        ],
+        "dependencies": ["161"],
         "status": "done",
         "subtasks": [],
         "updatedAt": "2025-12-30T12:13:32.882Z"
@@ -324,9 +274,7 @@
         "details": "## Implementation Details\n\n### Files to Archive (~95 files)\n\n**By Directory:**\n\n1. **06-archive/** and **archive/** (~30 files) - ARCHIVE ALL\n   - Old numbered sections (100-700 series)\n   - Historical implementation plans\n   - Upgrade reports and test results\n\n2. **.meta/** (~22 files) - ARCHIVE ALL\n   - `CLEANUP_*.md`\n   - `PHASE*_COMPLETION_SUMMARY.md`\n   - `DOCUMENTATION_ARCHITECTURE_*.md`\n   - `TASK-*.md`\n\n3. **04-future-vision/** (~4 files) - ARCHIVE ALL\n   - Vision documentation explicitly marked \"NOT IMPLEMENTED\"\n\n4. **Duplicates from other sections** (~39 files)\n   - `00-quick-start/README.md`, `project-overview.md`\n   - `01-current-state/` duplicates\n   - `02-guides/development/DEV_SETUP.md`, `TESTING_PLAN.md`\n   - `getting-started/` - all 6 files\n   - `infrastructure/` and `deployment/` - 5 files\n\n### Files to KEEP in quikadmin/docs/ (~10 files)\n- `03-reference/TEST_CREDENTIALS.md`\n- `01-current-state/architecture/SECURITY_ROTATION.md`\n- Supabase middleware implementation details\n- Any files referenced by migrated docs in Task 162\n\n### Archive Structure\n```\nquikadmin/docs/_archive/\n├── README.md              # Explains archive status\n├── numbered-sections/     # Old 100-700 series\n├── meta-historical/       # .meta completion summaries\n├── future-vision/         # Unimplemented vision docs\n├── duplicates/            # Content duplicated in main docs/\n└── historical/            # Implementation plans, upgrade reports\n```\n\n### Implementation Steps\n\n1. **Create archive structure**:\n```bash\nmkdir -p quikadmin/docs/_archive/{numbered-sections,meta-historical,future-vision,duplicates,historical}\n```\n\n2. **Create archive README**:\n```markdown\n# Archived Documentation\n\n**Archived Date:** 2025-12-30\n**Reason:** Documentation consolidation - content migrated to main `docs/` directory\n\nThis directory contains historical/duplicate documentation preserved for reference.\n\n## Current Documentation\nSee the main `docs/` directory at the project root for current documentation.\n\n## Structure\n- `numbered-sections/` - Old numbered documentation (100-700 series)\n- `meta-historical/` - Task completion summaries and cleanup logs  \n- `future-vision/` - Unimplemented architecture visions\n- `duplicates/` - Content now in main docs/\n- `historical/` - Implementation plans and upgrade reports\n\n## Backend-Specific Documentation\nSee `quikadmin/CLAUDE.md` for backend-specific context.\nActive backend docs remain in `quikadmin/docs/` (not in _archive).\n```\n\n3. **Move files using git mv**:\n```bash\n# Use git mv to preserve history\ngit mv quikadmin/docs/06-archive/* quikadmin/docs/_archive/numbered-sections/\ngit mv quikadmin/docs/archive/* quikadmin/docs/_archive/historical/\ngit mv quikadmin/docs/.meta/*.md quikadmin/docs/_archive/meta-historical/\ngit mv quikadmin/docs/04-future-vision/* quikadmin/docs/_archive/future-vision/\n```\n\n4. **Update quikadmin/docs/README.md**:\n```markdown\n# Backend Documentation\n\nThis directory contains backend-specific documentation.\n\n## Main Documentation\nFor comprehensive project documentation, see the main `docs/` directory.\n\n## Backend-Specific Docs\n- `03-reference/TEST_CREDENTIALS.md` - Test credentials (sensitive)\n- `01-current-state/architecture/SECURITY_ROTATION.md` - Credential rotation\n\n## Archived Content\nSee `_archive/` for historical documentation.\n```\n\n5. **Clean up empty directories**:\n```bash\nfind quikadmin/docs -type d -empty -delete\n```\n\n### Pseudo-code\n```typescript\nconst archiveMappings = {\n  '06-archive': '_archive/numbered-sections',\n  'archive': '_archive/historical',\n  '.meta': '_archive/meta-historical',\n  '04-future-vision': '_archive/future-vision',\n};\n\n// Create archive structure\nawait exec('mkdir -p quikadmin/docs/_archive/{numbered-sections,meta-historical,future-vision,duplicates,historical}');\n\n// Move directories\nfor (const [src, dest] of Object.entries(archiveMappings)) {\n  const srcPath = `quikadmin/docs/${src}`;\n  const destPath = `quikadmin/docs/${dest}`;\n  if (await exists(srcPath)) {\n    await exec(`git mv \"${srcPath}\"/* \"${destPath}/\"`);\n  }\n}\n\n// Handle individual duplicate files\nconst duplicates = [\n  'quikadmin/docs/00-quick-start/README.md',\n  'quikadmin/docs/00-quick-start/project-overview.md',\n  // ... list from review\n];\n\nfor (const dup of duplicates) {\n  await exec(`git mv \"${dup}\" quikadmin/docs/_archive/duplicates/`);\n}\n\n// Clean up empty directories\nawait exec('find quikadmin/docs -type d -empty -delete');\n```",
         "testStrategy": "## Validation Approach\n\n### Pre-Archive Verification\n1. **List files to archive**: Generate complete list before operation\n2. **Verify keep-list**: Confirm backend-specific files will remain\n3. **Check dependencies**: Ensure no active code references files being archived\n\n### Post-Archive Verification\n\n1. **File Count Check**:\n```bash\n# Count files in archive\nfind quikadmin/docs/_archive -name \"*.md\" | wc -l\n# Should be ~95\n\n# Count remaining active files\nfind quikadmin/docs -name \"*.md\" -not -path \"*/_archive/*\" | wc -l\n# Should be ~10\n```\n\n2. **Git History Check**:\n```bash\n# Verify history preserved\ngit log --follow quikadmin/docs/_archive/historical/test-results/SMOKE_TEST_RESULTS.md\n```\n\n3. **README Verification**:\n```bash\n# Archive README exists\ncat quikadmin/docs/_archive/README.md\n\n# Main README updated\ncat quikadmin/docs/README.md\n```\n\n4. **No Broken References**:\n```bash\n# Search for references to archived paths in active docs\ngrep -r \"06-archive\" docs/ quikadmin/docs/*.md 2>/dev/null || echo \"Clean\"\ngrep -r \"04-future-vision\" docs/ quikadmin/docs/*.md 2>/dev/null || echo \"Clean\"\n```\n\n5. **Backend-Specific Files Remain**:\n```bash\n# Verify key files still exist\ntest -f quikadmin/docs/03-reference/TEST_CREDENTIALS.md && echo \"OK\" || echo \"MISSING\"\ntest -f quikadmin/docs/01-current-state/architecture/SECURITY_ROTATION.md && echo \"OK\" || echo \"MISSING\"\n```\n\n### Success Criteria\n- [ ] ~95 files moved to _archive/ structure\n- [ ] ~10 backend-specific files remain in place\n- [ ] Git history preserved for all moved files\n- [ ] _archive/README.md explains archive status\n- [ ] quikadmin/docs/README.md points to main docs/\n- [ ] No empty directories remain\n- [ ] No broken references in active documentation",
         "priority": "medium",
-        "dependencies": [
-          "162"
-        ],
+        "dependencies": ["162"],
         "status": "pending",
         "subtasks": []
       },
@@ -384,10 +332,11 @@
         "description": "Implement Redis-backed token cache with SHA256 key hashing, 5-min TTL, and in-memory fallback to reduce Supabase calls",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-31T10:47:38.495Z"
       },
       {
         "id": "169",
@@ -425,12 +374,10 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-31T09:54:07.381Z",
+      "lastModified": "2025-12-31T10:47:38.496Z",
       "taskCount": 15,
-      "completedCount": 10,
-      "tags": [
-        "master"
-      ]
+      "completedCount": 11,
+      "tags": ["master"]
     }
   }
 }

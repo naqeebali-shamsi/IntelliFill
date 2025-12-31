@@ -26,6 +26,12 @@ import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLi
 import { csrfProtection } from './middleware/csrf';
 import { realtimeService } from './services/RealtimeService';
 import { createAuditMiddleware } from './middleware/auditLogger';
+import {
+  getAuthCircuitBreakerMetrics,
+  isAuthCircuitOpen,
+  getTokenCacheMetrics,
+  shutdownTokenCache,
+} from './utils/supabase';
 
 // Config validation happens automatically on import
 console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
@@ -176,11 +182,22 @@ async function initializeApp() {
 
     // Health check endpoint (public)
     app.get('/health', (req, res) => {
+      // Get auth subsystem metrics
+      const authCircuitBreaker = getAuthCircuitBreakerMetrics();
+      const tokenCache = getTokenCacheMetrics();
+
+      // Determine overall health based on subsystems
+      const isHealthy = !isAuthCircuitOpen();
+
       res.json({
-        status: 'ok',
+        status: isHealthy ? 'ok' : 'degraded',
         timestamp: new Date().toISOString(),
         version: '1.0.0',
         environment: process.env.NODE_ENV || 'development',
+        auth: {
+          circuitBreaker: authCircuitBreaker,
+          tokenCache: tokenCache || { enabled: false },
+        },
       });
     });
 
@@ -289,6 +306,10 @@ async function startServer() {
       // Stop keepalive before shutdown
       const { stopKeepalive } = await import('./utils/prisma');
       stopKeepalive();
+
+      // Shutdown token cache (close Redis connection)
+      await shutdownTokenCache();
+      logger.info('Token cache shutdown complete');
 
       server.close(async () => {
         logger.info('HTTP server closed');
