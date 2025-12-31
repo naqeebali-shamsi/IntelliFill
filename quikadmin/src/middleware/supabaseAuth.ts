@@ -13,6 +13,7 @@ import { User } from '@supabase/supabase-js';
 import { verifySupabaseToken } from '../utils/supabase';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
+import { recordRLSFailure } from '../services/health.service';
 
 /**
  * Extended Request interface with Supabase user
@@ -153,6 +154,9 @@ export async function authenticateSupabase(
         stack: rlsError instanceof Error ? rlsError.stack : undefined,
       });
       req.rlsContextSet = false;
+
+      // Record RLS failure for health monitoring
+      recordRLSFailure();
 
       // In production, fail closed on RLS errors (configurable)
       if (process.env.RLS_FAIL_CLOSED === 'true') {

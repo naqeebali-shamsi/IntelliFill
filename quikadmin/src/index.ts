@@ -32,6 +32,7 @@ import {
   getTokenCacheMetrics,
   shutdownTokenCache,
 } from './utils/supabase';
+import { getBasicHealth, getDetailedHealth } from './services/health.service';
 
 // Config validation happens automatically on import
 console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
@@ -180,25 +181,38 @@ async function initializeApp() {
       logger.warn('⚠️ CSRF protection disabled in development mode');
     }
 
-    // Health check endpoint (public)
-    app.get('/health', (req, res) => {
-      // Get auth subsystem metrics
+    // Health check endpoint (public) - basic status
+    app.get('/health', (_req, res) => {
+      const health = getBasicHealth();
+
+      // Include minimal auth info for quick checks
       const authCircuitBreaker = getAuthCircuitBreakerMetrics();
       const tokenCache = getTokenCacheMetrics();
 
-      // Determine overall health based on subsystems
-      const isHealthy = !isAuthCircuitOpen();
-
       res.json({
-        status: isHealthy ? 'ok' : 'degraded',
-        timestamp: new Date().toISOString(),
-        version: '1.0.0',
-        environment: process.env.NODE_ENV || 'development',
+        ...health,
         auth: {
           circuitBreaker: authCircuitBreaker,
           tokenCache: tokenCache || { enabled: false },
         },
       });
+    });
+
+    // Detailed health check endpoint (for monitoring systems)
+    app.get('/health/detailed', async (_req, res) => {
+      try {
+        const detailed = await getDetailedHealth();
+        const statusCode =
+          detailed.status === 'healthy' ? 200 : detailed.status === 'degraded' ? 200 : 503;
+        res.status(statusCode).json(detailed);
+      } catch (error) {
+        logger.error('Health check failed', { error });
+        res.status(503).json({
+          status: 'unhealthy',
+          error: 'Health check failed',
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     // Setup routes with authentication
