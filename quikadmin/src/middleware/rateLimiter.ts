@@ -1,7 +1,171 @@
 import rateLimit from 'express-rate-limit';
 import { createClient } from 'redis';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { logger } from '../utils/logger';
+
+// ============================================================================
+// Rate Limit Key Generation (Task #171)
+// Consistent key generation with user/org/ip scopes
+// ============================================================================
+
+/**
+ * Rate limit scope options
+ */
+export type RateLimitScope = 'ip' | 'user' | 'organization' | 'user-ip' | 'org-ip' | 'email-ip';
+
+/**
+ * Options for generating rate limit keys
+ */
+export interface RateLimitKeyOptions {
+  /** Primary scope for rate limiting */
+  scope: RateLimitScope;
+  /** Fallback scope if primary is unavailable */
+  fallbackScope?: RateLimitScope;
+  /** Optional prefix for the key (e.g., 'auth', 'upload') */
+  prefix?: string;
+}
+
+/**
+ * Sanitize a value for use in rate limit keys
+ * - Removes special characters that could cause issues
+ * - Limits length to prevent memory issues
+ * - Handles undefined/null values
+ */
+function sanitizeKeyComponent(value: string | undefined | null, maxLength = 64): string {
+  if (!value) return 'unknown';
+
+  // Remove potentially problematic characters, keep alphanumeric, @, ., -, _
+  const sanitized = value
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9@._-]/g, '')
+    .slice(0, maxLength);
+
+  return sanitized || 'unknown';
+}
+
+/**
+ * Extract IP address from request with fallback handling
+ */
+function extractIP(req: Request): string {
+  // Express trust proxy setting should handle x-forwarded-for
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  return sanitizeKeyComponent(ip, 45); // IPv6 max length is 45
+}
+
+/**
+ * Extract user ID from authenticated request
+ */
+function extractUserId(req: Request): string | null {
+  const userId = (req as any).user?.id;
+  return userId ? sanitizeKeyComponent(userId) : null;
+}
+
+/**
+ * Extract organization ID from request
+ */
+function extractOrganizationId(req: Request): string | null {
+  const orgId = (req as any).organizationId || (req as any).user?.organizationId;
+  return orgId ? sanitizeKeyComponent(orgId) : null;
+}
+
+/**
+ * Extract email from request body (for auth endpoints)
+ */
+function extractEmail(req: Request): string | null {
+  const email = req.body?.email;
+  return email ? sanitizeKeyComponent(email, 100) : null;
+}
+
+/**
+ * Generate a rate limit key based on scope
+ */
+function generateKeyForScope(req: Request, scope: RateLimitScope): string | null {
+  const ip = extractIP(req);
+  const userId = extractUserId(req);
+  const orgId = extractOrganizationId(req);
+  const email = extractEmail(req);
+
+  switch (scope) {
+    case 'ip':
+      return ip;
+
+    case 'user':
+      return userId;
+
+    case 'organization':
+      return orgId;
+
+    case 'user-ip':
+      return userId ? `${userId}:${ip}` : null;
+
+    case 'org-ip':
+      return orgId ? `${orgId}:${ip}` : null;
+
+    case 'email-ip':
+      return email ? `${email}:${ip}` : null;
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Generate a rate limit key with consistent formatting and fallback handling
+ *
+ * @param req - Express request object
+ * @param options - Key generation options
+ * @returns Formatted rate limit key
+ *
+ * @example
+ * // Organization-scoped with IP fallback
+ * generateRateLimitKey(req, { scope: 'organization', fallbackScope: 'ip', prefix: 'search' })
+ * // Returns: "search:org123" or "search:192.168.1.1" if no org
+ *
+ * @example
+ * // User-IP combo for auth
+ * generateRateLimitKey(req, { scope: 'email-ip', fallbackScope: 'ip', prefix: 'auth' })
+ * // Returns: "auth:user@example.com:192.168.1.1"
+ */
+export function generateRateLimitKey(req: Request, options: RateLimitKeyOptions): string {
+  const { scope, fallbackScope = 'ip', prefix } = options;
+
+  // Try primary scope
+  let key = generateKeyForScope(req, scope);
+
+  // Try fallback if primary didn't produce a result
+  if (!key && fallbackScope) {
+    key = generateKeyForScope(req, fallbackScope);
+  }
+
+  // Ultimate fallback to IP
+  if (!key) {
+    key = extractIP(req);
+  }
+
+  // Apply prefix if provided
+  if (prefix) {
+    return `${prefix}:${key}`;
+  }
+
+  return key;
+}
+
+/**
+ * Create a key generator function for express-rate-limit
+ *
+ * @param options - Key generation options
+ * @returns Key generator function compatible with express-rate-limit
+ *
+ * @example
+ * const limiter = rateLimit({
+ *   keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
+ *   ...
+ * });
+ */
+export function createKeyGenerator(options: RateLimitKeyOptions): (req: Request) => string {
+  return (req: Request) => generateRateLimitKey(req, options);
+}
 
 // Redis client for rate limit store (optional)
 let redisClient: ReturnType<typeof createClient> | null = null;
@@ -210,9 +374,7 @@ export const standardLimiter = rateLimit({
     decrement: async (key: string) => store.decrement(key),
     resetKey: async (key: string) => store.resetKey(key),
   } as any,
-  keyGenerator: (req: Request) => {
-    return req.ip || 'unknown';
-  },
+  keyGenerator: createKeyGenerator({ scope: 'ip' }),
 });
 
 // Strict auth rate limiter for login attempts
@@ -230,12 +392,7 @@ export const authLimiter = rateLimit({
     decrement: async (key: string) => store.decrement('auth:' + key),
     resetKey: async (key: string) => store.resetKey('auth:' + key),
   } as any,
-  keyGenerator: (req: Request) => {
-    // Use email + IP for more granular limiting
-    const email = req.body?.email || 'unknown';
-    const ip = req.ip || 'unknown';
-    return `${email}:${ip}`;
-  },
+  keyGenerator: createKeyGenerator({ scope: 'email-ip', fallbackScope: 'ip' }),
 });
 
 // Document upload rate limiter
@@ -251,11 +408,7 @@ export const uploadLimiter = rateLimit({
     decrement: async (key: string) => store.decrement('upload:' + key),
     resetKey: async (key: string) => store.resetKey('upload:' + key),
   } as any,
-  keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise IP
-    const userId = (req as any).user?.id;
-    return userId || req.ip || 'unknown';
-  },
+  keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
 });
 
 // Cleanup on shutdown
@@ -289,13 +442,7 @@ export const knowledgeSearchLimiter = rateLimit({
     decrement: async (key: string) => store.decrement('knowledge:search:' + key),
     resetKey: async (key: string) => store.resetKey('knowledge:search:' + key),
   } as any,
-  keyGenerator: (req: Request) => {
-    // Use organization ID for rate limiting (extracted by middleware)
-    const organizationId = (req as any).organizationId;
-    const userId = (req as any).user?.id;
-    // Fall back to user ID + IP if org not available
-    return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
-  },
+  keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
 });
 
 /**
@@ -317,11 +464,7 @@ export const knowledgeSuggestLimiter = rateLimit({
     decrement: async (key: string) => store.decrement('knowledge:suggest:' + key),
     resetKey: async (key: string) => store.resetKey('knowledge:suggest:' + key),
   } as any,
-  keyGenerator: (req: Request) => {
-    const organizationId = (req as any).organizationId;
-    const userId = (req as any).user?.id;
-    return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
-  },
+  keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
 });
 
 /**
@@ -343,11 +486,7 @@ export const knowledgeUploadLimiter = rateLimit({
     decrement: async (key: string) => store.decrement('knowledge:upload:' + key),
     resetKey: async (key: string) => store.resetKey('knowledge:upload:' + key),
   } as any,
-  keyGenerator: (req: Request) => {
-    const organizationId = (req as any).organizationId;
-    const userId = (req as any).user?.id;
-    return organizationId || `${userId || 'anon'}:${req.ip || 'unknown'}`;
-  },
+  keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
 });
 
 // ============================================================================
@@ -376,9 +515,5 @@ export const sseConnectionLimiter = rateLimit({
     decrement: async (key: string) => store.decrement('sse:' + key),
     resetKey: async (key: string) => store.resetKey('sse:' + key),
   } as any,
-  keyGenerator: (req: Request) => {
-    // Use user ID if authenticated, otherwise fall back to IP
-    const userId = (req as any).user?.id;
-    return userId || req.ip || 'unknown';
-  },
+  keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
 });
