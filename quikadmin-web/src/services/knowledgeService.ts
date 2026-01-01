@@ -281,11 +281,26 @@ export const getSourceProcessingStatus = async (
 };
 
 /**
+ * Batch get multiple document sources by IDs
+ * More efficient than multiple individual GET requests for polling
+ */
+export const getKnowledgeSourcesBatch = async (
+  sourceIds: string[]
+): Promise<{
+  success: boolean;
+  sources: DocumentSource[];
+}> => {
+  if (sourceIds.length === 0) {
+    return { success: true, sources: [] };
+  }
+  const response = await api.post('/knowledge/sources/batch', { ids: sourceIds });
+  return response.data;
+};
+
+/**
  * Perform semantic search
  */
-export const semanticSearch = async (
-  request: SemanticSearchRequest
-): Promise<SearchResponse> => {
+export const semanticSearch = async (request: SemanticSearchRequest): Promise<SearchResponse> => {
   const response = await api.post('/knowledge/search', request);
   return response.data;
 };
@@ -293,9 +308,7 @@ export const semanticSearch = async (
 /**
  * Perform hybrid search (semantic + keyword)
  */
-export const hybridSearch = async (
-  request: HybridSearchRequest
-): Promise<SearchResponse> => {
+export const hybridSearch = async (request: HybridSearchRequest): Promise<SearchResponse> => {
   const response = await api.post('/knowledge/search/hybrid', request);
   return response.data;
 };
@@ -367,6 +380,7 @@ const knowledgeService = {
   getKnowledgeSource,
   deleteKnowledgeSource,
   getSourceProcessingStatus,
+  getKnowledgeSourcesBatch,
   // Search
   semanticSearch,
   hybridSearch,

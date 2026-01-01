@@ -147,7 +147,7 @@ export default function KnowledgeBase() {
   const uploadLoading = useUploadLoading();
 
   // Store actions
-  const { fetchSources, fetchStats, uploadSource, deleteSource, refreshSource } =
+  const { fetchSources, fetchStats, uploadSource, deleteSource, refreshSourcesBatch } =
     useKnowledgeStore();
 
   // Local state
@@ -216,20 +216,33 @@ export default function KnowledgeBase() {
     toast.success('Knowledge base refreshed');
   };
 
-  // Poll for processing status
-  React.useEffect(() => {
-    const processingIds = sources
-      .filter((s) => s.status === 'PROCESSING' || s.status === 'PENDING')
-      .map((s) => s.id);
+  // Memoize processing IDs to avoid recalculating on every render
+  const processingIds = React.useMemo(
+    () =>
+      sources.filter((s) => s.status === 'PROCESSING' || s.status === 'PENDING').map((s) => s.id),
+    [sources]
+  );
 
+  // Poll for processing status with batch refresh and jitter
+  // Jitter prevents thundering herd when multiple tabs are open
+  React.useEffect(() => {
     if (processingIds.length === 0) return;
 
-    const interval = setInterval(() => {
-      processingIds.forEach((id) => refreshSource(id));
-    }, 5000);
+    let timeoutId: ReturnType<typeof setTimeout>;
 
-    return () => clearInterval(interval);
-  }, [sources, refreshSource]);
+    const poll = () => {
+      refreshSourcesBatch(processingIds);
+      // Add ±20% jitter to base 5s interval (4-6 seconds)
+      const jitter = 5000 * 0.2 * (Math.random() * 2 - 1);
+      const delay = Math.round(5000 + jitter);
+      timeoutId = setTimeout(poll, delay);
+    };
+
+    // Start polling
+    poll();
+
+    return () => clearTimeout(timeoutId);
+  }, [processingIds, refreshSourcesBatch]);
 
   return (
     <div className="space-y-6 pb-20">

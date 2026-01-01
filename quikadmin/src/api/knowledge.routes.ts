@@ -430,6 +430,66 @@ export function createKnowledgeRoutes(): Router {
   );
 
   /**
+   * POST /api/knowledge/sources/batch
+   * Batch get multiple document sources by IDs
+   * More efficient than multiple individual GET requests for polling
+   */
+  router.post(
+    '/sources/batch',
+    authenticateSupabase,
+    requireOrganization,
+    auditLogger('knowledge:source:batch'),
+    async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
+      try {
+        const organizationId = req.organizationId!;
+        const { ids } = req.body;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'IDs array required',
+          });
+        }
+
+        // Limit batch size to prevent abuse
+        if (ids.length > 50) {
+          return res.status(400).json({
+            success: false,
+            error: 'Maximum 50 IDs per batch',
+          });
+        }
+
+        const sources = await prisma.documentSource.findMany({
+          where: {
+            id: { in: ids },
+            organizationId,
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            title: true,
+            filename: true,
+            fileSize: true,
+            mimeType: true,
+            status: true,
+            chunkCount: true,
+            processingTimeMs: true,
+            errorMessage: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+
+        res.json({
+          success: true,
+          sources,
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+  /**
    * GET /api/knowledge/sources/:id/status
    * Get processing status of a document source
    */

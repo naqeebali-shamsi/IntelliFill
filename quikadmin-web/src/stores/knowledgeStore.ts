@@ -74,6 +74,7 @@ interface KnowledgeState {
   deleteSource: (sourceId: string) => Promise<boolean>;
   selectSource: (sourceId: string | null) => void;
   refreshSource: (sourceId: string) => Promise<void>;
+  refreshSourcesBatch: (sourceIds: string[]) => Promise<void>;
 
   // Actions - Search
   search: (request: SemanticSearchRequest) => Promise<void>;
@@ -290,6 +291,25 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         });
       } catch (error) {
         console.error('Failed to refresh source:', error);
+      }
+    },
+
+    refreshSourcesBatch: async (sourceIds) => {
+      if (sourceIds.length === 0) return;
+
+      try {
+        const response = await knowledgeService.getKnowledgeSourcesBatch(sourceIds);
+
+        set((state) => {
+          for (const source of response.sources) {
+            const index = state.sources.findIndex((s) => s.id === source.id);
+            if (index !== -1) {
+              state.sources[index] = source;
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Failed to batch refresh sources:', error);
       }
     },
 
