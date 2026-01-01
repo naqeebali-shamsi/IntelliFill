@@ -102,7 +102,7 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 function getEnvArray(key: string, defaultValue: string[] = []): string[] {
   const value = process.env[key];
   if (!value) return defaultValue;
-  return value.split(',').map(v => v.trim());
+  return value.split(',').map((v) => v.trim());
 }
 
 // =============================================================================
@@ -112,10 +112,10 @@ function getEnvArray(key: string, defaultValue: string[] = []): string[] {
 function loadConfig(): Config {
   return {
     server: {
-      nodeEnv: (getEnv('NODE_ENV', 'development') as Config['server']['nodeEnv']),
+      nodeEnv: getEnv('NODE_ENV', 'development') as Config['server']['nodeEnv'],
       port: getEnvNumber('PORT', 3002),
       corsOrigins: getEnvArray('CORS_ORIGINS', ['http://localhost:3000', 'http://localhost:5173']),
-      logLevel: (getEnv('LOG_LEVEL', 'info') as Config['server']['logLevel']),
+      logLevel: getEnv('LOG_LEVEL', 'info') as Config['server']['logLevel'],
       enableMetrics: getEnvBoolean('ENABLE_METRICS', true),
     },
 
@@ -172,27 +172,145 @@ export const config = loadConfig();
 // VALIDATION (for critical configs)
 // =============================================================================
 
+interface ValidationError {
+  variable: string;
+  message: string;
+  source: string;
+  fix: string;
+}
+
+/**
+ * Validates all critical environment variables on startup.
+ * Provides clear, actionable error messages for missing or invalid configs.
+ */
 export function validateConfig(): void {
-  const { server, jwt, database } = config;
+  const { server, jwt, database, supabase } = config;
+  const errors: ValidationError[] = [];
+  const warnings: string[] = [];
+
+  // -------------------------------------------------------------------------
+  // CRITICAL: These will crash the app if missing
+  // -------------------------------------------------------------------------
+
+  // Database (source: quikadmin/.env)
+  if (!database.url) {
+    errors.push({
+      variable: 'DATABASE_URL',
+      message: 'Database connection string is required',
+      source: 'quikadmin/.env',
+      fix: 'Add DATABASE_URL=postgresql://... to quikadmin/.env',
+    });
+  } else if (!database.url.startsWith('postgresql://') && !database.url.startsWith('postgres://')) {
+    errors.push({
+      variable: 'DATABASE_URL',
+      message: 'Must be a valid PostgreSQL connection string',
+      source: 'quikadmin/.env',
+      fix: 'Use format: postgresql://user:password@host:port/database',
+    });
+  }
+
+  // JWT Secrets (source: quikadmin/.env)
+  if (!jwt.secret) {
+    errors.push({
+      variable: 'JWT_SECRET',
+      message: 'JWT secret is required for authentication',
+      source: 'quikadmin/.env',
+      fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('base64'))\"",
+    });
+  }
+  if (!jwt.refreshSecret) {
+    errors.push({
+      variable: 'JWT_REFRESH_SECRET',
+      message: 'JWT refresh secret is required for token refresh',
+      source: 'quikadmin/.env',
+      fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('base64'))\"",
+    });
+  }
+
+  // Supabase (source: quikadmin/.env ONLY - NOT root .env)
+  if (!supabase.url) {
+    errors.push({
+      variable: 'SUPABASE_URL',
+      message: 'Supabase project URL is required',
+      source: 'quikadmin/.env',
+      fix: 'Get from Supabase Dashboard > Project Settings > API',
+    });
+  }
+  if (!supabase.anonKey) {
+    errors.push({
+      variable: 'SUPABASE_ANON_KEY',
+      message: 'Supabase anonymous key is required',
+      source: 'quikadmin/.env',
+      fix: 'Get from Supabase Dashboard > Project Settings > API',
+    });
+  }
+  if (!supabase.serviceRoleKey) {
+    errors.push({
+      variable: 'SUPABASE_SERVICE_ROLE_KEY',
+      message: 'Supabase service role key is required for admin operations',
+      source: 'quikadmin/.env',
+      fix: 'Get from Supabase Dashboard > Project Settings > API (Keep secret!)',
+    });
+  }
 
   // Production-specific validations
   if (server.nodeEnv === 'production') {
-    if (jwt.secret.length < 64) {
-      throw new Error('JWT_SECRET must be at least 64 characters in production');
+    if (jwt.secret && jwt.secret.length < 64) {
+      errors.push({
+        variable: 'JWT_SECRET',
+        message: 'Must be at least 64 characters in production',
+        source: 'quikadmin/.env',
+        fix: 'Generate a longer secret for production security',
+      });
     }
-    if (jwt.refreshSecret.length < 64) {
-      throw new Error('JWT_REFRESH_SECRET must be at least 64 characters in production');
+    if (jwt.refreshSecret && jwt.refreshSecret.length < 64) {
+      errors.push({
+        variable: 'JWT_REFRESH_SECRET',
+        message: 'Must be at least 64 characters in production',
+        source: 'quikadmin/.env',
+        fix: 'Generate a longer secret for production security',
+      });
     }
   }
 
-  // Database URL validation
-  if (!database.url.startsWith('postgresql://') && !database.url.startsWith('postgres://')) {
-    throw new Error('DATABASE_URL must be a valid PostgreSQL connection string');
+  // -------------------------------------------------------------------------
+  // WARNINGS: Non-critical but should be addressed
+  // -------------------------------------------------------------------------
+
+  // Neon SSL warning
+  if (database.url?.includes('neon.tech') && !database.url.includes('sslmode=require')) {
+    warnings.push('Neon database connection should include sslmode=require');
   }
 
-  // Neon-specific validation
-  if (database.url.includes('neon.tech') && !database.url.includes('sslmode=require')) {
-    console.warn('⚠️  WARNING: Neon database connection should include sslmode=require');
+  // -------------------------------------------------------------------------
+  // OUTPUT RESULTS
+  // -------------------------------------------------------------------------
+
+  // Print warnings
+  if (warnings.length > 0) {
+    console.warn('\n⚠️  Configuration Warnings:');
+    warnings.forEach((w) => console.warn(`   - ${w}`));
+  }
+
+  // Print errors and throw if any exist
+  if (errors.length > 0) {
+    console.error('\n❌ Configuration Errors:\n');
+    errors.forEach((e) => {
+      console.error(`   ${e.variable}`);
+      console.error(`     Message: ${e.message}`);
+      console.error(`     Source:  ${e.source}`);
+      console.error(`     Fix:     ${e.fix}`);
+      console.error('');
+    });
+    console.error('─'.repeat(60));
+    console.error('\n📁 Environment Variable Sources:');
+    console.error('   • Root .env        → AI tool keys only (TaskMaster, Claude)');
+    console.error('   • quikadmin/.env   → All backend config (DB, Auth, Supabase)');
+    console.error('   • quikadmin-web/.env → Frontend VITE_* vars only\n');
+
+    throw new Error(
+      `Missing ${errors.length} required environment variable(s). See above for details.`
+    );
   }
 }
 

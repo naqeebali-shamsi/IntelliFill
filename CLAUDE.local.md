@@ -32,9 +32,21 @@ IntelliFill/
 **Backend**: Express 4.18, TypeScript, Prisma 6.14, PostgreSQL (Neon), Bull+Redis
 **Frontend**: React 18, Vite, TailwindCSS 4.0, Zustand 5.0, Radix UI
 
-## Environment Config
+## Environment Files (Authority Model)
 
-Backend auth mode (recommended for local dev):
+**Three separate `.env` files** - never duplicate keys across files:
+
+| File                 | Purpose         | Keys                                                          |
+| -------------------- | --------------- | ------------------------------------------------------------- |
+| `quikadmin/.env`     | Backend config  | DATABASE*URL, SUPABASE*_, JWT\__, REDIS*URL, R2*\*, LOG_LEVEL |
+| `quikadmin-web/.env` | Frontend config | VITE*API_URL, VITE_SUPABASE*_, VITE\__ flags                  |
+| `.env` (root)        | AI tools only   | PERPLEXITY_API_KEY, GEMINI_API_KEY, GROQ_API_KEY              |
+
+**SECURITY**: `SUPABASE_SERVICE_ROLE_KEY` must ONLY be in `quikadmin/.env` (never root)
+
+See `docs/reference/configuration/environment.md` for full details.
+
+**Frontend auth mode** (recommended for local dev):
 
 ```env
 # quikadmin-web/.env

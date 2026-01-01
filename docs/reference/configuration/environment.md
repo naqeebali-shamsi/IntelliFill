@@ -12,6 +12,30 @@ Complete reference for all environment variables used by IntelliFill.
 
 ---
 
+## File Authority Model
+
+IntelliFill uses **three separate `.env` files**, each authoritative for specific variables:
+
+| File                 | Purpose                | Authoritative For                                             |
+| -------------------- | ---------------------- | ------------------------------------------------------------- |
+| `quikadmin/.env`     | Backend configuration  | DATABASE*URL, SUPABASE*_, JWT\__, REDIS*URL, R2*\*, LOG_LEVEL |
+| `quikadmin-web/.env` | Frontend configuration | VITE*API_URL, VITE_SUPABASE*_, VITE\__ feature flags          |
+| `.env` (root)        | AI tooling only        | PERPLEXITY_API_KEY, GEMINI_API_KEY, GROQ_API_KEY              |
+
+**IMPORTANT Security Notes**:
+
+- `SUPABASE_SERVICE_ROLE_KEY` must **ONLY** exist in `quikadmin/.env` (never root)
+- Root `.env` should **NOT** contain any Supabase keys
+- Never duplicate keys across files - each key has ONE authoritative source
+
+**Why separate files?**
+
+1. **Security**: Backend secrets (SERVICE_ROLE_KEY) isolated from root exposure
+2. **Clarity**: Each sub-project (backend/frontend) has self-contained config
+3. **Deployment**: Different deployment targets need different variables
+
+---
+
 ## Backend Environment Variables
 
 File: `quikadmin/.env`
@@ -192,9 +216,9 @@ LOG_DIR="./logs"
 
 ### Security Configuration
 
-| Variable          | Required | Default | Description                                        |
-| ----------------- | -------- | ------- | -------------------------------------------------- |
-| `RLS_FAIL_CLOSED` | No       | `false` | Reject requests when RLS context setup fails       |
+| Variable          | Required | Default | Description                                  |
+| ----------------- | -------- | ------- | -------------------------------------------- |
+| `RLS_FAIL_CLOSED` | No       | `false` | Reject requests when RLS context setup fails |
 
 **Example**:
 
@@ -205,10 +229,10 @@ RLS_FAIL_CLOSED=true
 
 **RLS_FAIL_CLOSED Behavior**:
 
-| Value   | Behavior                                           | Environment   |
-| ------- | -------------------------------------------------- | ------------- |
-| `true`  | Reject request with 500 on RLS setup failure       | Production    |
-| `false` | Log error, continue without RLS protection         | Development   |
+| Value   | Behavior                                     | Environment |
+| ------- | -------------------------------------------- | ----------- |
+| `true`  | Reject request with 500 on RLS setup failure | Production  |
+| `false` | Log error, continue without RLS protection   | Development |
 
 **Recommendation**: Always set `RLS_FAIL_CLOSED=true` in production to prevent potential data access without proper Row-Level Security context.
 
@@ -341,18 +365,38 @@ environment:
 
 ## Validation
 
-The backend validates required environment variables on startup:
+The backend validates all required environment variables on startup with detailed error messages.
 
-```typescript
-// src/config/index.ts
-const required = ['DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'JWT_SECRET'];
+**Validated Variables**:
 
-required.forEach((key) => {
-  if (!process.env[key]) {
-    throw new Error(`Missing required env: ${key}`);
-  }
-});
+| Variable                    | Required | Validation                              |
+| --------------------------- | -------- | --------------------------------------- |
+| `DATABASE_URL`              | Yes      | Must be valid PostgreSQL connection URL |
+| `JWT_SECRET`                | Yes      | Min 64 chars in production              |
+| `JWT_REFRESH_SECRET`        | Yes      | Min 64 chars in production              |
+| `SUPABASE_URL`              | Yes      | Must be present                         |
+| `SUPABASE_ANON_KEY`         | Yes      | Must be present                         |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes      | Must be present                         |
+
+**Example Error Output**:
+
 ```
+❌ Configuration Errors:
+
+   SUPABASE_SERVICE_ROLE_KEY
+     Message: Supabase service role key is required for admin operations
+     Source:  quikadmin/.env
+     Fix:     Get from Supabase Dashboard > Project Settings > API (Keep secret!)
+
+────────────────────────────────────────────────────────────
+
+📁 Environment Variable Sources:
+   • Root .env        → AI tool keys only (TaskMaster, Claude)
+   • quikadmin/.env   → All backend config (DB, Auth, Supabase)
+   • quikadmin-web/.env → Frontend VITE_* vars only
+```
+
+**Code Location**: `quikadmin/src/config/index.ts` → `validateConfig()`
 
 ---
 
