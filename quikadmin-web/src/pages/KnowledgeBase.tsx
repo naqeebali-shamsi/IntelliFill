@@ -4,17 +4,18 @@
  * @module pages/KnowledgeBase
  */
 
-import * as React from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PageHeader } from '@/components/layout/page-header'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDebouncedValue } from '@/hooks/useDebounce';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
-import { toast } from 'sonner'
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 import {
   Upload,
   Search,
@@ -42,7 +43,7 @@ import {
   ChevronRight,
   BarChart3,
   Sparkles,
-} from 'lucide-react'
+} from 'lucide-react';
 import {
   useKnowledgeStore,
   useKnowledgeSources,
@@ -52,10 +53,10 @@ import {
   useKnowledgeStatsLoading,
   useUploadProgress,
   useUploadLoading,
-} from '@/stores/knowledgeStore'
-import { SearchInterface } from '@/components/knowledge/SearchInterface'
-import { formatFileSize } from '@/types/document'
-import { format } from 'date-fns'
+} from '@/stores/knowledgeStore';
+import { SearchInterface } from '@/components/knowledge/SearchInterface';
+import { formatFileSize } from '@/types/document';
+import { format } from 'date-fns';
 
 // ============================================================================
 // Helper Components
@@ -83,16 +84,18 @@ function StatusBadge({ status }: { status: string }) {
       icon: <XCircle className="h-3 w-3" />,
       label: 'Failed',
     },
-  }
+  };
 
-  const variant = variants[status] || variants.PENDING
+  const variant = variants[status] || variants.PENDING;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${variant.color}`}>
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${variant.color}`}
+    >
       {variant.icon}
       {variant.label}
     </span>
-  )
+  );
 }
 
 function StatCard({
@@ -102,11 +105,11 @@ function StatCard({
   description,
   loading,
 }: {
-  title: string
-  value: string | number
-  icon: React.ElementType
-  description?: string
-  loading?: boolean
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  description?: string;
+  loading?: boolean;
 }) {
   return (
     <Card>
@@ -123,7 +126,7 @@ function StatCard({
         {description && <p className="text-xs text-muted-foreground">{description}</p>}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ============================================================================
@@ -131,108 +134,102 @@ function StatCard({
 // ============================================================================
 
 export default function KnowledgeBase() {
-  const navigate = useNavigate()
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const navigate = useNavigate();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Store state
-  const sources = useKnowledgeSources()
-  const sourcesLoading = useKnowledgeSourcesLoading()
-  const sourcesError = useKnowledgeSourcesError()
-  const stats = useKnowledgeStats()
-  const statsLoading = useKnowledgeStatsLoading()
-  const uploadProgress = useUploadProgress()
-  const uploadLoading = useUploadLoading()
+  const sources = useKnowledgeSources();
+  const sourcesLoading = useKnowledgeSourcesLoading();
+  const sourcesError = useKnowledgeSourcesError();
+  const stats = useKnowledgeStats();
+  const statsLoading = useKnowledgeStatsLoading();
+  const uploadProgress = useUploadProgress();
+  const uploadLoading = useUploadLoading();
 
   // Store actions
-  const {
-    fetchSources,
-    fetchStats,
-    uploadSource,
-    deleteSource,
-    refreshSource,
-  } = useKnowledgeStore()
+  const { fetchSources, fetchStats, uploadSource, deleteSource, refreshSource } =
+    useKnowledgeStore();
 
   // Local state
-  const [activeTab, setActiveTab] = React.useState('sources')
-  const [searchFilter, setSearchFilter] = React.useState('')
-  const [deleteSourceId, setDeleteSourceId] = React.useState<string | null>(null)
+  const [activeTab, setActiveTab] = React.useState('sources');
+  const [searchFilter, setSearchFilter] = React.useState('');
+  const debouncedFilter = useDebouncedValue(searchFilter, 300); // 300ms debounce for filtering
+  const [deleteSourceId, setDeleteSourceId] = React.useState<string | null>(null);
 
   // Fetch data on mount
   React.useEffect(() => {
-    fetchSources()
-    fetchStats()
-  }, [fetchSources, fetchStats])
+    fetchSources();
+    fetchStats();
+  }, [fetchSources, fetchStats]);
 
-  // Filtered sources
+  // Filtered sources (uses debounced filter to reduce computations during typing)
   const filteredSources = React.useMemo(() => {
-    if (!searchFilter) return sources
-    const lower = searchFilter.toLowerCase()
+    if (!debouncedFilter) return sources;
+    const lower = debouncedFilter.toLowerCase();
     return sources.filter(
-      (s) =>
-        s.title.toLowerCase().includes(lower) ||
-        s.filename.toLowerCase().includes(lower)
-    )
-  }, [sources, searchFilter])
+      (s) => s.title.toLowerCase().includes(lower) || s.filename.toLowerCase().includes(lower)
+    );
+  }, [sources, debouncedFilter]);
 
   // Handle file upload
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     // Generate title from filename (without extension)
-    const title = file.name.replace(/\.[^/.]+$/, '')
+    const title = file.name.replace(/\.[^/.]+$/, '');
 
-    const result = await uploadSource(file, title)
+    const result = await uploadSource(file, title);
     if (result) {
       toast.success('Document uploaded successfully', {
         description: 'Processing will begin shortly.',
-      })
+      });
     } else {
       toast.error('Upload failed', {
         description: 'Please try again.',
-      })
+      });
     }
 
     // Reset input
     if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+      fileInputRef.current.value = '';
     }
-  }
+  };
 
   // Handle delete
   const handleDelete = async () => {
-    if (!deleteSourceId) return
+    if (!deleteSourceId) return;
 
-    const success = await deleteSource(deleteSourceId)
+    const success = await deleteSource(deleteSourceId);
     if (success) {
-      toast.success('Document deleted')
+      toast.success('Document deleted');
     } else {
-      toast.error('Failed to delete document')
+      toast.error('Failed to delete document');
     }
-    setDeleteSourceId(null)
-  }
+    setDeleteSourceId(null);
+  };
 
   // Handle refresh
   const handleRefresh = () => {
-    fetchSources()
-    fetchStats()
-    toast.success('Knowledge base refreshed')
-  }
+    fetchSources();
+    fetchStats();
+    toast.success('Knowledge base refreshed');
+  };
 
   // Poll for processing status
   React.useEffect(() => {
     const processingIds = sources
       .filter((s) => s.status === 'PROCESSING' || s.status === 'PENDING')
-      .map((s) => s.id)
+      .map((s) => s.id);
 
-    if (processingIds.length === 0) return
+    if (processingIds.length === 0) return;
 
     const interval = setInterval(() => {
-      processingIds.forEach((id) => refreshSource(id))
-    }, 5000)
+      processingIds.forEach((id) => refreshSource(id));
+    }, 5000);
 
-    return () => clearInterval(interval)
-  }, [sources, refreshSource])
+    return () => clearInterval(interval);
+  }, [sources, refreshSource]);
 
   return (
     <div className="space-y-6 pb-20">
@@ -364,92 +361,91 @@ export default function KnowledgeBase() {
             />
           ) : (
             <div className="space-y-3">
-              {sourcesLoading && sources.length === 0 ? (
-                // Loading skeletons
-                Array.from({ length: 5 }).map((_, i) => (
-                  <Card key={i}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <Skeleton className="h-10 w-10 rounded" />
-                          <div className="space-y-2">
-                            <Skeleton className="h-4 w-48" />
-                            <Skeleton className="h-3 w-32" />
+              {sourcesLoading && sources.length === 0
+                ? // Loading skeletons
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="h-10 w-10 rounded" />
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-48" />
+                              <Skeleton className="h-3 w-32" />
+                            </div>
                           </div>
+                          <Skeleton className="h-6 w-20" />
                         </div>
-                        <Skeleton className="h-6 w-20" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                filteredSources.map((source) => (
-                  <Card key={source.id} className="hover:bg-muted/50 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10">
-                            <FileText className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium">{source.title}</h3>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              <span>{source.filename}</span>
-                              <span>|</span>
-                              <span>{formatFileSize(source.fileSize)}</span>
-                              <span>|</span>
-                              <span>{format(new Date(source.createdAt), 'MMM d, yyyy')}</span>
-                              {source.chunkCount > 0 && (
-                                <>
-                                  <span>|</span>
-                                  <span>{source.chunkCount} chunks</span>
-                                </>
+                      </CardContent>
+                    </Card>
+                  ))
+                : filteredSources.map((source) => (
+                    <Card key={source.id} className="hover:bg-muted/50 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10">
+                              <FileText className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-medium">{source.title}</h3>
+                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                <span>{source.filename}</span>
+                                <span>|</span>
+                                <span>{formatFileSize(source.fileSize)}</span>
+                                <span>|</span>
+                                <span>{format(new Date(source.createdAt), 'MMM d, yyyy')}</span>
+                                {source.chunkCount > 0 && (
+                                  <>
+                                    <span>|</span>
+                                    <span>{source.chunkCount} chunks</span>
+                                  </>
+                                )}
+                              </div>
+                              {source.status === 'PROCESSING' && (
+                                <Progress className="h-1 w-48 mt-2" value={undefined} />
                               )}
                             </div>
-                            {source.status === 'PROCESSING' && (
-                              <Progress className="h-1 w-48 mt-2" value={undefined} />
-                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <StatusBadge status={source.status} />
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteSourceId(source.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Document</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete "{source.title}"? This will
+                                    remove all associated chunks and embeddings. This action cannot
+                                    be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel onClick={() => setDeleteSourceId(null)}>
+                                    Cancel
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={handleDelete}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <StatusBadge status={source.status} />
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteSourceId(source.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Document</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete "{source.title}"? This will remove
-                                  all associated chunks and embeddings. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel onClick={() => setDeleteSourceId(null)}>
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={handleDelete}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                      </CardContent>
+                    </Card>
+                  ))}
             </div>
           )}
         </TabsContent>
@@ -460,5 +456,5 @@ export default function KnowledgeBase() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToggle } from 'usehooks-ts';
 import { toast } from 'sonner';
 import {
   Card,
@@ -37,9 +38,9 @@ const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
 
 export default function Register() {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [showPassword, toggleShowPassword] = useToggle(false);
+  const [agreedToTerms, toggleAgreedToTerms, setAgreedToTerms] = useToggle(false);
+  const [marketingConsent, toggleMarketingConsent, setMarketingConsent] = useToggle(false);
 
   // Get auth store state and actions
   const { register, clearError } = useAuthStore();
@@ -229,7 +230,7 @@ export default function Register() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={toggleShowPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   tabIndex={-1}
                 >

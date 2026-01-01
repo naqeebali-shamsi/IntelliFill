@@ -14,6 +14,7 @@
 
 import * as React from 'react';
 import { ChevronDown, Check, Sparkles } from 'lucide-react';
+import { useToggle } from 'usehooks-ts';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -92,11 +93,11 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
     ref
   ) => {
     const [internalValue, setInternalValue] = React.useState<string>((value as string) || '');
-    const [isOpen, setIsOpen] = React.useState(false);
+    const [isOpen, toggleOpen, setIsOpen] = useToggle(false);
     const [suggestions, setSuggestions] = React.useState<Suggestion[]>([]);
     const [selectedIndex, setSelectedIndex] = React.useState(-1);
-    const [isLoading, setIsLoading] = React.useState(false);
-    const [isFocused, setIsFocused] = React.useState(false);
+    const [isLoading, toggleLoading, setIsLoading] = useToggle(false);
+    const [isFocused, toggleFocused, setIsFocused] = useToggle(false);
 
     const dropdownRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
@@ -301,11 +302,7 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className={cn(
-              'pr-10',
-              error && 'border-destructive',
-              className
-            )}
+            className={cn('pr-10', error && 'border-destructive', className)}
             aria-invalid={!!error}
             aria-describedby={error ? `${name}-error` : undefined}
             aria-autocomplete="list"
@@ -320,9 +317,7 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
             {isLoading && (
               <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
             )}
-            {suggestions.length > 0 && (
-              <Sparkles className="h-4 w-4 text-primary" />
-            )}
+            {suggestions.length > 0 && <Sparkles className="h-4 w-4 text-primary" />}
             {!isLoading && (
               <ChevronDown
                 className={cn(
@@ -400,9 +395,7 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
         {/* No suggestions message (when loading is complete) */}
         {isFocused && !isLoading && currentValue.length > 0 && suggestions.length === 0 && (
           <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg p-3">
-            <p className="text-sm text-muted-foreground text-center">
-              No suggestions available
-            </p>
+            <p className="text-sm text-muted-foreground text-center">No suggestions available</p>
           </div>
         )}
       </div>

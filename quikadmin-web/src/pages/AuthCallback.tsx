@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 
 /**
  * Auth Callback Page
@@ -85,7 +85,6 @@ export default function AuthCallback() {
                     : 'bg-primary/10'
               }`}
             >
-              {status === 'loading' && <Loader2 className="h-6 w-6 text-primary animate-spin" />}
               {status === 'success' && (
                 <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
               )}
@@ -95,7 +94,6 @@ export default function AuthCallback() {
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-center">
-            {status === 'loading' && 'Processing...'}
             {status === 'success' && 'Success!'}
             {status === 'error' && 'Something went wrong'}
           </CardTitle>

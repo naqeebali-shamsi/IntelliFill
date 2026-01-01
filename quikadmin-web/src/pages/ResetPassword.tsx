@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToggle } from 'usehooks-ts';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -26,13 +27,13 @@ export default function ResetPassword() {
     password: '',
     confirmPassword: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, toggleShowPassword] = useToggle(false);
+  const [showConfirmPassword, toggleShowConfirmPassword] = useToggle(false);
+  const [isLoading, , setIsLoading] = useToggle(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isTokenValid, setIsTokenValid] = useState(true);
-  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetSuccess, , setResetSuccess] = useToggle(false);
 
   const { resetPassword, verifyResetToken } = useAuthStore();
 
@@ -231,7 +232,7 @@ export default function ResetPassword() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={toggleShowPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   tabIndex={-1}
                 >
@@ -272,7 +273,7 @@ export default function ResetPassword() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onClick={toggleShowConfirmPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   tabIndex={-1}
                 >
