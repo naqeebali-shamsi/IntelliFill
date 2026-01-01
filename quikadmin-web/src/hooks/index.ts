@@ -22,6 +22,9 @@ export * from './useDocumentStats';
 export * from './useJobPolling';
 export * from './useUpload';
 
+// Performance hooks
+export * from './useVirtualTable';
+
 // =============================================================================
 // FOUNDATION HOOKS (from usehooks-ts)
 // Re-exported for consistent import paths across codebase

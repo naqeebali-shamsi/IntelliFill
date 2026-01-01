@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/useDebounce';
+import { useVirtualTable } from '@/hooks/useVirtualTable';
 import {
   Table,
   TableBody,
@@ -14,6 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
+import { VirtualTableBody } from './virtual-table-body';
+import { VirtualMobileCards } from './virtual-mobile-cards';
 import {
   Search,
   ChevronUp,
@@ -116,6 +119,22 @@ export interface DataTableProps<T> {
    * Custom className for table
    */
   tableClassName?: string;
+  /**
+   * Enable virtual scrolling for large datasets (auto-enabled above threshold)
+   */
+  virtualized?: boolean;
+  /**
+   * Row count threshold for auto-enabling virtualization (default: 30)
+   */
+  virtualizeThreshold?: number;
+  /**
+   * Estimated row height in pixels for virtualization (default: 52)
+   */
+  estimatedRowHeight?: number;
+  /**
+   * Max height for virtualized container in pixels (default: 400)
+   */
+  maxHeight?: number;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -154,6 +173,10 @@ function DataTable<T extends Record<string, unknown>>({
   onRowClick,
   className,
   tableClassName,
+  virtualized,
+  virtualizeThreshold = 30,
+  estimatedRowHeight = 52,
+  maxHeight = 400,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = React.useState('');
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 300); // 300ms debounce for filtering
@@ -219,6 +242,37 @@ function DataTable<T extends Record<string, unknown>>({
     const start = (currentPage - 1) * pageSize;
     return sortedData.slice(start, start + pageSize);
   }, [sortedData, currentPage, pageSize]);
+
+  // Virtual scrolling setup
+  const {
+    containerRef: desktopContainerRef,
+    virtualItems: desktopVirtualItems,
+    totalHeight: desktopTotalHeight,
+    isVirtualized: desktopIsVirtualized,
+    getRowData: desktopGetRowData,
+    measureElement: desktopMeasureElement,
+  } = useVirtualTable({
+    data: paginatedData,
+    estimatedRowHeight,
+    virtualizeThreshold,
+  });
+
+  // Separate virtualizer for mobile cards (taller estimated height)
+  const {
+    containerRef: mobileContainerRef,
+    virtualItems: mobileVirtualItems,
+    totalHeight: mobileTotalHeight,
+    isVirtualized: mobileIsVirtualized,
+    getRowData: mobileGetRowData,
+    measureElement: mobileMeasureElement,
+  } = useVirtualTable({
+    data: paginatedData,
+    estimatedRowHeight: estimatedRowHeight * 2.5,
+    virtualizeThreshold,
+  });
+
+  // Determine if virtualization should be active
+  const shouldVirtualize = virtualized ?? (paginatedData.length > virtualizeThreshold);
 
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
@@ -315,115 +369,192 @@ function DataTable<T extends Record<string, unknown>>({
         <>
           {/* Desktop Table View */}
           <div className="hidden md:block rounded-lg border overflow-hidden">
-            <Table className={cn(tableClassName)}>
-              <TableHeader>
-                <TableRow>
-                  {selectable && (
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={allRowsSelected}
-                        onCheckedChange={handleSelectAll}
-                        aria-label="Select all rows"
-                      />
-                    </TableHead>
-                  )}
-                  {columns.map((column) => (
-                    <TableHead key={String(column.key)} className={cn(column.headerClassName)}>
-                      {column.sortable ? (
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleSort(column.key)}
-                          className="h-auto p-0 font-semibold hover:bg-transparent"
-                        >
-                          {column.header}
-                          {getSortIcon(column.key)}
-                        </Button>
-                      ) : (
-                        <span className="font-semibold">{column.header}</span>
+            {shouldVirtualize && desktopIsVirtualized ? (
+              <div
+                ref={desktopContainerRef}
+                data-slot="table-container"
+                className="overflow-auto"
+                style={{ maxHeight: maxHeight + 'px' }}
+              >
+                <Table className={cn(tableClassName)}>
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      {selectable && (
+                        <TableHead className="w-12">
+                          <Checkbox
+                            checked={allRowsSelected}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all rows"
+                          />
+                        </TableHead>
                       )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                      {columns.map((column) => (
+                        <TableHead key={String(column.key)} className={cn(column.headerClassName)}>
+                          {column.sortable ? (
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort(column.key)}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              {column.header}
+                              {getSortIcon(column.key)}
+                            </Button>
+                          ) : (
+                            <span className="font-semibold">{column.header}</span>
+                          )}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <VirtualTableBody
+                    virtualItems={desktopVirtualItems}
+                    totalHeight={desktopTotalHeight}
+                    getRowData={desktopGetRowData}
+                    columns={columns}
+                    selectable={selectable}
+                    selected={selected}
+                    getRowId={getRowId}
+                    onRowClick={onRowClick}
+                    onRowSelect={handleRowSelect}
+                    measureElement={desktopMeasureElement}
+                  />
+                </Table>
+              </div>
+            ) : (
+              <Table className={cn(tableClassName)}>
+                <TableHeader>
+                  <TableRow>
+                    {selectable && (
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={allRowsSelected}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all rows"
+                        />
+                      </TableHead>
+                    )}
+                    {columns.map((column) => (
+                      <TableHead key={String(column.key)} className={cn(column.headerClassName)}>
+                        {column.sortable ? (
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort(column.key)}
+                            className="h-auto p-0 font-semibold hover:bg-transparent"
+                          >
+                            {column.header}
+                            {getSortIcon(column.key)}
+                          </Button>
+                        ) : (
+                          <span className="font-semibold">{column.header}</span>
+                        )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.map((row, rowIndex) => {
+                    const rowId = getRowId(row);
+                    const isSelected = selected.includes(rowId);
+                    return (
+                      <TableRow
+                        key={rowIndex}
+                        onClick={() => onRowClick?.(row)}
+                        className={cn(onRowClick && 'cursor-pointer', isSelected && 'bg-accent/50')}
+                      >
+                        {selectable && (
+                          <TableCell onClick={(e) => e.stopPropagation()} className="w-12">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleRowSelect(rowId, checked === true)}
+                              aria-label={`Select row ${rowIndex + 1}`}
+                            />
+                          </TableCell>
+                        )}
+                        {columns.map((column) => (
+                          <TableCell key={String(column.key)} className={cn(column.className)}>
+                            {column.render
+                              ? column.render(row[column.key], row)
+                              : String(row[column.key] ?? '')}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden">
+            {shouldVirtualize && mobileIsVirtualized ? (
+              <div
+                ref={mobileContainerRef}
+                data-slot="mobile-container"
+                className="overflow-auto space-y-3"
+                style={{ maxHeight: maxHeight + 'px' }}
+              >
+                <VirtualMobileCards
+                  virtualItems={mobileVirtualItems}
+                  totalHeight={mobileTotalHeight}
+                  getRowData={mobileGetRowData}
+                  columns={columns}
+                  selectable={selectable}
+                  selected={selected}
+                  getRowId={getRowId}
+                  onRowClick={onRowClick}
+                  onRowSelect={handleRowSelect}
+                  measureElement={mobileMeasureElement}
+                />
+              </div>
+            ) : (
+              <div className="space-y-3">
                 {paginatedData.map((row, rowIndex) => {
                   const rowId = getRowId(row);
                   const isSelected = selected.includes(rowId);
                   return (
-                    <TableRow
+                    <div
                       key={rowIndex}
                       onClick={() => onRowClick?.(row)}
-                      className={cn(onRowClick && 'cursor-pointer', isSelected && 'bg-accent/50')}
+                      className={cn(
+                        'rounded-lg border bg-card p-4 space-y-2',
+                        onRowClick && 'cursor-pointer hover:bg-accent/50 transition-colors',
+                        isSelected && 'border-primary bg-accent/50'
+                      )}
                     >
                       {selectable && (
-                        <TableCell onClick={(e) => e.stopPropagation()} className="w-12">
+                        <div className="flex items-center gap-2 pb-2 border-b">
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => handleRowSelect(rowId, checked === true)}
+                            onClick={(e) => e.stopPropagation()}
                             aria-label={`Select row ${rowIndex + 1}`}
                           />
-                        </TableCell>
+                          <span className="text-xs text-muted-foreground">
+                            {isSelected ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
                       )}
                       {columns.map((column) => (
-                        <TableCell key={String(column.key)} className={cn(column.className)}>
-                          {column.render
-                            ? column.render(row[column.key], row)
-                            : String(row[column.key] ?? '')}
-                        </TableCell>
+                        <div
+                          key={String(column.key)}
+                          className="flex justify-between items-start gap-2"
+                        >
+                          <span className="text-sm font-medium text-muted-foreground shrink-0">
+                            {column.header}:
+                          </span>
+                          <span className="text-sm text-right">
+                            {column.render
+                              ? column.render(row[column.key], row)
+                              : String(row[column.key] ?? '')}
+                          </span>
+                        </div>
                       ))}
-                    </TableRow>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="md:hidden space-y-3">
-            {paginatedData.map((row, rowIndex) => {
-              const rowId = getRowId(row);
-              const isSelected = selected.includes(rowId);
-              return (
-                <div
-                  key={rowIndex}
-                  onClick={() => onRowClick?.(row)}
-                  className={cn(
-                    'rounded-lg border bg-card p-4 space-y-2',
-                    onRowClick && 'cursor-pointer hover:bg-accent/50 transition-colors',
-                    isSelected && 'border-primary bg-accent/50'
-                  )}
-                >
-                  {selectable && (
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => handleRowSelect(rowId, checked === true)}
-                        onClick={(e) => e.stopPropagation()}
-                        aria-label={`Select row ${rowIndex + 1}`}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {isSelected ? 'Selected' : 'Select'}
-                      </span>
-                    </div>
-                  )}
-                  {columns.map((column) => (
-                    <div
-                      key={String(column.key)}
-                      className="flex justify-between items-start gap-2"
-                    >
-                      <span className="text-sm font-medium text-muted-foreground shrink-0">
-                        {column.header}:
-                      </span>
-                      <span className="text-sm text-right">
-                        {column.render
-                          ? column.render(row[column.key], row)
-                          : String(row[column.key] ?? '')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+              </div>
+            )}
           </div>
 
           {/* Pagination */}
