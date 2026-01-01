@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { X, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useDebouncedValue } from "@/hooks/useDebounce"
+import { useDebouncedValue, useOnClickOutside } from "@/hooks"
 
 export interface SearchBarProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value" | "results"> {
   /**
@@ -204,21 +204,7 @@ export function SearchBarWithResults({
   const displayResults = results.slice(0, maxResults)
 
   // Close results when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        searchBarRef.current &&
-        !searchBarRef.current.contains(event.target as Node)
-      ) {
-        setShowResults(false)
-      }
-    }
-
-    if (showResults) {
-      document.addEventListener("mousedown", handleClickOutside)
-      return () => document.removeEventListener("mousedown", handleClickOutside)
-    }
-  }, [showResults])
+  useOnClickOutside(searchBarRef, () => setShowResults(false))
 
   return (
     <div ref={searchBarRef} className="relative w-full">

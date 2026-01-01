@@ -18,7 +18,7 @@ import { useToggle } from 'usehooks-ts';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useDebouncedValue } from '@/hooks/useDebounce';
+import { useDebouncedValue, useOnClickOutside } from '@/hooks';
 import { getSuggestionEngine, Suggestion, FieldType } from '@/services/suggestionEngine';
 
 export interface AutocompleteFieldProps extends Omit<React.ComponentProps<'input'>, 'type'> {
@@ -99,8 +99,16 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
     const [isLoading, toggleLoading, setIsLoading] = useToggle(false);
     const [isFocused, toggleFocused, setIsFocused] = useToggle(false);
 
+    const containerRef = React.useRef<HTMLDivElement>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
+
+    // Close dropdown when clicking outside the container
+    useOnClickOutside(containerRef, () => {
+      setIsFocused(false);
+      setIsOpen(false);
+      setSelectedIndex(-1);
+    });
 
     // Combine refs
     React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement);
@@ -173,15 +181,10 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
     };
 
     /**
-     * Handle input blur (with delay for click events)
+     * Handle input blur
+     * Note: Click-outside handling is managed by useOnClickOutside hook
      */
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Delay to allow click events on suggestions
-      setTimeout(() => {
-        setIsFocused(false);
-        setIsOpen(false);
-        setSelectedIndex(-1);
-      }, 200);
       onBlur?.(e);
     };
 
@@ -279,7 +282,7 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
     };
 
     return (
-      <div className={cn('relative w-full', containerClassName)}>
+      <div ref={containerRef} className={cn('relative w-full', containerClassName)}>
         {/* Label */}
         {label && (
           <label
