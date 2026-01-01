@@ -121,6 +121,9 @@ importers:
       multer:
         specifier: ^2.0.2
         version: 2.0.2
+      opossum:
+        specifier: ^5.0.1
+        version: 5.1.3
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -173,6 +176,9 @@ importers:
       '@types/node':
         specifier: ^20.10.5
         version: 20.19.27
+      '@types/opossum':
+        specifier: ^8.1.9
+        version: 8.1.9
       '@types/supertest':
         specifier: ^6.0.3
         version: 6.0.3
@@ -332,6 +338,9 @@ importers:
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      usehooks-ts:
+        specifier: ^3.1.1
+        version: 3.1.1(react@18.3.1)
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -4371,6 +4380,12 @@ packages:
         integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==,
       }
 
+  '@types/opossum@8.1.9':
+    resolution:
+      {
+        integrity: sha512-Jm/tYxuJFefiwRYs+/EOsUP3ktk0c8siMgAHPLnA4PXF4wKghzcjqf88dY+Xii5jId5Txw4JV0FMKTpjbd7KJA==,
+      }
+
   '@types/pdf-parse@1.1.5':
     resolution:
       {
@@ -8167,6 +8182,12 @@ packages:
         integrity: sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==,
       }
 
+  lodash.debounce@4.0.8:
+    resolution:
+      {
+        integrity: sha512-FT1yDzDYEoYWhnSGnpE/4Kj1fLZkDFyqRb7fNt6FdYOSxlUWAtp42Eh6Wb0rGIv/m9Bgo7x4GhQbm5Ys4SG5ow==,
+      }
+
   lodash.defaults@4.2.0:
     resolution:
       {
@@ -8841,6 +8862,13 @@ packages:
         integrity: sha512-8AV/sCtuzUeTo8gQK5qDZzARrulB3egtLzFgteqB2tcT4Mw7B8Kt7JcDHmltjz6FOAHsvTevk70gZEbhM4ZS9Q==,
       }
     hasBin: true
+
+  opossum@5.1.3:
+    resolution:
+      {
+        integrity: sha512-2FxRJIREHSvL37WvTWbHgBPYKXA4+jAGthwGc0LQFeoiQBUIFKd3f/lJGUAc1lnhzZc5PNhtK0YPurBqKbpCqA==,
+      }
+    engines: { node: ^15 || ^14 || ^12 || ^10 }
 
   option@0.2.4:
     resolution:
@@ -10677,6 +10705,15 @@ packages:
       }
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  usehooks-ts@3.1.1:
+    resolution:
+      {
+        integrity: sha512-I4diPp9Cq6ieSUH2wu+fDAVQO43xwtulo+fKEidHUwZPnYImbtkTjzIJYcDcJqxgmX31GVqNFURodvcgHcW0pA==,
+      }
+    engines: { node: '>=16.15.0' }
+    peerDependencies:
+      react: ^16.8.0  || ^17 || ^18 || ^19 || ^19.0.0-rc
 
   util-deprecate@1.0.2:
     resolution:
@@ -14166,6 +14203,10 @@ snapshots:
 
   '@types/offscreencanvas@2019.7.3': {}
 
+  '@types/opossum@8.1.9':
+    dependencies:
+      '@types/node': 20.19.27
+
   '@types/pdf-parse@1.1.5':
     dependencies:
       '@types/node': 20.19.27
@@ -16729,6 +16770,8 @@ snapshots:
 
   lodash.camelcase@4.3.0: {}
 
+  lodash.debounce@4.0.8: {}
+
   lodash.defaults@4.2.0: {}
 
   lodash.includes@4.3.0: {}
@@ -17051,6 +17094,8 @@ snapshots:
       mimic-function: 5.0.1
 
   opencollective-postinstall@2.0.3: {}
+
+  opossum@5.1.3: {}
 
   option@0.2.4: {}
 
@@ -18179,6 +18224,11 @@ snapshots:
 
   use-sync-external-store@1.6.0(react@18.3.1):
     dependencies:
+      react: 18.3.1
+
+  usehooks-ts@3.1.1(react@18.3.1):
+    dependencies:
+      lodash.debounce: 4.0.8
       react: 18.3.1
 
   util-deprecate@1.0.2: {}
