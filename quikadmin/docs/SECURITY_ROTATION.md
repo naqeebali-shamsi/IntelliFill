@@ -10,6 +10,7 @@ The following credentials were exposed in git history and **MUST be rotated**:
 **Connection String:** `postgresql://neondb_owner:npg_TzsoutE4V7XC@ep-nameless-star-aem8mxnu-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require`
 
 **Action Steps:**
+
 1. Go to [Neon Console](https://console.neon.tech/)
 2. Navigate to project: `quiet-leaf-92753956`
 3. Reset database password for user `neondb_owner`
@@ -23,6 +24,7 @@ The following credentials were exposed in git history and **MUST be rotated**:
 **Current:** `dev-secret-key-change-in-production`
 
 **Action Steps:**
+
 1. Generate new production secrets (64+ characters):
    ```bash
    node -e "console.log(require('crypto').randomBytes(64).toString('base64'))"
@@ -41,11 +43,13 @@ The following credentials were exposed in git history and **MUST be rotated**:
 ## Files Secured
 
 The following files have been:
+
 - ✅ Removed from git tracking
 - ✅ Added to `.gitignore`
 - ✅ Protected by pre-commit hooks
 
 Files:
+
 - `.env.development`
 - `.env.neon`
 - `web/cypress.env.json`
@@ -57,11 +61,13 @@ Files:
 ## Pre-Commit Hook Installed
 
 A security pre-commit hook now prevents:
+
 - Committing any `.env` files (except `.env.example`)
 - Committing files with potential secrets (API keys, tokens, passwords)
 - Accidentally staging forbidden files
 
 To bypass (only if false positive):
+
 ```bash
 git commit --no-verify
 ```
@@ -92,6 +98,7 @@ git commit --no-verify
 ## Need Help?
 
 If you encounter issues during rotation:
+
 1. Check connection strings match format in `.env.example`
 2. Verify SSL mode for Neon: `?sslmode=require`
 3. Test locally before deploying to production

@@ -1,37 +1,18 @@
----
-title: QuikAdmin Backend Docs (Deprecated)
-status: deprecated
-last_updated: 2025-12-30
----
+# Backend-Specific Documentation
 
-# Backend Documentation
+This directory contains backend-specific documentation that should NOT be in the main `docs/` directory.
 
-> **DEPRECATED**: This documentation has been migrated to the main `docs/` directory.
+## Files
 
-## Migration Notice (2025-12-30)
+| File                   | Purpose                                                              |
+| ---------------------- | -------------------------------------------------------------------- |
+| `TEST_CREDENTIALS.md`  | Test account credentials (sensitive - do not commit to public repos) |
+| `SECURITY_ROTATION.md` | Credential rotation procedures                                       |
 
-The unique content from this directory has been migrated to:
+## Main Documentation
 
-| Old Location                                       | New Location                                     |
-| -------------------------------------------------- | ------------------------------------------------ |
-| `00-quick-start/ai-agent-setup.md`                 | `docs/ai-development/agent-setup.md`             |
-| `01-current-state/architecture/quick-reference.md` | `docs/reference/architecture/quick-reference.md` |
-| `02-guides/development/implementing-auth.md`       | `docs/how-to/development/implementing-auth.md`   |
-| `02-guides/development/ocr-implementation.md`      | `docs/how-to/development/ocr-implementation.md`  |
-| `02-guides/development/pdf-implementation.md`      | `docs/how-to/development/pdf-implementation.md`  |
-| `02-guides/user/document-reprocessing.md`          | `docs/tutorials/document-reprocessing.md`        |
-| `02-guides/user/templates.md`                      | `docs/tutorials/template-usage.md`               |
-| `research/pdf-library-comparison.md`               | `docs/explanation/pdf-library-research.md`       |
-| `design/design-system.md`                          | `docs/reference/design/design-system.md`         |
+For comprehensive project documentation, see the main [`docs/`](../../docs/) directory.
 
-## Where to Find Documentation
+## Backend Context
 
-- **Main Documentation**: `docs/` (Diátaxis-structured)
-- **Backend Context**: `quikadmin/CLAUDE.md`
-- **Frontend Context**: `quikadmin-web/CLAUDE.md`
-- **Archive**: `docs/_archive/quikadmin-docs-legacy/`
-
-## Files Kept Locally (Backend-Specific)
-
-- `03-reference/TEST_CREDENTIALS.md` - Test credentials (sensitive)
-- `01-current-state/architecture/SECURITY_ROTATION.md` - Security procedures
+For AI agent context, see [`quikadmin/CLAUDE.md`](../CLAUDE.md).
