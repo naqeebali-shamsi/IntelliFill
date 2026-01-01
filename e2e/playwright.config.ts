@@ -120,15 +120,17 @@ export default defineConfig({
           },
         ]),
 
-    // Mobile viewports (optional, commented out by default)
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    // Mobile viewports - run with: npx playwright test --project="Mobile Chrome"
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+      testMatch: /.*mobile.*\.spec\.ts/,
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 13'] },
+      testMatch: /.*mobile.*\.spec\.ts/,
+    },
   ],
 
   // Web server configuration (not used in Docker, but useful for local dev)

@@ -5,6 +5,7 @@ End-to-end tests for IntelliFill using Playwright in Docker containers.
 ## Overview
 
 This E2E test infrastructure provides:
+
 - **Complete isolation**: Separate PostgreSQL, Redis, backend, and frontend containers
 - **Automatic setup**: Database initialization with test data
 - **Parallel execution**: Run tests across multiple workers and browsers
@@ -77,6 +78,7 @@ npm run test:chrome
 ### Database Initialization
 
 The `init-test-db.sql` script:
+
 1. Enables pgvector extension
 2. Creates all tables matching Prisma schema
 3. Seeds test users, clients, and templates
@@ -101,7 +103,8 @@ e2e/
 ├── tests/                      # Test files
 │   ├── smoke.spec.ts           # Basic health checks
 │   ├── auth.spec.ts            # Authentication flows
-│   └── document-upload.spec.ts # Document operations
+│   ├── document-upload.spec.ts # Document operations
+│   └── mobile.spec.ts          # Mobile responsiveness
 ├── utils/                      # Helper utilities
 │   ├── auth-helpers.ts         # Authentication helpers
 │   └── test-helpers.ts         # General test utilities
@@ -172,14 +175,18 @@ test('complex workflow', async ({ page }) => {
 ## Test Categories
 
 ### Smoke Tests
+
 Basic health checks that verify:
+
 - Services are running
 - Pages load correctly
 - API responds
 - Authentication redirects work
 
 ### Authentication Tests
+
 Comprehensive auth flow testing:
+
 - Login with valid/invalid credentials
 - Logout
 - Session persistence
@@ -187,12 +194,26 @@ Comprehensive auth flow testing:
 - Registration
 
 ### Feature Tests
+
 End-to-end feature testing:
+
 - Document upload
 - OCR processing
 - Form filling
 - Template management
 - User profile
+
+### Mobile Tests
+
+Mobile responsiveness testing:
+
+- Touch-friendly layouts
+- Navigation on small screens
+- No horizontal scroll
+- Proper touch targets
+
+Run mobile tests with:
+\
 
 ## Configuration
 
@@ -222,6 +243,7 @@ TRACE_ON_FAILURE=true
 ### Playwright Config
 
 Edit `e2e/playwright.config.ts` for:
+
 - Browser configurations
 - Timeouts
 - Reporters
@@ -409,6 +431,7 @@ npx playwright test --project=chromium --project=firefox
 ## Support
 
 For issues or questions:
+
 1. Check container logs
 2. Review test output
 3. Consult this README

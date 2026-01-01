@@ -47,7 +47,6 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
-    "@types/cypress": "^0.1.6",
     "@types/node": "^20.19.25",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
@@ -62,7 +61,6 @@
     "autoprefixer": "^10.4.22",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cypress": "^15.7.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^27.2.0",
@@ -84,10 +82,6 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "cypress:open": "cypress open",
-    "cypress:run": "cypress run",
-    "test:e2e": "cypress run",
-    "test:e2e:headed": "cypress run --headed",
     "lint": "eslint \"src/**/*.{ts,tsx}\""
   }
 }
