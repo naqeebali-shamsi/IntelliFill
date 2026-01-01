@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
+import { useTimeout } from 'usehooks-ts';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,23 +54,24 @@ export default function AuthCallback() {
     };
   }, [searchParams]);
 
-  useEffect(() => {
-    if (status === 'success') {
-      const type = searchParams.get('type');
-      const timer = setTimeout(() => {
-        if (type === 'signup') {
-          navigate('/login', {
-            state: { message: 'Email verified! You can now log in.' },
-          });
-        } else if (type === 'recovery') {
-          navigate('/reset-password');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [status, navigate, searchParams]);
+  // Get type for redirect logic
+  const type = searchParams.get('type');
+
+  // Redirect after success (auto-cleanup on unmount)
+  useTimeout(
+    () => {
+      if (type === 'signup') {
+        navigate('/login', {
+          state: { message: 'Email verified! You can now log in.' },
+        });
+      } else if (type === 'recovery') {
+        navigate('/reset-password');
+      } else {
+        navigate('/dashboard');
+      }
+    },
+    status === 'success' ? 3000 : null
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">

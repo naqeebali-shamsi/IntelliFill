@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTimeout } from 'usehooks-ts';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -40,6 +41,18 @@ export default function VerifyEmail() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  // Redirect to login after successful verification (auto-cleanup on unmount)
+  useTimeout(
+    () => {
+      navigate('/login', {
+        state: {
+          message: 'Email verified! You can now log in.',
+        },
+      });
+    },
+    success ? 2000 : null
+  );
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,15 +80,6 @@ export default function VerifyEmail() {
       if (response.success) {
         setSuccess(true);
         toast.success('Email verified successfully! Redirecting to login...');
-
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          navigate('/login', {
-            state: {
-              message: 'Email verified! You can now log in.',
-            },
-          });
-        }, 2000);
       } else {
         throw new Error(response.message || 'Verification failed');
       }

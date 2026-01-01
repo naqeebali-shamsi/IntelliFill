@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useToggle } from 'usehooks-ts';
+import { useToggle, useTimeout } from 'usehooks-ts';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -36,6 +36,16 @@ export default function ResetPassword() {
   const [resetSuccess, , setResetSuccess] = useToggle(false);
 
   const { resetPassword, verifyResetToken } = useAuthStore();
+  // Redirect to login after reset success (auto-cleanup on unmount)
+  useTimeout(
+    () => {
+      navigate('/login', {
+        state: { message: 'Password reset successful. Please log in with your new password.' },
+      });
+    },
+    resetSuccess ? 3000 : null
+  );
+
 
   // Validate token on mount
   useEffect(() => {
@@ -122,12 +132,7 @@ export default function ResetPassword() {
       setResetSuccess(true);
       toast.success('Password reset successful!');
 
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        navigate('/login', {
-          state: { message: 'Password reset successful. Please log in with your new password.' },
-        });
-      }, 3000);
+
     } catch (err: any) {
       console.error('Password reset error:', err);
       setError(err.message || 'Failed to reset password. Please try again.');
