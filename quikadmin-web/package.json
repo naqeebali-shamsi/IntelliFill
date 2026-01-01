@@ -24,6 +24,7 @@
     "@radix-ui/react-tooltip": "1.2.8",
     "@supabase/supabase-js": "^2.86.0",
     "@tanstack/react-query": "^5.62.8",
+    "@tanstack/react-virtual": "^3.13.14",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.25",

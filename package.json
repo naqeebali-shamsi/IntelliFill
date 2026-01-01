@@ -41,9 +41,6 @@
     ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"
-    ],
-    "**/package.json": [
-      "pnpm install --no-frozen-lockfile"
     ]
   },
   "engines": {
