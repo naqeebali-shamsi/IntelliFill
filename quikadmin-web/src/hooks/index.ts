@@ -19,6 +19,7 @@ export * from './useDocuments';
 export * from './useDocumentActions';
 export * from './useDocumentDetail';
 export * from './useDocumentStats';
+export * from './useFetch';
 export * from './useJobPolling';
 export * from './useUpload';
 
