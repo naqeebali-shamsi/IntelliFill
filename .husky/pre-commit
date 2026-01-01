@@ -1,1 +1,6 @@
 npx lint-staged
+
+# If pnpm-lock.yaml was modified, stage it
+if git diff --name-only pnpm-lock.yaml | grep -q pnpm-lock.yaml; then
+  git add pnpm-lock.yaml
+fi
