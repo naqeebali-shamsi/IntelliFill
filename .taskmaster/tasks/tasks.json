@@ -198,7 +198,7 @@
         "testStrategy": "E2E test: login → page reload → verify /api/auth/v2/me called → dashboard shown (valid token) or login shown (invalid). Verify loading spinner during validation.",
         "priority": "high",
         "dependencies": ["188", "189"],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -251,7 +251,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-01-02T12:07:12.365Z"
+        "updatedAt": "2026-01-02T12:10:13.440Z"
       },
       {
         "id": "191",
@@ -261,7 +261,7 @@
         "testStrategy": "E2E test: mock slow backend (>10s) → verify timeout error and retry button. Test fast init (<2s) → no timeout. Test retry → reinitializes successfully.",
         "priority": "high",
         "dependencies": ["189", "190"],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -313,7 +313,8 @@
             "testStrategy": "E2E: Mock slow backend (>10s) → verify timeout error and retry button. Test fast init (<2s) → no timeout. Test retry → reinitializes successfully. Network tab verification.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T12:11:02.800Z"
       },
       {
         "id": "192",
@@ -1044,9 +1045,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-02T12:07:12.367Z",
+      "lastModified": "2026-01-02T12:11:02.802Z",
       "taskCount": 20,
-      "completedCount": 3,
+      "completedCount": 4,
       "tags": ["master"]
     }
   }
