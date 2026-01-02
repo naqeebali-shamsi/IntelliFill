@@ -19,6 +19,7 @@ import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
 import authService, { AuthUser, AuthTokens } from '@/services/authService';
 import { AUTH_STORAGE_KEY } from '@/utils/migrationUtils';
+import { toast } from '@/lib/toast';
 
 interface LoginCredentials {
   email: string;
@@ -47,6 +48,9 @@ interface AppError {
   resolved: boolean;
 }
 
+// Loading stage type for distinguishing rehydration vs backend validation (REQ-009)
+export type LoadingStage = 'idle' | 'rehydrating' | 'validating' | 'ready';
+
 // =================== STORE INTERFACES ===================
 
 interface DemoInfo {
@@ -62,6 +66,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isInitialized: boolean;
   isLoading: boolean;
+  loadingStage: LoadingStage; // REQ-009: Loading stage for better UX feedback
   error: AppError | null;
   loginAttempts: number;
   isLocked: boolean;
@@ -88,6 +93,8 @@ interface AuthActions {
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   verifyResetToken: (token: string) => Promise<void>;
+  // REQ-009: Loading stage actions
+  setLoadingStage: (stage: LoadingStage) => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -102,6 +109,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isInitialized: false,
   isLoading: false,
+  loadingStage: 'idle', // REQ-009: Start in idle state
   error: null,
   loginAttempts: 0,
   isLocked: false,
@@ -350,11 +358,11 @@ export const useBackendAuthStore = create<AuthStore>()(
         refreshToken: async () => {
           try {
             const currentTokens = get().tokens;
-            if (!currentTokens?.refreshToken) {
-              throw new Error('No refresh token available');
-            }
+            // With httpOnly cookies (Phase 2 REQ-005), the refreshToken is in the cookie
+            // We don't need it in state to refresh, just pass it if available for backward compatibility
+            const refreshTokenValue = currentTokens?.refreshToken;
 
-            const response = await authService.refreshToken(currentTokens.refreshToken);
+            const response = await authService.refreshToken(refreshTokenValue);
 
             if (!response.success || !response.data?.tokens) {
               throw new Error('Token refresh failed');
@@ -362,13 +370,25 @@ export const useBackendAuthStore = create<AuthStore>()(
 
             const newTokens = response.data!.tokens;
             set((state) => {
-              state.tokens = newTokens;
+              // Update tokens - accessToken comes from response, refreshToken may not
+              state.tokens = {
+                accessToken: newTokens.accessToken,
+                expiresIn: newTokens.expiresIn,
+                tokenType: newTokens.tokenType || 'Bearer',
+                // Keep existing refreshToken if new one not provided (httpOnly cookie mode)
+                refreshToken: newTokens.refreshToken || state.tokens?.refreshToken,
+              };
               state.tokenExpiresAt = newTokens.expiresIn
                 ? calculateTokenExpiresAt(newTokens.expiresIn)
                 : null;
               state.lastActivity = Date.now();
             });
           } catch (error: any) {
+            // Show toast notification for refresh failure (REQ-007)
+            toast.error('Session expired. Please log in again.', {
+              id: 'refresh-error',
+              duration: 5000,
+            });
             await get().logout();
             throw createAuthError(error);
           }
@@ -386,15 +406,16 @@ export const useBackendAuthStore = create<AuthStore>()(
         // Proactive refresh - refreshes token if expiring soon
         // Returns true if token was refreshed, false if not needed
         refreshTokenIfNeeded: async () => {
-          const { isTokenExpiringSoon, tokens } = get();
+          const { isTokenExpiringSoon, isAuthenticated } = get();
 
           // No need to refresh if not expiring soon
           if (!isTokenExpiringSoon()) {
             return false;
           }
 
-          // Can't refresh without a refresh token
-          if (!tokens?.refreshToken) {
+          // Can't refresh if not authenticated
+          // Note: refreshToken is now in httpOnly cookie (Phase 2 REQ-005), so we don't check for it in memory
+          if (!isAuthenticated) {
             return false;
           }
 
@@ -410,8 +431,10 @@ export const useBackendAuthStore = create<AuthStore>()(
         // =================== SESSION MANAGEMENT ===================
 
         initialize: async () => {
+          // REQ-009: Set rehydrating stage during localStorage check
           set((state) => {
             state.isLoading = true;
+            state.loadingStage = 'rehydrating';
           });
 
           try {
@@ -421,9 +444,15 @@ export const useBackendAuthStore = create<AuthStore>()(
               set((state) => {
                 state.isInitialized = true;
                 state.isLoading = false;
+                state.loadingStage = 'ready';
               });
               return;
             }
+
+            // REQ-009: Set validating stage before backend call
+            set((state) => {
+              state.loadingStage = 'validating';
+            });
 
             // Verify token by fetching current user
             const response = await authService.getMe();
@@ -434,6 +463,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 state.isAuthenticated = true;
                 state.isInitialized = true;
                 state.isLoading = false;
+                state.loadingStage = 'ready';
               });
             } else {
               // Token invalid, clear session
@@ -443,6 +473,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 state.isAuthenticated = false;
                 state.isInitialized = true;
                 state.isLoading = false;
+                state.loadingStage = 'ready';
               });
             }
           } catch (error) {
@@ -453,6 +484,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.isAuthenticated = false;
               state.isInitialized = true;
               state.isLoading = false;
+              state.loadingStage = 'ready';
             });
           }
         },
@@ -477,6 +509,18 @@ export const useBackendAuthStore = create<AuthStore>()(
         },
 
         // =================== SECURITY ===================
+
+        /**
+         * Check if we can perform token refresh
+         * With httpOnly cookies (Phase 2 REQ-005), the cookie is sent automatically
+         * We just need to verify we're authenticated
+         */
+        canRefreshToken: () => {
+          const { isAuthenticated, tokens } = get();
+          // With httpOnly cookies, we can refresh if authenticated
+          // even without refreshToken in state (cookie handles it)
+          return isAuthenticated && !!tokens?.accessToken;
+        },
 
         resetLoginAttempts: () => {
           set((state) => {
@@ -537,18 +581,26 @@ export const useBackendAuthStore = create<AuthStore>()(
             throw createAuthError(error);
           }
         },
+
+        // REQ-009: Manually set loading stage (for external components if needed)
+        setLoadingStage: (stage: LoadingStage) => {
+          set((state) => {
+            state.loadingStage = stage;
+          });
+        },
       })),
       {
         name: AUTH_STORAGE_KEY,
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           user: state.user,
-          // Only persist accessToken, exclude refreshToken for security
+          // Only persist accessToken - refreshToken is now in httpOnly cookie (Phase 2 REQ-005)
           tokens: state.tokens
             ? {
                 accessToken: state.tokens.accessToken,
                 expiresIn: state.tokens.expiresIn,
-                refreshToken: '', // Empty string, not persisted
+                tokenType: state.tokens.tokenType,
+                // refreshToken excluded - stored in httpOnly cookie for security
               }
             : null,
           tokenExpiresAt: state.tokenExpiresAt,
@@ -586,6 +638,7 @@ export const authSelectors = {
   isAuthenticated: (state: AuthStore) => state.isAuthenticated,
   user: (state: AuthStore) => state.user,
   isLoading: (state: AuthStore) => state.isLoading,
+  loadingStage: (state: AuthStore) => state.loadingStage, // REQ-009
   error: (state: AuthStore) => state.error,
   isLocked: (state: AuthStore) => state.isLocked,
   isDemo: (state: AuthStore) => state.isDemo,
@@ -601,6 +654,7 @@ export const useBackendAuth = () =>
     user: state.user,
     isAuthenticated: state.isAuthenticated,
     isLoading: state.isLoading,
+    loadingStage: state.loadingStage, // REQ-009
     isDemo: state.isDemo,
     demoInfo: state.demoInfo,
     login: state.login,

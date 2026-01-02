@@ -261,7 +261,7 @@
         "testStrategy": "E2E test: mock slow backend (>10s) → verify timeout error and retry button. Test fast init (<2s) → no timeout. Test retry → reinitializes successfully.",
         "priority": "high",
         "dependencies": ["189", "190"],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -314,7 +314,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-01-02T12:11:02.800Z"
+        "updatedAt": "2026-01-02T12:13:41.869Z"
       },
       {
         "id": "192",
@@ -324,7 +324,7 @@
         "testStrategy": "Run test suite → verify passes consistently. Test invalid token → redirects to login. Test network failure → timeout error shown.",
         "priority": "high",
         "dependencies": ["190"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -376,7 +376,8 @@
             "testStrategy": "Network tab: exactly one /me call post-reload. Full suite passes. Invalid token mock redirects to login form.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:22:01.834Z"
       },
       {
         "id": "193",
@@ -386,7 +387,7 @@
         "testStrategy": "Integration test: POST /login → verify Set-Cookie header with correct flags. Browser test: login → inspect cookies → verify httpOnly refreshToken present.",
         "priority": "high",
         "dependencies": ["187"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -438,7 +439,8 @@
             "testStrategy": "CI/CD tests pass: 100% coverage of cookie flags, edge cases (no creds, prod env secure=true), cross-browser cookie inspection.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:29:16.915Z"
       },
       {
         "id": "194",
@@ -448,7 +450,7 @@
         "testStrategy": "Integration test: POST /refresh with cookie → verify new accessToken and updated cookie. Test missing cookie → 401. Test expired refreshToken → 401.",
         "priority": "high",
         "dependencies": ["193"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -500,7 +502,8 @@
             "testStrategy": "Full test suite with 100% coverage of endpoint logic. Mock refreshSession() for predictable responses. Test cookie flags in Set-Cookie headers. Run against staging env.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:33:00.365Z"
       },
       {
         "id": "195",
@@ -510,7 +513,7 @@
         "testStrategy": "Browser devtools: login → verify no refreshToken in localStorage, only in cookies. E2E test: page reload → session still works via cookie.",
         "priority": "high",
         "dependencies": ["188", "194"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -562,7 +565,8 @@
             "testStrategy": "1. Login → DevTools → localStorage → no refreshToken. 2. Page reload → auto-refresh works. 3. E2E: simulate expiry → refresh succeeds via cookies only.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:34:45.813Z"
       },
       {
         "id": "196",
@@ -572,7 +576,7 @@
         "testStrategy": "E2E test: wait until near expiry → verify refresh called with credentials: 'include' and empty body → new accessToken received.",
         "priority": "high",
         "dependencies": ["195"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -624,7 +628,8 @@
             "testStrategy": "E2E test: Wait until 2min before expiry → verify fetch request → assert new accessToken and updated tokenExpiresAt.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:36:35.197Z"
       },
       {
         "id": "197",
@@ -634,7 +639,7 @@
         "testStrategy": "Run full test suite → all refresh scenarios pass. Verify no double refresh calls. Test edge cases: expired refresh token, network failure.",
         "priority": "medium",
         "dependencies": ["196"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -686,7 +691,8 @@
             "testStrategy": "Trigger 5 concurrent expiry conditions → verify exactly 1 refresh call made",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:38:02.092Z"
       },
       {
         "id": "198",
@@ -696,7 +702,7 @@
         "testStrategy": "E2E test: mock refresh failure → verify toast appears with Retry/Logout buttons. Test retry → calls refresh again. Test 3 failures → auto-logout.",
         "priority": "medium",
         "dependencies": ["196"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -748,7 +754,8 @@
             "testStrategy": "Run full test suite: verify 100% pass rate. Test manual Retry button → single refresh call. Test Logout → immediate redirect to /login.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:39:35.012Z"
       },
       {
         "id": "199",
@@ -758,7 +765,7 @@
         "testStrategy": "Run tests → 100% pass rate. Verify rapid reloads show no console errors. Test offline → timeout error. Test expired during session → refresh triggered.",
         "priority": "medium",
         "dependencies": ["192", "197"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -810,7 +817,8 @@
             "testStrategy": "100% pass rate required, verify rapid reloads: single init per reload, no console errors, offline/expired handle gracefully per specs.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:51:32.727Z"
       },
       {
         "id": "200",
@@ -820,7 +828,7 @@
         "testStrategy": "Integration test: login → logout → verify cache cleared (subsequent /me calls hit Supabase). Test concurrent logouts → no errors.",
         "priority": "medium",
         "dependencies": ["194"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -872,7 +880,8 @@
             "testStrategy": "Full E2E: login → logout → verify subsequent /me calls bypass cache and hit Supabase directly. Load test: 100 concurrent logouts → no errors, all caches cleared.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T20:41:21.280Z"
       },
       {
         "id": "201",
@@ -882,7 +891,7 @@
         "testStrategy": "Manual test: page reload → verify spinner messages change: 'Restoring...' → 'Validating...' → dashboard. E2E test: verify no flash of wrong content.",
         "priority": "low",
         "dependencies": ["190", "191"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -934,7 +943,8 @@
             "testStrategy": "E2E test: intercept network calls, verify no content flash, message sequence correct. Manual verification on prod-like environment.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T21:01:31.064Z"
       },
       {
         "id": "202",
@@ -944,17 +954,18 @@
         "testStrategy": "Code review: verify no custom timeout/AbortController/useEffect cleanup logic remains. Component tests: verify hooks prevent memory leaks.",
         "priority": "low",
         "dependencies": ["191", "196"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Audit Auth Components for Custom Logic",
             "description": "Review all authentication-related components to identify custom setTimeout, AbortController, and useEffect cleanup implementations.",
             "dependencies": [],
-            "details": "Scan files like Login.tsx, AuthProvider.tsx, ProtectedRoute.tsx for manual setTimeout calls, fetch with AbortController, and useEffect without proper cleanup. Document locations in a checklist.",
-            "status": "pending",
+            "details": "Scan files like Login.tsx, AuthProvider.tsx, ProtectedRoute.tsx for manual setTimeout calls, fetch with AbortController, and useEffect without proper cleanup. Document locations in a checklist.\n<info added on 2026-01-02T21:05:15.177Z>\nAudit completed. No custom setTimeout, AbortController, or problematic useEffect cleanup logic found in auth components. Login.tsx, Register.tsx, and ForgotPassword.tsx contain no manual implementations. AuthCallback.tsx and ResetPassword.tsx are already refactored to use the useTimeout hook from the usehooks-ts library. ProtectedRoute.tsx, backendAuthStore.ts, and authService.ts follow established patterns using Zustand and the standard API wrapper. No further refactoring is required as the codebase already aligns with the target architecture.\n</info added on 2026-01-02T21:05:15.177Z>",
+            "status": "done",
             "testStrategy": "Manual code review: grep for 'setTimeout', 'AbortController', 'useEffect' in auth files.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-02T21:05:15.273Z"
           },
           {
             "id": 2,
@@ -962,9 +973,10 @@
             "description": "Refactor all identified custom setTimeout logic in auth components to use the useTimeout hook from hooks/index.ts.",
             "dependencies": [1],
             "details": "Import useTimeout from hooks/index.ts. Replace setTimeout(callback, delay) with useTimeout(callback, delay). Ensure proper cleanup by verifying hook handles clearTimeout internally.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Component tests: Verify timeout callbacks execute after delay and are cleared on unmount. Check no memory leaks.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-02T21:05:27.938Z"
           },
           {
             "id": 3,
@@ -972,9 +984,10 @@
             "description": "Replace manual fetch calls in auth components with useFetch('/api/auth/v2/me', { refetchOnWindowFocus: false }).",
             "dependencies": [1],
             "details": "Update all auth API endpoints to useFetch pattern. Destructure { data, error, isLoading }. Remove manual AbortController and fetch logic. Handle data assignment safely.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Network tab verification: Single API call per component mount. Test loading/error states render correctly.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-02T21:05:27.957Z"
           },
           {
             "id": 4,
@@ -982,9 +995,10 @@
             "description": "Wrap all side-effect state updates in auth components with useIsMountedEffect to prevent updates on unmounted components.",
             "dependencies": [1, 3],
             "details": "Import useIsMountedEffect from hooks/index.ts. Wrap useEffect callbacks that set state: useIsMountedEffect(() => { if (data) setUser(data.user); }); Remove custom mounted flags.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unmount during async operation: Verify no React warnings about setState on unmounted component.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-02T21:05:27.974Z"
           },
           {
             "id": 5,
@@ -992,11 +1006,13 @@
             "description": "Delete all custom timeout/AbortController/mounted logic. Perform final audit and update tests.",
             "dependencies": [2, 3, 4],
             "details": "Remove redundant code. Ensure hooks/index.ts provides all functionality. Run code review checklist. Update component tests to verify hooks prevent memory leaks per original test strategy.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Full code review: No custom timeout/AbortController/useEffect cleanup remains. Component tests pass. E2E: Verify auth flow works without regressions.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-02T21:05:27.991Z"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T21:05:27.991Z"
       },
       {
         "id": "203",
@@ -1004,10 +1020,11 @@
         "description": "Manually test functionality from Tasks 187-191 (Foundation & Critical Fixes)",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": ["191"],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:33:24.037Z"
       },
       {
         "id": "204",
@@ -1015,10 +1032,11 @@
         "description": "Manually test functionality from Tasks 192-196 (httpOnly Cookie Implementation)",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": ["196"],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:33:24.055Z"
       },
       {
         "id": "205",
@@ -1026,10 +1044,11 @@
         "description": "Manually test functionality from Tasks 197-199 (Comprehensive Testing)",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": ["199"],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:33:24.070Z"
       },
       {
         "id": "206",
@@ -1037,17 +1056,520 @@
         "description": "Manually test functionality from Tasks 200-202 (Polish & Optimization)",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "deferred",
         "dependencies": ["202"],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:33:24.086Z"
+      },
+      {
+        "id": "207",
+        "title": "Install Project Dependencies",
+        "description": "Install new libraries required for the multi-agent system integration including LangChain, LangGraph, BullMQ, and Pino.",
+        "details": "Execute 'npm install @langchain/core @langchain/langgraph @langchain/ollama @langchain/google-genai @langchain/groq bullmq pino'. Update package.json to ensure versions align with PRD specifications (LangGraph 0.2.x, BullMQ 5.x). Ensure 'engines' field in package.json is compatible with these libraries.",
+        "testStrategy": "Run 'npm list' for each package to verify correct version installation. Run a smoke test by importing LangGraph in a script.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:39.618Z"
+      },
+      {
+        "id": "208",
+        "title": "Ollama Infrastructure Setup Script",
+        "description": "Create a shell script to automate the provisioning of the Ollama server and download required models.",
+        "details": "Create a script 'scripts/setup-ollama.sh' that: 1. Checks if Ollama is installed. 2. Pulls llama3.2:8b, mistral:7b, and phi3:mini. 3. Configures environment variables for OLLAMA_HOST and model aliases. Implement a health check utility to verify Ollama accessibility.",
+        "testStrategy": "Execute the script on a development machine and verify using 'ollama list' that all three models are present and the health check utility returns 200.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:12:04.488Z"
+      },
+      {
+        "id": "209",
+        "title": "LangGraph Workflow Framework Skeleton",
+        "description": "Initialize the core LangGraph structure and state management for the document processing pipeline.",
+        "details": "Define the 'DocumentState' interface in 'src/multiagent/state.ts' including fields for document metadata, extracted data, classification, confidence scores, and processing logs. Create a base StateGraph instance in 'src/multiagent/workflow.ts'.",
+        "testStrategy": "Unit test 'state.ts' to ensure state updates follow LangGraph immutability patterns using basic transition functions.",
+        "priority": "high",
+        "dependencies": ["207"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.189Z"
+      },
+      {
+        "id": "210",
+        "title": "Database Schema Extension for Multi-Agent State",
+        "description": "Update the Prisma schema to support persistence for the multi-agent system, A/B testing, and shadow mode.",
+        "details": "Add models to 'schema.prisma': MultiAgentProcessing (link to job ID, status), Checkpoint (binary state storage for LangGraph), ABTestAssignment (userId, variant, timestamp), UserFeedback (rating, comments), and ProcessingComparison (legacy vs multi-agent field diffs). Run 'prisma migrate dev'.",
+        "testStrategy": "Verify database tables exist in PostgreSQL using 'prisma studio' and check the generated Prisma client for the new models.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:52.571Z"
+      },
+      {
+        "id": "211",
+        "title": "Feature Flag System Implementation",
+        "description": "Implement a robust feature flag service to handle gradual rollout phases (Shadow, A/B, Primary).",
+        "details": "Create 'src/services/FeatureFlagService.ts'. Implement logic to evaluate flags based on user context or random sampling: 'shadow-mode', 'multiagent-ab-test', 'multiagent-primary'. Use Prisma to store/retrieve flag configurations for runtime overrides.",
+        "testStrategy": "Unit test FeatureFlagService to ensure 'multiagent-ab-test' returns true/false according to defined percentages and remains sticky for the same user.",
+        "priority": "high",
+        "dependencies": ["210"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.206Z"
+      },
+      {
+        "id": "212",
+        "title": "Migrate PoC Code to Main Repository",
+        "description": "Refactor and move existing PoC agent logic into the quikadmin/src/multiagent directory.",
+        "details": "Copy agent logic from PoC. Refactor to use current project logging (Pino) and error handling patterns. Update import paths to match 'quikadmin' structure. Resolve any TypeScript 'any' types introduced during PoC.",
+        "testStrategy": "Run 'tsc' to ensure no compilation errors in the newly migrated files. Execute basic unit tests for individual agent utility functions.",
+        "priority": "high",
+        "dependencies": ["207", "209"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:39.636Z"
+      },
+      {
+        "id": "213",
+        "title": "BullMQ Multi-Agent Queue Initialization",
+        "description": "Configure a new BullMQ instance to handle high-complexity multi-agent processing jobs separate from the legacy queue.",
+        "details": "Create 'src/queues/multiagent.queue.ts'. Initialize BullMQ with the existing Upstash Redis connection. Configure worker options including concurrency limits (based on VRAM availability) and advanced retry strategies (exponential backoff).",
+        "testStrategy": "Verify the queue connects to Redis using the BullMQ dashboard or by checking Redis keys 'bull:multiagent:*' via redis-cli.",
+        "priority": "high",
+        "dependencies": ["210"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.222Z"
+      },
+      {
+        "id": "214",
+        "title": "Document Classification Agent (Phi-3)",
+        "description": "Implement the classification node using the Phi-3 Mini model for fast document type identification.",
+        "details": "Implement 'classifyNode' in 'src/multiagent/nodes/classifier.ts'. Use @langchain/ollama to prompt Phi-3 with document snippets. Logic should output high-level categories (e.g., Invoice, ID, Contract). Set a confidence threshold for auto-routing.",
+        "testStrategy": "Pass five different document text samples to the classifier and verify 100% accuracy for standard types.",
+        "priority": "high",
+        "dependencies": ["212"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:39.651Z"
+      },
+      {
+        "id": "215",
+        "title": "Extraction and Mapping Agents (Llama 8B / Mistral)",
+        "description": "Implement extraction nodes using Llama 3.2 8B and field mapping nodes using Mistral 7B.",
+        "details": "Create 'extractNode' and 'mapNode'. Extraction node uses Llama 8B for raw JSON output from OCR text. Mapping node uses Mistral to align extracted keys with the standard Prisma schema. Use JSON mode in LLM calls for structured output.",
+        "testStrategy": "Compare extraction output against a ground truth JSON for a sample invoice and verify mapping accuracy.",
+        "priority": "high",
+        "dependencies": ["212"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:39.665Z"
+      },
+      {
+        "id": "216",
+        "title": "QA and Error Recovery Agents",
+        "description": "Implement the QA agent (Llama 8B) for validation and Error Recovery agent for self-correction.",
+        "details": "'qaNode' validates extraction against business rules (e.g., date formats, total sum math). 'errorRecoverNode' identifies specific failures and modifies prompts to re-attempt extraction/mapping. Integrate loop-back logic in LangGraph.",
+        "testStrategy": "Inject a deliberate extraction error (e.g., mismatched total) and verify the QA node catches it and triggers the Recovery node.",
+        "priority": "high",
+        "dependencies": ["212"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:39.682Z"
+      },
+      {
+        "id": "217",
+        "title": "LangGraph Orchestrator Workflow Assembly",
+        "description": "Assemble all agent nodes into a functional directed graph with conditional routing.",
+        "details": "In 'src/multiagent/workflow.ts', connect nodes: classifier -> extractor -> mapper -> qa. Add conditional edges based on QA results (pass to finish, fail to errorRecover). Implement persistence using the Prisma-backed Checkpoint model.",
+        "testStrategy": "Trace a full execution from classification to finish using a mock document and ensure all nodes are visited in order.",
+        "priority": "high",
+        "dependencies": ["214", "215", "216"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.237Z"
+      },
+      {
+        "id": "218",
+        "title": "Multi-Agent Queue Worker Service",
+        "description": "Implement the BullMQ worker that executes the LangGraph workflow for each job.",
+        "details": "Create 'src/workers/multiagent.worker.ts'. On job receive: 1. Fetch document from DB. 2. Initialize LangGraph state. 3. Execute workflow. 4. Update job progress in Redis/DB. 5. Emit 'processing:complete' event via RealtimeService.",
+        "testStrategy": "Manually add a job to the multiagent queue and monitor logs to ensure the workflow completes and updates the database record.",
+        "priority": "high",
+        "dependencies": ["213", "217"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:39.697Z"
+      },
+      {
+        "id": "219",
+        "title": "Shadow Mode Logic Implementation",
+        "description": "Hook into the existing document upload process to trigger the multi-agent pipeline in parallel with legacy processing.",
+        "details": "In the main document controller, check 'shadow-mode' flag. If enabled, fire a non-blocking request to the multiagent-queue after the legacy queue job is dispatched. Do not wait for response to ensure zero latency impact on legacy path.",
+        "testStrategy": "Upload a document and verify that two separate jobs are created: one in the Bull (Legacy) queue and one in the BullMQ (Multi-Agent) queue.",
+        "priority": "medium",
+        "dependencies": ["211", "218"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.253Z"
+      },
+      {
+        "id": "220",
+        "title": "Comparison Analytics Service",
+        "description": "Develop a service to compare extraction results between legacy and multi-agent pipelines for accuracy validation.",
+        "details": "Create 'src/services/ComparisonService.ts'. Logic should: 1. Wait for both pipelines to finish. 2. Fetch results. 3. Perform field-by-field diffing. 4. Calculate confidence delta. 5. Store report in 'ProcessingComparison' table.",
+        "testStrategy": "Trigger a dual-process run and verify that a record is created in 'ProcessingComparison' with populated diff JSON.",
+        "priority": "medium",
+        "dependencies": ["219"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.267Z"
+      },
+      {
+        "id": "221",
+        "title": "A/B Test Routing Engine",
+        "description": "Implement the logic to route a percentage of live traffic to the multi-agent system as the primary source of truth.",
+        "details": "Modify document processing entry point. If 'multiagent-ab-test' is active and user is assigned to 'variant-b', skip the legacy pipeline and route exclusively to the multi-agent queue. Include fallback logic to legacy if the multi-agent system fails or times out.",
+        "testStrategy": "Simulate 100 requests with a 10% A/B split and verify that approximately 10 requests are routed to the Multi-Agent pipeline.",
+        "priority": "medium",
+        "dependencies": ["211"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.282Z"
+      },
+      {
+        "id": "222",
+        "title": "Admin Control and Stats Endpoints",
+        "description": "Create API endpoints for managing feature flags and viewing performance metrics.",
+        "details": "Implement GET/PUT '/api/admin/ab-test/config' to update percentages. Implement GET '/api/admin/ab-test/stats' to aggregate data from 'ProcessingComparison' and 'UserFeedback' models. Restricted to 'admin' role.",
+        "testStrategy": "Test endpoints with an admin JWT and verify they successfully update feature flag configurations in the database.",
+        "priority": "medium",
+        "dependencies": ["221"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.297Z"
+      },
+      {
+        "id": "223",
+        "title": "Cloud LLM Fallback Mechanism",
+        "description": "Implement automatic failover to Gemini or Groq APIs when the local Ollama server is unavailable or slow.",
+        "details": "Wrap Ollama calls in a 'ReliableLLM' service. Implement a circuit breaker pattern. If Ollama fails, switch to @langchain/google-genai or @langchain/groq using environment-stored API keys. Ensure identical prompt formatting across models.",
+        "testStrategy": "Shut down the local Ollama service and verify that document processing continues using the Gemini API as a fallback.",
+        "priority": "medium",
+        "dependencies": ["207"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:52.586Z"
+      },
+      {
+        "id": "224",
+        "title": "Observability and Structured Logging",
+        "description": "Integrate Pino logging and custom metrics for deep visibility into agent performance.",
+        "details": "Implement structured logging with correlation IDs across all nodes. Export metrics for 'processing_time_per_node', 'llm_token_count', and 'agent_retry_count'. Configure Pino to omit any PII from logs.",
+        "testStrategy": "Examine log output in the console to ensure structured JSON format and confirm no sensitive data (like user names/emails) is logged.",
+        "priority": "medium",
+        "dependencies": ["207"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:52.602Z"
+      },
+      {
+        "id": "225",
+        "title": "User Feedback Collection API",
+        "description": "Implement endpoints to collect and store user feedback on processing accuracy for A/B testing evaluation.",
+        "details": "Create POST '/api/feedback/processing' endpoint. Schema: jobId, accuracyRating (1-5), isCorrect (bool), userComments. Associate feedback with the 'ABTestAssignment' to differentiate between legacy and multi-agent satisfaction.",
+        "testStrategy": "Submit a mock feedback request and verify the record is correctly linked to the processing job and test variant in the database.",
+        "priority": "low",
+        "dependencies": ["210"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.313Z"
+      },
+      {
+        "id": "226",
+        "title": "Final Integration and E2E Testing",
+        "description": "Perform comprehensive end-to-end testing of the entire multi-agent pipeline under load.",
+        "details": "Write Playwright/Jest E2E tests simulating document uploads across all phases (Shadow, A/B). Conduct a load test to ensure '100 concurrent jobs' requirement is met without VRAM exhaustion. Verify fallback logic triggers correctly.",
+        "testStrategy": "Run the full suite of E2E tests in a staging environment. Verify that the final 'Success Metrics' (latency <30s) are met during a 50-document burst.",
+        "priority": "medium",
+        "dependencies": ["218", "223"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:55:07.779Z"
+      },
+      {
+        "id": "227",
+        "title": "Security: Remove Authentication Bypass in MultiAgent-PoC",
+        "description": "Remove the hardcoded authentication bypass in the PoC middleware to ensure all requests are authenticated before processing.",
+        "details": "Locate 'IntelliFill-MultiAgent-PoC/src/server/middleware/apiKeyAuth.ts'. Identify the logic on lines 37-41 that returns 'next()' regardless of API key validity. Remove this block to enforce a 'fail-closed' security posture. \n\nPseudo-code:\n// Before\nif (process.env.NODE_ENV === 'development') { return next(); }\n// After\nif (!apiKey || !isValid(apiKey)) { return res.status(401).send('Unauthorized'); }",
+        "testStrategy": "Attempt to access PoC endpoints without an API key or with an invalid key. Verify that the server returns a 401 Unauthorized status instead of proceeding.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T19:06:23.355Z"
+      },
+      {
+        "id": "228",
+        "title": "Security: Implement Prompt Injection Sanitization Strategy",
+        "description": "Add a sanitization utility function for document text before it is interpolated into LLM prompts to prevent prompt injection attacks. Create a simple, single-function solution (~10 lines) without Strategy pattern, interfaces, or classes.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "SIMPLIFIED PER PRD v2.0: Create a single utility function in 'quikadmin/src/utils/sanitizeLLMInput.ts'.\n\nImplementation:\n```typescript\n/**\n * Sanitizes user-provided text before interpolating into LLM prompts.\n * Removes template injections, bracket injections, and prompt override attempts.\n */\nexport function sanitizeLLMInput(input: string): string {\n  if (!input || typeof input !== 'string') return '';\n  \n  return input\n    // Remove template injection patterns ({{...}}, {%...%}, ${...})\n    .replace(/\\{\\{[^}]*\\}\\}/g, '')\n    .replace(/\\{%[^%]*%\\}/g, '')\n    .replace(/\\$\\{[^}]*\\}/g, '')\n    // Remove XML-style bracket injections (<system>, </system>, etc.)\n    .replace(/<\\/?\\s*(system|user|assistant|prompt|instruction)[^>]*>/gi, '')\n    // Remove common prompt override phrases (case-insensitive)\n    .replace(/ignore\\s+(all\\s+)?(previous|prior|above)\\s+(instructions?|prompts?)/gi, '')\n    .replace(/disregard\\s+(all\\s+)?(previous|prior|above)\\s+(instructions?|prompts?)/gi, '')\n    .replace(/forget\\s+(all\\s+)?(previous|prior|above)\\s+(instructions?|prompts?)/gi, '')\n    // Clean up extra whitespace\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n```\n\nFile location: quikadmin/src/utils/sanitizeLLMInput.ts\n\nIntegration points:\n- Used by multiagent workflow nodes in quikadmin/src/multiagent/workflow.ts before passing document text to LLM prompts\n- Follows existing utility pattern in quikadmin/src/utils/ (similar to piiSanitizer.ts but simpler)\n- NO Strategy pattern, NO interface, NO class - just ONE exported function",
+        "testStrategy": "Create unit tests in quikadmin/src/utils/__tests__/sanitizeLLMInput.test.ts:\n\n1. Template injection tests:\n   - '{{system}}' → ''\n   - 'Hello {{ignore}}' → 'Hello'\n   - 'Text ${variable} more' → 'Text more'\n   - '{%template%}' → ''\n\n2. Bracket injection tests:\n   - '<system>override</system>' → 'override'\n   - '<SYSTEM>bypass</SYSTEM>' → 'bypass'\n   - '</assistant>' → ''\n   - '<prompt>' → ''\n\n3. Prompt override tests:\n   - 'Ignore previous instructions' → ''\n   - 'IGNORE ALL PRIOR PROMPTS' → ''\n   - 'disregard above instructions' → ''\n   - 'forget previous prompt' → ''\n\n4. Edge cases:\n   - null/undefined → ''\n   - Empty string → ''\n   - Normal text 'Hello world' → 'Hello world'\n   - Mixed: 'Valid {{inject}} text <system>bad</system>' → 'Valid text bad'\n\n5. Whitespace normalization:\n   - 'Multiple   spaces' → 'Multiple spaces'",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create sanitizeLLMInput.ts utility file",
+            "description": "Create the sanitizeLLMInput.ts file in quikadmin/src/utils/ with the sanitizeLLMInput function",
+            "dependencies": [],
+            "details": "Create quikadmin/src/utils/sanitizeLLMInput.ts with a single exported function that:\n1. Handles null/undefined/non-string input by returning empty string\n2. Removes template injections: {{...}}, {%...%}, ${...}\n3. Removes XML bracket injections: <system>, </system>, <user>, <assistant>, <prompt>, <instruction>\n4. Removes prompt override phrases: 'ignore previous instructions', 'disregard prior prompts', etc.\n5. Normalizes whitespace and trims\n\nKeep it simple - approximately 10-15 lines of actual logic.",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Write unit tests for sanitizeLLMInput",
+            "description": "Create comprehensive unit tests in quikadmin/src/utils/__tests__/sanitizeLLMInput.test.ts",
+            "dependencies": [],
+            "details": "Test all sanitization patterns:\n- Template injections ({{...}}, {%...%}, ${...})\n- Bracket injections (<system>, </system>, <user>, etc.)\n- Prompt override phrases (ignore previous, disregard, forget)\n- Edge cases (null, undefined, empty string, normal text)\n- Whitespace normalization\n- Combined attack patterns\n\nFollow existing test patterns in quikadmin/src/utils/__tests__/piiSanitizer.test.ts",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Document usage and integration points",
+            "description": "Add JSDoc comments to the function and document integration with multiagent workflow",
+            "dependencies": [],
+            "details": "Add clear JSDoc documentation explaining:\n- Purpose: Prevent prompt injection attacks\n- When to use: Before interpolating user/document text into LLM prompts\n- Integration: Used by multiagent workflow nodes (classifier, extractor, mapper, qa)\n- Example usage in workflow.ts nodes\n\nNote: Actual integration into workflow.ts is a separate task - this just documents how it should be used.",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-01-02T19:41:00.776Z"
+      },
+      {
+        "id": "229",
+        "title": "Dependency Alignment: Express Downgrade and Tesseract Upgrade",
+        "description": "Align Express and Tesseract versions across the project to ensure compatibility with the existing IntelliFill environment.",
+        "details": "1. Downgrade PoC package.json Express from 5.x to 4.18.x. \n2. Upgrade Tesseract.js in both PoC and target codebase to 7.x. \n3. Update 'quikadmin/package.json' and 'IntelliFill-MultiAgent-PoC/package.json'. \n4. Audit async error handlers in PoC code since Express 4 doesn't support async errors by default (wrap in try-catch/next).",
+        "testStrategy": "Run 'npm install' and ensure no peer dependency conflicts. Verify Tesseract 7 initialization in a small script.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T19:34:27.561Z"
+      },
+      {
+        "id": "230",
+        "title": "Database Schema: MultiAgentProcessingRecord Model",
+        "description": "Add a new Prisma model to track the status and results of multi-agent document processing tasks.",
+        "details": "Update 'schema.prisma' with the 'MultiAgentProcessingRecord' model as specified in the PRD. \n\nPseudo-code:\nmodel MultiAgentProcessingRecord {\n  id String @id @default(uuid())\n  documentId String\n  userId String\n  status String // pending, processing, completed, failed\n  extractedData Json?\n  processingTimeMs Int?\n  error String?\n  createdAt DateTime @default(now())\n  completedAt DateTime?\n  @@index([documentId])\n  @@index([userId])\n}",
+        "testStrategy": "Run 'prisma migrate dev' to apply changes. Verify table creation in the database using a GUI or Prisma Studio.",
+        "priority": "medium",
+        "dependencies": ["229"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.329Z"
+      },
+      {
+        "id": "231",
+        "title": "Core Integration: Define MultiAgent Interfaces",
+        "description": "Create the core interfaces for document processing following the program-to-interfaces principle.",
+        "details": "Create 'quikadmin/src/services/multiagent/interfaces.ts'. \n\nPseudo-code:\nexport interface IProcessingResult { success: boolean; data?: any; error?: string; }\nexport interface IDocumentProcessor {\n  process(documentId: string, userId: string): Promise<IProcessingResult>;\n}",
+        "testStrategy": "No execution. Static type check using TypeScript compiler.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.345Z"
+      },
+      {
+        "id": "232",
+        "title": "Service: Create MultiAgentAdapter Implementation",
+        "description": "Implement the Adapter pattern to bridge the MultiAgent-PoC logic with the IntelliFill IDocumentProcessor interface.",
+        "details": "Location: 'quikadmin/src/services/multiagent/MultiAgentAdapter.ts'. This service will wrap the PoC's main entry point, converting its output format into the IntelliFill format.\n\nPseudo-code:\nclass MultiAgentAdapter implements IDocumentProcessor {\n  async process(docId: string, userId: string) {\n    const pocResult = await pocRunner.run(docId);\n    return { success: true, data: this.mapToStandard(pocResult) };\n  }\n  private mapToStandard(pocData: any) { /* mapping logic */ }\n}",
+        "testStrategy": "Unit test 'process' method with mocked PoC runner to ensure it returns correctly mapped data objects.",
+        "priority": "medium",
+        "dependencies": ["231", "228"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.360Z"
+      },
+      {
+        "id": "233",
+        "title": "Service: Implement ProcessingService with Strategy Pattern",
+        "description": "Create a ProcessingService that allows switching between legacy and multi-agent processing strategies.",
+        "details": "Location: 'quikadmin/src/services/ProcessingService.ts'. \n\nPseudo-code:\nclass ProcessingService {\n  private strategy: IDocumentProcessor;\n  constructor(strategy: IDocumentProcessor) { this.strategy = strategy; }\n  setStrategy(strategy: IDocumentProcessor) { this.strategy = strategy; }\n  async execute(docId: string, userId: string) { return this.strategy.process(docId, userId); }\n}",
+        "testStrategy": "Verify that swapping strategies at runtime changes the execution path using unit tests.",
+        "priority": "medium",
+        "dependencies": ["232"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T18:42:21.374Z"
+      },
+      {
+        "id": "234",
+        "title": "Queue: Register multiAgentProcess Job Type",
+        "description": "Update the existing knowledgeQueue to support the new multi-agent processing job type.",
+        "details": "Modify 'quikadmin/src/queues/knowledgeQueue.ts'. \n1. Add 'multiAgentProcess' to the KnowledgeJobType union. \n2. Add a helper function 'addMultiAgentProcessJob(data)' using the Bull queue instance.\n\nPseudo-code:\nexport type KnowledgeJobType = 'single' | 'batch' | 'multiAgentProcess';\nexport const addMultiAgentProcessJob = (data: any) => knowledgeQueue.add('multiAgentProcess', data);",
+        "testStrategy": "Call 'addMultiAgentProcessJob' in a test script and verify that the job appears in the Bull queue (e.g., via Bull-Board or Redis CLI).",
+        "priority": "medium",
+        "dependencies": ["233"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:10:33.654Z"
+      },
+      {
+        "id": "235",
+        "title": "Worker: MultiAgent Queue Processor",
+        "description": "Add inline queue processor to multiagentQueue.ts that handles 'multiAgentProcess' jobs using the LangGraph processDocument workflow and updates the Document model.",
+        "status": "done",
+        "dependencies": ["234"],
+        "priority": "medium",
+        "details": "**SIMPLIFIED PER PRD v2.0**: No separate worker file, no Command pattern.\n\n**Location**: `quikadmin/src/queues/multiagentQueue.ts` (existing file)\n\n**Implementation**:\n1. Add a BullMQ Worker directly in `multiagentQueue.ts`\n2. Import `processDocument` from `../multiagent`\n3. Create inline processor that:\n   - Updates Document status to 'PROCESSING' on job start\n   - Calls `processDocument(job.data.documentId, job.data.userId, job.id, job.data.filePath, job.data.fileName, job.data.fileType, job.data.fileSize)`\n   - On success: Update Document with extracted data, confidence, processedAt, status='COMPLETED'\n   - On failure: Update Document status='FAILED' with error message\n\n**Code structure**:\n```typescript\n// In multiagentQueue.ts, after queue initialization\nimport { processDocument } from '../multiagent';\n\nlet multiagentWorker: Worker<MultiAgentProcessingJob, MultiAgentProcessingResult> | null = null;\n\nexport async function startMultiagentWorker(): Promise<void> {\n  if (!isMultiagentQueueAvailable()) {\n    logger.warn('Cannot start worker - queue not available');\n    return;\n  }\n\n  multiagentWorker = new Worker<MultiAgentProcessingJob, MultiAgentProcessingResult>(\n    'multiagent-processing',\n    async (job) => {\n      const { documentId, userId, filePath, fileName, fileType, fileSize } = job.data;\n      \n      // Update status to processing\n      await prisma.document.update({\n        where: { id: documentId },\n        data: { status: 'PROCESSING' },\n      });\n\n      try {\n        // Execute LangGraph workflow\n        const result = await processDocument(\n          documentId,\n          userId,\n          job.id || `job-${Date.now()}`,\n          filePath,\n          fileName,\n          fileType,\n          fileSize\n        );\n\n        // Update document with results\n        await prisma.document.update({\n          where: { id: documentId },\n          data: {\n            status: result.results.success ? 'COMPLETED' : 'FAILED',\n            extractedData: result.results.finalData,\n            confidence: result.results.confidence.overall,\n            processedAt: new Date(),\n          },\n        });\n\n        return {\n          documentId,\n          success: result.results.success,\n          extractedData: result.results.finalData,\n          confidence: result.results.confidence.overall,\n          processingTimeMs: result.results.processingTimeMs,\n        };\n      } catch (error) {\n        await prisma.document.update({\n          where: { id: documentId },\n          data: {\n            status: 'FAILED',\n            extractedData: { error: error instanceof Error ? error.message : 'Unknown error' },\n          },\n        });\n        throw error;\n      }\n    },\n    {\n      connection: redisConfig,\n      concurrency: 2, // Limit based on VRAM availability\n    }\n  );\n\n  multiagentWorker.on('completed', (job, result) => {\n    logger.info('Multi-agent job completed by worker', { jobId: job.id, documentId: result.documentId });\n  });\n\n  multiagentWorker.on('failed', (job, error) => {\n    logger.error('Multi-agent job failed', { jobId: job?.id, error: error.message });\n  });\n\n  logger.info('Multi-agent worker started');\n}\n```\n\n**Files to modify**:\n- `quikadmin/src/queues/multiagentQueue.ts` - Add Worker implementation inline\n\n**NO separate files needed**:\n- ~~`quikadmin/src/workers/multiAgentProcessor.ts`~~ (not needed per PRD v2.0)\n- ~~Command pattern~~ (not needed per PRD v2.0)\n- ~~MultiAgentProcessingRecord model~~ (use existing Document model)",
+        "testStrategy": "1. Unit test: Mock the `processDocument` function and verify worker calls it with correct parameters\n2. Integration test: Add a job via `enqueueMultiagentProcessing()` and verify:\n   - Document status changes to 'PROCESSING' immediately\n   - `processDocument` is invoked with correct job data\n   - Document status changes to 'COMPLETED' with extractedData populated\n3. Error handling test: Simulate `processDocument` failure and verify Document status='FAILED'\n4. Concurrency test: Verify only 2 jobs process simultaneously",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Import processDocument and Worker from dependencies",
+            "description": "Add necessary imports to multiagentQueue.ts for the LangGraph workflow and BullMQ Worker",
+            "dependencies": [],
+            "details": "Add imports at top of multiagentQueue.ts:\n- `import { processDocument } from '../multiagent';`\n- Ensure `Worker` is imported from 'bullmq' (already imported but verify)\n- Add worker instance variable: `let multiagentWorker: Worker<...> | null = null;`",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement startMultiagentWorker function with inline processor",
+            "description": "Create the worker function that processes multiagent jobs by calling processDocument and updating Document status",
+            "dependencies": [],
+            "details": "Implement `startMultiagentWorker()` function that:\n1. Creates BullMQ Worker with 'multiagent-processing' queue name\n2. Updates Document.status to 'PROCESSING' on job start\n3. Calls `processDocument(documentId, userId, jobId, filePath, fileName, fileType, fileSize)`\n4. On success: Updates Document with extractedData, confidence, processedAt, status='COMPLETED'\n5. On failure: Updates Document status='FAILED' with error in extractedData\n6. Uses concurrency: 2 to limit parallel processing",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add worker event handlers for logging",
+            "description": "Attach event handlers to the worker for completed/failed job logging",
+            "dependencies": [],
+            "details": "Add event handlers to multiagentWorker:\n- `worker.on('completed', ...)` - Log success with jobId and documentId\n- `worker.on('failed', ...)` - Log error with jobId and error message\n- `worker.on('error', ...)` - Log worker-level errors",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add closeMultiagentWorker function for graceful shutdown",
+            "description": "Implement cleanup function to gracefully close the worker on process termination",
+            "dependencies": [],
+            "details": "Add `closeMultiagentWorker()` function that:\n1. Calls `multiagentWorker.close()` if worker exists\n2. Sets `multiagentWorker = null`\n3. Update existing `closeMultiagentQueue()` to also call `closeMultiagentWorker()`\n4. Ensure SIGTERM/SIGINT handlers close both queue and worker",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Export worker functions from multiagentQueue.ts",
+            "description": "Export the new worker functions for use in app initialization",
+            "dependencies": [],
+            "details": "Add exports:\n- `export { startMultiagentWorker, closeMultiagentWorker }`\n- Update module exports if needed for proper initialization flow\n- Document that `startMultiagentWorker()` should be called after `initializeMultiagentQueue()`",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-01-02T20:47:27.453Z"
+      },
+      {
+        "id": "236",
+        "title": "API: Implementation of MultiAgent Endpoints",
+        "description": "Create the new API routes for initiating multi-agent processing and checking status.",
+        "details": "Location: 'quikadmin/src/api/multiagent.routes.ts'. \n1. POST '/api/process/multiagent': Creates record, adds job to queue. \n2. GET '/api/process/multiagent/:jobId/status': Returns current DB record status.\n\nPseudo-code:\nrouter.post('/multiagent', async (req, res) => {\n  const record = await prisma.multiAgentProcessingRecord.create({ data: { ... } });\n  await addMultiAgentProcessJob({ recordId: record.id, ... });\n  res.json({ jobId: record.id });\n});",
+        "testStrategy": "Use Postman or Curl to hit POST /api/process/multiagent. Verify 200 OK and receipt of jobId. Hit GET status endpoint with jobId to verify 'pending' state.",
+        "priority": "medium",
+        "dependencies": ["235"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:51:03.900Z"
+      },
+      {
+        "id": "237",
+        "title": "Testing: Unit Tests for Integration Components",
+        "description": "Write comprehensive unit tests for the Adapter, Strategy, and Sanitizer components.",
+        "details": "Target 80% coverage. Focus on 'MultiAgentAdapter.ts' (mapping accuracy), 'Sanitizer.ts' (injection prevention), and 'ProcessingService.ts' (strategy switching logic). Use Jest or Mocha as per project standards.",
+        "testStrategy": "Run 'npm run test:unit' and review the coverage report to ensure target percentage is met for the new files in 'quikadmin/src/services/multiagent'.",
+        "priority": "medium",
+        "dependencies": ["232", "233"],
+        "status": "cancelled",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:52:08.861Z"
+      },
+      {
+        "id": "238",
+        "title": "Testing: Integration and Smoke Tests",
+        "description": "Perform end-to-end integration testing of the document processing pipeline using real document samples.",
+        "details": "1. Run integration tests covering the Queue -> Worker -> DB flow. \n2. Perform smoke tests with three document types: passport, invoice, and ID card. \n3. Validate that processing time for P95 is under 30 seconds.",
+        "testStrategy": "Trigger the full flow via API and monitor logs/database until completion. Use a timer to measure performance and verify extracted JSON accuracy for each document type.",
+        "priority": "medium",
+        "dependencies": ["236", "237"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:56:54.777Z"
+      },
+      {
+        "id": "239",
+        "title": "Add multiAgentResult Column to Document Model",
+        "description": "Add a single optional Json column `multiAgentResult` to the existing Document model in the Prisma schema to store multi-agent processing results alongside the legacy extractedData field.",
+        "details": "## Implementation Steps\n\n### 1. Update Prisma Schema\nEdit `quikadmin/prisma/schema.prisma` and add the new column to the Document model (around line 315-316, after `extractedData`):\n\n```prisma\nmodel Document {\n  id                 String         @id @default(uuid())\n  userId             String\n  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)\n  fileName           String\n  fileType           String\n  fileSize           Int\n  storageUrl         String\n  status             DocumentStatus @default(PENDING)\n  extractedText      String?\n  extractedData      Json?\n  multiAgentResult   Json?          @map(\"multi_agent_result\")  // NEW: Multi-agent pipeline results\n  confidence         Float?\n  templateId         String?\n  template           Template?      @relation(fields: [templateId], references: [id])\n  processedAt        DateTime?\n  reprocessCount     Int            @default(0) @map(\"reprocess_count\")\n  lastReprocessedAt  DateTime?      @map(\"last_reprocessed_at\")\n  reprocessingHistory Json?         @map(\"reprocessing_history\")\n  createdAt          DateTime       @default(now())\n  updatedAt          DateTime       @updatedAt\n\n  @@map(\"documents\")\n}\n```\n\n### 2. Expected JSON Structure for multiAgentResult\nThe column should store data matching the `DocumentState.results` structure from `quikadmin/src/multiagent/types/state.ts`:\n\n```typescript\ninterface MultiAgentResult {\n  success: boolean;\n  finalData: Record<string, unknown>;  // Extracted fields\n  confidence: {\n    overall: number;  // 0-100\n    byField: Record<string, number>;\n  };\n  processingTimeMs: number;\n  needsReview: boolean;\n  reviewReasons: string[];\n  // Optional metadata\n  pipelineVersion?: string;\n  agentHistory?: Array<{\n    agent: string;\n    status: string;\n    processingTimeMs: number;\n  }>;\n}\n```\n\n### 3. Run Prisma Migration\nExecute the migration from the quikadmin directory:\n\n```bash\ncd quikadmin\nnpx prisma migrate dev --name add_multi_agent_result_to_document\n```\n\n### 4. Regenerate Prisma Client\nThe migration command automatically regenerates the client, but if needed:\n\n```bash\nnpx prisma generate\n```\n\n## Key Considerations\n\n- **Minimal Change**: This is a non-breaking additive change - existing code continues to work\n- **Column Mapping**: Use `@map(\"multi_agent_result\")` for snake_case in the database while keeping camelCase in TypeScript\n- **Nullable**: The `Json?` type ensures the column is nullable, so existing documents won't be affected\n- **No New Model**: Per requirements, this adds to the existing Document model rather than creating a new MultiAgentProcessingRecord model\n- **Relationship with Existing Models**: The `MultiAgentProcessing` model (line 650) already tracks job-level data separately - this column stores the final results directly on the Document for quick access",
+        "testStrategy": "## Verification Steps\n\n### 1. Migration Success\n```bash\ncd quikadmin\nnpx prisma migrate dev --name add_multi_agent_result_to_document\n```\n- Confirm migration completes without errors\n- Check `.prisma/migrations/` for new migration file\n\n### 2. Database Verification\nUse Prisma Studio to verify:\n```bash\nnpx prisma studio\n```\n- Navigate to the `documents` table\n- Confirm `multi_agent_result` column exists\n- Verify column is nullable (NULL values allowed)\n- Verify column type is `jsonb` (PostgreSQL)\n\n### 3. TypeScript Type Check\n```bash\nnpm run typecheck\n# or\nnpx tsc --noEmit\n```\n- Ensure no TypeScript errors related to Prisma client\n- Verify `PrismaClient.document` type includes `multiAgentResult: Prisma.JsonValue | null`\n\n### 4. Test CRUD Operations\nCreate a simple test script or use Prisma Studio:\n```typescript\n// Test write\nawait prisma.document.update({\n  where: { id: 'test-doc-id' },\n  data: {\n    multiAgentResult: {\n      success: true,\n      finalData: { name: 'Test' },\n      confidence: { overall: 95, byField: {} },\n      processingTimeMs: 1500,\n      needsReview: false,\n      reviewReasons: []\n    }\n  }\n});\n\n// Test read\nconst doc = await prisma.document.findUnique({\n  where: { id: 'test-doc-id' },\n  select: { multiAgentResult: true }\n});\nconsole.log(doc?.multiAgentResult);\n```\n\n### 5. Existing Functionality Regression Test\n- Verify existing document upload/processing still works\n- Confirm `extractedData` field is unaffected\n- Run any existing document-related tests",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T19:47:25.245Z"
+      },
+      {
+        "id": "240",
+        "title": "Create MultiAgentService Thin Wrapper",
+        "description": "Create a minimal MultiAgentService class in quikadmin/src/services/MultiAgentService.ts that sanitizes input and delegates to the multiagent PoC's CompatibilityLayer for document processing.",
+        "details": "## Implementation Details\n\nCreate a thin wrapper service class (~30 lines) at `quikadmin/src/services/MultiAgentService.ts`:\n\n### File Structure\n```typescript\nimport { processDocument, DocumentState } from '../multiagent';\nimport { sanitizeLLMInput } from '../utils/sanitizeLLMInput';\n\nexport interface MultiAgentProcessInput {\n  documentId: string;\n  userId: string;\n  rawText: string;\n  jobId?: string;\n  filePath?: string;\n  fileName?: string;\n  fileType?: string;\n  fileSize?: number;\n}\n\nexport class MultiAgentService {\n  /**\n   * Process a document through the multi-agent pipeline.\n   * Sanitizes input before delegating to CompatibilityLayer.\n   */\n  async process(input: MultiAgentProcessInput): Promise<DocumentState> {\n    const sanitizedText = sanitizeLLMInput(input.rawText);\n    \n    return processDocument(\n      input.documentId,\n      input.userId,\n      input.jobId || `job-${Date.now()}`,\n      input.filePath || '',\n      input.fileName || 'unknown',\n      input.fileType || 'application/octet-stream',\n      input.fileSize || 0\n    );\n  }\n}\n```\n\n### Key Considerations\n\n1. **Import Path**: Use relative import from `../multiagent` which exports `processDocument` from `quikadmin/src/multiagent/index.ts`\n\n2. **Dependency on sanitizeLLMInput**: This utility must be created first (SEC-02 task) at `quikadmin/src/utils/sanitizeLLMInput.ts`\n\n3. **No Additional Abstractions**: Per the dev PRD, do NOT add:\n   - Strategy pattern\n   - Factory pattern\n   - Additional adapter layers\n   - Interface files (use types from multiagent module directly)\n\n4. **Type Reuse**: Import `DocumentState` from the multiagent module as the return type to maintain type safety without creating duplicate interfaces\n\n5. **Optional Fields**: The `jobId`, `filePath`, `fileName`, `fileType`, and `fileSize` parameters have sensible defaults for cases where only documentId, userId, and rawText are available\n\n### Why This Approach\n\n- **KISS Principle**: Single responsibility - sanitize and delegate\n- **YAGNI**: No unnecessary patterns or abstractions\n- **Uses Existing Infrastructure**: Leverages the already-implemented multiagent workflow\n- **Testable**: Easy to mock the `processDocument` function for unit testing",
+        "testStrategy": "## Test Strategy\n\n### Unit Tests (quikadmin/src/services/__tests__/MultiAgentService.test.ts)\n\n1. **Input Sanitization Verification**\n   - Mock `sanitizeLLMInput` and `processDocument`\n   - Call `service.process()` with input containing injection patterns\n   - Verify `sanitizeLLMInput` was called with the raw text\n   - Verify `processDocument` received sanitized text\n\n2. **Delegation to processDocument**\n   - Mock `processDocument` to return a known `DocumentState`\n   - Call `service.process()` with valid input\n   - Verify all parameters are passed correctly to `processDocument`\n   - Verify the return value matches the mock result\n\n3. **Default Parameter Handling**\n   - Call `service.process()` with minimal input (only documentId, userId, rawText)\n   - Verify default values are used for optional fields\n\n4. **Error Propagation**\n   - Mock `processDocument` to throw an error\n   - Verify the error propagates correctly to the caller\n\n### Integration Tests\n\n1. **End-to-End Flow**\n   - Use real multiagent module (if Ollama is available in test environment)\n   - Process a small test document\n   - Verify DocumentState result structure\n\n### Test Commands\n```bash\n# Run unit tests\nnpm test -- --testPathPattern=\"MultiAgentService\"\n\n# Run with coverage\nnpm test -- --coverage --testPathPattern=\"MultiAgentService\"\n```\n\n### Expected Coverage: 90%+ for this service (it's a thin wrapper, so high coverage is easily achievable)",
+        "status": "done",
+        "dependencies": ["208"],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T19:51:36.976Z"
+      },
+      {
+        "id": "241",
+        "title": "Link MultiAgent-PoC as Local npm Package",
+        "description": "Configure IntelliFill-MultiAgent-PoC as a local dependency in quikadmin/package.json using file: protocol or npm link, ensuring CompatibilityLayer is exported from the PoC package for import as @intellifill/multiagent-poc.",
+        "details": "## Implementation Details\n\n### 1. Package Location Configuration\n\nThe MultiAgent-PoC must be accessible as a sibling directory to the IntelliFill project. Expected structure:\n```\nN:\\\n├── IntelliFill/\n│   └── quikadmin/\n│       └── package.json  ← Will reference PoC\n└── IntelliFill-MultiAgent-PoC/\n    ├── package.json      ← Must export CompatibilityLayer\n    └── src/\n        └── index.ts      ← Main entry with exports\n```\n\n### 2. Update PoC package.json\n\nEnsure the PoC package exports correctly:\n```json\n{\n  \"name\": \"@intellifill/multiagent-poc\",\n  \"version\": \"1.0.0\",\n  \"main\": \"dist/index.js\",\n  \"types\": \"dist/index.d.ts\",\n  \"exports\": {\n    \".\": {\n      \"import\": \"./dist/index.js\",\n      \"require\": \"./dist/index.js\",\n      \"types\": \"./dist/index.d.ts\"\n    }\n  }\n}\n```\n\n### 3. Create/Verify PoC Exports (src/index.ts)\n\nThe PoC must export CompatibilityLayer:\n```typescript\n// IntelliFill-MultiAgent-PoC/src/index.ts\nexport { CompatibilityLayer } from './compatibility/CompatibilityLayer';\nexport { DocumentState } from './types/state';\n// ... other needed exports\n```\n\n### 4. Add Local Dependency to quikadmin/package.json\n\n**Option A (Recommended): file: protocol**\n```json\n{\n  \"dependencies\": {\n    \"@intellifill/multiagent-poc\": \"file:../../IntelliFill-MultiAgent-PoC\"\n  }\n}\n```\n\n**Option B: npm link (development)**\n```bash\n# In PoC directory\ncd N:\\IntelliFill-MultiAgent-PoC\nnpm link\n\n# In quikadmin directory\ncd N:\\IntelliFill\\quikadmin\nnpm link @intellifill/multiagent-poc\n```\n\n### 5. Build PoC Before Linking\n\nThe PoC must be built before linking:\n```bash\ncd N:\\IntelliFill-MultiAgent-PoC\nnpm install\nnpm run build  # Generates dist/ with compiled JS\n```\n\n### 6. TypeScript Configuration\n\nUpdate quikadmin/tsconfig.json if needed:\n```json\n{\n  \"compilerOptions\": {\n    \"paths\": {\n      \"@intellifill/multiagent-poc\": [\"../../IntelliFill-MultiAgent-PoC/dist\"]\n    }\n  }\n}\n```\n\n### 7. Verify Import Works\n\nAfter linking, this import should work in quikadmin:\n```typescript\n// quikadmin/src/services/MultiAgentService.ts\nimport { CompatibilityLayer, DocumentState } from '@intellifill/multiagent-poc';\n```\n\n### 8. CompatibilityLayer Interface Requirements\n\nThe CompatibilityLayer class must expose:\n```typescript\nexport class CompatibilityLayer {\n  async processDocument(input: {\n    documentId: string;\n    userId: string;\n    rawText: string;\n  }): Promise<ProcessingResult>;\n}\n```\n\n### 9. Handling npm vs pnpm/bun\n\nSince quikadmin uses npm (per package.json scripts), use file: protocol which is npm-native. For bun-based frontend, ensure compatibility:\n```bash\n# In quikadmin\nnpm install  # Will resolve file: dependency\n```\n\n### 10. .gitignore Consideration\n\nAdd node_modules linking artifacts if using npm link:\n```gitignore\n# Local package links\n.pnp.*\n```",
+        "testStrategy": "## Verification Steps\n\n### 1. Package Resolution Test\n```bash\ncd N:\\IntelliFill\\quikadmin\nnpm ls @intellifill/multiagent-poc\n```\nExpected: Shows local file path, no errors\n\n### 2. Import Verification\nCreate a test file:\n```typescript\n// quikadmin/src/__test_import__.ts\nimport { CompatibilityLayer } from '@intellifill/multiagent-poc';\nconst layer = new CompatibilityLayer();\nconsole.log('Import successful:', typeof layer.processDocument === 'function');\n```\nRun: `npx ts-node src/__test_import__.ts`\nExpected: \"Import successful: true\"\n\n### 3. TypeScript Compilation Check\n```bash\ncd N:\\IntelliFill\\quikadmin\nnpx tsc --noEmit\n```\nExpected: No errors related to @intellifill/multiagent-poc imports\n\n### 4. Build Verification\n```bash\nnpm run build\n```\nExpected: Build completes without module resolution errors\n\n### 5. Runtime Test\n```bash\nnpm run dev\n# In another terminal:\ncurl -X POST http://localhost:3002/api/health\n```\nExpected: Server starts without import errors\n\n### 6. Verify CompatibilityLayer Export\n```bash\nnode -e \"const pkg = require('@intellifill/multiagent-poc'); console.log('CompatibilityLayer:', typeof pkg.CompatibilityLayer)\"\n```\nExpected: \"CompatibilityLayer: function\"\n\n### 7. Clean Install Test\n```bash\nrm -rf node_modules\nnpm install\nnpm run build\n```\nExpected: Fresh install correctly resolves local package",
+        "status": "done",
+        "dependencies": ["208"],
+        "priority": "high",
+        "subtasks": [],
+        "updatedAt": "2026-01-02T20:05:08.556Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-02T12:11:02.802Z",
-      "taskCount": 20,
-      "completedCount": 4,
+      "lastModified": "2026-01-02T21:05:27.993Z",
+      "taskCount": 55,
+      "completedCount": 27,
       "tags": ["master"]
     }
   }

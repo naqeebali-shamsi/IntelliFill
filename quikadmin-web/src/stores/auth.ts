@@ -17,3 +17,6 @@ export {
   useBackendAuthError as useAuthError,
   authSelectors,
 } from './backendAuthStore';
+
+// Export types
+export type { LoadingStage } from './backendAuthStore';
