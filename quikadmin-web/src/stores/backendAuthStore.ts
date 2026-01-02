@@ -560,12 +560,15 @@ export const useBackendAuthStore = create<AuthStore>()(
         }),
         version: 1,
         // Handle rehydration from localStorage - runs after persist middleware loads saved state
+        // Automatically validates persisted tokens with backend
         onRehydrateStorage: () => (state) => {
           if (state) {
-            // If we have tokens persisted, ensure isInitialized is true
-            // This fixes the race condition where ProtectedRoute renders before hydration completes
+            // If we have tokens persisted, validate them with backend
             if (state.tokens?.accessToken && state.isAuthenticated) {
-              state.isInitialized = true;
+              // Call initialize to verify token validity
+              // This ensures tokens are still valid after page reload
+              const store = useBackendAuthStore.getState();
+              store.initialize();
             }
           }
         },
