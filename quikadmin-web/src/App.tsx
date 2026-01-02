@@ -6,8 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { initializeStores } from '@/stores/index';
-import { useIsMounted, useTimeout } from '@/hooks';
-import { toast } from 'sonner';
+import { useIsMounted } from '@/hooks';
 
 // Lazy load page components for code splitting
 // Auth pages - loaded immediately on respective routes
@@ -76,21 +75,6 @@ function App() {
 
   // Prevent duplicate initialization with ref flag
   const initRef = useRef(false);
-
-  // 10-second timeout guard for initialization
-  useTimeout(
-    10000,
-    () => {
-      // Show error toast if initialization times out
-      toast.error('Session initialization timed out. Please check your connection and try again.', {
-        action: {
-          label: 'Retry',
-          onClick: () => window.location.reload(),
-        },
-      });
-    },
-    { enabled: false } // Will be manually controlled
-  );
 
   // Memoized initialization function with race condition prevention
   const initialize = useCallback(async () => {
