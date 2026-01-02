@@ -6,6 +6,10 @@
  * - REQ-EXT-005: Process documents asynchronously via Bull queue
  * - PERF-001: Memory-safe document processing with checkpointing
  *
+ * INTEGRATION STATUS: Ready, awaiting MultiAgent PoC integration
+ * Consumer: ../IntelliFill-MultiAgentPoc (working PoC, not yet wired to API)
+ * See: docs/architecture/queue-infrastructure.md
+ *
  * Job Types:
  * - processDocument: Full document processing (extract -> chunk -> embed -> store)
  * - generateEmbeddings: Generate embeddings for existing chunks
