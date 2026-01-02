@@ -9,6 +9,7 @@ import { useAuthStore } from './auth';
 import { useUIStore, uiSelectors } from './uiStore';
 import { useTemplateStore } from './templateStore';
 import type { UIState, UIActions } from './uiStore';
+import { AUTH_STORAGE_KEY } from '../utils/migrationUtils';
 
 // Export stores
 export { useAuthStore, useUIStore, uiSelectors, useTemplateStore };
@@ -83,15 +84,15 @@ export const cleanupStores = () => {
 export const storePersistence = {
   // Clear all persisted data
   clearAll: () => {
-    localStorage.removeItem('intellifill-auth');
+    localStorage.removeItem(AUTH_STORAGE_KEY); // Use standardized key
     localStorage.removeItem('intellifill-ui');
-    localStorage.removeItem('auth-storage');
+    // Legacy keys removed by migration
   },
 
   // Export all store data
   exportAll: () => {
     return {
-      auth: JSON.parse(localStorage.getItem('auth-storage') || '{}'),
+      auth: JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}'),
       ui: JSON.parse(localStorage.getItem('intellifill-ui') || '{}'),
     };
   },
@@ -99,7 +100,7 @@ export const storePersistence = {
   // Import store data
   importAll: (data: Record<string, unknown>) => {
     if (data.auth) {
-      localStorage.setItem('auth-storage', JSON.stringify(data.auth));
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.auth));
     }
     if (data.ui) {
       localStorage.setItem('intellifill-ui', JSON.stringify(data.ui));
