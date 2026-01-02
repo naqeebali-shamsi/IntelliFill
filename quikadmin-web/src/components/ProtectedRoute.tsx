@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth';
 import { Loader2 } from 'lucide-react';
@@ -11,17 +11,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
 
   // Get auth store state and actions
+  // Initialization is handled by App.tsx to prevent race conditions
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const isLoading = useAuthStore((state) => state.isLoading);
   const checkSession = useAuthStore((state) => state.checkSession);
-  const initialize = useAuthStore((state) => state.initialize);
-
-  // Initialize auth store on component mount
-  useEffect(() => {
-    if (!isInitialized) {
-      initialize();
-    }
-  }, [isInitialized, initialize]);
 
   // Show loading spinner while initializing
   if (!isInitialized || isLoading) {
