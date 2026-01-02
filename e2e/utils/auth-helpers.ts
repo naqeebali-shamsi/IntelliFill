@@ -28,11 +28,13 @@ export async function loginAsUser(page: Page, user: TestUser): Promise<void> {
   // Submit form
   await page.getByRole('button', { name: /sign in/i }).click();
 
-  // Wait for login success - dashboard content should appear
-  // Using Playwright's role-based locator which is more reliable across different render states
-  await page.getByRole('heading', { name: 'Dashboard', level: 1 }).waitFor({ state: 'visible', timeout: 15000 });
+  // Wait for dashboard - using URL check and greeting heading
+  await page.waitForURL(/.*dashboard/, { timeout: 15000 });
 
-  // Also verify user info is displayed (confirms authentication worked)
+  // Verify dashboard content is visible (greeting heading shows user is logged in)
+  await page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }).waitFor({ state: 'visible', timeout: 5000 });
+
+  // Verify user email is displayed in sidebar (confirms authentication worked)
   await page.getByText(user.email).waitFor({ state: 'visible', timeout: 5000 });
 }
 
@@ -42,9 +44,13 @@ export async function loginAsUser(page: Page, user: TestUser): Promise<void> {
  * @param page Playwright page object
  */
 export async function logout(page: Page): Promise<void> {
-  // Click logout button (text is "Sign out" in the UI)
-  const logoutButton = page.getByRole('button', { name: /sign out/i });
-  await logoutButton.click();
+  // Find and click the logout button in the user section of the sidebar
+  // The user email is displayed near a logout button
+  const userEmail = await page.locator('[class*="sidebar"]').getByText(/@/).textContent();
+  if (userEmail) {
+    const userSection = page.locator('text=' + userEmail).locator('..');
+    await userSection.getByRole('button').click();
+  }
 
   // Wait for redirect to login
   await page.waitForURL(/.*login/, { timeout: 10000 });

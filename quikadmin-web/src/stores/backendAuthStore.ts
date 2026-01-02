@@ -18,6 +18,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
 import authService, { AuthUser, AuthTokens } from '@/services/authService';
+import { AUTH_STORAGE_KEY } from '@/utils/migrationUtils';
 
 interface LoginCredentials {
   email: string;
@@ -285,7 +286,7 @@ export const useBackendAuthStore = create<AuthStore>()(
           }
 
           // Clear localStorage
-          localStorage.removeItem('intellifill-backend-auth');
+          localStorage.removeItem(AUTH_STORAGE_KEY);
 
           set((state) => {
             state.user = null;
@@ -538,7 +539,7 @@ export const useBackendAuthStore = create<AuthStore>()(
         },
       })),
       {
-        name: 'intellifill-backend-auth',
+        name: AUTH_STORAGE_KEY,
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           user: state.user,
@@ -547,9 +548,20 @@ export const useBackendAuthStore = create<AuthStore>()(
           company: state.company,
           isAuthenticated: state.isAuthenticated,
           rememberMe: state.rememberMe,
+          isInitialized: state.isInitialized, // Persist initialization state to survive page reloads
           lastActivity: state.lastActivity,
         }),
         version: 1,
+        // Handle rehydration from localStorage - runs after persist middleware loads saved state
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            // If we have tokens persisted, ensure isInitialized is true
+            // This fixes the race condition where ProtectedRoute renders before hydration completes
+            if (state.tokens?.accessToken && state.isAuthenticated) {
+              state.isInitialized = true;
+            }
+          }
+        },
       }
     ),
     {

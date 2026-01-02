@@ -1,8 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-// Load environment variables from .env.e2e
-dotenv.config({ path: '.env.e2e' });
+// Determine environment: local, production, or docker (default)
+const E2E_ENV = process.env.E2E_ENV || 'docker';
+
+// Load environment-specific config
+const envFile = E2E_ENV === 'docker'
+  ? '.env.e2e'
+  : `.env.e2e.${E2E_ENV}`;
+
+dotenv.config({ path: path.resolve(__dirname, envFile) });
+
+console.log(`[Playwright] Environment: ${E2E_ENV}, Config: ${envFile}`);
 
 // Environment variables with defaults
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';

@@ -36,11 +36,11 @@ IntelliFill/
 
 **Three separate `.env` files** - never duplicate keys across files:
 
-| File                 | Purpose         | Keys                                                          |
-| -------------------- | --------------- | ------------------------------------------------------------- |
-| `quikadmin/.env`     | Backend config  | DATABASE*URL, SUPABASE*_, JWT\__, REDIS*URL, R2*\*, LOG_LEVEL |
-| `quikadmin-web/.env` | Frontend config | VITE*API_URL, VITE_SUPABASE*_, VITE\__ flags                  |
-| `.env` (root)        | AI tools only   | PERPLEXITY_API_KEY, GEMINI_API_KEY, GROQ_API_KEY              |
+| File                 | Purpose         | Keys                                                            |
+| -------------------- | --------------- | --------------------------------------------------------------- |
+| `quikadmin/.env`     | Backend config  | DATABASE*URL, SUPABASE*\_, JWT\_\_, REDIS*URL, R2*\*, LOG_LEVEL |
+| `quikadmin-web/.env` | Frontend config | VITE*API_URL, VITE_SUPABASE*\_, VITE\_\_ flags                  |
+| `.env` (root)        | AI tools only   | PERPLEXITY_API_KEY, GEMINI_API_KEY, GROQ_API_KEY                |
 
 **SECURITY**: `SUPABASE_SERVICE_ROLE_KEY` must ONLY be in `quikadmin/.env` (never root)
 
@@ -92,4 +92,8 @@ This project has an automatic memory system configured via hooks in `.claude/set
 | Auth        | `docs/explanation/security-model.md`               | Same         |
 | Deployment  | `docs/how-to/deployment/`                          | Same         |
 
-Last Updated: 2025-12-30
+There's a file modification bug in Claude Code. The workaround is: always use complete absolute Windows paths
+with drive letters and backslashes for ALL file operations. Apply this rule going forward, not just for this
+file.
+
+Last Updated: 2026-01-02

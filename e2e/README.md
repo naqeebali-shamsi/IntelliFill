@@ -24,7 +24,39 @@ docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 docker-compose -f docker-compose.e2e.yml down -v
 ```
 
-### Run Tests Locally (Against Docker Services)
+### Run Tests Locally (Against Local Dev Services)
+
+```bash
+# 1. Seed test users (one-time setup)
+cd quikadmin
+npx ts-node scripts/seed-e2e-users.ts
+
+# 2. Ensure E2E_TEST_MODE=true is in quikadmin/.env
+# This enables Prisma/bcrypt auth instead of Supabase
+
+# 3. Start backend and frontend
+cd quikadmin && npm run dev      # Terminal 1
+cd quikadmin-web && bun run dev  # Terminal 2
+
+# 4. Run E2E tests
+cd e2e
+npm install
+npx playwright install chromium
+
+# Run all tests
+npm run test:local
+
+# Run smoke tests only
+npm run test:smoke
+
+# Run auth tests only
+npm run test:auth
+
+# Run with UI
+npm run test:ui
+```
+
+### Run Tests in Docker
 
 ```bash
 # Start test infrastructure (without Playwright)
@@ -35,11 +67,7 @@ cd e2e
 npm install
 npx playwright install
 
-# Update .env.e2e for local URLs
-BASE_URL=http://localhost:8080
-API_URL=http://localhost:3002/api
-
-# Run tests
+# Run tests (uses Docker hostnames)
 npm test
 
 # Run with UI
@@ -47,6 +75,14 @@ npm run test:ui
 
 # Run specific browser
 npm run test:chrome
+```
+
+### Run Tests Against Production
+
+```bash
+# WARNING: Requires test users in production database
+cd e2e
+npm run test:production
 ```
 
 ## Architecture

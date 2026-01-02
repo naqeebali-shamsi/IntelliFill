@@ -7,7 +7,7 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
-    "test:ui": "playwright test --ui",
+    "test:ui": "cross-env E2E_ENV=local playwright test --ui",
     "test:chrome": "playwright test --project=chromium",
     "test:firefox": "playwright test --project=firefox",
     "test:webkit": "playwright test --project=webkit",
@@ -16,11 +16,16 @@
     "codegen": "playwright codegen",
     "docker:build": "docker-compose -f ../docker-compose.e2e.yml build",
     "docker:test": "docker-compose -f ../docker-compose.e2e.yml up --build --abort-on-container-exit",
-    "docker:clean": "docker-compose -f ../docker-compose.e2e.yml down -v"
+    "docker:clean": "docker-compose -f ../docker-compose.e2e.yml down -v",
+    "test:local": "cross-env E2E_ENV=local playwright test --project=chromium",
+    "test:production": "cross-env E2E_ENV=production playwright test --project=chromium",
+    "test:smoke": "cross-env E2E_ENV=local playwright test tests/smoke.spec.ts --project=chromium",
+    "test:auth": "cross-env E2E_ENV=local playwright test tests/auth.spec.ts --project=chromium"
   },
   "dependencies": {
     "@playwright/test": "^1.40.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "cross-env": "^7.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",

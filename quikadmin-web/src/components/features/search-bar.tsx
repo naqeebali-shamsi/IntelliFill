@@ -3,42 +3,45 @@
  * @module components/features/search-bar
  */
 
-import * as React from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { X, Search } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useDebouncedValue, useOnClickOutside } from "@/hooks"
+import * as React from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { X, Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useDebouncedValue, useOnClickOutside } from '@/hooks';
 
-export interface SearchBarProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value" | "results"> {
+export interface SearchBarProps extends Omit<
+  React.ComponentProps<typeof Input>,
+  'onChange' | 'value' | 'results'
+> {
   /**
    * Search query value (controlled)
    */
-  value: string
+  value: string;
   /**
    * Search change callback
    */
-  onChange: (value: string) => void
+  onChange: (value: string) => void;
   /**
    * Debounce delay in milliseconds
    */
-  debounceMs?: number
+  debounceMs?: number;
   /**
    * Show clear button
    */
-  showClearButton?: boolean
+  showClearButton?: boolean;
   /**
    * Placeholder text
    */
-  placeholder?: string
+  placeholder?: string;
   /**
    * Callback when debounced value changes
    */
-  onDebouncedChange?: (value: string) => void
+  onDebouncedChange?: (value: string) => void;
   /**
    * Custom className
    */
-  className?: string
+  className?: string;
 }
 
 /**
@@ -70,55 +73,52 @@ export function SearchBar({
   onChange,
   debounceMs = 300,
   showClearButton = true,
-  placeholder = "Search...",
+  placeholder = 'Search...',
   onDebouncedChange,
   className,
   ...props
 }: SearchBarProps) {
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const debouncedValue = useDebouncedValue(value, debounceMs)
-  const isInitialMount = React.useRef(true)
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const debouncedValue = useDebouncedValue(value, debounceMs);
+  const isInitialMount = React.useRef(true);
 
   // Call debounced callback when debounced value changes (skip initial mount)
   React.useEffect(() => {
     if (isInitialMount.current) {
-      isInitialMount.current = false
-      return
+      isInitialMount.current = false;
+      return;
     }
     if (onDebouncedChange) {
-      onDebouncedChange(debouncedValue)
+      onDebouncedChange(debouncedValue);
     }
-  }, [debouncedValue, onDebouncedChange])
+  }, [debouncedValue, onDebouncedChange]);
 
   // Keyboard shortcut: Ctrl/Cmd + K to focus search
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault()
-        inputRef.current?.focus()
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
       }
 
       // Escape to clear search
-      if (e.key === "Escape" && value && document.activeElement === inputRef.current) {
-        onChange("")
-        inputRef.current?.blur()
+      if (e.key === 'Escape' && value && document.activeElement === inputRef.current) {
+        onChange('');
+        inputRef.current?.blur();
       }
-    }
+    };
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [value, onChange])
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [value, onChange]);
 
   const handleClear = () => {
-    onChange("")
-    inputRef.current?.focus()
-  }
+    onChange('');
+    inputRef.current?.focus();
+  };
 
   return (
-    <div
-      data-slot="search-bar"
-      className={cn("relative flex items-center", className)}
-    >
+    <div data-slot="search-bar" className={cn('relative flex items-center', className)}>
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
       <Input
         ref={inputRef}
@@ -126,10 +126,7 @@ export function SearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={cn(
-          "pl-9 pr-9",
-          showClearButton && value && "pr-9"
-        )}
+        className={cn('pl-9 pr-9', showClearButton && value && 'pr-9')}
         aria-label="Search"
         {...props}
       />
@@ -154,7 +151,7 @@ export function SearchBar({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /**
@@ -165,18 +162,18 @@ export interface SearchBarWithResultsProps extends SearchBarProps {
    * Search results to display
    */
   results?: Array<{
-    id: string
-    label: string
-    description?: string
-  }>
+    id: string;
+    label: string;
+    description?: string;
+  }>;
   /**
    * Callback when result is selected
    */
-  onResultSelect?: (result: { id: string; label: string }) => void
+  onResultSelect?: (result: { id: string; label: string }) => void;
   /**
    * Maximum results to show
    */
-  maxResults?: number
+  maxResults?: number;
 }
 
 /**
@@ -198,13 +195,13 @@ export function SearchBarWithResults({
   maxResults = 5,
   ...searchBarProps
 }: SearchBarWithResultsProps) {
-  const [showResults, setShowResults] = React.useState(false)
-  const searchBarRef = React.useRef<HTMLDivElement>(null)
+  const [showResults, setShowResults] = React.useState(false);
+  const searchBarRef = React.useRef<HTMLDivElement>(null);
 
-  const displayResults = results.slice(0, maxResults)
+  const displayResults = results.slice(0, maxResults);
 
   // Close results when clicking outside
-  useOnClickOutside(searchBarRef, () => setShowResults(false))
+  useOnClickOutside(searchBarRef, () => setShowResults(false));
 
   return (
     <div ref={searchBarRef} className="relative w-full">
@@ -212,7 +209,7 @@ export function SearchBarWithResults({
         {...searchBarProps}
         onFocus={() => {
           if (displayResults.length > 0 && searchBarProps.value) {
-            setShowResults(true)
+            setShowResults(true);
           }
         }}
       />
@@ -224,22 +221,20 @@ export function SearchBarWithResults({
               type="button"
               className="w-full text-left px-4 py-2 hover:bg-accent transition-colors"
               onClick={() => {
-                onResultSelect?.(result)
-                setShowResults(false)
+                onResultSelect?.(result);
+                setShowResults(false);
               }}
             >
               <div className="font-medium text-sm">{result.label}</div>
               {result.description && (
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {result.description}
-                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">{result.description}</div>
               )}
             </button>
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default SearchBar
+export default SearchBar;
