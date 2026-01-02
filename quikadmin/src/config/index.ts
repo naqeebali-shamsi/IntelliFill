@@ -302,7 +302,6 @@ export function validateConfig(): void {
   }
 }
 
-// Auto-validate on import (can be disabled for testing)
-if (process.env.NODE_ENV !== 'test') {
-  validateConfig();
-}
+// NOTE: Validation is now called explicitly in src/index.ts at startup
+// This ensures clear error messages and controlled startup flow
+// For testing, validateConfig() can be called manually or skipped
