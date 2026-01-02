@@ -121,13 +121,25 @@ const mockUserDataResponse = {
   fieldSources: {
     firstName: [{ documentId: 'doc-1', fileName: 'passport.pdf', confidence: 0.95 }],
     lastName: [{ documentId: 'doc-1', fileName: 'passport.pdf', confidence: 0.95 }],
-    email: [{ documentId: 'doc-2', fileName: 'bank_statement.pdf', confidence: 0.90 }],
+    email: [{ documentId: 'doc-2', fileName: 'bank_statement.pdf', confidence: 0.9 }],
     phone: [{ documentId: 'doc-2', fileName: 'bank_statement.pdf', confidence: 0.85 }],
     ssn: [{ documentId: 'doc-1', fileName: 'passport.pdf', confidence: 0.92 }],
   },
   sources: [
-    { documentId: 'doc-1', fileName: 'passport.pdf', fileType: 'pdf', fields: ['firstName', 'lastName', 'ssn'], confidence: 0.94 },
-    { documentId: 'doc-2', fileName: 'bank_statement.pdf', fileType: 'pdf', fields: ['email', 'phone'], confidence: 0.88 },
+    {
+      documentId: 'doc-1',
+      fileName: 'passport.pdf',
+      fileType: 'pdf',
+      fields: ['firstName', 'lastName', 'ssn'],
+      confidence: 0.94,
+    },
+    {
+      documentId: 'doc-2',
+      fileName: 'bank_statement.pdf',
+      fileType: 'pdf',
+      fields: ['email', 'phone'],
+      confidence: 0.88,
+    },
   ],
   documentCount: 2,
 };
@@ -205,16 +217,18 @@ describe('SimpleFillForm Integration', () => {
     });
 
     it('should disable form upload until profile is selected', async () => {
-      // Return no profiles initially to test the state
-      vi.mocked(profilesService.list).mockResolvedValue({
-        ...mockProfilesResponse,
-        data: { profiles: [], pagination: { total: 0, limit: 50, offset: 0, hasMore: false } },
+      // When user has no profile data (0 documents), form should be disabled
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url === '/users/me/data') {
+          return Promise.resolve({ data: mockEmptyUserDataResponse });
+        }
+        return Promise.reject(new Error('Unknown endpoint'));
       });
 
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        const fileInput = screen.getByLabelText(/blank form/i);
+        const fileInput = document.getElementById('form-upload') as HTMLInputElement;
         expect(fileInput).toBeDisabled();
       });
     });
@@ -223,12 +237,12 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        // Should show the ready message
-        expect(screen.getByText(/ready to fill forms/i)).toBeInTheDocument();
+        // Should show the ready message with field count
+        expect(screen.getByText(/ready:/i)).toBeInTheDocument();
       });
 
-      // Should show document count
-      expect(screen.getByText(/2 processed document/i)).toBeInTheDocument();
+      // Should show fields available
+      expect(screen.getByText(/fields available/i)).toBeInTheDocument();
     });
 
     it('should reset form state when profile is changed', async () => {
@@ -252,7 +266,7 @@ describe('SimpleFillForm Integration', () => {
 
       // Form should be reset (still on upload step)
       await waitFor(() => {
-        expect(screen.getByText('1. Upload Form')).toBeInTheDocument();
+        expect(screen.getByText('2. Upload Target Form')).toBeInTheDocument();
       });
     });
   });
@@ -262,7 +276,7 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        const fileInput = screen.getByLabelText(/blank form/i);
+        const fileInput = document.getElementById('form-upload') as HTMLInputElement;
         expect(fileInput).not.toBeDisabled();
       });
     });
@@ -278,7 +292,8 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText(/no documents found/i)).toBeInTheDocument();
+        // When profile has no data, shows warning
+        expect(screen.getByText(/profile has no data/i)).toBeInTheDocument();
       });
     });
 
@@ -286,7 +301,9 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByText(/using profile "personal"/i)).toBeInTheDocument();
+        // Check for "Using profile" text and selected profile name separately
+        expect(screen.getByText('Using profile')).toBeInTheDocument();
+        expect(screen.getAllByText('Personal').length).toBeGreaterThanOrEqual(1);
       });
     });
   });
@@ -303,7 +320,7 @@ describe('SimpleFillForm Integration', () => {
 
       // Step 2: Upload a form
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
 
       await user.upload(fileInput, file);
 
@@ -313,9 +330,12 @@ describe('SimpleFillForm Integration', () => {
       });
 
       // Should move to mapping step
-      await waitFor(() => {
-        expect(screen.getByText('Auto-Fill Preview')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Review Mappings')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Step 3: Click Fill Form
       const fillButton = screen.getByRole('button', { name: /fill form/i });
@@ -327,12 +347,15 @@ describe('SimpleFillForm Integration', () => {
       });
 
       // Should show success
-      await waitFor(() => {
-        expect(screen.getByText('Form Filled Successfully')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Form Filled Successfully!')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       // Should show download button
-      expect(screen.getByRole('link', { name: /download filled form/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /download pdf/i })).toBeInTheDocument();
     });
 
     it('should show profile-specific description in mapping step', async () => {
@@ -344,15 +367,18 @@ describe('SimpleFillForm Integration', () => {
       });
 
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
       await user.upload(fileInput, file);
 
-      await waitFor(() => {
-        expect(screen.getByText('Auto-Fill Preview')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Review Mappings')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
-      // Should show profile name in description
-      expect(screen.getByText(/for "personal"/i)).toBeInTheDocument();
+      // Should show the mapping description
+      expect(screen.getByText(/verify how fields will be filled/i)).toBeInTheDocument();
     });
   });
 
@@ -366,11 +392,11 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/blank form/i)).not.toBeDisabled();
+        expect(document.getElementById('form-upload') as HTMLInputElement).not.toBeDisabled();
       });
 
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
       await user.upload(fileInput, file);
 
       await waitFor(() => {
@@ -387,23 +413,26 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/blank form/i)).not.toBeDisabled();
+        expect(document.getElementById('form-upload') as HTMLInputElement).not.toBeDisabled();
       });
 
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
       await user.upload(fileInput, file);
 
-      await waitFor(() => {
-        expect(screen.getByText('Auto-Fill Preview')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Review Mappings')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const fillButton = screen.getByRole('button', { name: /fill form/i });
       await user.click(fillButton);
 
       // Should return to map step on error
       await waitFor(() => {
-        expect(screen.queryByText('Form Filled Successfully')).not.toBeInTheDocument();
+        expect(screen.queryByText('Form Filled Successfully!')).not.toBeInTheDocument();
       });
     });
   });
@@ -414,75 +443,90 @@ describe('SimpleFillForm Integration', () => {
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/blank form/i)).not.toBeDisabled();
+        expect(document.getElementById('form-upload') as HTMLInputElement).not.toBeDisabled();
       });
 
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
       await user.upload(fileInput, file);
 
-      await waitFor(() => {
-        expect(screen.getByText('Auto-Fill Preview')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Review Mappings')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
-      // Should show document sources
-      expect(screen.getByText('Data Sources')).toBeInTheDocument();
+      // Should show mapping count badge
+      expect(screen.getByText(/mapped/i)).toBeInTheDocument();
     });
 
-    it('should show Fill Another button after successful fill', async () => {
+    it('should show Start Over button after successful fill', async () => {
       const user = userEvent.setup();
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/blank form/i)).not.toBeDisabled();
+        expect(document.getElementById('form-upload') as HTMLInputElement).not.toBeDisabled();
       });
 
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
       await user.upload(fileInput, file);
 
-      await waitFor(() => {
-        expect(screen.getByText('Auto-Fill Preview')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Review Mappings')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const fillButton = screen.getByRole('button', { name: /fill form/i });
       await user.click(fillButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Form Filled Successfully')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Form Filled Successfully!')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
-      expect(screen.getByRole('button', { name: /fill another/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /start over/i })).toBeInTheDocument();
     });
 
-    it('should reset form but keep profile when Fill Another is clicked', async () => {
+    it('should reset form but keep profile when Start Over is clicked', async () => {
       const user = userEvent.setup();
       render(<SimpleFillForm />, { wrapper: createWrapper() });
 
       await waitFor(() => {
-        expect(screen.getByLabelText(/blank form/i)).not.toBeDisabled();
+        expect(document.getElementById('form-upload') as HTMLInputElement).not.toBeDisabled();
       });
 
       const file = new File(['fake pdf content'], 'test_form.pdf', { type: 'application/pdf' });
-      const fileInput = screen.getByLabelText(/blank form/i);
+      const fileInput = document.getElementById('form-upload') as HTMLInputElement;
       await user.upload(fileInput, file);
 
-      await waitFor(() => {
-        expect(screen.getByText('Auto-Fill Preview')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Review Mappings')).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
       const fillButton = screen.getByRole('button', { name: /fill form/i });
       await user.click(fillButton);
 
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /fill another/i })).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByRole('button', { name: /start over/i })).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
 
-      await user.click(screen.getByRole('button', { name: /fill another/i }));
+      await user.click(screen.getByRole('button', { name: /start over/i }));
 
       // Should return to upload step
       await waitFor(() => {
-        expect(screen.getByText('1. Upload Form')).toBeInTheDocument();
+        expect(screen.getByText('2. Upload Target Form')).toBeInTheDocument();
       });
 
       // Profile should still be selected

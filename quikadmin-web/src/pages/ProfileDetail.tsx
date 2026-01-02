@@ -307,6 +307,7 @@ export default function ProfileDetail() {
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:bg-destructive/10"
+                      aria-label="Delete profile"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
