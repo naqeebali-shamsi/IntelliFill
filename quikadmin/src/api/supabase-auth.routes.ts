@@ -27,15 +27,16 @@ import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 // Use centralized rate limiters to avoid duplication and ensure Redis store is used
 import { authLimiter as centralAuthLimiter } from '../middleware/rateLimiter';
+// Import validated config (will throw on startup if secrets are invalid)
+import { config } from '../config';
 
-// Test mode configuration
-const isTestMode = process.env.NODE_ENV === 'test';
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
-const JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET ||
-  'test_jwt_refresh_secret_for_e2e_testing_environment_must_be_64_chars_minimum';
+// Test mode configuration (for e2e tests - JWT secrets still required in env)
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
+
+// JWT secrets are now loaded from validated config (no fallbacks)
+// Config validation ensures these are set and ≥ 64 characters
+const JWT_SECRET = config.jwt.secret;
+const JWT_REFRESH_SECRET = config.jwt.refreshSecret;
 
 /**
  * Request interfaces
