@@ -167,10 +167,14 @@ try {
       },
     },
     settings: {
-      stalledInterval: 60000, // Check for stalled jobs every minute
-      maxStalledCount: 2, // Jobs can be stalled twice before failing
-      lockDuration: 300000, // Lock jobs for 5 minutes
-      lockRenewTime: 150000, // Renew lock every 2.5 minutes
+      // Reduce Redis requests to stay within Upstash free tier limits
+      stalledInterval: 300000, // Check stalled jobs every 5 minutes (default: 30s)
+      maxStalledCount: 2, // Mark job failed after 2 stalls
+      lockDuration: 300000, // Lock jobs for 5 minutes (default: 30s)
+      lockRenewTime: 150000, // Renew lock every 2.5 minutes (half of lockDuration)
+      guardInterval: 300000, // Guard interval for delayed jobs (default: 5s)
+      retryProcessDelay: 60000, // Wait 1 minute before retrying failed processor (default: 5s)
+      drainDelay: 60000, // Delay when queue is drained (default: 5s)
     },
     limiter: {
       max: MAX_CONCURRENT_JOBS,
