@@ -30,7 +30,8 @@
     "migrate:supabase": "npx ts-node scripts/migrate-users-to-supabase.ts",
     "db:seed": "npx ts-node prisma/seed.ts",
     "db:migrate": "npx prisma migrate dev",
-    "db:generate": "npx prisma generate"
+    "db:generate": "npx prisma generate",
+    "seed:e2e": "npx ts-node scripts/seed-e2e-users.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.952.0",

@@ -14,6 +14,38 @@ This E2E test infrastructure provides:
 
 ## Quick Start
 
+### 🚀 Automated Testing (ZERO Manual Steps)
+
+**The easiest way** - Single command does everything:
+
+```bash
+cd e2e
+npm run test:e2e:auto
+```
+
+**What it does automatically:**
+
+1. ✅ Seeds test database with E2E users
+2. ✅ Starts backend service (port 3002)
+3. ✅ Starts frontend service (port 8080)
+4. ✅ Waits for both services to be ready
+5. ✅ Runs all Playwright E2E tests
+6. ✅ Cleans up (kills processes)
+
+**Requirements:**
+
+- Backend dependencies installed (`cd quikadmin && npm install`)
+- Frontend dependencies installed (`cd quikadmin-web && bun install`)
+- Playwright browsers installed (`cd e2e && npx playwright install chromium`)
+
+**Debug mode:**
+
+```bash
+DEBUG=true npm run test:e2e:auto
+```
+
+---
+
 ### Run Tests in Docker
 
 ```bash
@@ -24,36 +56,29 @@ docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 docker-compose -f docker-compose.e2e.yml down -v
 ```
 
-### Run Tests Locally (Against Local Dev Services)
+---
+
+### Manual Local Testing (Advanced)
+
+If you prefer manual control:
 
 ```bash
-# 1. Seed test users (one-time setup)
-cd quikadmin
-npx ts-node scripts/seed-e2e-users.ts
+# 1. Seed test users
+cd e2e
+npm run seed:db
 
-# 2. Ensure E2E_TEST_MODE=true is in quikadmin/.env
-# This enables Prisma/bcrypt auth instead of Supabase
-
-# 3. Start backend and frontend
+# 2. Start backend and frontend manually
 cd quikadmin && npm run dev      # Terminal 1
 cd quikadmin-web && bun run dev  # Terminal 2
 
-# 4. Run E2E tests
+# 3. Run E2E tests
 cd e2e
-npm install
-npx playwright install chromium
-
-# Run all tests
 npm run test:local
 
-# Run smoke tests only
-npm run test:smoke
-
-# Run auth tests only
-npm run test:auth
-
-# Run with UI
-npm run test:ui
+# Run specific test suites
+npm run test:smoke   # Smoke tests only
+npm run test:auth    # Auth tests only
+npm run test:ui      # Interactive mode
 ```
 
 ### Run Tests in Docker

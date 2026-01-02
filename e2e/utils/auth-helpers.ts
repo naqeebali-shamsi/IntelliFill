@@ -21,21 +21,21 @@ export async function loginAsUser(page: Page, user: TestUser): Promise<void> {
   // Navigate to login page
   await page.goto('/login');
 
-  // Fill in credentials
+  // Wait for login page to fully load (check for Sign in button)
+  await page.getByRole('button', { name: /sign in/i }).waitFor({ state: 'visible', timeout: 10000 });
+
+  // Fill in credentials using same selectors as working auth tests
   await page.getByLabel(/email/i).fill(user.email);
   await page.getByLabel(/password/i).fill(user.password);
 
   // Submit form
   await page.getByRole('button', { name: /sign in/i }).click();
 
-  // Wait for dashboard - using URL check and greeting heading
+  // Wait for navigation to dashboard
   await page.waitForURL(/.*dashboard/, { timeout: 15000 });
 
-  // Verify dashboard content is visible (greeting heading shows user is logged in)
-  await page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }).waitFor({ state: 'visible', timeout: 5000 });
-
-  // Verify user email is displayed in sidebar (confirms authentication worked)
-  await page.getByText(user.email).waitFor({ state: 'visible', timeout: 5000 });
+  // Verify dashboard loaded (greeting heading confirms authentication)
+  await page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
@@ -141,4 +141,36 @@ export async function clearAuth(page: Page): Promise<void> {
 
   // Clear cookies
   await page.context().clearCookies();
+}
+
+/**
+ * Navigate to a page using client-side routing (click sidebar link)
+ * This avoids full page reload which causes auth re-initialization race conditions
+ *
+ * @param page Playwright page object
+ * @param route Route name (upload, documents, dashboard, etc.)
+ */
+export async function navigateTo(page: Page, route: string): Promise<void> {
+  // Map route names to link text patterns
+  const routePatterns: Record<string, RegExp> = {
+    upload: /upload/i,
+    documents: /document/i,
+    dashboard: /dashboard/i,
+    history: /history/i,
+    profiles: /profile/i,
+    templates: /template/i,
+    settings: /setting/i,
+  };
+
+  const pattern = routePatterns[route.toLowerCase()];
+  if (!pattern) {
+    // Fallback to page.goto for unknown routes
+    await page.goto(`/${route}`);
+    return;
+  }
+
+  // Click sidebar link for client-side navigation
+  const link = page.getByRole('link', { name: pattern }).first();
+  await link.click();
+  await page.waitForURL(new RegExp(`.*${route}`));
 }

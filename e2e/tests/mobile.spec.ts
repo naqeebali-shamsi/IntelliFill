@@ -34,8 +34,8 @@ test.describe('Mobile Responsiveness', () => {
       await page.getByLabel(/password/i).fill(TEST_USERS.user.password);
       await page.getByRole('button', { name: /sign in/i }).click();
 
-      // Should navigate to dashboard
-      await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible({
+      // Should navigate to dashboard (greeting heading shows user is logged in)
+      await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({
         timeout: 15000,
       });
     });
@@ -62,7 +62,7 @@ test.describe('Mobile Responsiveness', () => {
       await page.getByLabel(/email/i).fill(TEST_USERS.user.email);
       await page.getByLabel(/password/i).fill(TEST_USERS.user.password);
       await page.getByRole('button', { name: /sign in/i }).click();
-      await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({
         timeout: 15000,
       });
     });
@@ -114,7 +114,7 @@ test.describe('Mobile Responsiveness', () => {
       await page.getByLabel(/email/i).fill(TEST_USERS.user.email);
       await page.getByLabel(/password/i).fill(TEST_USERS.user.password);
       await page.getByRole('button', { name: /sign in/i }).click();
-      await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({
         timeout: 15000,
       });
     });
@@ -127,8 +127,8 @@ test.describe('Mobile Responsiveness', () => {
         page.getByRole('heading', { name: 'Upload Documents', level: 1 })
       ).toBeVisible();
 
-      // File input or drop zone should exist
-      const uploadZone = page.getByRole('button', { name: /file upload|drop zone/i });
+      // File drop zone should exist (use exact name to avoid matching file input)
+      const uploadZone = page.getByRole('button', { name: 'File upload drop zone' });
       await expect(uploadZone).toBeVisible();
     });
 
@@ -136,7 +136,8 @@ test.describe('Mobile Responsiveness', () => {
       await page.goto('/upload');
 
       // The upload button should be large enough for touch (44px minimum)
-      const uploadButton = page.getByRole('button', { name: /file upload|drop zone/i });
+      // Use exact name to avoid matching the hidden file input
+      const uploadButton = page.getByRole('button', { name: 'File upload drop zone' });
       await expect(uploadButton).toBeVisible();
 
       const box = await uploadButton.boundingBox();
@@ -166,7 +167,7 @@ test.describe('Mobile Responsiveness', () => {
       await page.getByLabel(/email/i).fill(TEST_USERS.user.email);
       await page.getByLabel(/password/i).fill(TEST_USERS.user.password);
       await page.getByRole('button', { name: /sign in/i }).click();
-      await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible({
+      await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({
         timeout: 15000,
       });
 

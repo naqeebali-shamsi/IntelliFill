@@ -20,7 +20,9 @@
     "test:local": "cross-env E2E_ENV=local playwright test --project=chromium",
     "test:production": "cross-env E2E_ENV=production playwright test --project=chromium",
     "test:smoke": "cross-env E2E_ENV=local playwright test tests/smoke.spec.ts --project=chromium",
-    "test:auth": "cross-env E2E_ENV=local playwright test tests/auth.spec.ts --project=chromium"
+    "test:auth": "cross-env E2E_ENV=local playwright test tests/auth.spec.ts --project=chromium",
+    "test:e2e:auto": "node scripts/run-e2e-automated.js",
+    "seed:db": "cd ../quikadmin && npx ts-node scripts/seed-e2e-users.ts"
   },
   "dependencies": {
     "@playwright/test": "^1.40.0",
