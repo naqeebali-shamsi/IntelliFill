@@ -210,20 +210,25 @@ export function validateConfig(): void {
   }
 
   // JWT Secrets (source: quikadmin/.env)
-  if (!jwt.secret) {
+  // Require 64+ characters in ALL environments for security
+  if (!jwt.secret || jwt.secret.length < 64) {
     errors.push({
       variable: 'JWT_SECRET',
-      message: 'JWT secret is required for authentication',
+      message: jwt.secret
+        ? 'JWT secret must be at least 64 characters long'
+        : 'JWT secret is required for authentication',
       source: 'quikadmin/.env',
-      fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('base64'))\"",
+      fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"",
     });
   }
-  if (!jwt.refreshSecret) {
+  if (!jwt.refreshSecret || jwt.refreshSecret.length < 64) {
     errors.push({
       variable: 'JWT_REFRESH_SECRET',
-      message: 'JWT refresh secret is required for token refresh',
+      message: jwt.refreshSecret
+        ? 'JWT refresh secret must be at least 64 characters long'
+        : 'JWT refresh secret is required for token refresh',
       source: 'quikadmin/.env',
-      fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('base64'))\"",
+      fix: "Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"",
     });
   }
 
@@ -254,24 +259,7 @@ export function validateConfig(): void {
   }
 
   // Production-specific validations
-  if (server.nodeEnv === 'production') {
-    if (jwt.secret && jwt.secret.length < 64) {
-      errors.push({
-        variable: 'JWT_SECRET',
-        message: 'Must be at least 64 characters in production',
-        source: 'quikadmin/.env',
-        fix: 'Generate a longer secret for production security',
-      });
-    }
-    if (jwt.refreshSecret && jwt.refreshSecret.length < 64) {
-      errors.push({
-        variable: 'JWT_REFRESH_SECRET',
-        message: 'Must be at least 64 characters in production',
-        source: 'quikadmin/.env',
-        fix: 'Generate a longer secret for production security',
-      });
-    }
-  }
+  // (JWT secret length is now validated for ALL environments above)
 
   // -------------------------------------------------------------------------
   // WARNINGS: Non-critical but should be addressed
