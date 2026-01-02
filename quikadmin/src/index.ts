@@ -6,8 +6,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Import config module FIRST (auto-validates on import)
-import { config } from './config';
+// Import config module and validation function FIRST
+import { config, validateConfig } from './config';
 
 import express from 'express';
 import cors from 'cors';
@@ -34,7 +34,16 @@ import {
 } from './utils/supabase';
 import { getBasicHealth, getDetailedHealth } from './services/health.service';
 
-// Config validation happens automatically on import
+// Validate configuration explicitly at startup (will throw and exit if invalid)
+try {
+  validateConfig();
+  console.log(`✅ Configuration validated successfully`);
+} catch (error) {
+  console.error('❌ Configuration validation failed');
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+
 console.log(`✅ Configuration loaded (${config.server.nodeEnv} mode)`);
 console.log(`   Server: http://localhost:${config.server.port}`);
 console.log(`   Database: ${config.database.url.split('@')[1]?.split('/')[0] || 'configured'}`);
