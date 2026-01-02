@@ -543,7 +543,14 @@ export const useBackendAuthStore = create<AuthStore>()(
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           user: state.user,
-          tokens: state.tokens,
+          // Only persist accessToken, exclude refreshToken for security
+          tokens: state.tokens
+            ? {
+                accessToken: state.tokens.accessToken,
+                expiresIn: state.tokens.expiresIn,
+                refreshToken: '', // Empty string, not persisted
+              }
+            : null,
           tokenExpiresAt: state.tokenExpiresAt,
           company: state.company,
           isAuthenticated: state.isAuthenticated,
