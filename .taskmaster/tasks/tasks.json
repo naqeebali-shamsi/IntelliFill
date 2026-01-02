@@ -72,7 +72,7 @@
         "testStrategy": "Unit tests: simulate old keys → verify migration to new key and cleanup. E2E test: populate old keys → reload → verify data in new key only. Test idempotency: run migration twice → no data loss.",
         "priority": "high",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -125,7 +125,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-01-02T11:24:27.217Z"
+        "updatedAt": "2026-01-02T11:54:32.725Z"
       },
       {
         "id": "189",
@@ -135,7 +135,7 @@
         "testStrategy": "E2E test: rapid page reloads (10x) → verify single /api/auth/v2/me call per reload. Console log analysis: no race warnings. Network tab: no duplicate API calls.",
         "priority": "high",
         "dependencies": ["188"],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -187,7 +187,8 @@
             "testStrategy": "Run test suite → verify passes consistently across browsers. Test edge cases: network failure, slow initialization, concurrent navigation.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-02T11:55:14.226Z"
       },
       {
         "id": "190",
@@ -1042,9 +1043,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-02T11:24:27.218Z",
+      "lastModified": "2026-01-02T11:55:14.228Z",
       "taskCount": 20,
-      "completedCount": 1,
+      "completedCount": 2,
       "tags": ["master"]
     }
   }

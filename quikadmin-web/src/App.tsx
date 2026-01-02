@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { initializeStores } from '@/stores/index';
+import { useIsMounted } from '@/hooks';
 
 // Lazy load page components for code splitting
 // Auth pages - loaded immediately on respective routes
@@ -69,10 +70,40 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  // Track if component is mounted to prevent state updates after unmount
+  const isMounted = useIsMounted();
+
+  // Prevent duplicate initialization with ref flag
+  const initRef = useRef(false);
+
+  // Memoized initialization function with race condition prevention
+  const initialize = useCallback(async () => {
+    // Check if already initializing or initialized
+    if (initRef.current) {
+      console.warn('[App] Duplicate initialization attempt blocked');
+      return;
+    }
+
+    // Set flag to prevent concurrent calls
+    initRef.current = true;
+
+    try {
+      // Only initialize if component is still mounted
+      if (isMounted()) {
+        await initializeStores();
+      }
+    } catch (error) {
+      console.error('[App] Store initialization error:', error);
+    } finally {
+      // Reset flag after completion to allow future re-initialization if needed
+      initRef.current = false;
+    }
+  }, [isMounted]);
+
   // Initialize all stores on app startup
   useEffect(() => {
-    initializeStores();
-  }, []);
+    initialize();
+  }, [initialize]);
 
   return (
     <QueryClientProvider client={queryClient}>
