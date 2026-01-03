@@ -1,10 +1,14 @@
 import Bull from 'bull';
+import * as path from 'path';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { OCRService, OCRProgress } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 import { realtimeService } from '../services/RealtimeService';
 import { prisma } from '../utils/prisma';
+
+// Supported image extensions for OCR
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.tiff', '.tif', '.bmp', '.gif'];
 
 /**
  * Global error handlers to prevent OCR worker crashes from taking down the server
@@ -163,27 +167,40 @@ if (ocrQueue) {
 
       await job.progress(10);
 
-      // Process PDF with OCR and track progress
-      const ocrResult = await ocrService.processPDF(filePath, (progress: OCRProgress) => {
-        // Map OCR progress (0-100) to job progress (10-90)
-        const progressPercent = 10 + progress.progress * 0.8;
-        job.progress(progressPercent);
+      // Determine file type from extension (handle both paths and URLs)
+      const fileExt = path.extname(filePath).toLowerCase();
+      const isImage = IMAGE_EXTENSIONS.includes(fileExt);
 
-        // Send progress to specific user only (security: prevents data leakage to other users)
-        if (userId) {
-          realtimeService.sendToUser(userId, 'queue_progress', {
-            jobId: job.id,
-            documentId,
-            progress: progressPercent,
-            stage: progress.stage,
-            message: progress.message,
-          });
-        } else {
-          logger.warn('No userId for realtime OCR progress event', { jobId: job.id, documentId });
-        }
+      logger.info(`Processing ${isImage ? 'image' : 'PDF'} file`, { documentId, fileExt });
 
-        logger.debug(`OCR Progress for ${documentId}: ${progress.stage} - ${progress.message}`);
-      });
+      // Process with appropriate method based on file type
+      let ocrResult;
+      if (isImage) {
+        // Images don't support progress callbacks
+        ocrResult = await ocrService.processImage(filePath);
+      } else {
+        // PDFs support progress callbacks
+        ocrResult = await ocrService.processPDF(filePath, (progress: OCRProgress) => {
+          // Map OCR progress (0-100) to job progress (10-90)
+          const progressPercent = 10 + progress.progress * 0.8;
+          job.progress(progressPercent);
+
+          // Send progress to specific user only (security: prevents data leakage to other users)
+          if (userId) {
+            realtimeService.sendToUser(userId, 'queue_progress', {
+              jobId: job.id,
+              documentId,
+              progress: progressPercent,
+              stage: progress.stage,
+              message: progress.message,
+            });
+          } else {
+            logger.warn('No userId for realtime OCR progress event', { jobId: job.id, documentId });
+          }
+
+          logger.debug(`OCR Progress for ${documentId}: ${progress.stage} - ${progress.message}`);
+        });
+      }
 
       await job.progress(90);
 
