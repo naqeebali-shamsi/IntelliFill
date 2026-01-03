@@ -167,8 +167,16 @@ if (ocrQueue) {
 
       await job.progress(10);
 
-      // Determine file type from extension (handle both paths and URLs)
-      const fileExt = path.extname(filePath).toLowerCase();
+      // Determine file type from extension (handle both paths and URLs with query strings)
+      let fileExt: string;
+      try {
+        // For URLs, parse and get pathname to avoid query string issues
+        const url = new URL(filePath);
+        fileExt = path.extname(url.pathname).toLowerCase();
+      } catch {
+        // Not a valid URL, treat as file path
+        fileExt = path.extname(filePath).toLowerCase();
+      }
       const isImage = IMAGE_EXTENSIONS.includes(fileExt);
 
       logger.info(`Processing ${isImage ? 'image' : 'PDF'} file`, { documentId, fileExt });
