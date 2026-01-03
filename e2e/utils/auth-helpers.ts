@@ -11,31 +11,109 @@ export interface TestUser {
   password: string;
 }
 
+// Default timeouts - can be overridden via environment
+// Production cloud services (Render/Vercel) can have cold starts up to 50+ seconds
+const LOGIN_PAGE_TIMEOUT = parseInt(process.env.LOGIN_PAGE_TIMEOUT || '20000', 10);
+const NAVIGATION_TIMEOUT = parseInt(process.env.NAVIGATION_TIMEOUT || '60000', 10);
+const DASHBOARD_TIMEOUT = parseInt(process.env.DASHBOARD_TIMEOUT || '30000', 10);
+const LOGIN_RETRY_COUNT = parseInt(process.env.LOGIN_RETRY_COUNT || '3', 10);
+const LOGIN_RETRY_DELAY = parseInt(process.env.LOGIN_RETRY_DELAY || '5000', 10);
+
 /**
- * Login as a user
+ * Wait for a specified duration
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Login as a user with retry support for flaky production environments
+ * Handles Render cold starts (503 errors) by retrying login attempts
  *
  * @param page Playwright page object
  * @param user User credentials
  */
 export async function loginAsUser(page: Page, user: TestUser): Promise<void> {
-  // Navigate to login page
-  await page.goto('/login');
+  let lastError: Error | null = null;
 
-  // Wait for login page to fully load (check for Sign in button)
-  await page.getByRole('button', { name: /sign in/i }).waitFor({ state: 'visible', timeout: 10000 });
+  for (let attempt = 1; attempt <= LOGIN_RETRY_COUNT; attempt++) {
+    try {
+      // Navigate to login page - use domcontentloaded instead of networkidle
+      // to avoid timeout issues with slow APIs or continuous polling
+      await page.goto('/login', { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT });
 
-  // Fill in credentials using same selectors as working auth tests
-  await page.getByLabel(/email/i).fill(user.email);
-  await page.getByLabel(/password/i).fill(user.password);
+      // Wait for login page to fully load (check for Sign in button)
+      await page.getByRole('button', { name: /sign in/i }).waitFor({ state: 'visible', timeout: LOGIN_PAGE_TIMEOUT });
 
-  // Submit form
-  await page.getByRole('button', { name: /sign in/i }).click();
+      // Fill in credentials using same selectors as working auth tests
+      await page.getByLabel(/email/i).fill(user.email);
+      await page.getByLabel(/password/i).fill(user.password);
 
-  // Wait for navigation to dashboard
-  await page.waitForURL(/.*dashboard/, { timeout: 15000 });
+      // Submit form
+      await page.getByRole('button', { name: /sign in/i }).click();
 
-  // Verify dashboard loaded (greeting heading confirms authentication)
-  await page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }).waitFor({ state: 'visible', timeout: 10000 });
+      // Wait for EITHER dashboard navigation OR login error
+      // This avoids waiting the full timeout when credentials are wrong
+      const result = await Promise.race([
+        page.waitForURL(/.*dashboard/, { timeout: NAVIGATION_TIMEOUT }).then(() => 'dashboard'),
+        // Look for error toast or alert messages - be specific to avoid false positives
+        page.locator('[data-sonner-toast], [role="alert"], .toast, .error-message')
+          .filter({ hasText: /invalid|incorrect|wrong password|does not exist|failed/i })
+          .first()
+          .waitFor({ state: 'visible', timeout: 15000 })
+          .then(() => 'error')
+          .catch(() => null), // Ignore if error message doesn't appear
+      ]);
+
+      if (result === 'error') {
+        throw new Error('Invalid login credentials - user may not exist');
+      }
+
+      // Verify we navigated to dashboard
+      await page.waitForURL(/.*dashboard/, { timeout: NAVIGATION_TIMEOUT });
+
+      // Verify dashboard loaded (greeting heading confirms authentication)
+      await page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }).waitFor({ state: 'visible', timeout: DASHBOARD_TIMEOUT });
+
+      // Success - exit the retry loop
+      return;
+    } catch (error) {
+      lastError = error as Error;
+      const errorMsg = lastError.message || '';
+
+      // If invalid credentials, don't retry - it will always fail
+      if (errorMsg.includes('Invalid login credentials')) {
+        throw lastError;
+      }
+
+      // Check if there's a 503 error displayed on the page (Render cold start)
+      const has503Error = await page.getByText(/503|service unavailable/i).isVisible().catch(() => false);
+      const hasRequestFailed = await page.getByText(/request failed/i).isVisible().catch(() => false);
+
+      if ((has503Error || hasRequestFailed) && attempt < LOGIN_RETRY_COUNT) {
+        // Wait before retrying to allow Render to wake up
+        await delay(LOGIN_RETRY_DELAY);
+        continue;
+      }
+
+      // For other errors or if we've exhausted retries, check if login actually succeeded
+      // (URL may have changed but element wasn't found in time)
+      const currentUrl = page.url();
+      if (currentUrl.includes('dashboard')) {
+        // Login succeeded, just dashboard element was slow
+        return;
+      }
+
+      // If this is not the last attempt, continue to retry
+      if (attempt < LOGIN_RETRY_COUNT) {
+        await delay(LOGIN_RETRY_DELAY);
+        continue;
+      }
+    }
+  }
+
+  // All retries failed
+  throw lastError || new Error('Login failed after all retries');
 }
 
 /**

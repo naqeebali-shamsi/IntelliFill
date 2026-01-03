@@ -18,8 +18,13 @@ import path from 'path';
 // API URL from environment
 const API_URL = process.env.API_URL || 'http://localhost:3002/api';
 
+// API timeouts for production (Render cold starts can be slow)
+const API_TIMEOUT = 30000; // 30 seconds for standard API calls
+const EXTRACTION_TIMEOUT = 60000; // 60 seconds for OCR extraction
+
 /**
  * Helper class for API operations with authentication
+ * Includes extended timeouts for production cloud services
  */
 class ApiHelper {
   constructor(
@@ -38,6 +43,7 @@ class ApiHelper {
     const response = await this.request.post(`${API_URL}/clients`, {
       headers: this.headers(),
       data: { name, type },
+      timeout: API_TIMEOUT,
     });
     expect(response.ok()).toBeTruthy();
     const body = await response.json();
@@ -47,14 +53,19 @@ class ApiHelper {
   async deleteClient(clientId: string) {
     await this.request.delete(`${API_URL}/clients/${clientId}`, {
       headers: this.headers(),
+      timeout: API_TIMEOUT,
     });
   }
 
   async getProfile(clientId: string) {
     const response = await this.request.get(`${API_URL}/clients/${clientId}/profile`, {
       headers: this.headers(),
+      timeout: API_TIMEOUT,
     });
-    expect(response.ok()).toBeTruthy();
+    if (!response.ok()) {
+      const errorText = await response.text().catch(() => 'Unable to read error body');
+      throw new Error(`getProfile failed: ${response.status()} ${response.statusText()} - ${errorText}`);
+    }
     const body = await response.json();
     return body.data.profile;
   }
@@ -63,8 +74,12 @@ class ApiHelper {
     const response = await this.request.put(`${API_URL}/clients/${clientId}/profile`, {
       headers: this.headers(),
       data: { data },
+      timeout: API_TIMEOUT,
     });
-    expect(response.ok()).toBeTruthy();
+    if (!response.ok()) {
+      const errorText = await response.text().catch(() => 'Unable to read error body');
+      throw new Error(`updateProfile failed: ${response.status()} ${response.statusText()} - ${errorText}`);
+    }
     return response.json();
   }
 
@@ -81,8 +96,12 @@ class ApiHelper {
           [fieldName]: { value, manuallyEdited },
         },
       },
+      timeout: API_TIMEOUT,
     });
-    expect(response.ok()).toBeTruthy();
+    if (!response.ok()) {
+      const errorText = await response.text().catch(() => 'Unable to read error body');
+      throw new Error(`updateProfileField failed: ${response.status()} ${response.statusText()} - ${errorText}`);
+    }
     return response.json();
   }
 
@@ -92,9 +111,13 @@ class ApiHelper {
       {
         headers: this.headers(),
         data: { value },
+        timeout: API_TIMEOUT,
       }
     );
-    expect(response.ok()).toBeTruthy();
+    if (!response.ok()) {
+      const errorText = await response.text().catch(() => 'Unable to read error body');
+      throw new Error(`patchProfileField failed: ${response.status()} ${response.statusText()} - ${errorText}`);
+    }
     return response.json();
   }
 
@@ -113,6 +136,7 @@ class ApiHelper {
         },
         ...(category && { category }),
       },
+      timeout: API_TIMEOUT,
     });
 
     // Document upload may succeed or fail based on file validation
@@ -129,6 +153,7 @@ class ApiHelper {
       {
         headers: this.headers(),
         data: { sync, mergeToProfile: true },
+        timeout: EXTRACTION_TIMEOUT, // Longer timeout for OCR processing
       }
     );
     return response;
@@ -139,6 +164,7 @@ class ApiHelper {
       `${API_URL}/clients/${clientId}/documents/${documentId}`,
       {
         headers: this.headers(),
+        timeout: API_TIMEOUT,
       }
     );
     expect(response.ok()).toBeTruthy();
@@ -148,6 +174,12 @@ class ApiHelper {
 }
 
 test.describe('Manual Edit Protection', () => {
+  // Run tests serially to avoid parallel login issues with cold start APIs
+  test.describe.configure({ mode: 'serial' });
+
+  // Set longer timeout for production cold starts (3 minutes to allow for login retries)
+  test.setTimeout(180000);
+
   let apiHelper: ApiHelper;
   let testClientId: string;
 
@@ -357,6 +389,12 @@ test.describe('Manual Edit Protection', () => {
  * Additional edge case tests for manual edit protection
  */
 test.describe('Manual Edit Protection - Edge Cases', () => {
+  // Run tests serially to avoid parallel login issues with cold start APIs
+  test.describe.configure({ mode: 'serial' });
+
+  // Set longer timeout for production cold starts (3 minutes to allow for login retries)
+  test.setTimeout(180000);
+
   let apiHelper: ApiHelper;
   let testClientId: string;
 
