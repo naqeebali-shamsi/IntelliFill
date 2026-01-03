@@ -7,6 +7,25 @@ import * as path from 'path';
 import * as os from 'os';
 import { logger } from '../utils/logger';
 
+/**
+ * Check if a path is a URL
+ */
+function isUrl(pathOrUrl: string): boolean {
+  return pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
+}
+
+/**
+ * Download file from URL to a buffer
+ */
+async function downloadFile(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export interface OCRResult {
   text: string;
   confidence: number;
@@ -64,15 +83,32 @@ export class OCRService {
     }
   }
 
-  async processPDF(pdfPath: string, onProgress?: ProgressCallback): Promise<OCRResult> {
+  async processPDF(pdfPathOrUrl: string, onProgress?: ProgressCallback): Promise<OCRResult> {
     const startTime = Date.now();
     await this.initialize();
 
     // Create temporary directory for PDF conversion
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ocr-'));
+    let tempPdfPath: string | null = null;
 
     try {
-      const pdfBytes = await fs.readFile(pdfPath);
+      // Get PDF bytes - either from URL or local file
+      let pdfBytes: Buffer;
+      let pdfPath: string;
+
+      if (isUrl(pdfPathOrUrl)) {
+        logger.info(`Downloading PDF from URL for OCR processing`);
+        pdfBytes = await downloadFile(pdfPathOrUrl);
+        // Save to temp file for pdf2pic (which requires a file path)
+        tempPdfPath = path.join(tempDir, 'input.pdf');
+        await fs.writeFile(tempPdfPath, pdfBytes);
+        pdfPath = tempPdfPath;
+        logger.info(`PDF downloaded (${pdfBytes.length} bytes)`);
+      } else {
+        pdfBytes = await fs.readFile(pdfPathOrUrl);
+        pdfPath = pdfPathOrUrl;
+      }
+
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const pageCount = pdfDoc.getPageCount();
 
@@ -195,13 +231,22 @@ export class OCRService {
     }
   }
 
-  async processImage(imagePath: string): Promise<OCRResult> {
+  async processImage(imagePathOrUrl: string): Promise<OCRResult> {
     const startTime = Date.now();
     await this.initialize();
 
     try {
+      // Get image bytes - either from URL or local file
+      let imageBuffer: Buffer;
+      if (isUrl(imagePathOrUrl)) {
+        logger.info(`Downloading image from URL for OCR processing`);
+        imageBuffer = await downloadFile(imagePathOrUrl);
+        logger.info(`Image downloaded (${imageBuffer.length} bytes)`);
+      } else {
+        imageBuffer = await fs.readFile(imagePathOrUrl);
+      }
+
       // Preprocess image
-      const imageBuffer = await fs.readFile(imagePath);
       const processedImage = await this.preprocessImage(imageBuffer);
 
       // Perform OCR
