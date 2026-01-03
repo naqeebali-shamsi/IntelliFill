@@ -25,6 +25,7 @@
  * ```
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { createHash } from 'crypto';
@@ -139,7 +140,7 @@ export class FeatureFlagService {
               percentage: flag.percentage,
               targetUsers: flag.targetUsers,
               excludeUsers: flag.excludeUsers,
-              rules: flag.rules,
+              rules: flag.rules as Prisma.InputJsonValue,
             },
           });
           logger.info(`Created default feature flag: ${flag.name}`);
@@ -277,7 +278,9 @@ export class FeatureFlagService {
 
     return {
       enabled,
-      reason: enabled ? `User in ${flag.percentage}% rollout` : `User outside ${flag.percentage}% rollout`,
+      reason: enabled
+        ? `User in ${flag.percentage}% rollout`
+        : `User outside ${flag.percentage}% rollout`,
       flagName: name,
       userId,
     };
@@ -335,10 +338,7 @@ export class FeatureFlagService {
   /**
    * Create a new A/B test assignment
    */
-  private async createNewAssignment(
-    testName: string,
-    userId: string
-  ): Promise<ABTestVariant> {
+  private async createNewAssignment(testName: string, userId: string): Promise<ABTestVariant> {
     const flag = await this.getFlag(testName);
     const percentage = flag?.percentage || 50;
 
@@ -390,9 +390,7 @@ export class FeatureFlagService {
    * Get deterministic bucket (0-99) for a user based on hash
    */
   private getUserBucket(userId: string, salt: string): number {
-    const hash = createHash('sha256')
-      .update(`${userId}:${salt}`)
-      .digest('hex');
+    const hash = createHash('sha256').update(`${userId}:${salt}`).digest('hex');
 
     // Use first 4 bytes of hash as number, then mod 100
     const num = parseInt(hash.substring(0, 8), 16);
@@ -415,7 +413,7 @@ export class FeatureFlagService {
           percentage: updates.percentage,
           targetUsers: updates.targetUsers,
           excludeUsers: updates.excludeUsers,
-          rules: updates.rules,
+          rules: updates.rules as Prisma.InputJsonValue,
           updatedBy,
         },
       });

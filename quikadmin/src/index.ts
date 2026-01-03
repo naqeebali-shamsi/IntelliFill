@@ -9,7 +9,7 @@ dotenv.config();
 // Import config module and validation function FIRST
 import { config, validateConfig } from './config';
 
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -58,7 +58,7 @@ for (const varName of RECOMMENDED_ENV_VARS) {
   }
 }
 
-const app = express();
+const app: Application = express();
 const PORT = process.env.PORT || 3002;
 
 // Trust proxy for deployments behind reverse proxies (Render, Heroku, etc.)
@@ -69,7 +69,7 @@ if (config.server.nodeEnv === 'production') {
   logger.info('   Trust proxy: enabled (production mode)');
 }
 
-async function initializeApp() {
+async function initializeApp(): Promise<{ app: Application; db: DatabaseService }> {
   try {
     // Initialize database
     const db = new DatabaseService();

@@ -93,6 +93,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^20.10.5",
     "@types/opossum": "^8.1.9",
+    "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",

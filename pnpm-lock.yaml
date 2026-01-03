@@ -203,6 +203,9 @@ importers:
       '@types/opossum':
         specifier: ^8.1.9
         version: 8.1.9
+      '@types/pg':
+        specifier: ^8.16.0
+        version: 8.16.0
       '@types/supertest':
         specifier: ^6.0.3
         version: 6.0.3

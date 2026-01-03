@@ -343,7 +343,8 @@ function routeAfterErrorRecovery(state: DocumentState): string {
  */
 export function createDocumentProcessingGraph() {
   // Define the graph with DocumentState
-  const graph = new StateGraph<DocumentState>({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const graph = new StateGraph<any>({
     channels: {
       documentId: { value: (x: string, y?: string) => y ?? x },
       userId: { value: (x: string, y?: string) => y ?? x },
@@ -375,25 +376,32 @@ export function createDocumentProcessingGraph() {
   graph.addNode(NODE_NAMES.ERROR_RECOVER, errorRecoverNode);
   graph.addNode(NODE_NAMES.FINALIZE, finalizeNode);
 
-  // Add edges
-  graph.addEdge(START, NODE_NAMES.CLASSIFY);
-  graph.addEdge(NODE_NAMES.CLASSIFY, NODE_NAMES.EXTRACT);
-  graph.addEdge(NODE_NAMES.EXTRACT, NODE_NAMES.MAP);
-  graph.addEdge(NODE_NAMES.MAP, NODE_NAMES.QA);
+  // Add edges - use type assertions for LangGraph's strict typing
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addEdge(START, NODE_NAMES.CLASSIFY);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addEdge(NODE_NAMES.CLASSIFY, NODE_NAMES.EXTRACT);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addEdge(NODE_NAMES.EXTRACT, NODE_NAMES.MAP);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addEdge(NODE_NAMES.MAP, NODE_NAMES.QA);
 
   // Conditional edges
-  graph.addConditionalEdges(NODE_NAMES.QA, routeAfterQA, {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addConditionalEdges(NODE_NAMES.QA, routeAfterQA, {
     [NODE_NAMES.FINALIZE]: NODE_NAMES.FINALIZE,
     [NODE_NAMES.ERROR_RECOVER]: NODE_NAMES.ERROR_RECOVER,
   });
 
-  graph.addConditionalEdges(NODE_NAMES.ERROR_RECOVER, routeAfterErrorRecovery, {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addConditionalEdges(NODE_NAMES.ERROR_RECOVER, routeAfterErrorRecovery, {
     [NODE_NAMES.FINALIZE]: NODE_NAMES.FINALIZE,
     [NODE_NAMES.EXTRACT]: NODE_NAMES.EXTRACT,
   });
 
   // Final edge to END
-  graph.addEdge(NODE_NAMES.FINALIZE, END);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (graph as any).addEdge(NODE_NAMES.FINALIZE, END);
 
   return graph.compile();
 }
@@ -432,7 +440,7 @@ export async function processDocument(
   const graph = createDocumentProcessingGraph();
 
   try {
-    const finalState = await graph.invoke(initialState, config);
+    const finalState = (await graph.invoke(initialState, config)) as DocumentState;
 
     logger.info('Document processing completed', {
       documentId,

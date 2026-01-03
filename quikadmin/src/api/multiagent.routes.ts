@@ -13,7 +13,7 @@ import {
   getMultiagentQueueHealth,
 } from '../queues/multiagentQueue';
 
-const router = Router();
+const router: Router = Router();
 
 // Configure multer storage for multi-agent processing
 const storage = multer.diskStorage({

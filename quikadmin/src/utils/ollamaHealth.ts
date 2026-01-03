@@ -78,7 +78,7 @@ async function checkServerConnectivity(): Promise<{
       };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as { version?: string };
     return {
       connected: true,
       responseTimeMs: Date.now() - startTime,
@@ -112,7 +112,7 @@ async function getAvailableModels(): Promise<OllamaModel[]> {
       return [];
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as { models?: OllamaModel[] };
     return data.models || [];
   } catch {
     return [];
@@ -260,7 +260,7 @@ export async function testModel(modelName: string): Promise<{
       };
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as { response?: string };
     return {
       success: !!data.response,
       responseTimeMs: Date.now() - startTime,
@@ -277,9 +277,7 @@ export async function testModel(modelName: string): Promise<{
 /**
  * Get the configured model for a specific agent role
  */
-export function getModelForRole(
-  role: 'classifier' | 'extractor' | 'mapper' | 'qa'
-): string {
+export function getModelForRole(role: 'classifier' | 'extractor' | 'mapper' | 'qa'): string {
   const envVarMap: Record<string, string> = {
     classifier: 'OLLAMA_MODEL_CLASSIFIER',
     extractor: 'OLLAMA_MODEL_EXTRACTOR',

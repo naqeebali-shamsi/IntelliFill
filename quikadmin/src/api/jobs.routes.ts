@@ -6,7 +6,7 @@ import Joi from 'joi';
 import { validate } from '../middleware/validation';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 
-const router = Router();
+const router: Router = Router();
 
 // Schema for job ID validation
 const jobIdSchema = Joi.object({

@@ -61,7 +61,7 @@ export class DatabaseService {
       connectionTimeoutMillis: 15000, // Increased to 15s for Neon cold-start
     });
 
-    this.pool.on('error', (err) => {
+    this.pool.on('error', (err: Error) => {
       logger.error('Unexpected database error:', err);
     });
   }

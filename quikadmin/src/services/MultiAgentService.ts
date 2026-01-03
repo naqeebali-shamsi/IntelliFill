@@ -85,7 +85,7 @@ export class MultiAgentService {
 
     // Create and run the graph
     const graph = createDocumentProcessingGraph();
-    const finalState = await graph.invoke(stateWithText);
+    const finalState = (await graph.invoke(stateWithText)) as DocumentState;
 
     return finalState;
   }
