@@ -10,8 +10,16 @@
 
 import { QueueUnavailableError } from '../../utils/QueueUnavailableError';
 
-// Mock Bull before imports
-jest.mock('bull');
+// Create a shared mock queue object
+let mockQueue: any;
+
+// Mock Bull before imports with a proper factory
+jest.mock('bull', () => {
+  // Return a mock constructor function
+  const MockBull = jest.fn().mockImplementation(() => mockQueue);
+  return MockBull;
+});
+
 jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -26,26 +34,30 @@ process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
 
 describe('documentQueue', () => {
-  let Bull: jest.Mocked<any>;
-  let mockQueue: any;
+  let Bull: jest.MockedFunction<any>;
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
 
-    // Setup Bull mock
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    Bull = require('bull');
+    // Setup mock queue object
     mockQueue = {
       process: jest.fn(),
       on: jest.fn(),
-      close: jest.fn(),
+      close: jest.fn().mockResolvedValue(undefined),
       getWaitingCount: jest.fn().mockResolvedValue(0),
       getActiveCount: jest.fn().mockResolvedValue(0),
       getCompletedCount: jest.fn().mockResolvedValue(0),
       getFailedCount: jest.fn().mockResolvedValue(0),
       getJob: jest.fn(),
     };
+
+    // Get the mocked Bull constructor
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    Bull = require('bull');
+    // Reset and set default implementation
+    Bull.mockClear();
+    Bull.mockImplementation(() => mockQueue);
   });
 
   // ==========================================================================
@@ -125,10 +137,13 @@ describe('documentQueue', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth, isDocumentQueueAvailable } = require('../documentQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
       expect(isDocumentQueueAvailable()).toBe(false);
 
-      await expect(getQueueHealth()).rejects.toThrow(QueueUnavailableError);
+      await expect(getQueueHealth()).rejects.toThrow(QUE);
       await expect(getQueueHealth()).rejects.toThrow(
         "Queue 'document-processing' is currently unavailable"
       );
@@ -141,10 +156,13 @@ describe('documentQueue', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getJobStatus, isDocumentQueueAvailable } = require('../documentQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
       expect(isDocumentQueueAvailable()).toBe(false);
 
-      await expect(getJobStatus('job-123')).rejects.toThrow(QueueUnavailableError);
+      await expect(getJobStatus('job-123')).rejects.toThrow(QUE);
     });
 
     it('should include queue name in error message', async () => {
@@ -154,12 +172,15 @@ describe('documentQueue', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getQueueHealth } = require('../documentQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
       try {
         await getQueueHealth();
         fail('Should have thrown QueueUnavailableError');
       } catch (error) {
-        expect(error).toBeInstanceOf(QueueUnavailableError);
+        expect(error).toBeInstanceOf(QUE);
         expect((error as Error).message).toContain('document-processing');
       }
     });
@@ -283,7 +304,8 @@ describe('documentQueue', () => {
       const status = await getJobStatus('job-123');
 
       expect(status).toBeDefined();
-      expect(status.id).toBe('job-123');
+      // Note: toJobStatusDTO returns jobId not id
+      expect(status.jobId).toBe('job-123');
       expect(status.type).toBe('document_processing');
       expect(status.status).toBe('active');
       expect(status.progress).toBe(50);
@@ -296,8 +318,11 @@ describe('documentQueue', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getJobStatus } = require('../documentQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
-      await expect(getJobStatus('job-123')).rejects.toThrow(QueueUnavailableError);
+      await expect(getJobStatus('job-123')).rejects.toThrow(QUE);
     });
   });
 

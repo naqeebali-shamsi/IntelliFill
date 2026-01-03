@@ -51,7 +51,7 @@ export function translateOCRError(
       }
     },
     {
-      pattern: /pdf.*corrupt|invalid pdf|pdf.*error/i,
+      pattern: /pdf.*corrupt|invalid.*pdf|pdf.*invalid|invalid.*structure|pdf.*error/i,
       result: {
         userMessage: 'The PDF file appears to be corrupted or unsupported.',
         retryable: false,

@@ -18,41 +18,17 @@
 import request from 'supertest';
 import express, { Express } from 'express';
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { createKnowledgeRoutes } from '../knowledge.routes';
+
+// Import the mocked prisma from utils/prisma (mocked in tests/setup.ts)
+import { prisma } from '../../utils/prisma';
+
+// Import cache clearing function to reset between tests
+import { clearOrganizationCache } from '../../middleware/organizationContext';
 
 // ============================================================================
 // Mocks
 // ============================================================================
-
-// Mock PrismaClient
-jest.mock('@prisma/client', () => {
-  const mockPrismaClient = {
-    user: {
-      findUnique: jest.fn(),
-    },
-    documentSource: {
-      create: jest.fn(),
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      count: jest.fn(),
-      groupBy: jest.fn(),
-    },
-    documentChunk: {
-      count: jest.fn(),
-    },
-    processingCheckpoint: {
-      findUnique: jest.fn(),
-    },
-    $queryRaw: jest.fn(),
-    $disconnect: jest.fn(),
-  };
-
-  return {
-    PrismaClient: jest.fn(() => mockPrismaClient),
-  };
-});
 
 // Mock Supabase Auth Middleware
 jest.mock('../../middleware/supabaseAuth', () => ({
@@ -137,7 +113,7 @@ jest.mock('../../utils/logger', () => ({
 
 describe('Knowledge API Routes', () => {
   let app: Express;
-  let mockPrisma: any;
+  const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
   const testUserId = 'test-user-id';
   const testOrgId = '12345678-1234-4234-a234-123456789012';
@@ -155,11 +131,11 @@ describe('Knowledge API Routes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Get mocked Prisma instance
-    mockPrisma = new PrismaClient();
+    // Clear organization cache to prevent cross-test contamination
+    clearOrganizationCache();
 
     // Default mock for user with organization
-    mockPrisma.user.findUnique.mockResolvedValue({
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       id: testUserId,
       organizationId: testOrgId,
     });
@@ -193,14 +169,15 @@ describe('Knowledge API Routes', () => {
   describe('Organization Validation', () => {
     it('should require user to have an organization', async () => {
       // User without organization
-      mockPrisma.user.findUnique.mockResolvedValue({
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: testUserId,
         organizationId: null,
       });
 
       const response = await request(app).get('/api/knowledge/sources').expect(403);
 
-      expect(response.body.error).toBe('Organization required');
+      expect(response.body.error).toBe('Forbidden');
+      expect(response.body.code).toBe('ORGANIZATION_REQUIRED');
     });
   });
 

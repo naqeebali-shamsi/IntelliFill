@@ -264,6 +264,176 @@ jest.mock('redis', () => {
 // 3. Prisma Mock
 // ========================================
 
+// Create shared data stores for Prisma mock
+const prismaDataStores: Record<string, Map<string, any>> = {
+  user: new Map(),
+  document: new Map(),
+  template: new Map(),
+  profile: new Map(),
+  profileData: new Map(),
+  userProfile: new Map(),
+  formFillHistory: new Map(),
+  dataField: new Map(),
+  job: new Map(),
+  auditLog: new Map(),
+  documentSource: new Map(),
+  documentChunk: new Map(),
+  processingCheckpoint: new Map()
+};
+
+let prismaIdCounter = 1;
+const generatePrismaId = () => 'mock-id-' + (prismaIdCounter++);
+
+const matchPrismaWhere = (record: any, where: any): boolean => {
+  if (!where) return true;
+  for (const [key, value] of Object.entries(where)) {
+    if (value === undefined) continue;
+    if (typeof value === 'object' && value !== null) {
+      const v = value as any;
+      if ('equals' in v && record[key] !== v.equals) return false;
+      if ('contains' in v && !String(record[key]).includes(v.contains)) return false;
+      if ('in' in v && !v.in.includes(record[key])) return false;
+      if ('not' in v && record[key] === v.not) return false;
+    } else if (record[key] !== value) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const createPrismaModelDelegate = (modelName: string) => {
+  const store = prismaDataStores[modelName] || new Map();
+  if (!prismaDataStores[modelName]) {
+    prismaDataStores[modelName] = store;
+  }
+  return {
+    findUnique: jest.fn(async (args: any) => {
+      return Array.from(store.values()).find(r => matchPrismaWhere(r, args?.where)) || null;
+    }),
+    findFirst: jest.fn(async (args?: any) => {
+      const records = Array.from(store.values());
+      const filtered = args?.where ? records.filter(r => matchPrismaWhere(r, args.where)) : records;
+      return filtered[0] || null;
+    }),
+    findMany: jest.fn(async (args?: any) => {
+      let records = Array.from(store.values());
+      if (args?.where) records = records.filter(r => matchPrismaWhere(r, args.where));
+      if (args?.skip) records = records.slice(args.skip);
+      if (args?.take) records = records.slice(0, args.take);
+      return records;
+    }),
+    create: jest.fn(async (args: any) => {
+      const id = args.data.id || generatePrismaId();
+      const record = { id, ...args.data, createdAt: new Date(), updatedAt: new Date() };
+      store.set(id, record);
+      return record;
+    }),
+    createMany: jest.fn(async (args: any) => {
+      let count = 0;
+      for (const item of args.data) {
+        const id = item.id || generatePrismaId();
+        store.set(id, { id, ...item, createdAt: new Date(), updatedAt: new Date() });
+        count++;
+      }
+      return { count };
+    }),
+    update: jest.fn(async (args: any) => {
+      const record = Array.from(store.values()).find(r => matchPrismaWhere(r, args.where));
+      if (!record) throw new Error('Record not found in ' + modelName);
+      const updated = { ...record, ...args.data, updatedAt: new Date() };
+      store.set(record.id, updated);
+      return updated;
+    }),
+    updateMany: jest.fn(async (args: any) => {
+      let count = 0;
+      for (const record of store.values()) {
+        if (matchPrismaWhere(record, args.where)) {
+          store.set(record.id, { ...record, ...args.data, updatedAt: new Date() });
+          count++;
+        }
+      }
+      return { count };
+    }),
+    upsert: jest.fn(async (args: any) => {
+      const existing = Array.from(store.values()).find(r => matchPrismaWhere(r, args.where));
+      if (existing) {
+        const updated = { ...existing, ...args.update, updatedAt: new Date() };
+        store.set(existing.id, updated);
+        return updated;
+      }
+      const id = args.create.id || generatePrismaId();
+      const record = { id, ...args.create, createdAt: new Date(), updatedAt: new Date() };
+      store.set(id, record);
+      return record;
+    }),
+    delete: jest.fn(async (args: any) => {
+      const record = Array.from(store.values()).find(r => matchPrismaWhere(r, args.where));
+      if (!record) throw new Error('Record not found in ' + modelName);
+      store.delete(record.id);
+      return record;
+    }),
+    deleteMany: jest.fn(async (args?: any) => {
+      let count = 0;
+      if (!args?.where) {
+        count = store.size;
+        store.clear();
+        return { count };
+      }
+      for (const record of store.values()) {
+        if (matchPrismaWhere(record, args.where)) {
+          store.delete(record.id);
+          count++;
+        }
+      }
+      return { count };
+    }),
+    count: jest.fn(async (args?: any) => {
+      if (!args?.where) return store.size;
+      return Array.from(store.values()).filter(r => matchPrismaWhere(r, args.where)).length;
+    }),
+    aggregate: jest.fn(async () => ({ _count: { _all: 0 } })),
+    groupBy: jest.fn(async () => [])
+  };
+};
+
+// Create a shared mock prisma instance used by src/utils/prisma.ts mock
+const mockPrismaInstance = {
+  user: createPrismaModelDelegate('user'),
+  document: createPrismaModelDelegate('document'),
+  template: createPrismaModelDelegate('template'),
+  profile: createPrismaModelDelegate('profile'),
+  profileData: createPrismaModelDelegate('profileData'),
+  userProfile: createPrismaModelDelegate('userProfile'),
+  formFillHistory: createPrismaModelDelegate('formFillHistory'),
+  dataField: createPrismaModelDelegate('dataField'),
+  job: createPrismaModelDelegate('job'),
+  auditLog: createPrismaModelDelegate('auditLog'),
+  documentSource: createPrismaModelDelegate('documentSource'),
+  documentChunk: createPrismaModelDelegate('documentChunk'),
+  processingCheckpoint: createPrismaModelDelegate('processingCheckpoint'),
+  $connect: jest.fn(async () => {}),
+  $disconnect: jest.fn(async () => {}),
+  $executeRaw: jest.fn(async () => 0),
+  $executeRawUnsafe: jest.fn(async () => 0),
+  $queryRaw: jest.fn(async () => []),
+  $queryRawUnsafe: jest.fn(async () => []),
+  $transaction: jest.fn(async (arg: any) => {
+    if (Array.isArray(arg)) return Promise.all(arg);
+    return arg(mockPrismaInstance);
+  }),
+  $on: jest.fn(),
+  $use: jest.fn()
+};
+
+// Mock src/utils/prisma to prevent $on error and provide shared mock instance
+// This MUST come before @prisma/client mock to be registered first
+jest.mock('../src/utils/prisma', () => ({
+  prisma: mockPrismaInstance,
+  ensureDbConnection: jest.fn(async () => true),
+  startKeepalive: jest.fn(),
+  stopKeepalive: jest.fn()
+}));
+
 jest.mock('@prisma/client', () => {
   const dataStores: Record<string, Map<string, any>> = {
     user: new Map(),

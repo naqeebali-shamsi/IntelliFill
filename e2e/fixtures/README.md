@@ -13,9 +13,13 @@ This directory contains test files used by the Playwright E2E tests.
 
 All PDFs are minimal valid PDF 1.4 documents with basic text content.
 
+### Corrupted/Error Test Files
+
+- **test-corrupted.pdf** - An intentionally corrupted PDF file used to test OCR extraction failure handling (ERR-OCR-001)
+
 ### Invalid Files
 
-- **invalid-file.txt** - A plain text file used to test file type validation
+- **invalid-file.txt** - A plain text file used to test file type validation (ERR-OCR-002)
 
 ## Usage
 

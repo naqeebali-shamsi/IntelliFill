@@ -20,24 +20,6 @@
 
 import { encryptJSON, decryptJSON } from '../../utils/encryption';
 
-// Create mock Prisma instance
-const mockPrisma = {
-  document: {
-    findMany: jest.fn(),
-    count: jest.fn(),
-  },
-  userProfile: {
-    findUnique: jest.fn(),
-    upsert: jest.fn(),
-    delete: jest.fn(),
-  },
-};
-
-// Mock Prisma Client at module level
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn(() => mockPrisma),
-}));
-
 // Mock encryption utilities
 jest.mock('../../utils/encryption', () => ({
   encryptJSON: jest.fn((data) => `encrypted:${JSON.stringify(data)}`),
@@ -61,6 +43,12 @@ jest.mock('../../utils/piiSafeLogger', () => ({
 
 // Import ProfileService after mocks are set up
 import { ProfileService, AggregatedProfile, ProfileField } from '../ProfileService';
+
+// Import the mocked prisma from utils/prisma (mocked in tests/setup.ts)
+import { prisma } from '../../utils/prisma';
+
+// Create reference to mock prisma for test assertions
+const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 describe('ProfileService', () => {
   let service: ProfileService;

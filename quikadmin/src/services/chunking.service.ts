@@ -469,8 +469,23 @@ export class ChunkingService {
 
     let position = 0;
     let chunkIndex = startIndex;
+    let lastPosition = -1; // Track last position for infinite loop detection
+    const maxIterations = Math.ceil(text.length / Math.max(1, targetChars - overlapChars)) + 10;
+    let iterations = 0;
 
     while (position < text.length) {
+      // Safety: prevent infinite loops
+      if (position === lastPosition || iterations++ > maxIterations) {
+        logger.warn('Fixed chunking: breaking potential infinite loop', {
+          position,
+          lastPosition,
+          iterations,
+          maxIterations,
+          textLength: text.length,
+        });
+        break;
+      }
+      lastPosition = position;
       let endPos = Math.min(position + targetChars, text.length);
 
       // Try to break at word boundary
@@ -500,9 +515,17 @@ export class ChunkingService {
         });
       }
 
-      // Move position with overlap
-      position = endPos - overlapChars;
-      if (position < 0) position = 0;
+      // Move position forward, accounting for overlap
+      // CRITICAL: Ensure we always make forward progress to prevent infinite loops
+      const nextPosition = endPos - overlapChars;
+      if (nextPosition <= position) {
+        // If overlap would cause no forward progress, move to end of current chunk
+        position = endPos;
+      } else {
+        position = nextPosition;
+      }
+
+      // Safety check: if we haven't moved forward, break to prevent infinite loop
       if (position >= text.length) break;
     }
 
@@ -522,8 +545,13 @@ export class ChunkingService {
 
     for (const page of extractionResult.pages) {
       // Analyze text structure
+      // Reset regex lastIndex before testing (global regexes maintain state)
+      SENTENCE_ENDINGS.lastIndex = 0;
+      PARAGRAPH_ENDINGS.lastIndex = 0;
       const hasSentences = SENTENCE_ENDINGS.test(page.text);
+      SENTENCE_ENDINGS.lastIndex = 0;
       const hasParagraphs = PARAGRAPH_ENDINGS.test(page.text);
+      PARAGRAPH_ENDINGS.lastIndex = 0;
 
       let pageChunks: DocumentChunk[];
 

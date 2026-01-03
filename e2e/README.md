@@ -250,9 +250,29 @@ Comprehensive auth flow testing:
 
 - Login with valid/invalid credentials
 - Logout
-- Session persistence
+- **Session persistence** (validates token on page reload)
 - Protected route access
 - Registration
+
+#### Session Persistence Test
+
+The `should persist session after page reload` test verifies that:
+
+1. User logs in successfully
+2. Session is saved to localStorage via Zustand persist middleware
+3. After page reload, `onRehydrateStorage` callback restores the session
+4. Token is validated with backend via `/api/auth/v2/me`
+5. User remains authenticated
+
+**Implementation** (see `backendAuthStore.ts`):
+- Tokens stored via `persist` middleware
+- `onRehydrateStorage` calls `store.initialize()` on reload
+- `initialize()` validates token with backend
+
+**Troubleshooting session persistence failures:**
+1. Ensure test users are seeded: `npx ts-node scripts/seed-e2e-users.ts`
+2. Check localStorage in browser DevTools
+3. Verify `/api/auth/v2/me` endpoint returns user data
 
 ### Feature Tests
 

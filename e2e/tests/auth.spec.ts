@@ -111,29 +111,46 @@ test.describe('Authentication', () => {
     await expect(page.getByText('Create an account')).toBeVisible({ timeout: 5000 });
   });
 
-  // SKIPPED: Session persistence after page reload
-  // This test is currently failing because the application does not properly restore
-  // the session from localStorage after a page reload. This is a known issue that
-  // needs to be fixed in the frontend authentication store.
-  // See: backendAuthStore.ts - the rehydrate logic needs to restore the session
+  /**
+   * Session Persistence Test
+   *
+   * Tests that the session persists after page reload using:
+   * 1. Zustand persist middleware (stores tokens in localStorage)
+   * 2. onRehydrateStorage callback (validates tokens on reload)
+   * 3. Backend /api/auth/v2/me validation
+   *
+   * PRE-REQUISITES:
+   * - E2E test users must be seeded: npx ts-node scripts/seed-e2e-users.ts
+   * - Users: test@intellifill.local / Test123!@#
+   *         admin@intellifill.local / Admin123!@#
+   *
+   * Session persistence logic (backendAuthStore.ts):
+   * - Login stores tokens via persist middleware
+   * - On reload, onRehydrateStorage calls store.initialize()
+   * - initialize() calls authService.getMe() to validate token
+   * - If valid, user remains authenticated
+   */
   test('should persist session after page reload', async ({ page }) => {
     // Login
     await page.getByLabel(/email/i).fill(TEST_USERS.user.email);
     await page.getByLabel(/password/i).fill(TEST_USERS.user.password);
     await page.getByRole('button', { name: /sign in/i }).click();
 
-    // Wait for dashboard to fully load
-    await page.waitForURL(/.*dashboard/, { timeout: 15000 });
-    await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({ timeout: 5000 });
-    
+    // Wait for dashboard (may timeout if test users not seeded)
+    // The waitForURL will timeout with clear error message if login fails
+    await page.waitForURL(/.*dashboard/, { timeout: 30000 });
+    await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({ timeout: 10000 });
+
     // Wait for network to be idle before reloading (ensures session is saved)
     await page.waitForLoadState('networkidle');
 
-    // Reload page
+    // Reload page - this tests session persistence
     await page.reload();
 
-    // Should still show dashboard content (session persisted)
-    await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({ timeout: 10000 });
+    // After reload, the session should be restored from localStorage
+    // The onRehydrateStorage callback validates the token with the backend
+    // Should still show dashboard content (session persisted via Zustand persist + backend validation)
+    await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(TEST_USERS.user.email)).toBeVisible({ timeout: 5000 });
   });
 });

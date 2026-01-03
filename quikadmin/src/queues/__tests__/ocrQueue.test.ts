@@ -12,16 +12,35 @@
 
 import { QueueUnavailableError } from '../../utils/QueueUnavailableError';
 
-// Mock dependencies before imports
-jest.mock('bull');
+// Create a shared mock queue object
+let mockQueue: any;
+
+// Mock Bull before imports with a proper factory
+jest.mock('bull', () => {
+  // Return a mock constructor function
+  const MockBull = jest.fn().mockImplementation(() => mockQueue);
+  return MockBull;
+});
+
+// Create a shared mock prisma object for utils/prisma mock
+const mockPrismaDocument = {
+  update: jest.fn(),
+  findUnique: jest.fn(),
+};
+
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
-    document: {
-      update: jest.fn(),
-      findUnique: jest.fn(),
-    },
+    document: mockPrismaDocument,
   })),
 }));
+
+// Mock the prisma singleton used by ocrQueue
+jest.mock('../../utils/prisma', () => ({
+  prisma: {
+    document: mockPrismaDocument,
+  },
+}));
+
 jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -36,19 +55,17 @@ process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
 
 describe('ocrQueue', () => {
-  let Bull: jest.Mocked<any>;
-  let mockQueue: any;
+  let Bull: jest.MockedFunction<any>;
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
 
-    // Setup Bull mock
-    Bull = require('bull');
+    // Setup mock queue object
     mockQueue = {
       process: jest.fn(),
       on: jest.fn(),
-      close: jest.fn(),
+      close: jest.fn().mockResolvedValue(undefined),
       add: jest.fn(),
       getWaitingCount: jest.fn().mockResolvedValue(0),
       getActiveCount: jest.fn().mockResolvedValue(0),
@@ -56,6 +73,12 @@ describe('ocrQueue', () => {
       getFailedCount: jest.fn().mockResolvedValue(0),
       getJob: jest.fn(),
     };
+
+    // Get the mocked Bull constructor
+    Bull = require('bull');
+    // Reset and set default implementation
+    Bull.mockClear();
+    Bull.mockImplementation(() => mockQueue);
   });
 
   // ==========================================================================
@@ -117,10 +140,12 @@ describe('ocrQueue', () => {
       });
 
       const { enqueueDocumentForOCR } = require('../ocrQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
       await expect(
         enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', true)
-      ).rejects.toThrow(QueueUnavailableError);
+      ).rejects.toThrow(QUE);
 
       await expect(
         enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', true)
@@ -133,8 +158,10 @@ describe('ocrQueue', () => {
       });
 
       const { getOCRQueueHealth } = require('../ocrQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
-      await expect(getOCRQueueHealth()).rejects.toThrow(QueueUnavailableError);
+      await expect(getOCRQueueHealth()).rejects.toThrow(QUE);
     });
 
     it('should throw QueueUnavailableError when getting job status with unavailable queue', async () => {
@@ -143,8 +170,10 @@ describe('ocrQueue', () => {
       });
 
       const { getOCRJobStatus } = require('../ocrQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
-      await expect(getOCRJobStatus('job-123')).rejects.toThrow(QueueUnavailableError);
+      await expect(getOCRJobStatus('job-123')).rejects.toThrow(QUE);
     });
 
     it('should throw QueueUnavailableError when reprocessing with unavailable queue', async () => {
@@ -153,10 +182,12 @@ describe('ocrQueue', () => {
       });
 
       const { enqueueDocumentForReprocessing } = require('../ocrQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
       await expect(
         enqueueDocumentForReprocessing('doc-123', 'user-456', '/test/doc.pdf', 'Low confidence')
-      ).rejects.toThrow(QueueUnavailableError);
+      ).rejects.toThrow(QUE);
     });
   });
 
@@ -214,10 +245,12 @@ describe('ocrQueue', () => {
       });
 
       const { enqueueDocumentForOCR } = require('../ocrQueue');
+      // Get QueueUnavailableError from same module context after resetModules
+      const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
       await expect(
         enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', true)
-      ).rejects.toThrow(QueueUnavailableError);
+      ).rejects.toThrow(QUE);
     });
   });
 
@@ -357,9 +390,8 @@ describe('ocrQueue', () => {
     it('should enqueue document for reprocessing with enhanced settings', async () => {
       Bull.mockImplementation(() => mockQueue);
 
-      const { PrismaClient } = require('@prisma/client');
-      const mockPrisma = new PrismaClient();
-      mockPrisma.document.findUnique.mockResolvedValue({ reprocessCount: 1 });
+      // Use the mockPrismaDocument from the top-level mock
+      mockPrismaDocument.findUnique.mockResolvedValue({ reprocessCount: 1 });
 
       const mockJob = { id: 'job-123' };
       mockQueue.add.mockResolvedValue(mockJob);
@@ -399,9 +431,8 @@ describe('ocrQueue', () => {
     it('should throw error when max reprocessing attempts reached', async () => {
       Bull.mockImplementation(() => mockQueue);
 
-      const { PrismaClient } = require('@prisma/client');
-      const mockPrisma = new PrismaClient();
-      mockPrisma.document.findUnique.mockResolvedValue({ reprocessCount: 3 });
+      // Use the mockPrismaDocument from the top-level mock
+      mockPrismaDocument.findUnique.mockResolvedValue({ reprocessCount: 3 });
 
       const { enqueueDocumentForReprocessing } = require('../ocrQueue');
 

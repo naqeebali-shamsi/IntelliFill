@@ -19,35 +19,17 @@
 
 import request from 'supertest';
 import express, { Express } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { createDocumentRoutes } from '../documents.routes';
+
+// Import the mocked prisma from utils/prisma (mocked in tests/setup.ts)
+import { prisma } from '../../utils/prisma';
 
 // ============================================================================
 // Mocks
 // ============================================================================
 
-// Mock PrismaClient with proper mock implementation
-// Define mocks inside the factory to avoid hoisting issues
-jest.mock('@prisma/client', () => {
-  const mockDocumentMethods = {
-    findMany: jest.fn(),
-    findFirst: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-  };
-
-  return {
-    PrismaClient: jest.fn().mockImplementation(() => ({
-      document: mockDocumentMethods,
-    })),
-    // Export the mock so we can access it in tests
-    __mockDocumentMethods: mockDocumentMethods,
-  };
-});
-
-// Access the exported mock methods
-const { __mockDocumentMethods: mockDocumentMethods } = jest.requireMock('@prisma/client');
+// Create reference to mock prisma document methods for test assertions
+const mockDocumentMethods = prisma.document as jest.Mocked<typeof prisma.document>;
 
 // Mock Supabase Auth Middleware
 jest.mock('../../middleware/supabaseAuth', () => ({
@@ -180,11 +162,11 @@ describe('Documents API Routes', () => {
     jest.clearAllMocks();
 
     // Reset all mock functions on the shared Prisma instance
-    mockDocumentMethods.findMany.mockReset();
-    mockDocumentMethods.findFirst.mockReset();
-    mockDocumentMethods.create.mockReset();
-    mockDocumentMethods.update.mockReset();
-    mockDocumentMethods.delete.mockReset();
+    (mockDocumentMethods.findMany as jest.Mock).mockReset();
+    (mockDocumentMethods.findFirst as jest.Mock).mockReset();
+    (mockDocumentMethods.create as jest.Mock).mockReset();
+    (mockDocumentMethods.update as jest.Mock).mockReset();
+    (mockDocumentMethods.delete as jest.Mock).mockReset();
 
     // Reset DocumentService mocks
     mockDocumentService.reprocessDocument.mockReset();

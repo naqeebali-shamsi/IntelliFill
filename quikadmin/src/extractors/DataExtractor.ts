@@ -76,9 +76,9 @@ export class DataExtractor {
   private extractNames(text: string): string[] {
     // Simple name extraction - in production use NER models
     const namePatterns = [
-      /Name:\s*([A-Z][a-z]+ [A-Z][a-z]+)/g,
-      /Full Name:\s*([A-Z][a-z]+ [A-Z][a-z]+)/g,
-      /Mr\.|Mrs\.|Ms\.|Dr\.\s+([A-Z][a-z]+ [A-Z][a-z]+)/g
+      /Name:\s*(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Eng\.)?\s*([A-Z][a-z]+ [A-Z][a-z]+)/g,
+      /Full Name:\s*(?:Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Eng\.)?\s*([A-Z][a-z]+ [A-Z][a-z]+)/g,
+      /(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-z]+ [A-Z][a-z]+)/g
     ];
 
     const names: string[] = [];

@@ -160,6 +160,7 @@ export async function navigateTo(page: Page, route: string): Promise<void> {
     profiles: /profile/i,
     templates: /template/i,
     settings: /setting/i,
+    'fill-form': /intelligent fill|fill form/i,
   };
 
   const pattern = routePatterns[route.toLowerCase()];

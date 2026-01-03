@@ -17,20 +17,6 @@
 import { enqueueDocumentForReprocessing } from '../../queues/ocrQueue';
 import Bull from 'bull';
 
-// Create mock Prisma instance
-const mockPrisma = {
-  document: {
-    findFirst: jest.fn(),
-    findMany: jest.fn(),
-    count: jest.fn(),
-  },
-};
-
-// Mock Prisma Client at module level
-jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn(() => mockPrisma),
-}));
-
 // Mock OCR Queue
 jest.mock('../../queues/ocrQueue', () => ({
   enqueueDocumentForReprocessing: jest.fn(),
@@ -48,6 +34,12 @@ jest.mock('../../utils/piiSafeLogger', () => ({
 
 // Import DocumentService after mocks are set up
 import { DocumentService } from '../DocumentService';
+
+// Import the mocked prisma from utils/prisma (mocked in tests/setup.ts)
+import { prisma } from '../../utils/prisma';
+
+// Create reference to mock prisma for test assertions
+const mockPrisma = prisma as jest.Mocked<typeof prisma>;
 
 describe('DocumentService', () => {
   let service: DocumentService;

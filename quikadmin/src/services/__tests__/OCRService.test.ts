@@ -47,6 +47,11 @@ jest.mock('fs/promises', () => ({
   rm: jest.fn(),
 }));
 
+// Create mock buffer for sharp output (needs to be defined before mock)
+// This is referenced in the sharp mock setup
+const mockProcessedImageBuffer = Buffer.alloc(150);
+mockProcessedImageBuffer.write('\x89PNG\r\n\x1a\n', 0, 'binary');
+
 // Mock sharp
 jest.mock('sharp', () => {
   const mockSharp = jest.fn(() => ({
@@ -55,7 +60,7 @@ jest.mock('sharp', () => {
     sharpen: jest.fn().mockReturnThis(),
     threshold: jest.fn().mockReturnThis(),
     resize: jest.fn().mockReturnThis(),
-    toBuffer: jest.fn().mockResolvedValue(Buffer.from('processed-image')),
+    toBuffer: jest.fn().mockResolvedValue(mockProcessedImageBuffer),
   }));
   return mockSharp;
 });
@@ -64,6 +69,15 @@ jest.mock('sharp', () => {
 jest.mock('pdf2pic', () => ({
   fromPath: jest.fn(),
 }));
+
+// Create a realistic mock image buffer (at least 100 bytes to pass validation)
+// This simulates a minimal valid PNG header + padding
+const createMockImageBuffer = (size: number = 150): Buffer => {
+  const buffer = Buffer.alloc(size);
+  // PNG signature
+  buffer.write('\x89PNG\r\n\x1a\n', 0, 'binary');
+  return buffer;
+};
 
 // Mock logger
 jest.mock('../../utils/logger', () => ({
@@ -171,9 +185,9 @@ describe('OCRService', () => {
       };
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
 
-      // Mock pdf2pic
+      // Mock pdf2pic with a realistic buffer size (>=100 bytes to pass validation)
       const mockConvert = jest.fn().mockResolvedValue({
-        buffer: Buffer.from('page-image'),
+        buffer: createMockImageBuffer(150),
       });
       (fromPath as jest.Mock).mockReturnValue(mockConvert);
 
@@ -340,7 +354,8 @@ describe('OCRService', () => {
     const mockImagePath = '/path/to/image.png';
 
     beforeEach(() => {
-      (fs.readFile as jest.Mock).mockResolvedValue(Buffer.from('image-content'));
+      // Use realistic buffer size (>=50 bytes to pass validation)
+      (fs.readFile as jest.Mock).mockResolvedValue(createMockImageBuffer(150));
       mockWorker.recognize.mockResolvedValue({
         data: {
           text: 'Text extracted from image',
@@ -374,7 +389,7 @@ describe('OCRService', () => {
       await service.processImage(mockImagePath);
 
       expect(sharp).toHaveBeenCalled();
-      expect(mockWorker.recognize).toHaveBeenCalledWith(Buffer.from('processed-image'));
+      expect(mockWorker.recognize).toHaveBeenCalledWith(mockProcessedImageBuffer);
     });
 
     it('should handle image read errors', async () => {
@@ -406,7 +421,7 @@ describe('OCRService', () => {
 
   describe('preprocessImage (private method)', () => {
     it('should apply preprocessing pipeline', async () => {
-      const mockImageBuffer = Buffer.from('original-image');
+      const mockImageBuffer = createMockImageBuffer(150);
       (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
 
       // Setup worker recognize to return valid result
@@ -426,7 +441,7 @@ describe('OCRService', () => {
           sharpen: jest.fn().mockReturnThis(),
           threshold: jest.fn().mockReturnThis(),
           resize: jest.fn().mockReturnThis(),
-          toBuffer: jest.fn().mockResolvedValue(Buffer.from('processed-image')),
+          toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
         };
         return capturedSharpInstance;
       });
@@ -454,7 +469,7 @@ describe('OCRService', () => {
       };
       (sharp as unknown as jest.Mock).mockReturnValue(mockSharpInstance);
 
-      const mockImageBuffer = Buffer.from('original-image');
+      const mockImageBuffer = createMockImageBuffer(150);
       (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
 
       mockWorker.recognize.mockResolvedValue({
@@ -686,7 +701,8 @@ describe('OCRService', () => {
         getPageCount: jest.fn().mockReturnValue(0),
       };
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
-      (fs.readFile as jest.Mock).mockResolvedValue(Buffer.from('pdf'));
+      // Use realistic buffer size for PDF content
+      (fs.readFile as jest.Mock).mockResolvedValue(createMockImageBuffer(150));
       (fs.mkdtemp as jest.Mock).mockResolvedValue('/tmp/test');
       (fs.rm as jest.Mock).mockResolvedValue(undefined);
 
@@ -753,12 +769,14 @@ describe('OCRService', () => {
     it('should not crash on undefined progress callback', async () => {
       const mockPdfDoc = { getPageCount: jest.fn().mockReturnValue(1) };
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
-      (fs.readFile as jest.Mock).mockResolvedValue(Buffer.from('pdf'));
+      // Use realistic buffer size for PDF content
+      (fs.readFile as jest.Mock).mockResolvedValue(createMockImageBuffer(150));
       (fs.mkdtemp as jest.Mock).mockResolvedValue('/tmp/test');
       (fs.rm as jest.Mock).mockResolvedValue(undefined);
 
+      // Use realistic buffer size (>=100 bytes to pass validation)
       const mockConvert = jest.fn().mockResolvedValue({
-        buffer: Buffer.from('page'),
+        buffer: createMockImageBuffer(150),
       });
       (fromPath as jest.Mock).mockReturnValue(mockConvert);
 
