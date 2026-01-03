@@ -27,6 +27,10 @@ export const TEST_USERS = {
     email: process.env.TEST_USER_EMAIL || 'test@intellifill.local',
     password: process.env.TEST_USER_PASSWORD || 'Test123!@#',
   },
+  user2: {
+    email: process.env.TEST_USER2_EMAIL || 'test2@intellifill.local',
+    password: process.env.TEST_USER2_PASSWORD || 'Test123!@#',
+  },
   admin: {
     email: process.env.TEST_ADMIN_EMAIL || 'admin@intellifill.local',
     password: process.env.TEST_ADMIN_PASSWORD || 'Admin123!@#',

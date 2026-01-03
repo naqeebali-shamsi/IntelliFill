@@ -72,12 +72,32 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
 }
 
 /**
+ * Ensure the page is on the app's origin to allow localStorage access
+ * This prevents SecurityError when accessing localStorage from about:blank or cross-origin
+ *
+ * @param page Playwright page object
+ */
+async function ensureAppOrigin(page: Page): Promise<void> {
+  const currentUrl = page.url();
+
+  // Check if we're already on the app's origin
+  // about:blank and empty URLs need navigation
+  if (currentUrl === 'about:blank' || currentUrl === '' || currentUrl === 'about:srcdoc') {
+    // Navigate to the app's root URL (uses baseURL from playwright config)
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+  }
+}
+
+/**
  * Get authentication token from storage
  *
  * @param page Playwright page object
  * @returns Token string or null
  */
 export async function getAuthToken(page: Page): Promise<string | null> {
+  // Ensure we're on the app's origin before accessing localStorage
+  await ensureAppOrigin(page);
+
   // Check localStorage for token
   // Backend auth store uses 'intellifill-backend-auth' key with nested structure
   const token = await page.evaluate(() => {
@@ -102,6 +122,9 @@ export async function getAuthToken(page: Page): Promise<string | null> {
  * @param token Authentication token
  */
 export async function setAuthToken(page: Page, token: string): Promise<void> {
+  // Ensure we're on the app's origin before accessing localStorage
+  await ensureAppOrigin(page);
+
   // Backend auth store uses 'intellifill-backend-auth' key with nested structure
   await page.evaluate((token) => {
     const authData = {
@@ -134,6 +157,10 @@ export async function setAuthToken(page: Page, token: string): Promise<void> {
  * @param page Playwright page object
  */
 export async function clearAuth(page: Page): Promise<void> {
+  // Ensure we're on the app's origin before accessing localStorage
+  // This prevents SecurityError when clearing storage from about:blank or cross-origin
+  await ensureAppOrigin(page);
+
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();

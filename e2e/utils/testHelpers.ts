@@ -160,9 +160,27 @@ export async function apiRequest(
 // ============================================================================
 
 /**
+ * Ensure the page is on the app's origin to allow localStorage access
+ * This prevents SecurityError when accessing localStorage from about:blank or cross-origin
+ */
+async function ensureAppOrigin(page: Page): Promise<void> {
+  const currentUrl = page.url();
+
+  // Check if we're already on the app's origin
+  // about:blank and empty URLs need navigation
+  if (currentUrl === 'about:blank' || currentUrl === '' || currentUrl === 'about:srcdoc') {
+    // Navigate to the app's root URL (uses baseURL from playwright config)
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+  }
+}
+
+/**
  * Set authentication state in browser
  */
 export async function setAuthState(page: Page, tokens: AuthTokens): Promise<void> {
+  // Ensure we're on the app's origin before accessing localStorage
+  await ensureAppOrigin(page);
+
   await page.evaluate((t) => {
     localStorage.setItem('accessToken', t.accessToken);
     localStorage.setItem('refreshToken', t.refreshToken);
@@ -173,6 +191,9 @@ export async function setAuthState(page: Page, tokens: AuthTokens): Promise<void
  * Clear authentication state
  */
 export async function clearAuthState(page: Page): Promise<void> {
+  // Ensure we're on the app's origin before accessing localStorage
+  await ensureAppOrigin(page);
+
   await page.evaluate(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -184,6 +205,9 @@ export async function clearAuthState(page: Page): Promise<void> {
  * Get stored token from browser
  */
 export async function getStoredToken(page: Page): Promise<string | null> {
+  // Ensure we're on the app's origin before accessing localStorage
+  await ensureAppOrigin(page);
+
   return page.evaluate(() => localStorage.getItem('accessToken'));
 }
 

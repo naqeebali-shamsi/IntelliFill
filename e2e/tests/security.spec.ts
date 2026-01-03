@@ -96,8 +96,8 @@ test.describe('Cross-User Data Isolation', () => {
     await loginAsUser(userAPage, TEST_USERS.user);
     userAToken = await getAuthToken(userAPage);
 
-    // Login User B (admin user - different tenant/user)
-    await loginAsUser(userBPage, TEST_USERS.admin);
+    // Login User B (second test user - different user for cross-user isolation tests)
+    await loginAsUser(userBPage, TEST_USERS.user2);
     userBToken = await getAuthToken(userBPage);
   });
 
