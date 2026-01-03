@@ -16,10 +16,24 @@ import { getJobStatus } from '../queues/documentQueue';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { OCRService } from '../services/OCRService';
 import { prisma } from '../utils/prisma';
+import { fileValidationService } from '../services/fileValidation.service';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
 const ALLOWED_MIMETYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/tiff'];
+
+/**
+ * Create a custom error class for file validation failures
+ * This allows the error handler to identify and return appropriate HTTP status codes
+ */
+class FileValidationError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'FileValidationError';
+    this.code = code;
+  }
+}
 
 // Multer config for document upload (PDFs and images)
 const documentUpload = multer({
@@ -27,6 +41,51 @@ const documentUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
+
+    // Check for double extensions (e.g., file.pdf.exe)
+    const doubleExtCheck = fileValidationService.hasDoubleExtension(
+      file.originalname,
+      ALLOWED_EXTENSIONS
+    );
+    if (doubleExtCheck.isDouble) {
+      logger.warn('Double extension attack detected', {
+        filename: file.originalname,
+        extensions: doubleExtCheck.extensions,
+        dangerousExtension: doubleExtCheck.dangerousExtension,
+      });
+      return cb(
+        new FileValidationError(
+          `Suspicious double extension detected: ${file.originalname}. File rejected for security reasons.`,
+          'DOUBLE_EXTENSION'
+        )
+      );
+    }
+
+    // Check for MIME type spoofing (extension doesn't match MIME type)
+    const expectedMimeTypes: Record<string, string[]> = {
+      '.pdf': ['application/pdf'],
+      '.png': ['image/png'],
+      '.jpg': ['image/jpeg'],
+      '.jpeg': ['image/jpeg'],
+      '.tiff': ['image/tiff'],
+      '.tif': ['image/tiff'],
+    };
+    const expectedMimes = expectedMimeTypes[ext];
+    if (expectedMimes && !expectedMimes.includes(file.mimetype)) {
+      logger.warn('MIME type spoofing detected', {
+        filename: file.originalname,
+        extension: ext,
+        declaredMimeType: file.mimetype,
+        expectedMimeTypes: expectedMimes,
+      });
+      return cb(
+        new FileValidationError(
+          `MIME type mismatch: file extension ${ext} does not match declared type ${file.mimetype}`,
+          'MIME_TYPE_MISMATCH'
+        )
+      );
+    }
+
     if (ALLOWED_EXTENSIONS.includes(ext) || ALLOWED_MIMETYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -41,6 +100,28 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
+
+    // Check for double extensions
+    const doubleExtCheck = fileValidationService.hasDoubleExtension(file.originalname, ['.pdf']);
+    if (doubleExtCheck.isDouble) {
+      return cb(
+        new FileValidationError(
+          `Suspicious double extension detected: ${file.originalname}. File rejected for security reasons.`,
+          'DOUBLE_EXTENSION'
+        )
+      );
+    }
+
+    // Check MIME type for PDF
+    if (ext === '.pdf' && file.mimetype !== 'application/pdf') {
+      return cb(
+        new FileValidationError(
+          `MIME type mismatch: expected application/pdf but got ${file.mimetype}`,
+          'MIME_TYPE_MISMATCH'
+        )
+      );
+    }
+
     if (ext === '.pdf') {
       cb(null, true);
     } else {

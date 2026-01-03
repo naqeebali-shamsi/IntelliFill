@@ -242,11 +242,61 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
 
       // Multer errors (file upload)
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'File too large' });
+        return res.status(413).json({ error: 'File too large', code: 'FILE_SIZE_EXCEEDED' });
       }
 
       if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        return res.status(400).json({ error: 'Invalid file field' });
+        return res.status(400).json({ error: 'Invalid file field', code: 'INVALID_FILE_FIELD' });
+      }
+
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ error: 'Too many files', code: 'FILE_COUNT_EXCEEDED' });
+      }
+
+      // File validation errors with specific codes (from FileValidationError)
+      if (err.name === 'FileValidationError' || err.code === 'DOUBLE_EXTENSION') {
+        return res.status(400).json({
+          error: err.message,
+          code: err.code || 'FILE_VALIDATION_FAILED',
+        });
+      }
+
+      if (err.code === 'MIME_TYPE_MISMATCH') {
+        return res.status(415).json({
+          error: err.message,
+          code: 'MIME_TYPE_MISMATCH',
+        });
+      }
+
+      // Multer file filter errors (thrown from fileFilter callbacks)
+      // These errors occur when file type/extension validation fails
+      if (
+        err.message &&
+        (err.message.includes('Unsupported file type') ||
+          err.message.includes('File type') ||
+          err.message.includes('not supported') ||
+          err.message.includes('Only PDF') ||
+          err.message.includes('Allowed:'))
+      ) {
+        return res.status(415).json({
+          error: err.message,
+          code: 'UNSUPPORTED_MEDIA_TYPE',
+        });
+      }
+
+      // File validation errors (double extensions, MIME type spoofing, etc.)
+      if (
+        err.message &&
+        (err.message.includes('File validation failed') ||
+          err.message.includes('MIME type mismatch') ||
+          err.message.includes('magic number') ||
+          err.message.includes('double extension') ||
+          err.message.includes('suspicious'))
+      ) {
+        return res.status(422).json({
+          error: err.message,
+          code: 'FILE_VALIDATION_FAILED',
+        });
       }
 
       // Database errors

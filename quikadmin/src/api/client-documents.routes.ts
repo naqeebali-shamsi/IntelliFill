@@ -18,7 +18,29 @@ import path from 'path';
 import fs from 'fs/promises';
 import { OCRService } from '../services/OCRService';
 import { enqueueDocumentForOCR, getOCRJobStatus } from '../queues/ocrQueue';
-import { FileValidationService } from '../services/fileValidation.service';
+import { FileValidationService, fileValidationService } from '../services/fileValidation.service';
+
+/**
+ * Custom error class for file validation failures
+ */
+class FileValidationError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'FileValidationError';
+    this.code = code;
+  }
+}
+
+const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const allowedMimeTypes: Record<string, string[]> = {
+  '.pdf': ['application/pdf'],
+  '.jpg': ['image/jpeg'],
+  '.jpeg': ['image/jpeg'],
+  '.png': ['image/png'],
+  '.gif': ['image/gif'],
+  '.webp': ['image/webp'],
+};
 
 // Configure multer for document uploads
 const storage = multer.diskStorage({
@@ -34,8 +56,44 @@ const upload = multer({
   storage,
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
+
+    // Check for double extensions (e.g., file.pdf.exe)
+    const doubleExtCheck = fileValidationService.hasDoubleExtension(
+      file.originalname,
+      allowedTypes
+    );
+    if (doubleExtCheck.isDouble) {
+      logger.warn('Double extension attack detected in client document upload', {
+        filename: file.originalname,
+        extensions: doubleExtCheck.extensions,
+        dangerousExtension: doubleExtCheck.dangerousExtension,
+      });
+      return cb(
+        new FileValidationError(
+          `Suspicious double extension detected: ${file.originalname}. File rejected for security reasons.`,
+          'DOUBLE_EXTENSION'
+        )
+      );
+    }
+
+    // Check for MIME type spoofing
+    const expectedMimes = allowedMimeTypes[ext];
+    if (expectedMimes && !expectedMimes.includes(file.mimetype)) {
+      logger.warn('MIME type spoofing detected in client document upload', {
+        filename: file.originalname,
+        extension: ext,
+        declaredMimeType: file.mimetype,
+        expectedMimeTypes: expectedMimes,
+      });
+      return cb(
+        new FileValidationError(
+          `MIME type mismatch: file extension ${ext} does not match declared type ${file.mimetype}`,
+          'MIME_TYPE_MISMATCH'
+        )
+      );
+    }
+
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {

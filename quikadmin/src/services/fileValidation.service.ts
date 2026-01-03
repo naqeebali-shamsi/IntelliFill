@@ -280,6 +280,107 @@ export class FileValidationService {
   }
 
   /**
+   * Check if filename has a dangerous double extension
+   * Detects patterns like "file.pdf.exe", "document.jpg.bat", etc.
+   *
+   * @param filename - Filename to check
+   * @param allowedExtensions - List of allowed extensions (e.g., ['.pdf', '.jpg'])
+   * @returns Object with isDouble flag and detected extensions
+   */
+  hasDoubleExtension(
+    filename: string,
+    allowedExtensions: string[]
+  ): {
+    isDouble: boolean;
+    extensions: string[];
+    dangerousExtension?: string;
+  } {
+    const basename = path.basename(filename);
+
+    // Dangerous executable extensions that should never follow a document extension
+    const dangerousExtensions = [
+      '.exe',
+      '.bat',
+      '.cmd',
+      '.com',
+      '.msi',
+      '.scr',
+      '.pif',
+      '.vbs',
+      '.vbe',
+      '.js',
+      '.jse',
+      '.ws',
+      '.wsf',
+      '.wsc',
+      '.wsh',
+      '.ps1',
+      '.psm1',
+      '.psd1',
+      '.sh',
+      '.bash',
+      '.csh',
+      '.ksh',
+      '.zsh',
+      '.pl',
+      '.py',
+      '.rb',
+      '.php',
+      '.jar',
+      '.dll',
+      '.so',
+      '.dylib',
+      '.app',
+      '.dmg',
+      '.iso',
+      '.img',
+      '.reg',
+      '.inf',
+      '.hta',
+      '.cpl',
+      '.lnk',
+      '.url',
+      '.gadget',
+    ];
+
+    // Extract all extensions from filename
+    const parts = basename.split('.');
+    if (parts.length <= 2) {
+      // Single extension or no extension
+      return {
+        isDouble: false,
+        extensions: parts.length > 1 ? [`.${parts[parts.length - 1].toLowerCase()}`] : [],
+      };
+    }
+
+    // Multiple extensions detected
+    const extensions = parts.slice(1).map((ext) => `.${ext.toLowerCase()}`);
+    const lastExt = extensions[extensions.length - 1];
+
+    // Check if the last extension is dangerous
+    if (dangerousExtensions.includes(lastExt)) {
+      return {
+        isDouble: true,
+        extensions,
+        dangerousExtension: lastExt,
+      };
+    }
+
+    // Check if any middle extension is in allowed list and last is different
+    for (let i = 0; i < extensions.length - 1; i++) {
+      if (allowedExtensions.includes(extensions[i]) && !allowedExtensions.includes(lastExt)) {
+        return {
+          isDouble: true,
+          extensions,
+          dangerousExtension: lastExt,
+        };
+      }
+    }
+
+    return { isDouble: false, extensions };
+  }
+
+  /**
    * Validate file size against limits
    *
    * @param buffer - File buffer

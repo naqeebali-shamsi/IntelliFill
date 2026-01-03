@@ -33,6 +33,7 @@ import {
   getFormSuggestionService,
   FormSuggestionsRequest,
 } from '../services/formSuggestion.service';
+import { fileValidationService } from '../services/fileValidation.service';
 
 // ============================================================================
 // Types & Interfaces
@@ -150,6 +151,27 @@ function auditLogger(action: string) {
 // File Upload Configuration
 // ============================================================================
 
+/**
+ * Custom error class for file validation failures
+ */
+class FileValidationError extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'FileValidationError';
+    this.code = code;
+  }
+}
+
+const knowledgeAllowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv'];
+const knowledgeMimeTypes: Record<string, string[]> = {
+  '.pdf': ['application/pdf'],
+  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  '.doc': ['application/msword'],
+  '.txt': ['text/plain'],
+  '.csv': ['text/csv', 'application/csv'],
+};
+
 const storage = multer.diskStorage({
   destination: 'uploads/knowledge/',
   filename: (req, file, cb) => {
@@ -165,9 +187,45 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // 50MB limit for knowledge documents
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowedTypes.includes(ext)) {
+
+    // Check for double extensions (e.g., file.pdf.exe)
+    const doubleExtCheck = fileValidationService.hasDoubleExtension(
+      file.originalname,
+      knowledgeAllowedTypes
+    );
+    if (doubleExtCheck.isDouble) {
+      logger.warn('Double extension attack detected in knowledge upload', {
+        filename: file.originalname,
+        extensions: doubleExtCheck.extensions,
+        dangerousExtension: doubleExtCheck.dangerousExtension,
+      });
+      return cb(
+        new FileValidationError(
+          `Suspicious double extension detected: ${file.originalname}. File rejected for security reasons.`,
+          'DOUBLE_EXTENSION'
+        )
+      );
+    }
+
+    // Check for MIME type spoofing
+    const expectedMimes = knowledgeMimeTypes[ext];
+    if (expectedMimes && !expectedMimes.includes(file.mimetype)) {
+      logger.warn('MIME type spoofing detected in knowledge upload', {
+        filename: file.originalname,
+        extension: ext,
+        declaredMimeType: file.mimetype,
+        expectedMimeTypes: expectedMimes,
+      });
+      return cb(
+        new FileValidationError(
+          `MIME type mismatch: file extension ${ext} does not match declared type ${file.mimetype}`,
+          'MIME_TYPE_MISMATCH'
+        )
+      );
+    }
+
+    if (knowledgeAllowedTypes.includes(ext)) {
       cb(null, true);
     } else {
       cb(new Error(`File type ${ext} not supported for knowledge base`));

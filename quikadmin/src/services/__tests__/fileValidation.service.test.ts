@@ -8,11 +8,7 @@
  * - PDF security validation (REQ-SEC-004)
  */
 
-import {
-  FileValidationService,
-  FILE_LIMITS,
-  ALLOWED_MIME_TYPES,
-} from '../fileValidation.service';
+import { FileValidationService, FILE_LIMITS, ALLOWED_MIME_TYPES } from '../fileValidation.service';
 
 describe('FileValidationService', () => {
   let service: FileValidationService;
@@ -182,9 +178,7 @@ describe('FileValidationService', () => {
     });
 
     it('should reject PDFs with JavaScript', async () => {
-      const maliciousPdf = Buffer.from(
-        '%PDF-1.4\n/JavaScript /S /JS (alert("XSS"))\n%%EOF'
-      );
+      const maliciousPdf = Buffer.from('%PDF-1.4\n/JavaScript /S /JS (alert("XSS"))\n%%EOF');
       const result = await service.validatePDF(maliciousPdf);
       expect(result.isValid).toBe(false);
       expect(result.flags).toContain('PDF_CONTAINS_JAVASCRIPT');
@@ -192,9 +186,7 @@ describe('FileValidationService', () => {
     });
 
     it('should flag PDFs with embedded files', async () => {
-      const pdfWithEmbed = Buffer.from(
-        '%PDF-1.4\n/EmbeddedFile /Type /Filespec\n%%EOF'
-      );
+      const pdfWithEmbed = Buffer.from('%PDF-1.4\n/EmbeddedFile /Type /Filespec\n%%EOF');
       const result = await service.validatePDF(pdfWithEmbed);
       expect(result.flags).toContain('PDF_HAS_EMBEDDED_FILES');
     });
@@ -270,18 +262,16 @@ describe('FileValidationService', () => {
 
     it('should reject malicious PDFs', async () => {
       const maliciousPdf = Buffer.from('%PDF-1.4\n/JavaScript /S /JS (attack)\n%%EOF');
-      const result = await service.validateFile(
-        maliciousPdf,
-        'malicious.pdf',
-        'application/pdf'
-      );
+      const result = await service.validateFile(maliciousPdf, 'malicious.pdf', 'application/pdf');
 
       expect(result.isValid).toBe(false);
       expect(result.securityFlags).toContain('PDF_CONTAINS_JAVASCRIPT');
     });
 
     it('should reject unknown file types by default', async () => {
-      const unknownFile = Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b]);
+      const unknownFile = Buffer.from([
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+      ]);
       const result = await service.validateFile(unknownFile, 'unknown.exe');
 
       // File type detection returns null for unknown, which is not in allowed list
@@ -313,6 +303,79 @@ describe('FileValidationService', () => {
       const content = Buffer.from('Test');
       const hash = service.generateFileHash(content);
       expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    });
+  });
+
+  // ==========================================================================
+  // Double Extension Detection Tests
+  // ==========================================================================
+
+  describe('hasDoubleExtension', () => {
+    const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+
+    it('should detect dangerous double extensions like .pdf.exe', () => {
+      const result = service.hasDoubleExtension('document.pdf.exe', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.exe');
+    });
+
+    it('should detect .jpg.bat as dangerous', () => {
+      const result = service.hasDoubleExtension('image.jpg.bat', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.bat');
+    });
+
+    it('should detect .png.vbs as dangerous', () => {
+      const result = service.hasDoubleExtension('photo.png.vbs', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.vbs');
+    });
+
+    it('should detect .pdf.ps1 as dangerous', () => {
+      const result = service.hasDoubleExtension('report.pdf.ps1', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.ps1');
+    });
+
+    it('should allow single valid extensions', () => {
+      const result = service.hasDoubleExtension('document.pdf', allowedExtensions);
+      expect(result.isDouble).toBe(false);
+    });
+
+    it('should allow files with no extension', () => {
+      const result = service.hasDoubleExtension('README', allowedExtensions);
+      expect(result.isDouble).toBe(false);
+    });
+
+    it('should allow legitimate double extensions like .tar.gz for non-allowed types', () => {
+      // When both extensions are not in the allowed list, it's not detected as malicious
+      const result = service.hasDoubleExtension('archive.tar.gz', allowedExtensions);
+      // .gz is not a dangerous extension per se
+      expect(result.isDouble).toBe(false);
+    });
+
+    it('should detect when allowed extension is followed by unknown extension', () => {
+      const result = service.hasDoubleExtension('document.pdf.unknown', allowedExtensions);
+      // This should be flagged as suspicious
+      expect(result.isDouble).toBe(true);
+    });
+
+    it('should handle multiple extensions correctly', () => {
+      const result = service.hasDoubleExtension('file.pdf.jpg.exe', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.exe');
+    });
+
+    it('should detect shell scripts', () => {
+      const result = service.hasDoubleExtension('report.pdf.sh', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.sh');
+    });
+
+    it('should detect Python scripts', () => {
+      const result = service.hasDoubleExtension('image.png.py', allowedExtensions);
+      expect(result.isDouble).toBe(true);
+      expect(result.dangerousExtension).toBe('.py');
     });
   });
 
