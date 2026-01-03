@@ -25,7 +25,9 @@ export interface RegisterData {
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  // refreshToken is now stored in httpOnly cookie (Phase 2 REQ-005)
+  // Still optional in response for backward compatibility
+  refreshToken?: string;
   expiresIn: number;
   tokenType: string;
 }
@@ -89,9 +91,14 @@ export async function logout(): Promise<{ success: boolean; message?: string }> 
 
 /**
  * Refresh token via backend API
+ * Token is sent automatically via httpOnly cookie (Phase 2 REQ-005)
+ * Optional refreshTokenValue for backward compatibility
  */
-export async function refreshToken(refreshTokenValue: string): Promise<AuthResponse> {
-  const response = await api.post('/auth/v2/refresh', { refreshToken: refreshTokenValue });
+export async function refreshToken(refreshTokenValue?: string): Promise<AuthResponse> {
+  // If token is provided, send in body (backward compatibility)
+  // Otherwise, the httpOnly cookie will be sent automatically
+  const body = refreshTokenValue ? { refreshToken: refreshTokenValue } : {};
+  const response = await api.post('/auth/v2/refresh', body);
   return response.data;
 }
 

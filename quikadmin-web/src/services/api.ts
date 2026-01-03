@@ -7,6 +7,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Enable credentials for httpOnly cookie support (Phase 2 REQ-005)
+  withCredentials: true,
 });
 
 // Shared refresh promise to prevent multiple simultaneous refresh attempts
@@ -31,7 +33,8 @@ api.interceptors.request.use(async (config) => {
   const isAuthEndpoint = config.url?.includes('/auth/');
 
   // Proactively refresh token if authenticated and token is expiring soon
-  if (!isAuthEndpoint && authState.isAuthenticated && authState.tokens?.refreshToken) {
+  // With httpOnly cookies (Phase 2 REQ-005), we don't need refreshToken in state
+  if (!isAuthEndpoint && authState.isAuthenticated && authState.tokens?.accessToken) {
     if (authState.isTokenExpiringSoon()) {
       // Use shared promise to prevent multiple simultaneous refresh attempts
       if (!proactiveRefreshPromise) {
@@ -82,7 +85,9 @@ api.interceptors.response.use(
             try {
               const authStore = getAuthStore();
 
-              if (!authStore.tokens?.refreshToken) {
+              // With httpOnly cookies (Phase 2 REQ-005), refreshToken is in cookie not state
+              // Only check if user was authenticated before attempting refresh
+              if (!authStore.isAuthenticated) {
                 return null;
               }
               await authStore.refreshToken();

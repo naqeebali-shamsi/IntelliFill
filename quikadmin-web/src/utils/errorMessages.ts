@@ -37,17 +37,18 @@ export function getUserErrorMessage(error: unknown): string {
     if (err.message) {
       // Filter out technical messages
       const msg = err.message;
+      const msgLower = msg.toLowerCase();
       if (msg.includes('Network Error')) {
         return 'Connection failed. Please check your internet connection.';
       }
-      if (msg.includes('timeout')) {
+      if (msgLower.includes('timeout') || msgLower.includes('timed out')) {
         return 'Request timed out. Please try again.';
       }
       if (msg.includes('401') || msg.includes('Unauthorized')) {
         return 'Session expired. Please log in again.';
       }
       if (msg.includes('403') || msg.includes('Forbidden')) {
-        return 'You don\'t have permission to perform this action.';
+        return "You don't have permission to perform this action.";
       }
       if (msg.includes('404')) {
         return 'The requested resource was not found.';
@@ -75,7 +76,12 @@ export function isRetryableError(error: unknown): boolean {
       return err.retryable;
     }
     // Network errors are typically retryable
-    if (err.message?.includes('Network') || err.message?.includes('timeout')) {
+    const msgLower = err.message?.toLowerCase() || '';
+    if (
+      err.message?.includes('Network') ||
+      msgLower.includes('timeout') ||
+      msgLower.includes('timed out')
+    ) {
       return true;
     }
   }
@@ -88,7 +94,14 @@ export function isRetryableError(error: unknown): boolean {
 export function getErrorSuggestion(error: unknown): string | null {
   if (error && typeof error === 'object') {
     const err = error as any;
-    return err.response?.data?.suggestion || err.suggestion || null;
+    // Check for suggestion in response data first, then direct property
+    // Handle empty string explicitly (don't convert to null)
+    if (err.response?.data?.suggestion !== undefined) {
+      return err.response.data.suggestion;
+    }
+    if (err.suggestion !== undefined) {
+      return err.suggestion;
+    }
   }
   return null;
 }

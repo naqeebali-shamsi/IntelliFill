@@ -29,9 +29,35 @@ import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supaba
 import { authLimiter as centralAuthLimiter } from '../middleware/rateLimiter';
 // Import validated config (will throw on startup if secrets are invalid)
 import { config } from '../config';
+// Token cache for invalidating cached tokens on logout (REQ-006)
+import { getTokenCacheService } from '../services/tokenCache.service';
 
 // Test mode configuration (for e2e tests - JWT secrets still required in env)
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
+
+// Cookie configuration for httpOnly refreshToken (Phase 2 REQ-005)
+const REFRESH_TOKEN_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+  path: '/api/auth',
+};
+
+/**
+ * Set refreshToken as httpOnly cookie
+ * Security enhancement: Prevents XSS attacks from accessing refresh tokens
+ */
+function setRefreshTokenCookie(res: Response, refreshToken: string): void {
+  res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+}
+
+/**
+ * Clear refreshToken cookie on logout
+ */
+function clearRefreshTokenCookie(res: Response): void {
+  res.clearCookie('refreshToken', { path: '/api/auth' });
+}
 
 // JWT secrets are now loaded from validated config (no fallbacks)
 // Config validation ensures these are set and ≥ 64 characters
@@ -286,6 +312,11 @@ export function createSupabaseAuthRoutes(): Router {
 
           logger.info('New user registered successfully', { email });
 
+          // Set refreshToken as httpOnly cookie (Phase 2 REQ-005)
+          if (sessionData.session.refresh_token) {
+            setRefreshTokenCookie(res, sessionData.session.refresh_token);
+          }
+
           res.status(201).json({
             success: true,
             message: 'User registered successfully',
@@ -300,7 +331,7 @@ export function createSupabaseAuthRoutes(): Router {
               },
               tokens: {
                 accessToken: sessionData.session.access_token,
-                refreshToken: sessionData.session.refresh_token,
+                // refreshToken removed from response - now in httpOnly cookie
                 expiresIn: sessionData.session.expires_in || 3600,
                 tokenType: 'Bearer',
               },
@@ -458,6 +489,9 @@ export function createSupabaseAuthRoutes(): Router {
 
         logger.info('[TEST MODE] User logged in successfully', { email });
 
+        // Set refreshToken as httpOnly cookie (Phase 2 REQ-005)
+        setRefreshTokenCookie(res, refreshToken);
+
         return res.json({
           success: true,
           message: 'Login successful',
@@ -474,7 +508,7 @@ export function createSupabaseAuthRoutes(): Router {
             },
             tokens: {
               accessToken,
-              refreshToken,
+              // refreshToken removed from response - now in httpOnly cookie
               expiresIn: 3600,
               tokenType: 'Bearer',
             },
@@ -543,6 +577,11 @@ export function createSupabaseAuthRoutes(): Router {
 
       logger.info('User logged in successfully', { userId: user.id });
 
+      // Set refreshToken as httpOnly cookie (Phase 2 REQ-005)
+      if (sessionData.session.refresh_token) {
+        setRefreshTokenCookie(res, sessionData.session.refresh_token);
+      }
+
       res.json({
         success: true,
         message: 'Login successful',
@@ -559,7 +598,7 @@ export function createSupabaseAuthRoutes(): Router {
           },
           tokens: {
             accessToken: sessionData.session.access_token,
-            refreshToken: sessionData.session.refresh_token,
+            // refreshToken removed from response - now in httpOnly cookie
             expiresIn: sessionData.session.expires_in || 3600,
             tokenType: 'Bearer',
           },
@@ -606,6 +645,31 @@ export function createSupabaseAuthRoutes(): Router {
           }
         }
 
+        // Invalidate token cache (REQ-006) - fire-and-forget with 500ms timeout
+        const refreshToken = req.cookies?.refreshToken;
+        if (refreshToken) {
+          // Non-blocking cache invalidation with timeout
+          Promise.race([
+            (async () => {
+              try {
+                const tokenCache = await getTokenCacheService();
+                await tokenCache.invalidate(refreshToken);
+                logger.debug('Token cache invalidated on logout');
+              } catch (cacheError) {
+                logger.warn('Token cache invalidation failed', { error: cacheError });
+              }
+            })(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Cache invalidation timeout')), 500)
+            ),
+          ]).catch((error) => {
+            logger.warn('Token cache invalidation timed out', { error: error?.message });
+          });
+        }
+
+        // Clear refreshToken cookie (Phase 2 REQ-005)
+        clearRefreshTokenCookie(res);
+
         // Always return success for logout (idempotent operation)
         res.json({
           success: true,
@@ -613,6 +677,8 @@ export function createSupabaseAuthRoutes(): Router {
         });
       } catch (error: unknown) {
         logger.error('Logout error:', error);
+        // Clear cookie even on error
+        clearRefreshTokenCookie(res);
         // Return success even if logout fails to prevent client-side issues
         res.json({
           success: true,
@@ -627,12 +693,14 @@ export function createSupabaseAuthRoutes(): Router {
    * Refresh access token using refresh token
    *
    * Flow:
-   * 1. Validate refresh token
+   * 1. Validate refresh token (from httpOnly cookie or body for backward compatibility)
    * 2. Use Supabase to refresh session
    * 3. Update lastLogin in Prisma
-   * 4. Return new tokens
+   * 4. Set new refreshToken as httpOnly cookie
+   * 5. Return new access token
    *
-   * @body refreshToken - Refresh token from login/register
+   * @body refreshToken - Optional (deprecated) - prefer httpOnly cookie
+   * @cookie refreshToken - Refresh token set during login/register
    *
    * @returns 200 - Token refreshed successfully
    * @returns 400 - Missing refresh token
@@ -641,7 +709,9 @@ export function createSupabaseAuthRoutes(): Router {
    */
   router.post('/refresh', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { refreshToken }: RefreshTokenRequest = req.body;
+      // Phase 2 REQ-005: Read refreshToken from httpOnly cookie first, fallback to body
+      const refreshToken =
+        req.cookies?.refreshToken || (req.body as RefreshTokenRequest)?.refreshToken;
 
       // ===== Input Validation =====
 
@@ -682,13 +752,18 @@ export function createSupabaseAuthRoutes(): Router {
 
       logger.info('Token refreshed for user', { userId: sessionData.user.id });
 
+      // Set new refreshToken as httpOnly cookie (Phase 2 REQ-005)
+      if (sessionData.session.refresh_token) {
+        setRefreshTokenCookie(res, sessionData.session.refresh_token);
+      }
+
       res.json({
         success: true,
         message: 'Token refreshed successfully',
         data: {
           tokens: {
             accessToken: sessionData.session.access_token,
-            refreshToken: sessionData.session.refresh_token,
+            // refreshToken removed from response - now in httpOnly cookie
             expiresIn: sessionData.session.expires_in || 3600,
             tokenType: 'Bearer',
           },
@@ -1502,6 +1577,9 @@ export function createSupabaseAuthRoutes(): Router {
 
       logger.info(`Demo user logged in: ${DEMO_EMAIL}`);
 
+      // Set refreshToken as httpOnly cookie (Phase 2 REQ-005)
+      setRefreshTokenCookie(res, refreshToken);
+
       res.json({
         success: true,
         message: 'Demo login successful',
@@ -1519,7 +1597,7 @@ export function createSupabaseAuthRoutes(): Router {
           },
           tokens: {
             accessToken,
-            refreshToken,
+            // refreshToken removed from response - now in httpOnly cookie
             expiresIn: 14400, // 4 hours in seconds
             tokenType: 'Bearer',
           },

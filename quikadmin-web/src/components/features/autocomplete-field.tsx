@@ -102,6 +102,7 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
     const containerRef = React.useRef<HTMLDivElement>(null);
     const dropdownRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
+    const justSelectedRef = React.useRef(false); // Prevents re-opening dropdown after selection
 
     // Close dropdown when clicking outside the container
     useOnClickOutside(containerRef, () => {
@@ -174,6 +175,12 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
      */
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true);
+      // Don't re-open dropdown if we just selected something
+      if (justSelectedRef.current) {
+        justSelectedRef.current = false;
+        onFocus?.(e);
+        return;
+      }
       if (suggestions.length > 0) {
         setIsOpen(true);
       }
@@ -207,6 +214,7 @@ export const AutocompleteField = React.forwardRef<HTMLInputElement, Autocomplete
       onSuggestionSelect?.(newValue);
       setIsOpen(false);
       setSelectedIndex(-1);
+      justSelectedRef.current = true; // Prevent re-opening dropdown on focus
       inputRef.current?.focus();
     };
 
