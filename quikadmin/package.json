@@ -38,7 +38,6 @@
     "@aws-sdk/client-s3": "^3.952.0",
     "@aws-sdk/s3-request-presigner": "^3.952.0",
     "@google/generative-ai": "^0.24.1",
-    "@intellifill/multiagent-poc": "file:../../IntelliFill-MultiAgent-PoC",
     "@langchain/core": "^0.3.0",
     "@langchain/google-genai": "^0.1.0",
     "@langchain/groq": "^0.1.0",
