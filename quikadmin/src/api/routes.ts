@@ -12,6 +12,7 @@ import { createClientDocumentRoutes } from './client-documents.routes';
 import { createFormTemplateRoutes } from './form-template.routes';
 import { createFilledFormRoutes } from './filled-forms.routes';
 import { createKnowledgeRoutes } from './knowledge.routes';
+import { createMultiagentRoutes } from './multiagent.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
@@ -115,7 +116,15 @@ export function setupRoutes(
   // Setup filled forms routes (Task 11 - Form Generation)
   const filledFormRoutes = createFilledFormRoutes();
   app.use('/api/filled-forms', filledFormRoutes);
-  // Setup knowledge base routes (Vector Search - Phase 3)  // Mounted at /api/knowledge for vector search and document source management  const knowledgeRoutes = createKnowledgeRoutes();  app.use('/api/knowledge', knowledgeRoutes);
+  // Setup knowledge base routes (Vector Search - Phase 3)
+  // Mounted at /api/knowledge for vector search and document source management
+  const knowledgeRoutes = createKnowledgeRoutes();
+  app.use('/api/knowledge', knowledgeRoutes);
+
+  // Setup multi-agent processing routes (LangGraph Pipeline)
+  // Mounted at /api/process/multiagent for AI-powered document processing
+  const multiagentRoutes = createMultiagentRoutes();
+  app.use('/api/process/multiagent', multiagentRoutes);
 
   // Health check
   router.get('/health', (_req: Request, res: Response) => {

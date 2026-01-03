@@ -313,6 +313,7 @@ model Document {
   status             DocumentStatus @default(PENDING)
   extractedText      String?
   extractedData      Json?
+  multiAgentResult   Json?          @map("multi_agent_result")  // Multi-agent pipeline results
   confidence         Float?
   templateId         String?
   template           Template?      @relation(fields: [templateId], references: [id])
@@ -637,4 +638,265 @@ model ProcessingCheckpoint {
   lastUpdatedAt           DateTime       @updatedAt @map("last_updated_at")
 
   @@map("processing_checkpoints")
+}
+
+// ============================================================================
+// MULTI-AGENT DOCUMENT PROCESSING PIPELINE MODELS
+// PRD: IntelliFill Multi-Agent Integration
+// Purpose: LangGraph-based multi-agent OCR enhancement (85-90% -> 92-97% accuracy)
+// ============================================================================
+
+// MultiAgentProcessing - Tracks multi-agent processing jobs
+// Links to both legacy Document and BullMQ job tracking
+model MultiAgentProcessing {
+  id               String                     @id @default(uuid())
+  documentId       String                     @map("document_id")
+  userId           String                     @map("user_id")
+  jobId            String                     @unique @map("job_id") // BullMQ job ID
+
+  // Processing metadata
+  status           MultiAgentProcessingStatus @default(PENDING)
+  pipelineVersion  String                     @default("1.0.0") @map("pipeline_version") @db.VarChar(20)
+  priority         Int                        @default(0)
+
+  // Agent execution tracking
+  currentAgent     String?                    @map("current_agent") @db.VarChar(50)
+  agentHistory     Json                       @default("[]") @map("agent_history") // [{agent, startTime, endTime, status}]
+
+  // Results
+  extractedData    Json?
+  multiAgentResult   Json?          @map("multi_agent_result")  // Multi-agent pipeline results                      @map("extracted_data")
+  confidence       Float?
+  qualityScore     Float?                     @map("quality_score")
+
+  // Timing
+  startedAt        DateTime?                  @map("started_at")
+  completedAt      DateTime?                  @map("completed_at")
+  failedAt         DateTime?                  @map("failed_at")
+
+  // Error handling
+  errorMessage     String?                    @map("error_message")
+  retryCount       Int                        @default(0) @map("retry_count")
+  maxRetries       Int                        @default(3) @map("max_retries")
+
+  // Metadata
+  metadata         Json                       @default("{}")
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+
+  // Relations
+  checkpoints      MultiAgentCheckpoint[]
+  comparison       ProcessingComparison?
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([jobId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("multi_agent_processing")
+}
+
+enum MultiAgentProcessingStatus {
+  PENDING
+  CLASSIFYING
+  EXTRACTING
+  MAPPING
+  VALIDATING
+  RECOVERING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// MultiAgentCheckpoint - LangGraph state checkpoints for recovery
+// Stores serialized LangGraph state for resumability
+model MultiAgentCheckpoint {
+  id                String               @id @default(uuid())
+  processingId      String               @map("processing_id")
+  processing        MultiAgentProcessing @relation(fields: [processingId], references: [id], onDelete: Cascade)
+
+  // Checkpoint metadata
+  threadId          String               @map("thread_id") // LangGraph thread ID
+  checkpointId      String               @map("checkpoint_id") // LangGraph checkpoint ID
+  parentCheckpointId String?             @map("parent_checkpoint_id")
+
+  // State storage (binary for efficiency)
+  stateData         Bytes                @map("state_data")
+  stateMetadata     Json                 @default("{}") @map("state_metadata")
+
+  // Node tracking
+  currentNode       String               @map("current_node") @db.VarChar(50)
+  pendingNodes      String[]             @default([]) @map("pending_nodes")
+  completedNodes    String[]             @default([]) @map("completed_nodes")
+
+  // Version for state schema migrations
+  version           Int                  @default(1)
+
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@unique([processingId, checkpointId])
+  @@index([processingId])
+  @@index([threadId])
+  @@index([createdAt(sort: Desc)])
+  @@map("multi_agent_checkpoints")
+}
+
+// ABTestAssignment - User assignments for A/B testing multi-agent vs legacy
+// Ensures sticky assignment (same user always gets same variant)
+model ABTestAssignment {
+  id           String            @id @default(uuid())
+  userId       String            @map("user_id")
+  testName     String            @map("test_name") @db.VarChar(100) // e.g., "multiagent-v1"
+  variant      ABTestVariant
+
+  // Assignment metadata
+  assignedAt   DateTime          @default(now()) @map("assigned_at")
+  expiresAt    DateTime?         @map("expires_at")
+  isActive     Boolean           @default(true) @map("is_active")
+
+  // Tracking
+  metadata     Json              @default("{}")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@unique([userId, testName])
+  @@index([userId])
+  @@index([testName, variant])
+  @@index([isActive])
+  @@map("ab_test_assignments")
+}
+
+enum ABTestVariant {
+  CONTROL    // Legacy pipeline
+  TREATMENT  // Multi-agent pipeline
+}
+
+// ProcessingComparison - Compare legacy vs multi-agent results
+// Used in Shadow Mode to validate multi-agent accuracy
+model ProcessingComparison {
+  id                     String               @id @default(uuid())
+  documentId             String               @map("document_id")
+  multiAgentProcessingId String               @unique @map("multi_agent_processing_id")
+  multiAgentProcessing   MultiAgentProcessing @relation(fields: [multiAgentProcessingId], references: [id], onDelete: Cascade)
+
+  // Results from both pipelines
+  legacyResult           Json?                @map("legacy_result")
+  legacyConfidence       Float?               @map("legacy_confidence")
+  legacyProcessingTimeMs Int?                 @map("legacy_processing_time_ms")
+
+  multiAgentResult       Json?                @map("multi_agent_result")
+  multiAgentConfidence   Float?               @map("multi_agent_confidence")
+  multiAgentProcessingTimeMs Int?             @map("multi_agent_processing_time_ms")
+
+  // Comparison metrics
+  fieldDiff              Json?                @map("field_diff") // {fieldName: {legacy, multiAgent, match}}
+  matchingFieldsCount    Int?                 @map("matching_fields_count")
+  totalFieldsCount       Int?                 @map("total_fields_count")
+  accuracyDelta          Float?               @map("accuracy_delta") // multiAgent - legacy
+
+  // Quality assessment
+  winner                 String?              @db.VarChar(20) // "legacy", "multiagent", "tie"
+  assessedBy             String?              @map("assessed_by") // "auto" or userId
+  assessmentNotes        String?              @map("assessment_notes")
+
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+
+  @@index([documentId])
+  @@index([winner])
+  @@index([createdAt(sort: Desc)])
+  @@map("processing_comparisons")
+}
+
+// UserFeedback - Collect user feedback on processing accuracy
+// Critical for A/B test evaluation and model improvement
+model UserFeedback {
+  id                String               @id @default(uuid())
+  userId            String               @map("user_id")
+  documentId        String               @map("document_id")
+  jobId             String?              @map("job_id") // Optional link to processing job
+
+  // Feedback data
+  accuracyRating    Int                  @map("accuracy_rating") // 1-5 scale
+  isCorrect         Boolean              @map("is_correct") // Simple yes/no
+  fieldsFeedback    Json?                @map("fields_feedback") // {fieldName: {correct, userValue}}
+  comments          String?
+
+  // Context for analysis
+  processingType    String               @map("processing_type") @db.VarChar(20) // "legacy" or "multiagent"
+  testVariant       ABTestVariant?       @map("test_variant")
+  documentCategory  String?              @map("document_category") @db.VarChar(50)
+
+  // Metadata
+  metadata          Json                 @default("{}")
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([documentId])
+  @@index([processingType])
+  @@index([accuracyRating])
+  @@index([createdAt(sort: Desc)])
+  @@map("user_feedback")
+}
+
+// FeatureFlag - Runtime feature flag configuration
+// Used to control Shadow Mode, A/B percentages, and full rollout
+model FeatureFlag {
+  id           String              @id @default(uuid())
+  name         String              @unique @db.VarChar(100)
+  description  String?
+
+  // Flag configuration
+  enabled      Boolean             @default(false)
+  percentage   Int                 @default(0) // 0-100 for gradual rollout
+  rules        Json                @default("{}") // Custom targeting rules
+
+  // Targeting
+  targetUsers  String[]            @default([]) @map("target_users") // Specific user IDs
+  excludeUsers String[]            @default([]) @map("exclude_users")
+
+  // Metadata
+  createdBy    String?             @map("created_by")
+  updatedBy    String?             @map("updated_by")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@index([enabled])
+  @@map("feature_flags")
+}
+
+// AgentMetrics - Performance metrics for individual agents
+// Used for monitoring and optimization
+model AgentMetrics {
+  id                String   @id @default(uuid())
+  agentName         String   @map("agent_name") @db.VarChar(50)
+  modelName         String   @map("model_name") @db.VarChar(50)
+
+  // Processing metrics
+  processingTimeMs  Int      @map("processing_time_ms")
+  tokenCount        Int?     @map("token_count")
+  retryCount        Int      @default(0) @map("retry_count")
+  success           Boolean
+
+  // Quality metrics (where applicable)
+  confidenceScore   Float?   @map("confidence_score")
+  qualityScore      Float?   @map("quality_score")
+
+  // Error tracking
+  errorType         String?  @map("error_type") @db.VarChar(100)
+  errorMessage      String?  @map("error_message")
+
+  // Context
+  documentCategory  String?  @map("document_category") @db.VarChar(50)
+  jobId             String?  @map("job_id")
+
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([agentName])
+  @@index([modelName])
+  @@index([success])
+  @@index([createdAt(sort: Desc)])
+  @@index([agentName, createdAt(sort: Desc)])
+  @@map("agent_metrics")
 }
