@@ -105,6 +105,28 @@ export async function verifyRedisAtStartup(): Promise<boolean> {
 }
 
 /**
+ * Require Redis to be available at startup (production only)
+ * Exits with code 1 if Redis is unavailable in production
+ */
+export async function requireRedisAtStartup(): Promise<void> {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const available = await verifyRedisAtStartup();
+
+  if (!available && isProduction) {
+    logger.error('FATAL: Redis is required in production but unavailable. Exiting.');
+    console.error(
+      '❌ FATAL: Redis is required for queue operations. Server cannot start without Redis.'
+    );
+    console.error('   Check your REDIS_URL environment variable and Upstash quota.');
+    process.exit(1);
+  }
+
+  if (!available) {
+    logger.warn('⚠️ Redis unavailable - queue operations will fail (dev mode, continuing)');
+  }
+}
+
+/**
  * Continuous health monitoring
  */
 let redisHealthy = true;
@@ -170,6 +192,7 @@ export default {
   checkRedisHealth,
   getRedisHealthState,
   verifyRedisAtStartup,
+  requireRedisAtStartup,
   startRedisHealthMonitoring,
   stopRedisHealthMonitoring,
   isRedisHealthy,

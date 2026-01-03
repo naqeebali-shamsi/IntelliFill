@@ -88,6 +88,10 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
 
     logger.info('Database connected successfully (keepalive enabled)');
 
+    // Verify Redis is available (required in production for queue operations)
+    const { requireRedisAtStartup } = await import('./utils/redisHealth');
+    await requireRedisAtStartup();
+
     // Initialize services
     const documentParser = new DocumentParser();
     const dataExtractor = new DataExtractor();
