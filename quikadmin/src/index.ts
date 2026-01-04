@@ -176,11 +176,31 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
             return callback(null, true);
           }
 
-          callback(new Error(`Origin ${origin} not allowed by CORS`));
+          // Log rejected origin for security monitoring
+          logger.warn('CORS rejection', { origin, allowedOrigins: allowedOrigins.length });
+
+          // Return error with CORS_REJECTED code for proper 403 handling
+          const corsError = new Error(`Origin ${origin} not allowed by CORS`);
+          (corsError as any).code = 'CORS_REJECTED';
+          callback(corsError);
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+        allowedHeaders: [
+          'Content-Type',
+          'Authorization',
+          'X-Requested-With',
+          'Accept',
+          'Origin',
+          'X-Request-ID',
+        ],
+        exposedHeaders: [
+          'X-Request-ID',
+          'RateLimit-Limit',
+          'RateLimit-Remaining',
+          'RateLimit-Reset',
+          'X-CSP-Nonce',
+        ],
       })
     );
 
@@ -265,6 +285,15 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     // Error handling middleware (must be after routes)
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
       logger.error('Unhandled error:', err);
+
+      // CORS rejection errors (Task #275)
+      if (err.code === 'CORS_REJECTED' || err.message?.includes('not allowed by CORS')) {
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Origin not allowed',
+          code: 'CORS_REJECTED',
+        });
+      }
 
       // JWT errors
       if (err.name === 'JsonWebTokenError') {
