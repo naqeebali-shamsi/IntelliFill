@@ -900,3 +900,40 @@ model AgentMetrics {
   @@index([agentName, createdAt(sort: Desc)])
   @@map("agent_metrics")
 }
+
+// CspReport - Content Security Policy violation reports
+// Task 282: Store and aggregate CSP reports for security monitoring
+model CspReport {
+  id                 String   @id @default(uuid())
+
+  // Report details
+  documentUri        String   @map("document_uri") @db.VarChar(2048)
+  blockedUri         String   @map("blocked_uri") @db.VarChar(2048)
+  violatedDirective  String   @map("violated_directive") @db.VarChar(255)
+  effectiveDirective String?  @map("effective_directive") @db.VarChar(255)
+  sourceFile         String?  @map("source_file") @db.VarChar(2048)
+  lineNumber         Int?     @map("line_number")
+  columnNumber       Int?     @map("column_number")
+
+  // Request context
+  userAgent          String?  @map("user_agent") @db.VarChar(500)
+  ipAddress          String?  @map("ip_address") @db.VarChar(45) // IPv6 max length
+
+  // Aggregation
+  count              Int      @default(1) // For aggregated reports
+  firstSeen          DateTime @default(now()) @map("first_seen")
+  lastSeen           DateTime @default(now()) @map("last_seen")
+
+  // Alert tracking
+  alertSent          Boolean  @default(false) @map("alert_sent")
+  alertSentAt        DateTime? @map("alert_sent_at")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  // Composite index for aggregation queries
+  @@index([documentUri, blockedUri])
+  @@index([violatedDirective])
+  @@index([createdAt(sort: Desc)])
+  @@index([alertSent])
+  @@map("csp_reports")
+}

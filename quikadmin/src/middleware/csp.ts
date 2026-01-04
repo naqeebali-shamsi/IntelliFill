@@ -13,7 +13,7 @@ import crypto from 'crypto';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
 // Extend Express Request to include CSP nonce
- 
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -217,6 +217,8 @@ export function cspMiddleware(options?: {
  *
  * Endpoint to receive and log CSP violation reports from browsers
  * Should be mounted at /api/csp-report
+ *
+ * Task 282: Enhanced with database storage and aggregation
  */
 export function cspReportHandler(req: Request, res: Response) {
   try {
@@ -239,6 +241,22 @@ export function cspReportHandler(req: Request, res: Response) {
       userAgent: req.headers['user-agent'],
       ip: req.ip,
     });
+
+    // Task 282: Save to database for aggregation and monitoring
+    // Import dynamically to avoid circular dependencies
+    import('../services/CspMonitoringService')
+      .then(({ cspMonitoringService }) => {
+        cspMonitoringService.saveReport(report, req).catch((err) => {
+          logger.error('Failed to save CSP report to database', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        });
+      })
+      .catch((err) => {
+        logger.error('Failed to load CSP monitoring service', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      });
 
     // Return 204 No Content as per CSP spec
     res.status(204).end();
