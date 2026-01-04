@@ -102,8 +102,8 @@ export interface OCRJobStatus {
   id: Bull.JobId;
   /** Job type identifier */
   type: 'ocr_processing';
-  /** Current job state (waiting, active, completed, failed, delayed, paused) */
-  status: Bull.JobStatus;
+  /** Current job state (waiting, active, completed, failed, delayed, paused, stuck) */
+  status: Bull.JobStatus | 'stuck';
   /** Processing progress percentage (0-100) */
   progress: number;
   /** Sanitized job data (sensitive fields removed) */
