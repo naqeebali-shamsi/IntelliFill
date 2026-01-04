@@ -13,6 +13,7 @@ import { createFormTemplateRoutes } from './form-template.routes';
 import { createFilledFormRoutes } from './filled-forms.routes';
 import { createKnowledgeRoutes } from './knowledge.routes';
 import { createMultiagentRoutes } from './multiagent.routes';
+import securityDashboardRoutes from './security-dashboard.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
@@ -125,6 +126,10 @@ export function setupRoutes(
   // Mounted at /api/process/multiagent for AI-powered document processing
   const multiagentRoutes = createMultiagentRoutes();
   app.use('/api/process/multiagent', multiagentRoutes);
+
+  // Setup security audit dashboard routes (Task 285)
+  // Mounted at /api/admin/security for admin-only security monitoring
+  app.use('/api/admin/security', securityDashboardRoutes);
 
   // Health check
   router.get('/health', (_req: Request, res: Response) => {
