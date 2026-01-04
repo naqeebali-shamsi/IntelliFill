@@ -50,6 +50,7 @@ import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLi
 import { csrfProtection } from './middleware/csrf';
 import { realtimeService } from './services/RealtimeService';
 import { createAuditMiddleware } from './middleware/auditLogger';
+import { cspMiddleware, cspReportHandler } from './middleware/csp';
 import {
   getAuthCircuitBreakerMetrics,
   isAuthCircuitOpen,
@@ -132,21 +133,10 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     });
 
     // Security middleware
+    // Helmet handles most security headers; CSP is handled by our custom middleware
     app.use(
       helmet({
-        contentSecurityPolicy: {
-          directives: {
-            defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", 'data:', 'https:'],
-            connectSrc: ["'self'"],
-            fontSrc: ["'self'"],
-            objectSrc: ["'none'"],
-            mediaSrc: ["'self'"],
-            frameSrc: ["'none'"],
-          },
-        },
+        contentSecurityPolicy: false, // Disabled - handled by cspMiddleware for nonce support
         hsts: {
           maxAge: 31536000,
           includeSubDomains: true,
@@ -154,6 +144,9 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
         },
       })
     );
+
+    // Custom CSP middleware with nonce support and environment-aware configuration
+    app.use(cspMiddleware());
 
     // CORS configuration with pattern matching for Vercel preview URLs
     const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) || [];
@@ -217,6 +210,10 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     } else {
       logger.warn('⚠️ CSRF protection disabled in development mode');
     }
+
+    // CSP violation report endpoint (must be before routes, no auth required)
+    // Browsers send CSP violations here for monitoring
+    app.post('/api/csp-report', express.json({ type: 'application/csp-report' }), cspReportHandler);
 
     // Health check endpoint (public) - basic status
     app.get('/health', (_req, res) => {
