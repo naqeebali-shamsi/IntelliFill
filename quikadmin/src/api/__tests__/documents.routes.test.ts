@@ -29,7 +29,8 @@ import { prisma } from '../../utils/prisma';
 // ============================================================================
 
 // Create reference to mock prisma document methods for test assertions
-const mockDocumentMethods = prisma.document as jest.Mocked<typeof prisma.document>;
+ 
+const mockDocumentMethods = prisma.document as any;
 
 // Mock Supabase Auth Middleware
 jest.mock('../../middleware/supabaseAuth', () => ({

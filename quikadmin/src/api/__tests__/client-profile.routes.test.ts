@@ -161,9 +161,7 @@ describe('Client Profile API Routes', () => {
         res.status(401).json({ error: 'Unauthorized' });
       });
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(401);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });
@@ -175,9 +173,7 @@ describe('Client Profile API Routes', () => {
         next();
       });
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(401);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });
@@ -186,9 +182,7 @@ describe('Client Profile API Routes', () => {
       // Client belongs to a different user
       prisma.client.findFirst.mockResolvedValue(null); // User's query returns nothing
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(404);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(404);
 
       expect(response.body.error).toBe('Client not found');
       expect(prisma.client.findFirst).toHaveBeenCalledWith(
@@ -208,9 +202,7 @@ describe('Client Profile API Routes', () => {
       const clientWithProfile = { ...mockClient, profile: mockProfile };
       prisma.client.findFirst.mockResolvedValue(clientWithProfile);
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(200);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.clientId).toBe(testClientId);
@@ -222,7 +214,7 @@ describe('Client Profile API Routes', () => {
     });
 
     it('should auto-create profile if none exists (empty profile state)', async () => {
-      const clientWithoutProfile = { ...mockClient, profile: null };
+      const clientWithoutProfile = { ...mockClient, profile: null as null };
       prisma.client.findFirst.mockResolvedValue(clientWithoutProfile);
 
       const newProfile = {
@@ -235,9 +227,7 @@ describe('Client Profile API Routes', () => {
       };
       prisma.clientProfile.create.mockResolvedValue(newProfile);
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(200);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(200);
 
       expect(response.body.success).toBe(true);
       expect(prisma.clientProfile.create).toHaveBeenCalledWith({
@@ -276,9 +266,7 @@ describe('Client Profile API Routes', () => {
       };
       prisma.client.findFirst.mockResolvedValue({ ...mockClient, profile: fullProfile });
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(200);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(200);
 
       const categorizedData = response.body.data.profile.categorizedData;
 
@@ -298,9 +286,7 @@ describe('Client Profile API Routes', () => {
       const clientWithProfile = { ...mockClient, profile: mockProfile };
       prisma.client.findFirst.mockResolvedValue(clientWithProfile);
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(200);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(200);
 
       const personalCategory = response.body.data.profile.categorizedData.personal;
       expect(personalCategory.fullName.source).toBeDefined();
@@ -309,9 +295,7 @@ describe('Client Profile API Routes', () => {
     it('should handle database errors gracefully', async () => {
       prisma.client.findFirst.mockRejectedValue(new Error('Database connection failed'));
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(500);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(500);
 
       expect(response.body).toBeDefined();
     });
@@ -359,7 +343,7 @@ describe('Client Profile API Routes', () => {
     });
 
     it('should create profile if none exists when updating', async () => {
-      const clientWithoutProfile = { ...mockClient, profile: null };
+      const clientWithoutProfile = { ...mockClient, profile: null as null };
       prisma.client.findFirst.mockResolvedValue(clientWithoutProfile);
 
       const newProfile = {
@@ -460,7 +444,7 @@ describe('Client Profile API Routes', () => {
     });
 
     it('should create profile if none exists when patching field', async () => {
-      const clientWithoutProfile = { ...mockClient, profile: null };
+      const clientWithoutProfile = { ...mockClient, profile: null as null };
       prisma.client.findFirst.mockResolvedValue(clientWithoutProfile);
 
       const newProfile = {
@@ -558,7 +542,7 @@ describe('Client Profile API Routes', () => {
     });
 
     it('should return 404 if profile does not exist', async () => {
-      const clientWithoutProfile = { ...mockClient, profile: null };
+      const clientWithoutProfile = { ...mockClient, profile: null as null };
       prisma.client.findFirst.mockResolvedValue(clientWithoutProfile);
 
       const response = await request(app)
@@ -778,9 +762,7 @@ describe('Client Profile API Routes', () => {
       // Client query should return null because userId does not match
       prisma.client.findFirst.mockResolvedValue(null);
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(404);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(404);
 
       expect(response.body.error).toBe('Client not found');
     });
@@ -860,17 +842,15 @@ describe('Client Profile API Routes', () => {
     it('should handle profile with null data gracefully', async () => {
       const profileWithNullData = {
         ...mockProfile,
-        data: null,
-        fieldSources: null,
+        data: null as null,
+        fieldSources: null as null,
       };
       prisma.client.findFirst.mockResolvedValue({
         ...mockClient,
         profile: profileWithNullData,
       });
 
-      const response = await request(app)
-        .get(`/api/clients/${testClientId}/profile`)
-        .expect(200);
+      const response = await request(app).get(`/api/clients/${testClientId}/profile`).expect(200);
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.profile.data).toEqual({});

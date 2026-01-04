@@ -105,21 +105,33 @@ describe('IntelliFillService', () => {
 
   const mockMappingResult = {
     mappings: [
-      { formField: 'full_name', dataSource: 'name', value: 'John Doe', confidence: 0.95, mappingMethod: 'Direct Field Match' },
-      { formField: 'email_address', dataSource: 'email', value: 'john@example.com', confidence: 0.9, mappingMethod: 'Entity Pattern Match' },
+      {
+        formField: 'full_name',
+        dataSource: 'name',
+        value: 'John Doe',
+        confidence: 0.95,
+        mappingMethod: 'Direct Field Match',
+      },
+      {
+        formField: 'email_address',
+        dataSource: 'email',
+        value: 'john@example.com',
+        confidence: 0.9,
+        mappingMethod: 'Entity Pattern Match',
+      },
     ],
     unmappedFormFields: ['phone_number'],
-    unmappedDataFields: [],
+    unmappedDataFields: [] as string[],
     overallConfidence: 0.925,
-    warnings: [],
+    warnings: [] as string[],
   };
 
   const mockFillResult = {
     success: true,
     filledFields: ['full_name', 'email_address'],
-    failedFields: [],
+    failedFields: [] as Array<{ field: string; reason: string }>,
     outputPath: '/output/filled.pdf',
-    warnings: [],
+    warnings: [] as string[],
   };
 
   // Mock dependencies
@@ -138,16 +150,20 @@ describe('IntelliFillService', () => {
     mockDataExtractor = { extract: jest.fn().mockResolvedValue(mockExtractedData) };
     mockFieldMapper = { mapFields: jest.fn().mockResolvedValue(mockMappingResult) };
     mockFormFiller = { fillPDFForm: jest.fn().mockResolvedValue(mockFillResult) };
-    mockValidationService = { validateData: jest.fn().mockResolvedValue({ valid: true, errors: [], warnings: [] }) };
+    mockValidationService = {
+      validateData: jest.fn().mockResolvedValue({ valid: true, errors: [], warnings: [] }),
+    };
 
     // Mock PDFDocument for extractFormFields
     const mockPdfDoc = {
       getForm: jest.fn().mockReturnValue({
-        getFields: jest.fn().mockReturnValue([
-          { getName: () => 'full_name' },
-          { getName: () => 'email_address' },
-          { getName: () => 'phone_number' },
-        ]),
+        getFields: jest
+          .fn()
+          .mockReturnValue([
+            { getName: () => 'full_name' },
+            { getName: () => 'email_address' },
+            { getName: () => 'phone_number' },
+          ]),
         getField: jest.fn().mockReturnValue({ setText: jest.fn() }),
         getTextField: jest.fn().mockReturnValue({ setText: jest.fn() }),
         flatten: jest.fn(),
@@ -210,7 +226,11 @@ describe('IntelliFillService', () => {
     });
 
     it('should pass extracted form fields to the field mapper', async () => {
-      await service.processSingle('/input/document.pdf', '/forms/template.pdf', '/output/filled.pdf');
+      await service.processSingle(
+        '/input/document.pdf',
+        '/forms/template.pdf',
+        '/output/filled.pdf'
+      );
 
       // Verify field mapper received form fields
       expect(mockFieldMapper.mapFields).toHaveBeenCalledWith(
@@ -439,9 +459,27 @@ describe('IntelliFillService', () => {
     it('should aggregate overall confidence from mappings', async () => {
       mockFieldMapper.mapFields.mockResolvedValue({
         mappings: [
-          { formField: 'field1', dataSource: 'source1', value: 'val1', confidence: 0.8, mappingMethod: 'match' },
-          { formField: 'field2', dataSource: 'source2', value: 'val2', confidence: 0.9, mappingMethod: 'match' },
-          { formField: 'field3', dataSource: 'source3', value: 'val3', confidence: 1.0, mappingMethod: 'match' },
+          {
+            formField: 'field1',
+            dataSource: 'source1',
+            value: 'val1',
+            confidence: 0.8,
+            mappingMethod: 'match',
+          },
+          {
+            formField: 'field2',
+            dataSource: 'source2',
+            value: 'val2',
+            confidence: 0.9,
+            mappingMethod: 'match',
+          },
+          {
+            formField: 'field3',
+            dataSource: 'source3',
+            value: 'val3',
+            confidence: 1.0,
+            mappingMethod: 'match',
+          },
         ],
         unmappedFormFields: [],
         unmappedDataFields: [],
@@ -461,8 +499,20 @@ describe('IntelliFillService', () => {
     it('should handle low confidence mappings', async () => {
       mockFieldMapper.mapFields.mockResolvedValue({
         mappings: [
-          { formField: 'field1', dataSource: 'source1', value: 'val1', confidence: 0.3, mappingMethod: 'fuzzy' },
-          { formField: 'field2', dataSource: 'source2', value: 'val2', confidence: 0.4, mappingMethod: 'fuzzy' },
+          {
+            formField: 'field1',
+            dataSource: 'source1',
+            value: 'val1',
+            confidence: 0.3,
+            mappingMethod: 'fuzzy',
+          },
+          {
+            formField: 'field2',
+            dataSource: 'source2',
+            value: 'val2',
+            confidence: 0.4,
+            mappingMethod: 'fuzzy',
+          },
         ],
         unmappedFormFields: ['field3'],
         unmappedDataFields: [],
@@ -507,7 +557,13 @@ describe('IntelliFillService', () => {
     it('should return unmapped form fields in mapping result', async () => {
       mockFieldMapper.mapFields.mockResolvedValue({
         mappings: [
-          { formField: 'full_name', dataSource: 'name', value: 'John Doe', confidence: 0.9, mappingMethod: 'match' },
+          {
+            formField: 'full_name',
+            dataSource: 'name',
+            value: 'John Doe',
+            confidence: 0.9,
+            mappingMethod: 'match',
+          },
         ],
         unmappedFormFields: ['email_address', 'phone_number', 'ssn'],
         unmappedDataFields: [],
@@ -551,7 +607,13 @@ describe('IntelliFillService', () => {
 
       mockFieldMapper.mapFields.mockResolvedValue({
         mappings: [
-          { formField: 'full_name', dataSource: 'name', value: 'John Doe', confidence: 0.95, mappingMethod: 'match' },
+          {
+            formField: 'full_name',
+            dataSource: 'name',
+            value: 'John Doe',
+            confidence: 0.95,
+            mappingMethod: 'match',
+          },
         ],
         unmappedFormFields: ['email_address', 'phone_number'],
         unmappedDataFields: [],
@@ -575,7 +637,13 @@ describe('IntelliFillService', () => {
     it('should track unmapped data fields from source document', async () => {
       mockFieldMapper.mapFields.mockResolvedValue({
         mappings: [
-          { formField: 'full_name', dataSource: 'name', value: 'John Doe', confidence: 0.9, mappingMethod: 'match' },
+          {
+            formField: 'full_name',
+            dataSource: 'name',
+            value: 'John Doe',
+            confidence: 0.9,
+            mappingMethod: 'match',
+          },
         ],
         unmappedFormFields: [],
         unmappedDataFields: ['ssn', 'drivers_license', 'passport_number'],
@@ -615,14 +683,30 @@ describe('IntelliFillService', () => {
       // First document has name
       mockDataExtractor.extract.mockResolvedValueOnce({
         fields: { name: 'John Doe' },
-        entities: { names: ['John Doe'], emails: [], phones: [], dates: [], addresses: [], numbers: [], currencies: [] },
+        entities: {
+          names: ['John Doe'],
+          emails: [],
+          phones: [],
+          dates: [],
+          addresses: [],
+          numbers: [],
+          currencies: [],
+        },
         metadata: { extractionMethod: 'test', confidence: 90, timestamp: new Date() },
       });
 
       // Second document has email
       mockDataExtractor.extract.mockResolvedValueOnce({
         fields: { email: 'john@example.com' },
-        entities: { names: [], emails: ['john@example.com'], phones: [], dates: [], addresses: [], numbers: [], currencies: [] },
+        entities: {
+          names: [],
+          emails: ['john@example.com'],
+          phones: [],
+          dates: [],
+          addresses: [],
+          numbers: [],
+          currencies: [],
+        },
         metadata: { extractionMethod: 'test', confidence: 85, timestamp: new Date() },
       });
 

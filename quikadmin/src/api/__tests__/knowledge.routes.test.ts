@@ -113,7 +113,8 @@ jest.mock('../../utils/logger', () => ({
 
 describe('Knowledge API Routes', () => {
   let app: Express;
-  const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockPrisma = prisma as any;
 
   const testUserId = 'test-user-id';
   const testOrgId = '12345678-1234-4234-a234-123456789012';

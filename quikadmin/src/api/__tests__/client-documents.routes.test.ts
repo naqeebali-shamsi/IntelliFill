@@ -200,9 +200,21 @@ describe('mergeToClientProfile', () => {
         id: mockProfileId,
         data: { firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
         fieldSources: {
-          firstName: { documentId: mockDocumentId, extractedAt: expect.any(String), manuallyEdited: false },
-          lastName: { documentId: mockDocumentId, extractedAt: expect.any(String), manuallyEdited: false },
-          email: { documentId: mockDocumentId, extractedAt: expect.any(String), manuallyEdited: false },
+          firstName: {
+            documentId: mockDocumentId,
+            extractedAt: expect.any(String),
+            manuallyEdited: false,
+          },
+          lastName: {
+            documentId: mockDocumentId,
+            extractedAt: expect.any(String),
+            manuallyEdited: false,
+          },
+          email: {
+            documentId: mockDocumentId,
+            extractedAt: expect.any(String),
+            manuallyEdited: false,
+          },
         },
       });
 
@@ -380,7 +392,7 @@ describe('mergeToClientProfile', () => {
         },
       });
 
-      const fieldsWithEmpties = {
+      const fieldsWithEmpties: Record<string, string | null | undefined> = {
         firstName: 'John',
         lastName: null,
         email: undefined,
@@ -772,7 +784,7 @@ describe('mergeToClientProfile', () => {
         },
       });
 
-      const fields = {
+      const fields: Record<string, string | null> = {
         firstName: 'Jane', // Will be skipped (manually edited)
         lastName: null, // Will be skipped (null)
         email: '', // Will be skipped (empty)

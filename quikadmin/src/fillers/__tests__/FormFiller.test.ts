@@ -531,7 +531,7 @@ describe('FormFiller', () => {
     it('should handle field filling errors gracefully', async () => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockTextField.setText.mockImplementation(() => {
+      (mockTextField.setText as jest.Mock).mockImplementation(() => {
         throw new Error('Field is read-only');
       });
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
@@ -716,7 +716,7 @@ describe('FormFiller', () => {
     });
 
     it('should handle partial success with some field errors', async () => {
-      mockTextField.setText.mockImplementation(() => {
+      (mockTextField.setText as jest.Mock).mockImplementation(() => {
         throw new Error('Text field error');
       });
 
@@ -791,12 +791,7 @@ describe('FormFiller', () => {
       const countryField = new (PDFDropdown as any)('country');
       const genderField = new (PDFRadioGroup as any)('gender');
 
-      mockForm.getFields.mockReturnValue([
-        nameField,
-        agreeField,
-        countryField,
-        genderField,
-      ]);
+      mockForm.getFields.mockReturnValue([nameField, agreeField, countryField, genderField]);
       mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
 
@@ -877,7 +872,7 @@ describe('FormFiller', () => {
     });
 
     it('should return success=false when failures exist', async () => {
-      mockTextField.setText.mockImplementation(() => {
+      (mockTextField.setText as jest.Mock).mockImplementation(() => {
         throw new Error('Error');
       });
       const mappings = createMappingResult([createMapping('textField', 'Test')]);

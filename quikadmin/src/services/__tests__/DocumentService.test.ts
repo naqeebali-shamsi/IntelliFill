@@ -39,7 +39,8 @@ import { DocumentService } from '../DocumentService';
 import { prisma } from '../../utils/prisma';
 
 // Create reference to mock prisma for test assertions
-const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockPrisma = prisma as any;
 
 describe('DocumentService', () => {
   let service: DocumentService;
