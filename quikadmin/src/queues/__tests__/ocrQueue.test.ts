@@ -94,6 +94,16 @@ describe('ocrQueue', () => {
       expect(isOCRQueueAvailable()).toBe(true);
     });
 
+    it('should use OCR_CONCURRENCY from environment with default of 1 (Task 265)', () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+
+      // Default is 1 when OCR_CONCURRENCY not set
+      expect(OCR_QUEUE_CONFIG.CONCURRENCY).toBe(1);
+      expect(typeof OCR_QUEUE_CONFIG.CONCURRENCY).toBe('number');
+    });
+
     it('should mark queue as unavailable when Redis connection fails', () => {
       Bull.mockImplementation(() => {
         throw new Error('Redis connection failed');
@@ -114,6 +124,21 @@ describe('ocrQueue', () => {
       if (errorHandler) errorHandler(new Error('Redis error'));
 
       expect(isOCRQueueAvailable()).toBe(false);
+    });
+
+    it('should not throw unhandled rejection when error handler runs (Task 265)', () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Import to register error handler
+      require('../ocrQueue');
+
+      // Get the error handler
+      const errorHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'error')?.[1];
+
+      // Calling the error handler should not throw (try-catch wraps health check)
+      expect(() => {
+        if (errorHandler) errorHandler(new Error('Simulated Redis error'));
+      }).not.toThrow();
     });
 
     it('should update availability on ready event', () => {
