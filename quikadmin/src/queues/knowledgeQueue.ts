@@ -27,8 +27,8 @@
 
 import Bull, { Job, Queue, JobOptions } from 'bull';
 import { logger } from '../utils/logger';
-import { config } from '../config';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
+import { getRedisConfig, defaultBullSettings } from '../utils/redisConfig';
 
 // ============================================================================
 // Types & Interfaces
@@ -140,15 +140,10 @@ const PRIORITY_MAP: Record<string, number> = {
 };
 
 // ============================================================================
-// Redis Configuration
+// Redis Configuration (from shared utility)
 // ============================================================================
 
-const redisConfig = {
-  host: config.redis.host,
-  port: config.redis.port,
-  password: config.redis.password,
-  maxRetriesPerRequest: 3,
-};
+const redisConfig = getRedisConfig();
 
 // ============================================================================
 // Queue Instance
@@ -170,16 +165,7 @@ try {
         delay: DEFAULT_BACKOFF_DELAY,
       },
     },
-    settings: {
-      // Reduce Redis requests to stay within Upstash free tier limits
-      stalledInterval: 300000, // Check stalled jobs every 5 minutes (default: 30s)
-      maxStalledCount: 2, // Mark job failed after 2 stalls
-      lockDuration: 300000, // Lock jobs for 5 minutes (default: 30s)
-      lockRenewTime: 150000, // Renew lock every 2.5 minutes (half of lockDuration)
-      guardInterval: 300000, // Guard interval for delayed jobs (default: 5s)
-      retryProcessDelay: 60000, // Wait 1 minute before retrying failed processor (default: 5s)
-      drainDelay: 60000, // Delay when queue is drained (default: 5s)
-    },
+    settings: defaultBullSettings, // Upstash-optimized settings from shared config
     limiter: {
       max: MAX_CONCURRENT_JOBS,
       duration: 1000,
