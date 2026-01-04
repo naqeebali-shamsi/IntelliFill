@@ -12,11 +12,10 @@
  * @module api/security-dashboard.routes
  */
 
-import { Router, Request, Response, NextFunction, IRouter } from 'express';
+import { Router, Response, NextFunction, IRouter } from 'express';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
-import { SecurityEventType, SecuritySeverity } from '../services/SecurityEventService';
 import { cspMonitoringService } from '../services/CspMonitoringService';
 import { isSuspiciousIp } from '../middleware/rateLimiter';
 import { isSecretRotationInProgress, getRotationStatus } from '../utils/jwtVerify';
