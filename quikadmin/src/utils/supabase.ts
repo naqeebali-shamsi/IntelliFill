@@ -15,6 +15,7 @@
 import { createClient, SupabaseClient, User, AuthError } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import CircuitBreaker from 'opossum';
+import crypto from 'crypto';
 import { piiSafeLogger as logger } from './piiSafeLogger';
 import {
   getTokenCacheService,
@@ -28,9 +29,26 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Test mode configuration
 const isTestMode = process.env.NODE_ENV === 'test';
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  'test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here';
+
+// SECURITY: JWT_SECRET is required in all environments except test
+// In test mode, we generate a secure random secret if not provided
+const JWT_SECRET = (() => {
+  if (process.env.JWT_SECRET) {
+    return process.env.JWT_SECRET;
+  }
+  if (isTestMode) {
+    // Generate a secure random secret for test mode only
+    const testSecret = crypto.randomBytes(64).toString('hex');
+    logger.info('Test mode: Generated temporary JWT secret');
+    return testSecret;
+  }
+  // Non-test mode without JWT_SECRET should fail at config validation
+  // This fallback prevents crashes during module loading before validation runs
+  throw new Error(
+    'FATAL: JWT_SECRET environment variable is required. ' +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+  );
+})();
 
 // Circuit breaker configuration from environment
 const CIRCUIT_BREAKER_CONFIG = {
