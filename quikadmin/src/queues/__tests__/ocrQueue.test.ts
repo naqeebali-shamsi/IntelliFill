@@ -638,6 +638,25 @@ describe('ocrQueue', () => {
         enqueueDocumentForReprocessing(validDocId, validUserId, validFilePath, 'Low confidence')
       ).rejects.toThrow('Maximum reprocessing attempts (3) reached');
     });
+
+    it('should throw error when document does not exist (Task 267)', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock prisma to return null (document not found)
+      mockPrismaDocument.findUnique.mockResolvedValue(null);
+
+      const { enqueueDocumentForReprocessing } = require('../ocrQueue');
+
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
+      if (readyHandler) readyHandler();
+
+      await expect(
+        enqueueDocumentForReprocessing(validDocId, validUserId, validFilePath, 'Low confidence')
+      ).rejects.toThrow(`Document not found: ${validDocId}`);
+
+      // Verify queue.add was never called
+      expect(mockQueue.add).not.toHaveBeenCalled();
+    });
   });
 
   // ==========================================================================

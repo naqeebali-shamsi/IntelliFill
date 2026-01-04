@@ -638,7 +638,14 @@ export async function enqueueDocumentForReprocessing(
       select: { reprocessCount: true },
     });
 
-    if (document && document.reprocessCount >= OCR_QUEUE_CONFIG.MAX_REPROCESS_ATTEMPTS) {
+    // Verify document exists before proceeding with reprocessing
+    if (!document) {
+      throw new Error(
+        `Document not found: ${documentId}. Cannot reprocess a non-existent document.`
+      );
+    }
+
+    if (document.reprocessCount >= OCR_QUEUE_CONFIG.MAX_REPROCESS_ATTEMPTS) {
       throw new Error(
         `Maximum reprocessing attempts (${OCR_QUEUE_CONFIG.MAX_REPROCESS_ATTEMPTS}) reached for this document`
       );
@@ -669,7 +676,7 @@ export async function enqueueDocumentForReprocessing(
 
     logger.info('Enqueueing document for reprocessing', {
       documentId,
-      attempt: (document?.reprocessCount || 0) + 1,
+      attempt: document.reprocessCount + 1,
     });
 
     const job = await ocrQueue!.add(
