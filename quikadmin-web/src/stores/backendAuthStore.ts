@@ -449,6 +449,20 @@ export const useBackendAuthStore = create<AuthStore>()(
 
         // =================== SESSION MANAGEMENT ===================
 
+        /**
+         * Initialize auth state on app startup
+         *
+         * Task 278: Silent Token Refresh Flow
+         * When page refreshes, the in-memory access token is lost but:
+         * - isAuthenticated may still be true (from localStorage)
+         * - httpOnly refresh token cookie is still valid
+         *
+         * Flow:
+         * 1. Check if session exists (isAuthenticated from localStorage)
+         * 2. If in-memory token is missing, attempt silent refresh via cookie
+         * 3. On success, restore the access token in memory
+         * 4. On failure, clear session and require re-login
+         */
         initialize: async () => {
           // REQ-009: Set rehydrating stage during localStorage check
           set((state) => {
@@ -457,9 +471,11 @@ export const useBackendAuthStore = create<AuthStore>()(
           });
 
           try {
-            const currentTokens = get().tokens;
+            const { isAuthenticated } = get();
+            const hasInMemoryToken = tokenManager.hasToken();
 
-            if (!currentTokens?.accessToken) {
+            // Case 1: No session exists - nothing to do
+            if (!isAuthenticated) {
               set((state) => {
                 state.isInitialized = true;
                 state.isLoading = false;
@@ -468,12 +484,80 @@ export const useBackendAuthStore = create<AuthStore>()(
               return;
             }
 
-            // REQ-009: Set validating stage before backend call
+            // Case 2: Session exists but in-memory token is missing (page refresh)
+            // Task 278: Attempt silent refresh using httpOnly refresh cookie
+            if (isAuthenticated && !hasInMemoryToken) {
+              set((state) => {
+                state.loadingStage = 'validating';
+              });
+
+              try {
+                // Silent refresh - the httpOnly cookie is sent automatically
+                const response = await authService.refreshToken();
+
+                if (response.success && response.data?.tokens) {
+                  const newTokens = response.data.tokens;
+
+                  // Restore access token in memory (Task 277 + 278)
+                  tokenManager.setToken(newTokens.accessToken, newTokens.expiresIn);
+
+                  set((state) => {
+                    state.tokens = {
+                      accessToken: newTokens.accessToken,
+                      expiresIn: newTokens.expiresIn,
+                      tokenType: newTokens.tokenType || 'Bearer',
+                      refreshToken: newTokens.refreshToken || state.tokens?.refreshToken,
+                    };
+                    state.tokenExpiresAt = newTokens.expiresIn
+                      ? calculateTokenExpiresAt(newTokens.expiresIn)
+                      : null;
+                    state.isAuthenticated = true;
+                    state.isInitialized = true;
+                    state.isLoading = false;
+                    state.loadingStage = 'ready';
+                    state.lastActivity = Date.now();
+                  });
+
+                  // Fetch user data after successful refresh
+                  try {
+                    const userResponse = await authService.getMe();
+                    if (userResponse.success && userResponse.data?.user) {
+                      set((state) => {
+                        state.user = userResponse.data!.user as AuthUser;
+                      });
+                    }
+                  } catch {
+                    // User data fetch failed but token is valid, continue
+                    console.warn('[Auth] User data fetch failed after silent refresh');
+                  }
+
+                  return;
+                }
+              } catch (refreshError) {
+                // Silent refresh failed - cookie expired or invalid
+                console.warn('[Auth] Silent refresh failed:', refreshError);
+              }
+
+              // Silent refresh failed - clear session
+              tokenManager.clearToken();
+              set((state) => {
+                state.user = null;
+                state.tokens = null;
+                state.tokenExpiresAt = null;
+                state.isAuthenticated = false;
+                state.isInitialized = true;
+                state.isLoading = false;
+                state.loadingStage = 'ready';
+              });
+              return;
+            }
+
+            // Case 3: Session exists and in-memory token is present
+            // Validate the token by fetching current user
             set((state) => {
               state.loadingStage = 'validating';
             });
 
-            // Verify token by fetching current user
             const response = await authService.getMe();
 
             if (response.success && response.data?.user) {
@@ -486,9 +570,11 @@ export const useBackendAuthStore = create<AuthStore>()(
               });
             } else {
               // Token invalid, clear session
+              tokenManager.clearToken();
               set((state) => {
                 state.user = null;
                 state.tokens = null;
+                state.tokenExpiresAt = null;
                 state.isAuthenticated = false;
                 state.isInitialized = true;
                 state.isLoading = false;
@@ -497,9 +583,11 @@ export const useBackendAuthStore = create<AuthStore>()(
             }
           } catch (error) {
             console.error('Auth initialization error:', error);
+            tokenManager.clearToken();
             set((state) => {
               state.user = null;
               state.tokens = null;
+              state.tokenExpiresAt = null;
               state.isAuthenticated = false;
               state.isInitialized = true;
               state.isLoading = false;
@@ -632,15 +720,16 @@ export const useBackendAuthStore = create<AuthStore>()(
         }),
         version: 1,
         // Handle rehydration from localStorage - runs after persist middleware loads saved state
-        // Automatically validates persisted tokens with backend
+        // Task 278: Updated to work with in-memory token storage
         onRehydrateStorage: () => (state) => {
           if (state) {
-            // If we have tokens persisted, validate them with backend
-            if (state.tokens?.accessToken && state.isAuthenticated) {
-              // Call initialize to verify token validity
-              // This ensures tokens are still valid after page reload
-              const store = useBackendAuthStore.getState();
-              store.initialize();
+            // Task 278: Check if session indicator exists (isAuthenticated from localStorage)
+            // Access token is now in-memory only (Task 277), so we don't check for it here
+            // The initialize() method will handle silent refresh if needed
+            if (state.isAuthenticated) {
+              // Defer initialization to avoid race conditions with React
+              // The initialize() call happens in initializeStores() via App.tsx
+              // This just ensures the rehydrated state is ready
             }
           }
         },
