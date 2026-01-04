@@ -545,3 +545,168 @@ export const cspReportLimiter = rateLimit({
   } as any,
   keyGenerator: createKeyGenerator({ scope: 'ip' }), // IP-only since no auth on this endpoint
 });
+
+// ============================================================================
+// Sensitive Endpoint Rate Limiters (Task #284)
+// Extra-strict rate limits for security-sensitive endpoints
+// ============================================================================
+
+/**
+ * Password reset request rate limiter
+ * Production: 5 requests per hour per email/IP combination
+ * This prevents email enumeration and password reset abuse
+ */
+export const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: process.env.NODE_ENV === 'development' ? 100 : 5, // 5 reset requests/hour
+  message: {
+    error: 'Too many password reset requests',
+    message: 'Please wait before requesting another password reset.',
+    retryAfter: 3600,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('pwd-reset:' + key),
+    decrement: async (key: string) => store.decrement('pwd-reset:' + key),
+    resetKey: async (key: string) => store.resetKey('pwd-reset:' + key),
+  } as any,
+  keyGenerator: createKeyGenerator({ scope: 'email-ip', fallbackScope: 'ip' }),
+});
+
+/**
+ * File download rate limiter
+ * Production: 50 downloads per hour per user/IP
+ * Prevents abuse of bandwidth and storage resources
+ */
+export const downloadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: process.env.NODE_ENV === 'development' ? 500 : 50, // 50 downloads/hour
+  message: {
+    error: 'Download limit exceeded',
+    message: 'Too many file downloads. Please wait before downloading more.',
+    retryAfter: 3600,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('download:' + key),
+    decrement: async (key: string) => store.decrement('download:' + key),
+    resetKey: async (key: string) => store.resetKey('download:' + key),
+  } as any,
+  keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
+});
+
+// ============================================================================
+// Adaptive Rate Limiting (Task #284)
+// Dynamically reduce limits for IPs with suspicious activity
+// ============================================================================
+
+/**
+ * Map to track suspicious IPs with reduced limits
+ * Format: { [ip]: { reducedUntil: Date, factor: number } }
+ */
+const suspiciousIpLimits: Map<string, { reducedUntil: Date; factor: number }> = new Map();
+
+/**
+ * Check if an IP has reduced rate limits due to suspicious activity
+ */
+export function isSuspiciousIp(ip: string): { suspicious: boolean; factor: number } {
+  const entry = suspiciousIpLimits.get(ip);
+  if (!entry) {
+    return { suspicious: false, factor: 1 };
+  }
+
+  // Check if the reduction period has expired
+  if (entry.reducedUntil < new Date()) {
+    suspiciousIpLimits.delete(ip);
+    return { suspicious: false, factor: 1 };
+  }
+
+  return { suspicious: true, factor: entry.factor };
+}
+
+/**
+ * Mark an IP as suspicious with reduced rate limits
+ * @param ip - The IP address
+ * @param durationMinutes - How long to apply reduced limits (default: 60 minutes)
+ * @param reductionFactor - Factor to reduce limits by (default: 0.25 = 25% of normal)
+ */
+export function markIpAsSuspicious(
+  ip: string,
+  durationMinutes: number = 60,
+  reductionFactor: number = 0.25
+): void {
+  const reducedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+
+  suspiciousIpLimits.set(ip, {
+    reducedUntil,
+    factor: Math.max(0.1, Math.min(1, reductionFactor)), // Clamp between 0.1 and 1
+  });
+
+  logger.warn('[RateLimit] IP marked as suspicious with reduced limits', {
+    ip: ip.substring(0, 10) + '...', // Partial IP for privacy
+    durationMinutes,
+    reductionFactor,
+  });
+}
+
+/**
+ * Clear suspicious status for an IP
+ */
+export function clearSuspiciousIp(ip: string): void {
+  suspiciousIpLimits.delete(ip);
+}
+
+/**
+ * Create an adaptive rate limiter that reduces limits for suspicious IPs
+ * @param baseMax - Base maximum requests
+ * @param windowMs - Window in milliseconds
+ * @param prefix - Key prefix for the store
+ */
+export function createAdaptiveLimiter(
+  baseMax: number,
+  windowMs: number,
+  prefix: string,
+  options: Partial<Parameters<typeof rateLimit>[0]> = {}
+): ReturnType<typeof rateLimit> {
+  return rateLimit({
+    windowMs,
+    max: (req: Request) => {
+      const ip = req.ip || 'unknown';
+      const { suspicious, factor } = isSuspiciousIp(ip);
+
+      if (suspicious) {
+        const reducedMax = Math.max(1, Math.floor(baseMax * factor));
+        logger.debug('[RateLimit] Applying reduced limit for suspicious IP', {
+          prefix,
+          baseMax,
+          reducedMax,
+        });
+        return reducedMax;
+      }
+
+      return process.env.NODE_ENV === 'development' ? baseMax * 10 : baseMax;
+    },
+    message: {
+      error: 'Rate limit exceeded',
+      message: 'Too many requests. Please try again later.',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: {
+      increment: async (key: string) => store.increment(`${prefix}:${key}`),
+      decrement: async (key: string) => store.decrement(`${prefix}:${key}`),
+      resetKey: async (key: string) => store.resetKey(`${prefix}:${key}`),
+    } as any,
+    ...options,
+  });
+}
+
+/**
+ * Adaptive auth limiter - reduces to 5 attempts for suspicious IPs
+ */
+export const adaptiveAuthLimiter = createAdaptiveLimiter(20, 15 * 60 * 1000, 'adaptive-auth', {
+  keyGenerator: createKeyGenerator({ scope: 'email-ip', fallbackScope: 'ip' }),
+  skipSuccessfulRequests: true,
+});
