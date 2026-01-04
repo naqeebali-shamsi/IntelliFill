@@ -47,6 +47,9 @@ export interface RedisConfig {
 export interface JwtConfig {
   secret: string;
   refreshSecret: string;
+  // Task 283: Old secrets for zero-downtime rotation
+  secretOld?: string;
+  refreshSecretOld?: string;
   issuer: string;
   audience: string;
 }
@@ -145,6 +148,9 @@ function loadConfig(): Config {
     jwt: {
       secret: getEnv('JWT_SECRET'),
       refreshSecret: getEnv('JWT_REFRESH_SECRET'),
+      // Task 283: Optional old secrets for zero-downtime rotation
+      secretOld: process.env.JWT_SECRET_OLD || undefined,
+      refreshSecretOld: process.env.JWT_REFRESH_SECRET_OLD || undefined,
       issuer: getEnv('JWT_ISSUER', 'intellifill'),
       audience: getEnv('JWT_AUDIENCE', 'intellifill-api'),
     },

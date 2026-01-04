@@ -86,9 +86,12 @@ export class RefreshTokenFamilyService {
   private isConnected = false;
   private connectionPromise: Promise<void> | null = null;
   private jwtRefreshSecret: string;
+  // Task 283: Old secret for zero-downtime rotation
+  private jwtRefreshSecretOld?: string;
 
-  constructor(jwtRefreshSecret?: string) {
+  constructor(jwtRefreshSecret?: string, jwtRefreshSecretOld?: string) {
     this.jwtRefreshSecret = jwtRefreshSecret || config.jwt.refreshSecret;
+    this.jwtRefreshSecretOld = jwtRefreshSecretOld || config.jwt.refreshSecretOld;
   }
 
   // ==========================================================================
@@ -248,17 +251,32 @@ export class RefreshTokenFamilyService {
    */
   async validateToken(token: string, req?: Request): Promise<TokenFamilyValidation> {
     // Step 1: Verify JWT signature and expiration
+    // Task 283: Dual-key verification for zero-downtime rotation
     let payload: TokenFamilyPayload;
+    let usedOldSecret = false;
+
     try {
       payload = jwt.verify(token, this.jwtRefreshSecret) as TokenFamilyPayload;
-    } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
+    } catch (primaryError) {
+      // If primary verification fails with signature error and old secret exists, try fallback
+      if (primaryError instanceof jwt.JsonWebTokenError && this.jwtRefreshSecretOld) {
+        try {
+          payload = jwt.verify(token, this.jwtRefreshSecretOld) as TokenFamilyPayload;
+          usedOldSecret = true;
+          logger.info('[TokenFamily] Token verified using old secret (rotation in progress)', {
+            userId: (payload as TokenFamilyPayload).sub,
+          });
+        } catch (fallbackError) {
+          if (fallbackError instanceof jwt.TokenExpiredError) {
+            return { valid: false, reason: 'Token expired' };
+          }
+          return { valid: false, reason: 'Invalid token signature' };
+        }
+      } else if (primaryError instanceof jwt.TokenExpiredError) {
         return { valid: false, reason: 'Token expired' };
-      }
-      if (error instanceof jwt.JsonWebTokenError) {
+      } else {
         return { valid: false, reason: 'Invalid token signature' };
       }
-      return { valid: false, reason: 'Token verification failed' };
     }
 
     // Step 2: Validate payload structure

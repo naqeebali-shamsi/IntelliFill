@@ -50,6 +50,9 @@ const JWT_SECRET = (() => {
   );
 })();
 
+// Task 283: Old JWT secret for zero-downtime rotation
+const JWT_SECRET_OLD = process.env.JWT_SECRET_OLD || undefined;
+
 // Circuit breaker configuration from environment
 const CIRCUIT_BREAKER_CONFIG = {
   resetTimeout: parseInt(process.env.CIRCUIT_BREAKER_RESET_TIMEOUT || '30000', 10),
@@ -237,40 +240,60 @@ export function isAuthCircuitOpen(): boolean {
  */
 export async function verifySupabaseToken(token: string): Promise<User | null> {
   // Test mode: Verify local JWT tokens (no caching needed)
+  // Task 283: Enhanced with dual-key verification for zero-downtime rotation
   if (isTestMode) {
+    let decoded: {
+      sub: string;
+      email: string;
+      role: string;
+      aud: string;
+      iss: string;
+    } | null = null;
+    let usedOldSecret = false;
+
+    // Try primary secret first
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as {
-        sub: string;
-        email: string;
-        role: string;
-        aud: string;
-        iss: string;
-      };
-
-      // Check if this is a test-mode token
-      if (decoded.iss === 'test-mode' && decoded.aud === 'authenticated') {
-        console.log(`🧪 [TEST MODE] Verified token for user: ${decoded.email}`);
-        return {
-          id: decoded.sub,
-          email: decoded.email,
-          role: decoded.role,
-          aud: decoded.aud,
-          // Mock Supabase user structure
-          app_metadata: {},
-          user_metadata: {},
-          email_confirmed_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as User;
+      decoded = jwt.verify(token, JWT_SECRET) as typeof decoded;
+    } catch (primaryError) {
+      // Task 283: If primary fails with signature error and old secret exists, try fallback
+      if (primaryError instanceof jwt.JsonWebTokenError && JWT_SECRET_OLD) {
+        try {
+          decoded = jwt.verify(token, JWT_SECRET_OLD) as typeof decoded;
+          usedOldSecret = true;
+          logger.info('[Auth] Token verified using old secret (rotation in progress)');
+        } catch (fallbackError) {
+          console.error('Test mode token verification failed with both secrets');
+          return null;
+        }
+      } else {
+        console.error('Test mode token verification failed:', (primaryError as Error).message);
+        return null;
       }
-
-      console.error('Test mode: Invalid token issuer');
-      return null;
-    } catch (err: unknown) {
-      const error = err as Error;
-      console.error('Test mode token verification failed:', error.message);
-      return null;
     }
+
+    if (!decoded) return null;
+
+    // Check if this is a test-mode token
+    if (decoded.iss === 'test-mode' && decoded.aud === 'authenticated') {
+      console.log(
+        `🧪 [TEST MODE] Verified token for user: ${decoded.email}${usedOldSecret ? ' (using old secret)' : ''}`
+      );
+      return {
+        id: decoded.sub,
+        email: decoded.email,
+        role: decoded.role,
+        aud: decoded.aud,
+        // Mock Supabase user structure
+        app_metadata: {},
+        user_metadata: {},
+        email_confirmed_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as User;
+    }
+
+    console.error('Test mode: Invalid token issuer');
+    return null;
   }
 
   // Production mode: Check cache first, then verify with Supabase
