@@ -9,6 +9,10 @@ import { afterEach, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
+import { enableMapSet } from 'immer';
+
+// Enable Immer support for Map and Set
+enableMapSet();
 
 // Mock toast/sonner - prevent React rendering issues in tests
 // This MUST be done before any imports that use sonner
@@ -27,7 +31,7 @@ vi.mock('sonner', () => {
   return {
     toast: mockToast,
     default: mockToast,
-    Toaster: () => null, // Mock Toaster component to prevent rendering
+    Toaster: (): null => null, // Mock Toaster component to prevent rendering
   };
 });
 
@@ -167,7 +171,7 @@ export function createTestQueryClient() {
     defaultOptions: {
       queries: {
         retry: false,
-        cacheTime: 0,
+        gcTime: 0, // Renamed from cacheTime in React Query v5
       },
       mutations: {
         retry: false,

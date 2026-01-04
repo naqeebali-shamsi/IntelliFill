@@ -87,7 +87,8 @@ const mockProfilesResponse = {
 const emptyProfilesResponse = {
   success: true,
   data: {
-    profiles: [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    profiles: [] as any[],
     pagination: {
       total: 0,
       limit: 50,
@@ -109,35 +110,27 @@ describe('ProfileSelector Component', () => {
       );
 
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       // Should show skeleton loading indicators
       // The component shows skeleton elements while loading
-      expect(document.querySelector('[class*="skeleton"]') ||
-             document.querySelector('[data-slot="skeleton"]')).toBeTruthy();
+      expect(
+        document.querySelector('[class*="skeleton"]') ||
+          document.querySelector('[data-slot="skeleton"]')
+      ).toBeTruthy();
     });
   });
 
   describe('Error State', () => {
     it('should show error state with retry button when fetch fails', async () => {
-      vi.mocked(profilesService.list).mockRejectedValue(
-        new Error('Failed to fetch profiles')
-      );
+      vi.mocked(profilesService.list).mockRejectedValue(new Error('Failed to fetch profiles'));
 
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(screen.getByText(/failed to load profiles/i)).toBeInTheDocument();
@@ -153,13 +146,9 @@ describe('ProfileSelector Component', () => {
         .mockResolvedValueOnce(mockProfilesResponse);
 
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
@@ -178,13 +167,9 @@ describe('ProfileSelector Component', () => {
       vi.mocked(profilesService.list).mockResolvedValue(emptyProfilesResponse);
 
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(screen.getByText('No Profiles')).toBeInTheDocument();
@@ -198,13 +183,9 @@ describe('ProfileSelector Component', () => {
       vi.mocked(profilesService.list).mockResolvedValue(emptyProfilesResponse);
 
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /create profile/i })).toBeInTheDocument();
@@ -219,19 +200,17 @@ describe('ProfileSelector Component', () => {
       vi.mocked(profilesService.list).mockResolvedValue(emptyProfilesResponse);
 
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(screen.getByText('No Profiles Found')).toBeInTheDocument();
       });
 
-      expect(screen.getByText(/you need to create a profile before you can fill forms/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/you need to create a profile before you can fill forms/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -261,13 +240,9 @@ describe('ProfileSelector Component', () => {
 
     it('should auto-select first profile when none selected', async () => {
       const handleProfileChange = vi.fn();
-      render(
-        <ProfileSelector
-          selectedProfile={null}
-          onProfileChange={handleProfileChange}
-        />,
-        { wrapper: createWrapper() }
-      );
+      render(<ProfileSelector selectedProfile={null} onProfileChange={handleProfileChange} />, {
+        wrapper: createWrapper(),
+      });
 
       await waitFor(() => {
         expect(handleProfileChange).toHaveBeenCalledWith(mockPersonalProfile);

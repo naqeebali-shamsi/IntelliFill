@@ -148,7 +148,7 @@ const mockEmptyUserDataResponse = {
   success: true,
   data: { fields: {}, metadata: {} },
   fieldSources: {},
-  sources: [],
+  sources: [] as string[],
   documentCount: 0,
 };
 
@@ -169,7 +169,7 @@ const mockFillFormResponse = {
   downloadUrl: 'https://example.com/download/filled-doc-123',
   confidence: 0.92,
   filledFields: 5,
-  warnings: [],
+  warnings: [] as string[],
 };
 
 describe('SimpleFillForm Integration', () => {
