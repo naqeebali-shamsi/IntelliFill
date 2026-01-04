@@ -544,6 +544,167 @@ describe('ocrQueue', () => {
   });
 
   // ==========================================================================
+  // OCR Service Cleanup Tests (Try-Finally Pattern)
+  // ==========================================================================
+
+  describe('OCR Service Cleanup (Try-Finally)', () => {
+    let mockOcrService: {
+      initialize: jest.Mock;
+      processImage: jest.Mock;
+      processPDF: jest.Mock;
+      extractStructuredData: jest.Mock;
+      cleanup: jest.Mock;
+    };
+
+    beforeEach(() => {
+      // Create mock OCR service instance
+      mockOcrService = {
+        initialize: jest.fn().mockResolvedValue(undefined),
+        processImage: jest.fn(),
+        processPDF: jest.fn(),
+        extractStructuredData: jest.fn().mockResolvedValue({ fields: {} }),
+        cleanup: jest.fn().mockResolvedValue(undefined),
+      };
+
+      // Mock OCRService constructor
+      jest.doMock('../../services/OCRService', () => ({
+        OCRService: jest.fn().mockImplementation(() => mockOcrService),
+        OCRProgress: {},
+      }));
+    });
+
+    it('should call cleanup even when OCR processing throws an error', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock processPDF to throw an error
+      mockOcrService.processPDF.mockRejectedValue(new Error('OCR processing failed'));
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job
+      const mockJob = {
+        id: 'job-123',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf',
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update to avoid database calls
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor - should throw but still cleanup
+      await expect(processorCallback!(mockJob)).rejects.toThrow('OCR processing failed');
+
+      // Verify cleanup was called despite the error
+      expect(mockOcrService.cleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call cleanup on successful processing', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock successful processing
+      mockOcrService.processPDF.mockResolvedValue({
+        text: 'Sample text',
+        confidence: 95,
+        metadata: { pageCount: 1 },
+        pages: [],
+      });
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job
+      const mockJob = {
+        id: 'job-123',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf',
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update to avoid database calls
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor
+      await processorCallback!(mockJob);
+
+      // Verify cleanup was called
+      expect(mockOcrService.cleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it('should log warning but not throw when cleanup itself fails', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock successful processing but cleanup fails
+      mockOcrService.processPDF.mockResolvedValue({
+        text: 'Sample text',
+        confidence: 95,
+        metadata: { pageCount: 1 },
+        pages: [],
+      });
+      mockOcrService.cleanup.mockRejectedValue(new Error('Cleanup failed'));
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job
+      const mockJob = {
+        id: 'job-123',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf',
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update to avoid database calls
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor - should not throw despite cleanup failure
+      const result = await processorCallback!(mockJob);
+
+      // Verify the result is still returned (cleanup failure doesn't affect it)
+      expect(result).toBeDefined();
+      expect(result.status).toBe('completed');
+      expect(mockOcrService.cleanup).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ==========================================================================
   // Graceful Shutdown Tests
   // ==========================================================================
 

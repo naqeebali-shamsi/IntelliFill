@@ -218,11 +218,17 @@ export function isOCRQueueAvailable(): boolean {
 
 /**
  * Process OCR jobs with configurable concurrency
+ *
+ * Uses try-finally pattern to ensure OCR service resources (Tesseract workers,
+ * temporary files) are always cleaned up, regardless of success or failure.
  */
 if (ocrQueue) {
   ocrQueue.process(OCR_QUEUE_CONFIG.CONCURRENCY, async (job) => {
-    const { documentId, userId, filePath, options } = job.data;
+    const { documentId, userId, filePath } = job.data;
     const startTime = Date.now();
+
+    // OCR service instance - declared outside try block for finally access
+    let ocrService: OCRService | null = null;
 
     try {
       // Defensive validation at processor level (secondary defense layer)
@@ -252,7 +258,7 @@ if (ocrQueue) {
       await job.progress(5);
 
       // Initialize OCR service
-      const ocrService = new OCRService();
+      ocrService = new OCRService();
       await ocrService.initialize();
 
       await job.progress(10);
@@ -323,9 +329,6 @@ if (ocrQueue) {
         },
       });
 
-      // Cleanup OCR service resources
-      await ocrService.cleanup();
-
       await job.progress(100);
 
       const processingTime = Date.now() - startTime;
@@ -358,6 +361,20 @@ if (ocrQueue) {
         });
 
       throw error;
+    } finally {
+      // ALWAYS cleanup OCR service resources (Tesseract workers, temp files)
+      // This prevents memory leaks regardless of success or failure
+      if (ocrService) {
+        try {
+          await ocrService.cleanup();
+          logger.debug(`OCR service cleanup completed for document ${documentId}`);
+        } catch (cleanupError) {
+          // Log cleanup failures as warnings - don't mask the original error
+          logger.warn(`OCR service cleanup failed for document ${documentId}`, {
+            error: cleanupError instanceof Error ? cleanupError.message : 'Unknown cleanup error',
+          });
+        }
+      }
     }
   });
 }
