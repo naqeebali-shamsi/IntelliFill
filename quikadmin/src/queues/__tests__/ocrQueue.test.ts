@@ -207,13 +207,17 @@ describe('ocrQueue', () => {
       const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
-      const job = await enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', true);
+      const validDocId = '550e8400-e29b-41d4-a716-446655440000';
+      const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+      const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
+
+      const job = await enqueueDocumentForOCR(validDocId, validUserId, validFilePath, true);
 
       expect(job).toBe(mockJob);
       expect(mockQueue.add).toHaveBeenCalledWith({
-        documentId: 'doc-123',
-        userId: 'user-456',
-        filePath: '/test/doc.pdf',
+        documentId: validDocId,
+        userId: validUserId,
+        filePath: validFilePath,
         options: {},
       });
     });
@@ -233,7 +237,11 @@ describe('ocrQueue', () => {
       const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
-      const job = await enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', false);
+      const validDocId = '550e8400-e29b-41d4-a716-446655440000';
+      const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+      const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
+
+      const job = await enqueueDocumentForOCR(validDocId, validUserId, validFilePath, false);
 
       expect(job).toBeNull();
       expect(mockQueue.add).not.toHaveBeenCalled();
@@ -248,8 +256,12 @@ describe('ocrQueue', () => {
       // Get QueueUnavailableError from same module context after resetModules
       const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
 
+      const validDocId = '550e8400-e29b-41d4-a716-446655440000';
+      const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+      const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
+
       await expect(
-        enqueueDocumentForOCR('doc-123', 'user-456', '/test/doc.pdf', true)
+        enqueueDocumentForOCR(validDocId, validUserId, validFilePath, true)
       ).rejects.toThrow(QUE);
     });
   });
@@ -347,9 +359,9 @@ describe('ocrQueue', () => {
       const mockJob = {
         id: 'job-123',
         data: {
-          documentId: 'doc-456',
-          userId: 'user-789',
-          filePath: '/test.pdf',
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/test.pdf',
           options: {},
         },
         getState: jest.fn().mockResolvedValue('active'),
@@ -387,6 +399,10 @@ describe('ocrQueue', () => {
   // ==========================================================================
 
   describe('enqueueDocumentForReprocessing', () => {
+    const validDocId = '550e8400-e29b-41d4-a716-446655440000';
+    const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+    const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
+
     it('should enqueue document for reprocessing with enhanced settings', async () => {
       Bull.mockImplementation(() => mockQueue);
 
@@ -402,18 +418,18 @@ describe('ocrQueue', () => {
       if (readyHandler) readyHandler();
 
       const job = await enqueueDocumentForReprocessing(
-        'doc-123',
-        'user-456',
-        '/test/doc.pdf',
+        validDocId,
+        validUserId,
+        validFilePath,
         'Low confidence'
       );
 
       expect(job).toBe(mockJob);
       expect(mockQueue.add).toHaveBeenCalledWith(
         {
-          documentId: 'doc-123',
-          userId: 'user-456',
-          filePath: '/test/doc.pdf',
+          documentId: validDocId,
+          userId: validUserId,
+          filePath: validFilePath,
           isReprocessing: true,
           reprocessReason: 'Low confidence',
           options: {
@@ -440,7 +456,7 @@ describe('ocrQueue', () => {
       if (readyHandler) readyHandler();
 
       await expect(
-        enqueueDocumentForReprocessing('doc-123', 'user-456', '/test/doc.pdf', 'Low confidence')
+        enqueueDocumentForReprocessing(validDocId, validUserId, validFilePath, 'Low confidence')
       ).rejects.toThrow('Maximum reprocessing attempts (3) reached');
     });
   });

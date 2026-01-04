@@ -8,6 +8,7 @@ import { realtimeService } from '../services/RealtimeService';
 import { prisma } from '../utils/prisma';
 import { getRedisConfig, defaultBullSettings, ocrJobOptions } from '../utils/redisConfig';
 import { isRedisHealthy } from '../utils/redisHealth';
+import { validateOcrJobDataOrThrow, OCRValidationError } from '../utils/ocrJobValidation';
 
 // Supported image extensions for OCR
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.tiff', '.tif', '.bmp', '.gif'];
@@ -207,6 +208,22 @@ if (ocrQueue) {
     const startTime = Date.now();
 
     try {
+      // Defensive validation at processor level (secondary defense layer)
+      try {
+        validateOcrJobDataOrThrow({ documentId, userId, filePath });
+      } catch (validationError) {
+        if (validationError instanceof OCRValidationError) {
+          logger.error('OCR job validation failed in processor', {
+            jobId: job.id,
+            documentId,
+            error: validationError.message,
+            code: validationError.code,
+          });
+          throw new Error(`Validation failed: ${validationError.message}`);
+        }
+        throw validationError;
+      }
+
       logger.info(`Starting OCR processing for document ${documentId}`);
 
       // Update document status to PROCESSING
@@ -389,6 +406,9 @@ export async function enqueueDocumentForOCR(
     throw new QueueUnavailableError('ocr-processing');
   }
 
+  // Validate input data before enqueueing (primary defense layer)
+  validateOcrJobDataOrThrow({ documentId, userId, filePath });
+
   try {
     // Check if PDF needs OCR
     if (!forceOCR) {
@@ -500,6 +520,9 @@ export async function enqueueDocumentForReprocessing(
     throw new QueueUnavailableError('ocr-processing');
   }
 
+  // Validate input data before enqueueing (primary defense layer)
+  validateOcrJobDataOrThrow({ documentId, userId, filePath });
+
   try {
     const document = await prisma.document.findUnique({
       where: { id: documentId },
@@ -544,3 +567,6 @@ export async function enqueueDocumentForReprocessing(
 
 // Export queue instance (may be null if Redis unavailable)
 export { ocrQueue };
+
+// Re-export validation utilities for consumers
+export { OCRValidationError } from '../utils/ocrJobValidation';
