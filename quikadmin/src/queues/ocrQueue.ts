@@ -75,10 +75,27 @@ export interface QueueHealthStatus {
 }
 
 /**
+ * Safe job data - sensitive fields removed for API responses
+ *
+ * filePath is intentionally omitted to prevent information disclosure
+ */
+export interface SafeOCRJobData {
+  /** Document identifier */
+  documentId: string;
+  /** Whether this is a reprocessing job */
+  isReprocessing?: boolean;
+  /** Reason for reprocessing (if applicable) */
+  reprocessReason?: string;
+}
+
+/**
  * OCR job status interface
  *
  * Represents the current state of an individual OCR processing job
  * for status queries and progress tracking.
+ *
+ * Note: Sensitive fields like filePath are removed from data property
+ * to prevent information disclosure.
  */
 export interface OCRJobStatus {
   /** Unique job identifier */
@@ -89,8 +106,8 @@ export interface OCRJobStatus {
   status: Bull.JobStatus;
   /** Processing progress percentage (0-100) */
   progress: number;
-  /** Original job data */
-  data: OCRProcessingJob;
+  /** Sanitized job data (sensitive fields removed) */
+  data: SafeOCRJobData;
   /** Job result (if completed) */
   result: unknown | null;
   /** Error message (if failed) */
@@ -465,9 +482,20 @@ export async function getOCRQueueHealth(): Promise<QueueHealthStatus> {
 }
 
 /**
- * Get OCR job status by ID
+ * Get OCR job status by ID with ownership verification
+ *
+ * This function implements IDOR protection by verifying that the requesting
+ * user owns the job before returning its status. Sensitive fields like
+ * filePath are stripped from the response.
+ *
+ * @param jobId - The job ID to query
+ * @param requestingUserId - The ID of the user making the request (for ownership check)
+ * @returns Job status if found and owned by the requester, null otherwise
  */
-export async function getOCRJobStatus(jobId: string): Promise<OCRJobStatus | null> {
+export async function getOCRJobStatus(
+  jobId: string,
+  requestingUserId: string
+): Promise<OCRJobStatus | null> {
   if (!isOCRQueueAvailable()) {
     throw new QueueUnavailableError('ocr-processing');
   }
@@ -478,14 +506,32 @@ export async function getOCRJobStatus(jobId: string): Promise<OCRJobStatus | nul
     return null;
   }
 
+  // IDOR Protection: Verify the requesting user owns this job
+  // Returns null to prevent enumeration attacks (don't reveal if job exists)
+  if (job.data.userId !== requestingUserId) {
+    logger.warn("IDOR attempt blocked: User tried to access another user's job", {
+      jobId,
+      requestingUserId,
+      jobOwnerId: job.data.userId?.substring(0, 8) + '...',
+    });
+    return null;
+  }
+
   const state = await job.getState();
+
+  // Sanitize job data: Remove sensitive fields (filePath, userId, options)
+  const safeData: SafeOCRJobData = {
+    documentId: job.data.documentId,
+    isReprocessing: job.data.isReprocessing,
+    reprocessReason: job.data.reprocessReason,
+  };
 
   return {
     id: job.id,
     type: 'ocr_processing',
     status: state,
     progress: job.progress() as number,
-    data: job.data,
+    data: safeData,
     result: job.returnvalue ?? null,
     error: job.failedReason ?? null,
     attemptsMade: job.attemptsMade,

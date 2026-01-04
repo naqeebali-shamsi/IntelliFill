@@ -338,6 +338,9 @@ describe('ocrQueue', () => {
   // ==========================================================================
 
   describe('getOCRJobStatus', () => {
+    const jobOwnerId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+    const otherUserId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+
     it('should return null when job not found', async () => {
       Bull.mockImplementation(() => mockQueue);
 
@@ -348,19 +351,19 @@ describe('ocrQueue', () => {
       const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
-      const status = await getOCRJobStatus('nonexistent-job');
+      const status = await getOCRJobStatus('nonexistent-job', jobOwnerId);
 
       expect(status).toBeNull();
     });
 
-    it('should return job status when job exists', async () => {
+    it('should return job status when job exists and user owns it', async () => {
       Bull.mockImplementation(() => mockQueue);
 
       const mockJob = {
         id: 'job-123',
         data: {
           documentId: '550e8400-e29b-41d4-a716-446655440000',
-          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          userId: jobOwnerId,
           filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/test.pdf',
           options: {},
         },
@@ -382,7 +385,7 @@ describe('ocrQueue', () => {
       const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
-      const status = await getOCRJobStatus('job-123');
+      const status = await getOCRJobStatus('job-123', jobOwnerId);
 
       expect(status).toBeDefined();
       expect(status.id).toBe('job-123');
@@ -391,6 +394,85 @@ describe('ocrQueue', () => {
       expect(status.progress).toBe(75);
       expect(status.attemptsMade).toBe(1);
       expect(status.attemptsTotal).toBe(3);
+    });
+
+    it('should return null when user does not own the job (IDOR protection)', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      const mockJob = {
+        id: 'job-123',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: jobOwnerId, // Owned by jobOwnerId
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/test.pdf',
+          options: {},
+        },
+        getState: jest.fn().mockResolvedValue('active'),
+        progress: jest.fn().mockReturnValue(75),
+        timestamp: Date.now(),
+        processedOn: Date.now() - 5000,
+        finishedOn: null as number | null,
+        returnvalue: null as unknown,
+        failedReason: null as string | null,
+        attemptsMade: 1,
+        opts: { attempts: 3 },
+      };
+
+      mockQueue.getJob.mockResolvedValue(mockJob);
+
+      const { getOCRJobStatus } = require('../ocrQueue');
+
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
+      if (readyHandler) readyHandler();
+
+      // otherUserId tries to access jobOwnerId's job - should return null
+      const status = await getOCRJobStatus('job-123', otherUserId);
+
+      expect(status).toBeNull();
+    });
+
+    it('should not expose sensitive fields like filePath in job data', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      const mockJob = {
+        id: 'job-123',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: jobOwnerId,
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/secret.pdf',
+          options: { enhancedPreprocessing: true },
+          isReprocessing: true,
+          reprocessReason: 'Low confidence',
+        },
+        getState: jest.fn().mockResolvedValue('completed'),
+        progress: jest.fn().mockReturnValue(100),
+        timestamp: Date.now(),
+        processedOn: Date.now() - 5000,
+        finishedOn: Date.now(),
+        returnvalue: { success: true },
+        failedReason: null as string | null,
+        attemptsMade: 1,
+        opts: { attempts: 3 },
+      };
+
+      mockQueue.getJob.mockResolvedValue(mockJob);
+
+      const { getOCRJobStatus } = require('../ocrQueue');
+
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
+      if (readyHandler) readyHandler();
+
+      const status = await getOCRJobStatus('job-123', jobOwnerId);
+
+      expect(status).toBeDefined();
+      // Verify sensitive fields are NOT exposed
+      expect(status.data.filePath).toBeUndefined();
+      expect(status.data.userId).toBeUndefined();
+      expect(status.data.options).toBeUndefined();
+      // Verify safe fields ARE exposed
+      expect(status.data.documentId).toBe('550e8400-e29b-41d4-a716-446655440000');
+      expect(status.data.isReprocessing).toBe(true);
+      expect(status.data.reprocessReason).toBe('Low confidence');
     });
   });
 

@@ -614,8 +614,8 @@ export function createDocumentRoutes(): Router {
           if (docJobStatus) {
             jobStatus = docJobStatus;
           } else {
-            // Check OCR queue specifically
-            const ocrJobStatus = await getOCRJobStatus(id);
+            // Check OCR queue specifically (with IDOR protection)
+            const ocrJobStatus = await getOCRJobStatus(id, userId);
             if (ocrJobStatus) {
               jobStatus = ocrJobStatus;
             }
