@@ -31,6 +31,8 @@ import { authLimiter as centralAuthLimiter } from '../middleware/rateLimiter';
 import { config } from '../config';
 // Token cache for invalidating cached tokens on logout (REQ-006)
 import { getTokenCacheService } from '../services/tokenCache.service';
+// Task 279: Token family service for rotation and theft detection
+import { getTokenFamilyService } from '../services/RefreshTokenFamilyService';
 
 // Test mode configuration (for e2e tests - JWT secrets still required in env)
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
@@ -472,14 +474,31 @@ export function createSupabaseAuthRoutes(): Router {
           { expiresIn: '1h' }
         );
 
-        const refreshToken = jwt.sign(
-          {
-            sub: user.id,
-            type: 'refresh',
-          },
-          JWT_REFRESH_SECRET,
-          { expiresIn: '7d' }
-        );
+        // Task 279: Use token family service for refresh tokens with rotation support
+        let refreshToken: string;
+        try {
+          const tokenFamilyService = await getTokenFamilyService();
+          const familyResult = tokenFamilyService.createNewFamily(user.id);
+          refreshToken = familyResult.refreshToken;
+          logger.debug('[TEST MODE] Token family created', {
+            userId: user.id,
+            familyId: familyResult.familyId,
+            generation: familyResult.generation,
+          });
+        } catch (familyError) {
+          // Fallback to simple JWT if token family service unavailable
+          logger.warn('[TEST MODE] Token family service unavailable, using fallback', {
+            error: familyError instanceof Error ? familyError.message : 'Unknown',
+          });
+          refreshToken = jwt.sign(
+            {
+              sub: user.id,
+              type: 'refresh',
+            },
+            JWT_REFRESH_SECRET,
+            { expiresIn: '7d' }
+          );
+        }
 
         // Update last login
         await prisma.user.update({
@@ -721,9 +740,91 @@ export function createSupabaseAuthRoutes(): Router {
         });
       }
 
-      // ===== Refresh Session with Supabase =====
+      // ===== Task 279: Check for token family rotation (test mode tokens) =====
+      // Token family tokens contain 'fid' and 'gen' fields
+      try {
+        const decoded = jwt.decode(refreshToken) as { fid?: string; gen?: number; type?: string };
 
-      logger.debug('Attempting to refresh session');
+        if (decoded?.fid && decoded?.gen && decoded?.type === 'refresh') {
+          // This is a token family token - use rotation with theft detection
+          logger.debug('Processing token family refresh');
+
+          const tokenFamilyService = await getTokenFamilyService();
+          const rotationResult = await tokenFamilyService.rotateToken(refreshToken, req);
+
+          if (!rotationResult) {
+            logger.warn('Token family rotation failed - token invalid or revoked');
+            return res.status(401).json({
+              error: 'Invalid or expired refresh token',
+              code: 'TOKEN_REVOKED',
+            });
+          }
+
+          // Get user info for response
+          const decodedPayload = jwt.decode(rotationResult.refreshToken) as { sub: string };
+          const user = await prisma.user.findUnique({
+            where: { id: decodedPayload.sub },
+            select: { id: true, email: true, role: true },
+          });
+
+          if (!user) {
+            return res.status(401).json({
+              error: 'User not found',
+            });
+          }
+
+          // Generate new access token
+          const accessToken = jwt.sign(
+            {
+              sub: user.id,
+              email: user.email,
+              role: user.role,
+              aud: 'authenticated',
+              iss: 'test-mode',
+            },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+          );
+
+          // Update last login
+          try {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { lastLogin: new Date() },
+            });
+          } catch {
+            logger.warn('Failed to update lastLogin during token refresh');
+          }
+
+          logger.info('Token family rotated successfully', {
+            userId: user.id,
+            familyId: rotationResult.familyId,
+            generation: rotationResult.generation,
+          });
+
+          // Set new rotated refresh token as httpOnly cookie
+          setRefreshTokenCookie(res, rotationResult.refreshToken);
+
+          return res.json({
+            success: true,
+            message: 'Token refreshed successfully',
+            data: {
+              tokens: {
+                accessToken,
+                expiresIn: 3600,
+                tokenType: 'Bearer',
+              },
+            },
+          });
+        }
+      } catch (decodeError) {
+        // Not a token family token, fall through to Supabase refresh
+        logger.debug('Token is not a token family token, using Supabase refresh');
+      }
+
+      // ===== Refresh Session with Supabase (production mode) =====
+
+      logger.debug('Attempting to refresh session with Supabase');
 
       const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession({
         refresh_token: refreshToken,
@@ -1559,15 +1660,29 @@ export function createSupabaseAuthRoutes(): Router {
         { expiresIn: '4h' } // Longer session for demo
       );
 
-      const refreshToken = jwt.sign(
-        {
-          sub: user.id,
-          type: 'refresh',
-          isDemo: true,
-        },
-        JWT_REFRESH_SECRET,
-        { expiresIn: '24h' } // Demo refresh token valid for 24 hours
-      );
+      // Task 279: Use token family service for demo refresh tokens
+      let refreshToken: string;
+      try {
+        const tokenFamilyService = await getTokenFamilyService();
+        const familyResult = tokenFamilyService.createNewFamily(user.id);
+        refreshToken = familyResult.refreshToken;
+        logger.debug('[DEMO] Token family created', {
+          userId: user.id,
+          familyId: familyResult.familyId,
+        });
+      } catch (familyError) {
+        // Fallback to simple JWT if token family service unavailable
+        logger.warn('[DEMO] Token family service unavailable, using fallback');
+        refreshToken = jwt.sign(
+          {
+            sub: user.id,
+            type: 'refresh',
+            isDemo: true,
+          },
+          JWT_REFRESH_SECRET,
+          { expiresIn: '24h' }
+        );
+      }
 
       // Update last login
       await prisma.user.update({
