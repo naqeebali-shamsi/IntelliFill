@@ -427,8 +427,23 @@ if (ocrQueue) {
 }
 
 /**
+ * Generate a deterministic job ID for deduplication
+ *
+ * @param documentId - The document ID
+ * @param isReprocessing - Whether this is a reprocessing request
+ * @returns A unique job ID in format: ocr-{documentId} or ocr-reprocess-{documentId}
+ */
+function generateJobId(documentId: string, isReprocessing: boolean = false): string {
+  return isReprocessing ? `ocr-reprocess-${documentId}` : `ocr-${documentId}`;
+}
+
+/**
  * Helper function to enqueue a document for OCR processing
  * Automatically detects if PDF is scanned and needs OCR
+ *
+ * Uses deterministic job IDs for deduplication - if a job for the same
+ * document is already in the queue, returns the existing job instead
+ * of creating a duplicate.
  */
 export async function enqueueDocumentForOCR(
   documentId: string,
@@ -455,14 +470,42 @@ export async function enqueueDocumentForOCR(
       }
     }
 
+    // Generate deterministic job ID for deduplication
+    const jobId = generateJobId(documentId);
+
+    // Check if job already exists (deduplication)
+    const existingJob = await ocrQueue!.getJob(jobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      // Only deduplicate if job is still pending or active
+      if (state === 'waiting' || state === 'active' || state === 'delayed') {
+        logger.info(
+          `Duplicate OCR job detected for document ${documentId}, returning existing job`,
+          {
+            jobId,
+            state,
+            documentId,
+          }
+        );
+        return existingJob;
+      }
+      // Job completed or failed - allow new job to be created
+      logger.debug(`Previous job ${jobId} is in state ${state}, allowing new job`);
+    }
+
     logger.info(`Enqueueing document ${documentId} for OCR processing`);
 
-    const job = await ocrQueue!.add({
-      documentId,
-      userId,
-      filePath,
-      options: {},
-    });
+    const job = await ocrQueue!.add(
+      {
+        documentId,
+        userId,
+        filePath,
+        options: {},
+      },
+      {
+        jobId, // Deterministic job ID for deduplication
+      }
+    );
 
     return job;
   } catch (error) {
@@ -572,6 +615,9 @@ process.on('SIGTERM', async () => {
 
 /**
  * Enqueue document for reprocessing with enhanced settings
+ *
+ * Uses deterministic job IDs for deduplication - if a reprocessing job
+ * for the same document is already in the queue, returns the existing job.
  */
 export async function enqueueDocumentForReprocessing(
   documentId: string,
@@ -598,6 +644,29 @@ export async function enqueueDocumentForReprocessing(
       );
     }
 
+    // Generate deterministic job ID for deduplication (reprocessing uses different prefix)
+    const jobId = generateJobId(documentId, true);
+
+    // Check if reprocessing job already exists (deduplication)
+    const existingJob = await ocrQueue!.getJob(jobId);
+    if (existingJob) {
+      const state = await existingJob.getState();
+      // Only deduplicate if job is still pending or active
+      if (state === 'waiting' || state === 'active' || state === 'delayed') {
+        logger.info(
+          `Duplicate reprocessing job detected for document ${documentId}, returning existing job`,
+          {
+            jobId,
+            state,
+            documentId,
+          }
+        );
+        return existingJob;
+      }
+      // Job completed or failed - allow new job to be created
+      logger.debug(`Previous reprocessing job ${jobId} is in state ${state}, allowing new job`);
+    }
+
     logger.info('Enqueueing document for reprocessing', {
       documentId,
       attempt: (document?.reprocessCount || 0) + 1,
@@ -616,6 +685,7 @@ export async function enqueueDocumentForReprocessing(
         },
       },
       {
+        jobId, // Deterministic job ID for deduplication
         priority: OCR_QUEUE_CONFIG.REPROCESSING_PRIORITY,
         timeout: OCR_QUEUE_CONFIG.REPROCESSING_TIMEOUT_MS,
       }

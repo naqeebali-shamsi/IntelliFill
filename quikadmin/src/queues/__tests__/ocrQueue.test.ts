@@ -221,30 +221,80 @@ describe('ocrQueue', () => {
   // ==========================================================================
 
   describe('enqueueDocumentForOCR', () => {
+    const validDocId = '550e8400-e29b-41d4-a716-446655440000';
+    const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
+    const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
+
     it('should enqueue document when forceOCR is true', async () => {
       Bull.mockImplementation(() => mockQueue);
 
-      const mockJob = { id: 'job-123' };
+      const mockJob = { id: `ocr-${validDocId}` };
       mockQueue.add.mockResolvedValue(mockJob);
+      mockQueue.getJob.mockResolvedValue(null); // No existing job
 
       const { enqueueDocumentForOCR } = require('../ocrQueue');
 
       const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
-      const validDocId = '550e8400-e29b-41d4-a716-446655440000';
-      const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
-      const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
-
       const job = await enqueueDocumentForOCR(validDocId, validUserId, validFilePath, true);
 
       expect(job).toBe(mockJob);
-      expect(mockQueue.add).toHaveBeenCalledWith({
-        documentId: validDocId,
-        userId: validUserId,
-        filePath: validFilePath,
-        options: {},
-      });
+      expect(mockQueue.add).toHaveBeenCalledWith(
+        {
+          documentId: validDocId,
+          userId: validUserId,
+          filePath: validFilePath,
+          options: {},
+        },
+        {
+          jobId: `ocr-${validDocId}`,
+        }
+      );
+    });
+
+    it('should return existing job if duplicate enqueue is attempted (Task 266)', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      const existingJob = {
+        id: `ocr-${validDocId}`,
+        getState: jest.fn().mockResolvedValue('waiting'),
+      };
+      mockQueue.getJob.mockResolvedValue(existingJob);
+
+      const { enqueueDocumentForOCR } = require('../ocrQueue');
+
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
+      if (readyHandler) readyHandler();
+
+      const job = await enqueueDocumentForOCR(validDocId, validUserId, validFilePath, true);
+
+      // Should return existing job, not create a new one
+      expect(job).toBe(existingJob);
+      expect(mockQueue.add).not.toHaveBeenCalled();
+    });
+
+    it('should allow new job if previous job is completed (Task 266)', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      const completedJob = {
+        id: `ocr-${validDocId}`,
+        getState: jest.fn().mockResolvedValue('completed'),
+      };
+      const newJob = { id: `ocr-${validDocId}-new` };
+      mockQueue.getJob.mockResolvedValue(completedJob);
+      mockQueue.add.mockResolvedValue(newJob);
+
+      const { enqueueDocumentForOCR } = require('../ocrQueue');
+
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
+      if (readyHandler) readyHandler();
+
+      const job = await enqueueDocumentForOCR(validDocId, validUserId, validFilePath, true);
+
+      // Should create a new job since previous is completed
+      expect(job).toBe(newJob);
+      expect(mockQueue.add).toHaveBeenCalled();
     });
 
     it('should skip OCR for non-scanned PDFs when forceOCR is false', async () => {
@@ -262,10 +312,6 @@ describe('ocrQueue', () => {
       const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
       if (readyHandler) readyHandler();
 
-      const validDocId = '550e8400-e29b-41d4-a716-446655440000';
-      const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
-      const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
-
       const job = await enqueueDocumentForOCR(validDocId, validUserId, validFilePath, false);
 
       expect(job).toBeNull();
@@ -280,10 +326,6 @@ describe('ocrQueue', () => {
       const { enqueueDocumentForOCR } = require('../ocrQueue');
       // Get QueueUnavailableError from same module context after resetModules
       const { QueueUnavailableError: QUE } = require('../../utils/QueueUnavailableError');
-
-      const validDocId = '550e8400-e29b-41d4-a716-446655440000';
-      const validUserId = '6ba7b810-9dad-41d1-80b4-00c04fd430c8';
-      const validFilePath = 'https://testaccount.r2.cloudflarestorage.com/bucket/doc.pdf';
 
       await expect(
         enqueueDocumentForOCR(validDocId, validUserId, validFilePath, true)
@@ -515,8 +557,9 @@ describe('ocrQueue', () => {
 
       // Use the mockPrismaDocument from the top-level mock
       mockPrismaDocument.findUnique.mockResolvedValue({ reprocessCount: 1 });
+      mockQueue.getJob.mockResolvedValue(null); // No existing job
 
-      const mockJob = { id: 'job-123' };
+      const mockJob = { id: `ocr-reprocess-${validDocId}` };
       mockQueue.add.mockResolvedValue(mockJob);
 
       const { enqueueDocumentForReprocessing } = require('../ocrQueue');
@@ -545,10 +588,39 @@ describe('ocrQueue', () => {
           },
         },
         {
+          jobId: `ocr-reprocess-${validDocId}`,
           priority: 1,
           timeout: 600000,
         }
       );
+    });
+
+    it('should return existing reprocessing job if duplicate is attempted (Task 266)', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      mockPrismaDocument.findUnique.mockResolvedValue({ reprocessCount: 1 });
+
+      const existingJob = {
+        id: `ocr-reprocess-${validDocId}`,
+        getState: jest.fn().mockResolvedValue('active'),
+      };
+      mockQueue.getJob.mockResolvedValue(existingJob);
+
+      const { enqueueDocumentForReprocessing } = require('../ocrQueue');
+
+      const readyHandler = mockQueue.on.mock.calls.find((call: any[]) => call[0] === 'ready')?.[1];
+      if (readyHandler) readyHandler();
+
+      const job = await enqueueDocumentForReprocessing(
+        validDocId,
+        validUserId,
+        validFilePath,
+        'Low confidence'
+      );
+
+      // Should return existing job, not create a new one
+      expect(job).toBe(existingJob);
+      expect(mockQueue.add).not.toHaveBeenCalled();
     });
 
     it('should throw error when max reprocessing attempts reached', async () => {
