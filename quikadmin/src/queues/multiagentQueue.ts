@@ -22,6 +22,7 @@ import { realtimeService } from '../services/RealtimeService';
 import { prisma } from '../utils/prisma';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 import { processDocument } from '../multiagent';
+import { getRedisConnectionConfig } from '../utils/redisConfig';
 
 /**
  * Job data interface for multi-agent processing
@@ -66,35 +67,8 @@ export interface MultiAgentProcessingResult {
   error?: string;
 }
 
-/**
- * Redis configuration for BullMQ
- * Uses same Redis as legacy Bull queue but different queue names
- */
-function getRedisConfig(): { host: string; port: number; password?: string; tls?: object } {
-  const redisUrl = process.env.REDIS_URL;
-
-  if (redisUrl) {
-    try {
-      const url = new URL(redisUrl);
-      return {
-        host: url.hostname,
-        port: parseInt(url.port) || 6379,
-        password: url.password || undefined,
-        tls: redisUrl.startsWith('rediss://') ? {} : undefined,
-      };
-    } catch (error) {
-      logger.warn('Failed to parse REDIS_URL, using defaults', { error });
-    }
-  }
-
-  return {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD,
-  };
-}
-
-const redisConfig = getRedisConfig();
+// Redis configuration from shared utility (BullMQ requires object format)
+const redisConfig = getRedisConnectionConfig();
 
 /**
  * Queue availability flag
@@ -329,7 +303,9 @@ export function setupQueueEventHandlers(): void {
     try {
       // Parse the returnvalue (BullMQ stringifies the result)
       const result: MultiAgentProcessingResult | null = returnvalue
-        ? (typeof returnvalue === 'string' ? JSON.parse(returnvalue) : returnvalue)
+        ? typeof returnvalue === 'string'
+          ? JSON.parse(returnvalue)
+          : returnvalue
         : null;
 
       // Update database record
@@ -516,9 +492,10 @@ export async function startMultiagentWorker(): Promise<void> {
           agentMetrics: result.agentHistory?.map((exec) => ({
             agent: exec.agent,
             model: exec.model || '',
-            processingTimeMs: exec.endTime && exec.startTime
-              ? new Date(exec.endTime).getTime() - new Date(exec.startTime).getTime()
-              : 0,
+            processingTimeMs:
+              exec.endTime && exec.startTime
+                ? new Date(exec.endTime).getTime() - new Date(exec.startTime).getTime()
+                : 0,
             success: exec.status === 'completed',
           })),
         };

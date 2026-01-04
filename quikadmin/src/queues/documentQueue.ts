@@ -7,6 +7,12 @@ import { FormFiller } from '../fillers/FormFiller';
 import { toJobStatusDTO } from '../dto/DocumentDTO';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 import { realtimeService } from '../services/RealtimeService';
+import {
+  getRedisConfig,
+  defaultBullSettings,
+  defaultJobOptions,
+  batchJobOptions,
+} from '../utils/redisConfig';
 
 // Job data interfaces
 export interface DocumentProcessingJob {
@@ -31,30 +37,7 @@ export interface BatchProcessingJob {
   };
 }
 
-// Create queue with Redis connection
-// Supports REDIS_URL (including rediss:// for TLS) or fallback to host/port
-function getRedisConfig(): string | object {
-  const redisUrl = process.env.REDIS_URL;
-  if (redisUrl) {
-    // For TLS connections (rediss://), ioredis needs tls option
-    if (redisUrl.startsWith('rediss://')) {
-      const url = new URL(redisUrl);
-      return {
-        host: url.hostname,
-        port: parseInt(url.port) || 6379,
-        password: url.password || undefined,
-        tls: {},
-      };
-    }
-    return redisUrl;
-  }
-  return {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD,
-  };
-}
-
+// Redis configuration from shared utility
 const redisConfig = getRedisConfig();
 
 // Queue availability flags
@@ -66,25 +49,8 @@ let documentQueue: Bull.Queue<DocumentProcessingJob> | null = null;
 try {
   documentQueue = new Bull<DocumentProcessingJob>('document-processing', {
     redis: redisConfig,
-    defaultJobOptions: {
-      removeOnComplete: 100, // Keep last 100 completed jobs
-      removeOnFail: 50, // Keep last 50 failed jobs
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 2000,
-      },
-    },
-    settings: {
-      // Reduce Redis requests to stay within Upstash free tier limits
-      stalledInterval: 300000, // Check stalled jobs every 5 minutes (default: 30s)
-      maxStalledCount: 2, // Mark job failed after 2 stalls
-      lockDuration: 300000, // Lock jobs for 5 minutes (default: 30s)
-      lockRenewTime: 150000, // Renew lock every 2.5 minutes (half of lockDuration)
-      guardInterval: 300000, // Guard interval for delayed jobs (default: 5s)
-      retryProcessDelay: 60000, // Wait 1 minute before retrying failed processor (default: 5s)
-      drainDelay: 60000, // Delay when queue is drained (default: 5s)
-    },
+    defaultJobOptions: defaultJobOptions,
+    settings: defaultBullSettings,
   });
 
   documentQueue.on('error', (error) => {
@@ -108,21 +74,8 @@ let batchQueue: Bull.Queue<BatchProcessingJob> | null = null;
 try {
   batchQueue = new Bull<BatchProcessingJob>('batch-processing', {
     redis: redisConfig,
-    defaultJobOptions: {
-      removeOnComplete: 50,
-      removeOnFail: 25,
-      attempts: 2,
-    },
-    settings: {
-      // Reduce Redis requests to stay within Upstash free tier limits
-      stalledInterval: 300000, // Check stalled jobs every 5 minutes (default: 30s)
-      maxStalledCount: 2, // Mark job failed after 2 stalls
-      lockDuration: 300000, // Lock jobs for 5 minutes (default: 30s)
-      lockRenewTime: 150000, // Renew lock every 2.5 minutes (half of lockDuration)
-      guardInterval: 300000, // Guard interval for delayed jobs (default: 5s)
-      retryProcessDelay: 60000, // Wait 1 minute before retrying failed processor (default: 5s)
-      drainDelay: 60000, // Delay when queue is drained (default: 5s)
-    },
+    defaultJobOptions: batchJobOptions,
+    settings: defaultBullSettings,
   });
 
   batchQueue.on('error', (error) => {
