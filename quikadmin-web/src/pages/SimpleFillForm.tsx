@@ -279,9 +279,12 @@ export default function SimpleFillForm() {
         toast.success(`Form uploaded: ${file.name}`, {
           description: `Using ${effectiveData.fieldCount} fields from ${sourceDescription}`,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Form validation failed:', error);
-        toast.error(error.response?.data?.error || 'Failed to validate form');
+        const message =
+          (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          'Failed to validate form';
+        toast.error(message);
         setBlankForm(null);
       } finally {
         setValidatingForm(false);
@@ -362,9 +365,12 @@ export default function SimpleFillForm() {
       });
 
       toast.success('Form filled successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Form filling failed:', error);
-      toast.error(error.response?.data?.error || 'Failed to fill form');
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to fill form';
+      toast.error(message);
       setDirection(-1);
       setCurrentStep('map');
     } finally {
@@ -397,8 +403,11 @@ export default function SimpleFillForm() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       toast.success('Download started!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to download file');
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to download file';
+      toast.error(message);
     }
   };
 

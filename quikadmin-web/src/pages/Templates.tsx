@@ -271,8 +271,11 @@ export default function Templates() {
       setCreateDialogOpen(false);
       resetForm();
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to create template');
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to create template';
+      toast.error(message);
     },
   });
 
@@ -283,8 +286,11 @@ export default function Templates() {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
       toast.success('Template deleted successfully');
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to delete template');
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to delete template';
+      toast.error(message);
     },
   });
 

@@ -91,9 +91,10 @@ export default function ProfileSettings() {
         description: 'Your profile has been refreshed with the latest data.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = (error as { message?: string })?.message || 'Failed to refresh profile';
       toast.error('Refresh Failed', {
-        description: error.message || 'Failed to refresh profile',
+        description: message,
       });
     },
   });
@@ -107,9 +108,10 @@ export default function ProfileSettings() {
         description: 'Your profile has been deleted successfully.',
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = (error as { message?: string })?.message || 'Failed to delete profile';
       toast.error('Delete Failed', {
-        description: error.message || 'Failed to delete profile',
+        description: message,
       });
     },
   });
@@ -124,7 +126,7 @@ export default function ProfileSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // Error is handled in ProfileFieldEditor
       console.error('Update field error:', error);
     },
@@ -142,7 +144,7 @@ export default function ProfileSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // Error is handled in ProfileFieldEditor
       console.error('Delete field error:', error);
     },

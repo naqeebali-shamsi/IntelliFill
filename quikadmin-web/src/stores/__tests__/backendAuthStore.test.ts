@@ -1,0 +1,1016 @@
+/**
+ * Backend Auth Store Tests
+ * Comprehensive unit tests for backendAuthStore state management and authentication flows
+ *
+ * Tests cover:
+ * - Authentication flows (login, register, logout, demo)
+ * - Token management (refresh, expiration checks)
+ * - Session initialization (cold start, page refresh, silent refresh)
+ * - Error handling and status code mapping
+ * - State transitions and loading stages
+ * - Account lockout after failed attempts
+ */
+
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { useBackendAuthStore } from '../backendAuthStore';
+import authService from '@/services/authService';
+import { tokenManager } from '@/lib/tokenManager';
+import type { AuthResponse } from '@/services/authService';
+
+// Mock dependencies
+vi.mock('@/services/authService');
+vi.mock('@/lib/tokenManager');
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}));
+
+describe('backendAuthStore', () => {
+  beforeEach(() => {
+    // Reset store to initial state
+    useBackendAuthStore.setState({
+      user: null,
+      tokens: null,
+      tokenExpiresAt: null,
+      company: null,
+      isAuthenticated: false,
+      isInitialized: false,
+      isLoading: false,
+      loadingStage: 'idle',
+      error: null,
+      loginAttempts: 0,
+      isLocked: false,
+      lockExpiry: null,
+      lastActivity: Date.now(),
+      rememberMe: false,
+      isDemo: false,
+      demoInfo: null,
+    });
+
+    // Clear all mocks
+    vi.clearAllMocks();
+
+    // Reset fake timers
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe('Initial State', () => {
+    it('has correct initial state', () => {
+      const state = useBackendAuthStore.getState();
+
+      expect(state.user).toBeNull();
+      expect(state.tokens).toBeNull();
+      expect(state.tokenExpiresAt).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.isInitialized).toBe(false);
+      expect(state.isLoading).toBe(false);
+      expect(state.loadingStage).toBe('idle');
+      expect(state.error).toBeNull();
+      expect(state.loginAttempts).toBe(0);
+      expect(state.isLocked).toBe(false);
+      expect(state.isDemo).toBe(false);
+      expect(state.demoInfo).toBeNull();
+    });
+  });
+
+  describe('Login Flow', () => {
+    it('successfully logs in with valid credentials', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: true,
+      };
+
+      const mockTokens = {
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-123',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: mockTokens,
+        },
+      };
+
+      vi.mocked(authService.login).mockResolvedValue(mockResponse);
+      vi.mocked(tokenManager.setToken).mockImplementation(() => {});
+
+      const { login } = useBackendAuthStore.getState();
+
+      await login({ email: 'test@example.com', password: 'password123' });
+
+      const state = useBackendAuthStore.getState();
+
+      expect(state.user).toEqual(mockUser);
+      expect(state.tokens).toEqual(mockTokens);
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.isInitialized).toBe(true);
+      expect(state.isLoading).toBe(false);
+      expect(state.loginAttempts).toBe(0);
+      expect(state.isLocked).toBe(false);
+      expect(tokenManager.setToken).toHaveBeenCalledWith('access-token-123', 3600);
+    });
+
+    it('sets isLoading to true during login', async () => {
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: {
+            id: 'user-1',
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+            role: 'user',
+            emailVerified: true,
+          },
+          tokens: {
+            accessToken: 'token',
+            expiresIn: 3600,
+            tokenType: 'Bearer',
+          },
+        },
+      };
+
+      let resolveFn: (value: AuthResponse) => void;
+      const loginPromise = new Promise<AuthResponse>((resolve) => {
+        resolveFn = resolve;
+      });
+
+      vi.mocked(authService.login).mockReturnValue(loginPromise);
+
+      const { login } = useBackendAuthStore.getState();
+      const loginCall = login({ email: 'test@example.com', password: 'password123' });
+
+      // Check loading state is true while request is pending
+      expect(useBackendAuthStore.getState().isLoading).toBe(true);
+
+      resolveFn!(mockResponse);
+      await loginCall;
+
+      // Check loading state is false after request completes
+      expect(useBackendAuthStore.getState().isLoading).toBe(false);
+    });
+
+    it('handles 401 invalid credentials error', async () => {
+      const error = {
+        response: {
+          status: 401,
+          data: {
+            error: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS',
+          },
+        },
+      };
+
+      vi.mocked(authService.login).mockRejectedValue(error);
+
+      const { login } = useBackendAuthStore.getState();
+
+      await expect(login({ email: 'test@example.com', password: 'wrong' })).rejects.toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password',
+        severity: 'medium',
+      });
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toMatchObject({
+        code: 'INVALID_CREDENTIALS',
+      });
+      expect(state.loginAttempts).toBe(1);
+    });
+
+    it('handles 403 account deactivated error', async () => {
+      const error = {
+        response: {
+          status: 403,
+          data: {
+            error: 'Account deactivated',
+            code: 'ACCOUNT_DEACTIVATED',
+          },
+        },
+      };
+
+      vi.mocked(authService.login).mockRejectedValue(error);
+
+      const { login } = useBackendAuthStore.getState();
+
+      await expect(
+        login({ email: 'test@example.com', password: 'password' })
+      ).rejects.toMatchObject({
+        code: 'ACCOUNT_DEACTIVATED',
+        message: 'Account is deactivated. Please contact support.',
+      });
+    });
+
+    it('handles 409 email exists error during registration', async () => {
+      const error = {
+        response: {
+          status: 409,
+          data: {
+            error: 'Email already exists',
+            code: 'EMAIL_EXISTS',
+          },
+        },
+      };
+
+      vi.mocked(authService.register).mockRejectedValue(error);
+
+      const { register } = useBackendAuthStore.getState();
+
+      await expect(
+        register({ email: 'test@example.com', password: 'password', fullName: 'Test User' })
+      ).rejects.toMatchObject({
+        code: 'EMAIL_EXISTS',
+        message: 'An account with this email already exists',
+      });
+    });
+
+    it('handles 429 rate limit error', async () => {
+      const error = {
+        response: {
+          status: 429,
+          data: {
+            error: 'Too many requests',
+            code: 'RATE_LIMIT',
+          },
+        },
+      };
+
+      vi.mocked(authService.login).mockRejectedValue(error);
+
+      const { login } = useBackendAuthStore.getState();
+
+      await expect(
+        login({ email: 'test@example.com', password: 'password' })
+      ).rejects.toMatchObject({
+        code: 'RATE_LIMIT',
+        message: 'Too many requests. Please try again later.',
+      });
+    });
+
+    it('locks account after 5 failed login attempts', async () => {
+      const error = {
+        response: {
+          status: 401,
+          data: {
+            error: 'Invalid credentials',
+          },
+        },
+      };
+
+      vi.mocked(authService.login).mockRejectedValue(error);
+
+      const { login } = useBackendAuthStore.getState();
+
+      // Attempt 5 failed logins
+      for (let i = 0; i < 5; i++) {
+        try {
+          await login({ email: 'test@example.com', password: 'wrong' });
+        } catch {
+          // Expected to fail
+        }
+      }
+
+      const state = useBackendAuthStore.getState();
+      expect(state.loginAttempts).toBe(5);
+      expect(state.isLocked).toBe(true);
+      expect(state.lockExpiry).toBeGreaterThan(Date.now());
+    });
+
+    it('resets login attempts on successful login', async () => {
+      // First, set some failed attempts
+      useBackendAuthStore.setState({
+        loginAttempts: 3,
+      });
+
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: {
+            id: 'user-1',
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+            role: 'user',
+            emailVerified: true,
+          },
+          tokens: {
+            accessToken: 'token',
+            expiresIn: 3600,
+            tokenType: 'Bearer',
+          },
+        },
+      };
+
+      vi.mocked(authService.login).mockResolvedValue(mockResponse);
+
+      const { login } = useBackendAuthStore.getState();
+      await login({ email: 'test@example.com', password: 'correct' });
+
+      const state = useBackendAuthStore.getState();
+      expect(state.loginAttempts).toBe(0);
+      expect(state.isLocked).toBe(false);
+      expect(state.lockExpiry).toBeNull();
+    });
+  });
+
+  describe('Register Flow', () => {
+    it('successfully registers a new user', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'new@example.com',
+        firstName: 'New',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: false,
+      };
+
+      const mockTokens = {
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-123',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: mockTokens,
+        },
+      };
+
+      vi.mocked(authService.register).mockResolvedValue(mockResponse);
+
+      const { register } = useBackendAuthStore.getState();
+
+      await register({
+        email: 'new@example.com',
+        password: 'password123',
+        fullName: 'New User',
+      });
+
+      const state = useBackendAuthStore.getState();
+
+      expect(state.user).toEqual(mockUser);
+      expect(state.tokens).toEqual(mockTokens);
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.isInitialized).toBe(true);
+      expect(state.isLoading).toBe(false);
+    });
+
+    it('handles registration validation errors', async () => {
+      const error = {
+        response: {
+          status: 400,
+          data: {
+            error: 'Validation failed',
+          },
+        },
+      };
+
+      vi.mocked(authService.register).mockRejectedValue(error);
+
+      const { register } = useBackendAuthStore.getState();
+
+      await expect(
+        register({ email: 'invalid', password: '123', fullName: 'Test' })
+      ).rejects.toMatchObject({
+        message: 'Validation failed',
+      });
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isAuthenticated).toBe(false);
+    });
+  });
+
+  describe('Logout Flow', () => {
+    it('clears state and localStorage on logout', async () => {
+      // Set up authenticated state
+      useBackendAuthStore.setState({
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'user',
+          emailVerified: true,
+        },
+        tokens: {
+          accessToken: 'token',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+        isAuthenticated: true,
+        isDemo: true,
+        demoInfo: {
+          notice: 'Demo mode',
+          features: ['feature1'],
+        },
+      });
+
+      vi.mocked(authService.logout).mockResolvedValue({ success: true });
+      vi.mocked(tokenManager.clearToken).mockImplementation(() => {});
+
+      const { logout } = useBackendAuthStore.getState();
+      await logout();
+
+      const state = useBackendAuthStore.getState();
+
+      expect(state.user).toBeNull();
+      expect(state.tokens).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.isDemo).toBe(false);
+      expect(state.demoInfo).toBeNull();
+      expect(state.error).toBeNull();
+      expect(tokenManager.clearToken).toHaveBeenCalled();
+    });
+
+    it('clears state even if logout request fails', async () => {
+      useBackendAuthStore.setState({
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'user',
+          emailVerified: true,
+        },
+        isAuthenticated: true,
+      });
+
+      vi.mocked(authService.logout).mockRejectedValue(new Error('Network error'));
+
+      const { logout } = useBackendAuthStore.getState();
+      await logout();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.user).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+    });
+  });
+
+  describe('Demo Login Flow', () => {
+    it('successfully logs in as demo user', async () => {
+      const mockUser = {
+        id: 'demo-user',
+        email: 'demo@example.com',
+        firstName: 'Demo',
+        lastName: 'User',
+        role: 'demo',
+        emailVerified: true,
+        isDemo: true,
+      };
+
+      const mockTokens = {
+        accessToken: 'demo-token',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      const mockDemoInfo = {
+        notice: 'This is a demo account',
+        features: ['limited-storage', 'watermarked-exports'],
+      };
+
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: mockTokens,
+          demo: mockDemoInfo,
+        },
+      };
+
+      vi.mocked(authService.demoLogin).mockResolvedValue(mockResponse);
+
+      const { demoLogin } = useBackendAuthStore.getState();
+      await demoLogin();
+
+      const state = useBackendAuthStore.getState();
+
+      expect(state.user).toEqual(mockUser);
+      expect(state.isDemo).toBe(true);
+      expect(state.demoInfo).toEqual(mockDemoInfo);
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.rememberMe).toBe(false);
+    });
+  });
+
+  describe('Token Management', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('isTokenExpiringSoon returns false when not authenticated', () => {
+      const { isTokenExpiringSoon } = useBackendAuthStore.getState();
+      expect(isTokenExpiringSoon()).toBe(false);
+    });
+
+    it('isTokenExpiringSoon returns false when token not expiring soon', () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      // Token expires in 10 minutes
+      const expiresAt = now + 10 * 60 * 1000;
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokenExpiresAt: expiresAt,
+      });
+
+      const { isTokenExpiringSoon } = useBackendAuthStore.getState();
+      expect(isTokenExpiringSoon()).toBe(false);
+    });
+
+    it('isTokenExpiringSoon returns true when token expires within 5 minutes', () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      // Token expires in 3 minutes
+      const expiresAt = now + 3 * 60 * 1000;
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokenExpiresAt: expiresAt,
+      });
+
+      const { isTokenExpiringSoon } = useBackendAuthStore.getState();
+      expect(isTokenExpiringSoon()).toBe(true);
+    });
+
+    it('refreshTokenIfNeeded refreshes when token expiring soon', async () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: {
+            id: 'user-1',
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+            role: 'user',
+            emailVerified: true,
+          },
+          tokens: {
+            accessToken: 'new-token',
+            expiresIn: 3600,
+            tokenType: 'Bearer',
+          },
+        },
+      };
+
+      vi.mocked(authService.refreshToken).mockResolvedValue(mockResponse);
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokenExpiresAt: now + 3 * 60 * 1000, // Expires in 3 minutes
+        tokens: {
+          accessToken: 'old-token',
+          expiresIn: 180,
+          tokenType: 'Bearer',
+        },
+      });
+
+      const { refreshTokenIfNeeded } = useBackendAuthStore.getState();
+      const result = await refreshTokenIfNeeded();
+
+      expect(result).toBe(true);
+      expect(authService.refreshToken).toHaveBeenCalled();
+      expect(useBackendAuthStore.getState().tokens?.accessToken).toBe('new-token');
+    });
+
+    it('refreshTokenIfNeeded does not refresh when token not expiring soon', async () => {
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokenExpiresAt: now + 10 * 60 * 1000, // Expires in 10 minutes
+      });
+
+      const { refreshTokenIfNeeded } = useBackendAuthStore.getState();
+      const result = await refreshTokenIfNeeded();
+
+      expect(result).toBe(false);
+      expect(authService.refreshToken).not.toHaveBeenCalled();
+    });
+
+    it('refreshToken updates tokens in state', async () => {
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: {
+            id: 'user-1',
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+            role: 'user',
+            emailVerified: true,
+          },
+          tokens: {
+            accessToken: 'new-access-token',
+            refreshToken: 'new-refresh-token',
+            expiresIn: 3600,
+            tokenType: 'Bearer',
+          },
+        },
+      };
+
+      vi.mocked(authService.refreshToken).mockResolvedValue(mockResponse);
+
+      useBackendAuthStore.setState({
+        tokens: {
+          accessToken: 'old-token',
+          refreshToken: 'old-refresh',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+      });
+
+      const { refreshToken } = useBackendAuthStore.getState();
+      await refreshToken();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.tokens?.accessToken).toBe('new-access-token');
+      expect(tokenManager.setToken).toHaveBeenCalledWith('new-access-token', 3600);
+    });
+  });
+
+  describe('Session Initialization', () => {
+    it('initializes with no session - Case 1', async () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: false,
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isInitialized).toBe(true);
+      expect(state.isLoading).toBe(false);
+      expect(state.loadingStage).toBe('ready');
+      expect(state.isAuthenticated).toBe(false);
+    });
+
+    it('initializes with valid session and in-memory token - Case 3', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: true,
+      };
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokens: {
+          accessToken: 'existing-token',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(true);
+      vi.mocked(authService.getMe).mockResolvedValue({
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: null,
+        },
+      });
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isInitialized).toBe(true);
+      expect(state.isLoading).toBe(false);
+      expect(state.loadingStage).toBe('ready');
+      expect(state.user).toEqual(mockUser);
+      expect(state.isAuthenticated).toBe(true);
+    });
+
+    it('initializes with session but no in-memory token - silent refresh success - Case 2', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: true,
+      };
+
+      const mockTokens = {
+        accessToken: 'refreshed-token',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokens: null,
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+      vi.mocked(authService.refreshToken).mockResolvedValue({
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: mockTokens,
+        },
+      });
+      vi.mocked(authService.getMe).mockResolvedValue({
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: null,
+        },
+      });
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isInitialized).toBe(true);
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.tokens?.accessToken).toBe('refreshed-token');
+      expect(state.user).toEqual(mockUser);
+      expect(tokenManager.setToken).toHaveBeenCalledWith('refreshed-token', 3600);
+    });
+
+    it('initializes with session but silent refresh fails - clears session', async () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'user',
+          emailVerified: true,
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+      vi.mocked(authService.refreshToken).mockRejectedValue(new Error('Refresh failed'));
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isInitialized).toBe(true);
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.user).toBeNull();
+      expect(state.tokens).toBeNull();
+      expect(tokenManager.clearToken).toHaveBeenCalled();
+    });
+
+    it('transitions through loading stages correctly', async () => {
+      const stages: string[] = [];
+
+      // Subscribe to state changes
+      const unsubscribe = useBackendAuthStore.subscribe((state) => {
+        stages.push(state.loadingStage);
+      });
+
+      useBackendAuthStore.setState({
+        isAuthenticated: false,
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      unsubscribe();
+
+      // Should transition: idle -> rehydrating -> ready
+      expect(stages).toContain('rehydrating');
+      expect(stages).toContain('ready');
+      expect(useBackendAuthStore.getState().loadingStage).toBe('ready');
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('creates auth error with correct structure', async () => {
+      const error = {
+        response: {
+          status: 401,
+          data: {
+            error: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS',
+            details: { field: 'password' },
+          },
+        },
+      };
+
+      vi.mocked(authService.login).mockRejectedValue(error);
+
+      const { login } = useBackendAuthStore.getState();
+
+      try {
+        await login({ email: 'test@example.com', password: 'wrong' });
+      } catch (authError: any) {
+        expect(authError).toMatchObject({
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid email or password',
+          severity: 'medium',
+          component: 'auth',
+          resolved: false,
+        });
+        expect(authError.id).toMatch(/^auth_error_\d+$/);
+        expect(authError.timestamp).toBeGreaterThan(0);
+      }
+    });
+
+    it('setError updates error state', () => {
+      const error = {
+        id: 'err-1',
+        code: 'TEST_ERROR',
+        message: 'Test error',
+        timestamp: Date.now(),
+        severity: 'low' as const,
+        component: 'test',
+        resolved: false,
+      };
+
+      const { setError } = useBackendAuthStore.getState();
+      setError(error);
+
+      expect(useBackendAuthStore.getState().error).toEqual(error);
+    });
+
+    it('clearError removes error state', () => {
+      useBackendAuthStore.setState({
+        error: {
+          id: 'err-1',
+          code: 'TEST_ERROR',
+          message: 'Test error',
+          timestamp: Date.now(),
+          severity: 'low',
+          component: 'test',
+          resolved: false,
+        },
+      });
+
+      const { clearError } = useBackendAuthStore.getState();
+      clearError();
+
+      expect(useBackendAuthStore.getState().error).toBeNull();
+    });
+  });
+
+  describe('Security Functions', () => {
+    it('resetLoginAttempts clears attempts and lock', () => {
+      useBackendAuthStore.setState({
+        loginAttempts: 5,
+        isLocked: true,
+        lockExpiry: Date.now() + 15 * 60 * 1000,
+      });
+
+      const { resetLoginAttempts } = useBackendAuthStore.getState();
+      resetLoginAttempts();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.loginAttempts).toBe(0);
+      expect(state.isLocked).toBe(false);
+      expect(state.lockExpiry).toBeNull();
+    });
+
+    it('checkSession returns true when authenticated with token', () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokens: {
+          accessToken: 'token',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+      });
+
+      const { checkSession } = useBackendAuthStore.getState();
+      expect(checkSession()).toBe(true);
+    });
+
+    it('checkSession returns false when not authenticated', () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: false,
+      });
+
+      const { checkSession } = useBackendAuthStore.getState();
+      expect(checkSession()).toBe(false);
+    });
+  });
+
+  describe('Loading Stage Management', () => {
+    it('setLoadingStage updates loading stage', () => {
+      const { setLoadingStage } = useBackendAuthStore.getState();
+
+      setLoadingStage('rehydrating');
+      expect(useBackendAuthStore.getState().loadingStage).toBe('rehydrating');
+
+      setLoadingStage('validating');
+      expect(useBackendAuthStore.getState().loadingStage).toBe('validating');
+
+      setLoadingStage('ready');
+      expect(useBackendAuthStore.getState().loadingStage).toBe('ready');
+    });
+  });
+
+  describe('Password Reset Flow', () => {
+    it('successfully requests password reset', async () => {
+      vi.mocked(authService.requestPasswordReset).mockResolvedValue({
+        success: true,
+        message: 'Reset email sent',
+      });
+
+      const { requestPasswordReset } = useBackendAuthStore.getState();
+      await requestPasswordReset('test@example.com');
+
+      expect(authService.requestPasswordReset).toHaveBeenCalledWith('test@example.com');
+      expect(useBackendAuthStore.getState().isLoading).toBe(false);
+    });
+
+    it('successfully resets password', async () => {
+      vi.mocked(authService.resetPassword).mockResolvedValue({
+        success: true,
+        message: 'Password reset successful',
+      });
+
+      const { resetPassword } = useBackendAuthStore.getState();
+      await resetPassword('reset-token', 'newPassword123');
+
+      expect(authService.resetPassword).toHaveBeenCalledWith('reset-token', 'newPassword123');
+      expect(useBackendAuthStore.getState().isLoading).toBe(false);
+    });
+
+    it('successfully verifies reset token', async () => {
+      vi.mocked(authService.verifyResetToken).mockResolvedValue({
+        success: true,
+      });
+
+      const { verifyResetToken } = useBackendAuthStore.getState();
+      await verifyResetToken('valid-token');
+
+      expect(authService.verifyResetToken).toHaveBeenCalledWith('valid-token');
+    });
+  });
+
+  describe('Selectors', () => {
+    it('authSelectors work correctly', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: true,
+      };
+
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        user: mockUser,
+        isLoading: false,
+        loadingStage: 'ready',
+        isDemo: true,
+        demoInfo: {
+          notice: 'Demo',
+          features: ['feature1'],
+        },
+      });
+
+      const { authSelectors } = await import('../backendAuthStore');
+      const state = useBackendAuthStore.getState();
+
+      expect(authSelectors.isAuthenticated(state)).toBe(true);
+      expect(authSelectors.user(state)).toEqual(mockUser);
+      expect(authSelectors.isLoading(state)).toBe(false);
+      expect(authSelectors.loadingStage(state)).toBe('ready');
+      expect(authSelectors.isDemo(state)).toBe(true);
+    });
+  });
+});

@@ -131,10 +131,14 @@ function calculateTokenExpiresAt(expiresIn: number): number {
 
 // =================== HELPER FUNCTIONS ===================
 
-function createAuthError(error: any): AppError {
-  const status = error.response?.status;
-  const serverMessage = error.response?.data?.error || error.message;
-  const serverCode = error.response?.data?.code;
+function createAuthError(error: unknown): AppError {
+  const errorObj = error as {
+    response?: { status?: number; data?: { error?: string; code?: string; details?: unknown } };
+    message?: string;
+  };
+  const status = errorObj.response?.status;
+  const serverMessage = errorObj.response?.data?.error || errorObj.message;
+  const serverCode = errorObj.response?.data?.code;
 
   let code = 'AUTH_ERROR';
   let message = 'Authentication error';
@@ -164,7 +168,7 @@ function createAuthError(error: any): AppError {
       message = 'Too many requests. Please try again later.';
       break;
     default:
-      message = serverMessage || error.message || message;
+      message = serverMessage || errorObj.message || message;
       code = serverCode || code;
   }
 
@@ -172,7 +176,7 @@ function createAuthError(error: any): AppError {
     id: `auth_error_${Date.now()}`,
     code,
     message,
-    details: error.response?.data?.details,
+    details: errorObj.response?.data?.details,
     timestamp: Date.now(),
     severity: 'medium',
     component: 'auth',
@@ -230,7 +234,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.lockExpiry = null;
               state.isLoading = false;
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             const authError = createAuthError(error);
 
             set((state) => {
@@ -283,7 +287,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.lastActivity = Date.now();
               state.isLoading = false;
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             const authError = createAuthError(error);
 
             set((state) => {
@@ -358,7 +362,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.lockExpiry = null;
               state.isLoading = false;
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             const authError = createAuthError(error);
 
             set((state) => {
@@ -402,7 +406,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 : null;
               state.lastActivity = Date.now();
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             // Show toast notification for refresh failure (REQ-007)
             toast.error('Session expired. Please log in again.', {
               id: 'refresh-error',
@@ -650,7 +654,7 @@ export const useBackendAuthStore = create<AuthStore>()(
             set((state) => {
               state.isLoading = false;
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             const authError = createAuthError(error);
             set((state) => {
               state.error = authError;
@@ -671,7 +675,7 @@ export const useBackendAuthStore = create<AuthStore>()(
             set((state) => {
               state.isLoading = false;
             });
-          } catch (error: any) {
+          } catch (error: unknown) {
             const authError = createAuthError(error);
             set((state) => {
               state.error = authError;
@@ -684,7 +688,7 @@ export const useBackendAuthStore = create<AuthStore>()(
         verifyResetToken: async (token: string) => {
           try {
             await authService.verifyResetToken(token);
-          } catch (error: any) {
+          } catch (error: unknown) {
             throw createAuthError(error);
           }
         },

@@ -134,7 +134,12 @@ export default function ProfileDetail() {
       queryClient.setQueryData(['profile', id], updatedProfile);
       setIsEditing(false);
     },
-    onError: (error: any) => toast.error(error.response?.data?.error || 'Failed to update'),
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to update';
+      toast.error(message);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -165,6 +170,22 @@ export default function ProfileDetail() {
       queryClient.setQueryData(['profile', id], updatedProfile);
     },
     onError: () => toast.error('Failed to restore'),
+  });
+
+  const updateProfileDataMutation = useMutation({
+    mutationFn: async (data: Record<string, any>) => {
+      return await profilesService.updateProfileData(id!, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', id] });
+      // Note: ProfileFieldsManager handles its own success toast
+    },
+    onError: (error: unknown) => {
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to save profile data';
+      toast.error(message);
+    },
   });
 
   const handleSave = (data: ProfileFormData) => updateMutation.mutate(data);
@@ -480,6 +501,7 @@ export default function ProfileDetail() {
                 fields={profile.profileData?.data || {}}
                 fieldSources={profile.profileData?.fieldSources || {}}
                 editable={true}
+                onFieldsUpdate={(fields) => updateProfileDataMutation.mutate(fields)}
               />
             </div>
           </motion.div>

@@ -44,9 +44,7 @@ export const profilesService = {
   /**
    * Get all profiles for the current user
    */
-  async list(
-    params: ListProfilesParams = {}
-  ): Promise<{
+  async list(params: ListProfilesParams = {}): Promise<{
     success: boolean;
     data: { profiles: Profile[]; pagination: ProfileListResponse['data']['pagination'] };
   }> {
@@ -166,6 +164,13 @@ export const profilesService = {
       business: profiles.filter((p: Profile) => p.type === 'BUSINESS').length,
       personal: profiles.filter((p: Profile) => p.type === 'PERSONAL').length,
     };
+  },
+
+  /**
+   * Update profile data fields
+   */
+  async updateProfileData(id: string, data: Record<string, any>): Promise<void> {
+    await api.put(`/clients/${id}/profile`, { data });
   },
 };
 
