@@ -63,6 +63,11 @@ import {
   shutdownTokenCache,
 } from './utils/supabase';
 import { getBasicHealth, getDetailedHealth } from './services/health.service';
+import {
+  SecurityEventService,
+  SecurityEventType,
+  SecuritySeverity,
+} from './services/SecurityEventService';
 
 // Validate configuration explicitly at startup (will throw and exit if invalid)
 try {
@@ -288,6 +293,8 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
 
       // CORS rejection errors (Task #275)
       if (err.code === 'CORS_REJECTED' || err.message?.includes('not allowed by CORS')) {
+        // Log security event for CORS rejection
+        SecurityEventService.logCORSRejected(req, req.headers.origin || 'unknown');
         return res.status(403).json({
           error: 'Forbidden',
           message: 'Origin not allowed',
@@ -297,10 +304,17 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
 
       // JWT errors
       if (err.name === 'JsonWebTokenError') {
+        SecurityEventService.logTokenInvalid(req, 'Invalid JWT signature');
         return res.status(401).json({ error: 'Invalid token' });
       }
 
       if (err.name === 'TokenExpiredError') {
+        SecurityEventService.logEvent({
+          type: SecurityEventType.TOKEN_EXPIRED,
+          severity: SecuritySeverity.LOW,
+          req,
+          details: { reason: 'JWT token expired' },
+        });
         return res.status(401).json({ error: 'Token expired' });
       }
 
