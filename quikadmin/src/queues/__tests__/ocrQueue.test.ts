@@ -839,5 +839,43 @@ describe('ocrQueue', () => {
 
       expect(mockQueue.close).toHaveBeenCalled();
     });
+
+    it('should close queue on SIGINT (Ctrl+C) (Task 271)', async () => {
+      // Reset module to clear isShuttingDown flag
+      jest.resetModules();
+
+      Bull.mockImplementation(() => mockQueue);
+
+      // Import to register SIGINT handler
+      require('../ocrQueue');
+
+      // Simulate SIGINT (Ctrl+C)
+      process.emit('SIGINT' as any);
+
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockQueue.close).toHaveBeenCalled();
+    });
+
+    it('should handle concurrent shutdown signals gracefully (Task 271)', async () => {
+      // Reset module to clear isShuttingDown flag
+      jest.resetModules();
+
+      Bull.mockImplementation(() => mockQueue);
+
+      // Import to register handlers
+      require('../ocrQueue');
+
+      // Simulate multiple signals in quick succession
+      process.emit('SIGTERM' as any);
+      process.emit('SIGINT' as any); // Second signal should be ignored
+
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // close() should only be called once (second signal ignored)
+      expect(mockQueue.close).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -578,15 +578,52 @@ export async function getOCRJobStatus(
 }
 
 /**
- * Cleanup on shutdown
+ * Graceful shutdown handler for OCR queue
+ *
+ * Handles both SIGTERM (Docker/Kubernetes) and SIGINT (Ctrl+C development).
+ * Uses a timeout to prevent hung processes from blocking shutdown.
  */
-process.on('SIGTERM', async () => {
-  if (ocrQueue) {
-    logger.info('Shutting down OCR queue...');
-    await ocrQueue.close();
-    logger.info('OCR queue closed');
+const SHUTDOWN_TIMEOUT_MS = 10000; // 10 seconds
+let isShuttingDown = false;
+
+async function handleGracefulShutdown(signal: string): Promise<void> {
+  // Prevent multiple concurrent shutdown attempts
+  if (isShuttingDown) {
+    logger.debug(`Shutdown already in progress, ignoring ${signal}`);
+    return;
   }
-});
+  isShuttingDown = true;
+
+  logger.info(`Initiating graceful OCR queue shutdown (${signal} received)...`);
+
+  if (!ocrQueue) {
+    logger.info('OCR queue not initialized, nothing to clean up');
+    return;
+  }
+
+  try {
+    // Race queue.close() against timeout
+    const closePromise = ocrQueue.close();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Queue close timeout')), SHUTDOWN_TIMEOUT_MS)
+    );
+
+    await Promise.race([closePromise, timeoutPromise]);
+    logger.info('OCR queue closed successfully');
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Queue close timeout') {
+      logger.warn(
+        `OCR queue failed to close within ${SHUTDOWN_TIMEOUT_MS / 1000}s timeout. Forcing exit.`
+      );
+    } else {
+      logger.error('Error during OCR queue shutdown:', error);
+    }
+  }
+}
+
+// Handle both termination signals
+process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
 
 /**
  * Enqueue document for reprocessing with enhanced settings
