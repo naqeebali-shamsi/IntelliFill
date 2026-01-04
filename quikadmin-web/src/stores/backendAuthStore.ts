@@ -20,6 +20,7 @@ import { devtools } from 'zustand/middleware';
 import authService, { AuthUser, AuthTokens } from '@/services/authService';
 import { AUTH_STORAGE_KEY } from '@/utils/migrationUtils';
 import { toast } from '@/lib/toast';
+import { tokenManager } from '@/lib/tokenManager';
 
 interface LoginCredentials {
   email: string;
@@ -211,6 +212,9 @@ export const useBackendAuthStore = create<AuthStore>()(
               throw new Error('No tokens returned from login');
             }
 
+            // Store access token in memory (Task 277: XSS mitigation)
+            tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
+
             set((state) => {
               state.user = user;
               state.tokens = tokens;
@@ -263,6 +267,11 @@ export const useBackendAuthStore = create<AuthStore>()(
 
             const { user, tokens } = response.data;
 
+            // Store access token in memory (Task 277: XSS mitigation)
+            if (tokens?.accessToken) {
+              tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
+            }
+
             set((state) => {
               state.user = user;
               state.tokens = tokens;
@@ -292,6 +301,9 @@ export const useBackendAuthStore = create<AuthStore>()(
           } catch (error) {
             console.warn('Logout request failed:', error);
           }
+
+          // Clear in-memory token (Task 277: XSS mitigation)
+          tokenManager.clearToken();
 
           // Clear localStorage
           localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -325,6 +337,9 @@ export const useBackendAuthStore = create<AuthStore>()(
             if (!tokens) {
               throw new Error('No tokens returned from demo login');
             }
+
+            // Store access token in memory (Task 277: XSS mitigation)
+            tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
 
             set((state) => {
               state.user = user;
@@ -369,6 +384,10 @@ export const useBackendAuthStore = create<AuthStore>()(
             }
 
             const newTokens = response.data!.tokens;
+
+            // Update in-memory token (Task 277: XSS mitigation)
+            tokenManager.setToken(newTokens.accessToken, newTokens.expiresIn);
+
             set((state) => {
               // Update tokens - accessToken comes from response, refreshToken may not
               state.tokens = {
@@ -594,13 +613,14 @@ export const useBackendAuthStore = create<AuthStore>()(
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           user: state.user,
-          // Only persist accessToken - refreshToken is now in httpOnly cookie (Phase 2 REQ-005)
+          // Task 277: Access token is now stored in memory only (XSS mitigation)
+          // Only persist metadata needed for session awareness, NOT the actual token
           tokens: state.tokens
             ? {
-                accessToken: state.tokens.accessToken,
+                // accessToken EXCLUDED - stored in memory via tokenManager (Task 277)
+                // refreshToken EXCLUDED - stored in httpOnly cookie (Phase 2 REQ-005)
                 expiresIn: state.tokens.expiresIn,
                 tokenType: state.tokens.tokenType,
-                // refreshToken excluded - stored in httpOnly cookie for security
               }
             : null,
           tokenExpiresAt: state.tokenExpiresAt,

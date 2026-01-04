@@ -16,8 +16,10 @@ let refreshPromise: Promise<string | null> | null = null;
 // Shared promise for proactive refresh to prevent stampede
 let proactiveRefreshPromise: Promise<boolean> | null = null;
 
-// Use backend auth store for token management
+// Use backend auth store for session management
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
+// Task 277: Use in-memory token manager for XSS mitigation
+import { tokenManager } from '@/lib/tokenManager';
 
 // Get auth store state
 function getAuthStore() {
@@ -33,9 +35,9 @@ api.interceptors.request.use(async (config) => {
   const isAuthEndpoint = config.url?.includes('/auth/');
 
   // Proactively refresh token if authenticated and token is expiring soon
-  // With httpOnly cookies (Phase 2 REQ-005), we don't need refreshToken in state
-  if (!isAuthEndpoint && authState.isAuthenticated && authState.tokens?.accessToken) {
-    if (authState.isTokenExpiringSoon()) {
+  // Task 277: Check in-memory token manager instead of Zustand store
+  if (!isAuthEndpoint && authState.isAuthenticated && tokenManager.hasToken()) {
+    if (tokenManager.isExpiringSoon()) {
       // Use shared promise to prevent multiple simultaneous refresh attempts
       if (!proactiveRefreshPromise) {
         proactiveRefreshPromise = (async () => {
@@ -50,15 +52,14 @@ api.interceptors.request.use(async (config) => {
     }
   }
 
-  // Get fresh state after potential refresh
-  const currentAuthState = getAuthStore();
-
-  // Get token from Zustand store
-  if (currentAuthState.tokens?.accessToken) {
-    config.headers.Authorization = `Bearer ${currentAuthState.tokens.accessToken}`;
+  // Task 277: Get token from in-memory tokenManager (XSS mitigation)
+  const accessToken = tokenManager.getToken();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
 
   // Add company context for multi-tenant requests
+  const currentAuthState = getAuthStore();
   if (currentAuthState.company?.id) {
     config.headers['X-Company-ID'] = currentAuthState.company.id;
   }
@@ -115,9 +116,10 @@ api.interceptors.response.use(
         console.error('Refresh error:', refreshError);
       }
 
+      // Task 277: Check in-memory token instead of store
       // Only logout if we actually had a session (had tokens)
-      const authStore = getAuthStore();
-      if (authStore.tokens?.accessToken) {
+      if (tokenManager.hasToken()) {
+        const authStore = getAuthStore();
         await authStore.logout();
 
         // Only redirect if we're not already on the login page
