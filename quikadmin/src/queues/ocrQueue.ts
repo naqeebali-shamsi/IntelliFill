@@ -125,31 +125,6 @@ export interface OCRJobStatus {
 }
 
 /**
- * Global error handlers to prevent OCR worker crashes from taking down the server
- * These are safety nets - errors should be caught in the job processor
- */
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Promise Rejection in OCR queue context:', { reason, promise });
-  // Don't exit - let the queue handle job failure
-});
-
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception in OCR queue context:', error);
-  // For OCR-related errors, don't crash the process
-  if (
-    error.message?.includes('tesseract') ||
-    error.message?.includes('OCR') ||
-    error.message?.includes('image') ||
-    error.message?.includes('sharp')
-  ) {
-    logger.warn('OCR-related uncaught exception - process will continue');
-    return;
-  }
-  // For other critical errors, log but let pm2/docker restart
-  logger.error('Critical uncaught exception - process may become unstable');
-});
-
-/**
  * Job data interface for OCR processing
  */
 export interface OCRProcessingJob {

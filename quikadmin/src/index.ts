@@ -6,6 +6,30 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ============================================================================
+// Global Process Error Handlers (must be registered early)
+// ============================================================================
+// These handlers provide a last-resort safety net for unhandled errors.
+// All errors should be caught in their respective modules, but these prevent
+// silent failures and ensure proper logging.
+
+process.on('unhandledRejection', (reason, promise) => {
+  // Use console at this stage since logger may not be initialized yet
+  console.error('Unhandled Promise Rejection:', { reason, promise });
+  // Don't exit - let the application continue and handle the failure gracefully
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Log the full stack trace
+  if (error.stack) {
+    console.error('Stack trace:', error.stack);
+  }
+  // Exit with failure code - let pm2/docker restart the process
+  // This is the recommended behavior for uncaught exceptions
+  process.exit(1);
+});
+
 // Import config module and validation function FIRST
 import { config, validateConfig } from './config';
 
