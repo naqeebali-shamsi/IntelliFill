@@ -517,3 +517,31 @@ export const sseConnectionLimiter = rateLimit({
   } as any,
   keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
 });
+
+// ============================================================================
+// CSP Report Rate Limiter (Task #274)
+// Limits CSP violation reports to prevent DoS via reporting abuse
+// ============================================================================
+
+/**
+ * CSP violation report rate limiter
+ * Production: 100 reports per minute per IP
+ * This prevents malicious actors from flooding the server with fake CSP reports
+ * while still allowing legitimate violations to be logged
+ */
+export const cspReportLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: process.env.NODE_ENV === 'development' ? 500 : 100, // 100 reports/minute in production
+  message: {
+    error: 'Too many CSP reports',
+    message: 'CSP report rate limit exceeded.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: {
+    increment: async (key: string) => store.increment('csp:' + key),
+    decrement: async (key: string) => store.decrement('csp:' + key),
+    resetKey: async (key: string) => store.resetKey('csp:' + key),
+  } as any,
+  keyGenerator: createKeyGenerator({ scope: 'ip' }), // IP-only since no auth on this endpoint
+});

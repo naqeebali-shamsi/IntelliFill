@@ -46,7 +46,12 @@ import { ValidationService } from './validators/ValidationService';
 import { DatabaseService } from './database/DatabaseService';
 import { setupRoutes } from './api/routes';
 import { logger } from './utils/logger';
-import { standardLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter';
+import {
+  standardLimiter,
+  authLimiter,
+  uploadLimiter,
+  cspReportLimiter,
+} from './middleware/rateLimiter';
 import { csrfProtection } from './middleware/csrf';
 import { realtimeService } from './services/RealtimeService';
 import { createAuditMiddleware } from './middleware/auditLogger';
@@ -213,7 +218,12 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
 
     // CSP violation report endpoint (must be before routes, no auth required)
     // Browsers send CSP violations here for monitoring
-    app.post('/api/csp-report', express.json({ type: 'application/csp-report' }), cspReportHandler);
+    app.post(
+      '/api/csp-report',
+      cspReportLimiter, // Rate limit: 100 reports/min per IP (Task #274)
+      express.json({ type: 'application/csp-report' }),
+      cspReportHandler
+    );
 
     // Health check endpoint (public) - basic status
     app.get('/health', (_req, res) => {
