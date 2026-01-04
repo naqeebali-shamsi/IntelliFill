@@ -13,6 +13,100 @@ import { isRedisHealthy } from '../utils/redisHealth';
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.tiff', '.tif', '.bmp', '.gif'];
 
 /**
+ * OCR Queue Configuration Constants
+ *
+ * Centralized configuration to eliminate magic numbers and improve maintainability.
+ * All queue-related thresholds and limits are defined here.
+ */
+export const OCR_QUEUE_CONFIG = {
+  /** Maximum concurrent OCR jobs (OCR is memory-intensive) */
+  CONCURRENCY: parseInt(process.env.OCR_CONCURRENCY || '1', 10),
+
+  /** Maximum job retry attempts before marking as permanently failed */
+  MAX_ATTEMPTS: 3,
+
+  /** Initial backoff delay in ms for exponential retry (3s, 9s, 27s) */
+  BACKOFF_DELAY_MS: 3000,
+
+  /** Job timeout in ms (10 minutes for standard OCR) */
+  TIMEOUT_MS: 600000,
+
+  /** Maximum reprocessing attempts per document */
+  MAX_REPROCESS_ATTEMPTS: 3,
+
+  /** Reprocessing job priority (lower = higher priority) */
+  REPROCESSING_PRIORITY: 1,
+
+  /** Enhanced DPI for reprocessing jobs */
+  REPROCESSING_DPI: 600,
+
+  /** Reprocessing timeout in ms (10 minutes) */
+  REPROCESSING_TIMEOUT_MS: 600000,
+
+  /** Health check thresholds */
+  HEALTH: {
+    /** Max active jobs before queue is considered unhealthy */
+    MAX_ACTIVE_JOBS: 50,
+    /** Max waiting jobs before queue is considered unhealthy */
+    MAX_WAITING_JOBS: 500,
+  },
+} as const;
+
+/**
+ * Queue health status interface
+ *
+ * Represents the current state of the OCR processing queue
+ * for monitoring and health check endpoints.
+ */
+export interface QueueHealthStatus {
+  /** Queue identifier */
+  queue: string;
+  /** Number of jobs waiting to be processed */
+  waiting: number;
+  /** Number of jobs currently being processed */
+  active: number;
+  /** Number of successfully completed jobs */
+  completed: number;
+  /** Number of failed jobs */
+  failed: number;
+  /** Whether the queue is operating within healthy limits */
+  isHealthy: boolean;
+}
+
+/**
+ * OCR job status interface
+ *
+ * Represents the current state of an individual OCR processing job
+ * for status queries and progress tracking.
+ */
+export interface OCRJobStatus {
+  /** Unique job identifier */
+  id: Bull.JobId;
+  /** Job type identifier */
+  type: 'ocr_processing';
+  /** Current job state (waiting, active, completed, failed, delayed, paused) */
+  status: Bull.JobStatus;
+  /** Processing progress percentage (0-100) */
+  progress: number;
+  /** Original job data */
+  data: OCRProcessingJob;
+  /** Job result (if completed) */
+  result: unknown | null;
+  /** Error message (if failed) */
+  error: string | null;
+  /** Number of retry attempts made */
+  attemptsMade: number;
+  /** Total retry attempts allowed */
+  attemptsTotal: number | undefined;
+  /** When the job was created */
+  createdAt: Date;
+  /** When processing started */
+  startedAt: Date | undefined;
+  /** When processing completed */
+  completedAt: Date | undefined;
+}
+
+/**
  * Global error handlers to prevent OCR worker crashes from taking down the server
  * These are safety nets - errors should be caught in the job processor
  */
@@ -105,10 +199,10 @@ export function isOCRQueueAvailable(): boolean {
 }
 
 /**
- * Process OCR jobs
+ * Process OCR jobs with configurable concurrency
  */
 if (ocrQueue) {
-  ocrQueue.process(async (job) => {
+  ocrQueue.process(OCR_QUEUE_CONFIG.CONCURRENCY, async (job) => {
     const { documentId, userId, filePath, options } = job.data;
     const startTime = Date.now();
 
@@ -326,7 +420,7 @@ export async function enqueueDocumentForOCR(
 /**
  * Get OCR queue health status
  */
-export async function getOCRQueueHealth() {
+export async function getOCRQueueHealth(): Promise<QueueHealthStatus> {
   if (!isOCRQueueAvailable()) {
     throw new QueueUnavailableError('ocr-processing');
   }
@@ -344,14 +438,16 @@ export async function getOCRQueueHealth() {
     active,
     completed,
     failed,
-    isHealthy: active < 50 && waiting < 500,
+    isHealthy:
+      active < OCR_QUEUE_CONFIG.HEALTH.MAX_ACTIVE_JOBS &&
+      waiting < OCR_QUEUE_CONFIG.HEALTH.MAX_WAITING_JOBS,
   };
 }
 
 /**
  * Get OCR job status by ID
  */
-export async function getOCRJobStatus(jobId: string) {
+export async function getOCRJobStatus(jobId: string): Promise<OCRJobStatus | null> {
   if (!isOCRQueueAvailable()) {
     throw new QueueUnavailableError('ocr-processing');
   }
@@ -368,10 +464,10 @@ export async function getOCRJobStatus(jobId: string) {
     id: job.id,
     type: 'ocr_processing',
     status: state,
-    progress: job.progress(),
+    progress: job.progress() as number,
     data: job.data,
-    result: job.returnvalue,
-    error: job.failedReason,
+    result: job.returnvalue ?? null,
+    error: job.failedReason ?? null,
     attemptsMade: job.attemptsMade,
     attemptsTotal: job.opts.attempts,
     createdAt: new Date(job.timestamp),
@@ -410,8 +506,10 @@ export async function enqueueDocumentForReprocessing(
       select: { reprocessCount: true },
     });
 
-    if (document && document.reprocessCount >= 3) {
-      throw new Error('Maximum reprocessing attempts (3) reached for this document');
+    if (document && document.reprocessCount >= OCR_QUEUE_CONFIG.MAX_REPROCESS_ATTEMPTS) {
+      throw new Error(
+        `Maximum reprocessing attempts (${OCR_QUEUE_CONFIG.MAX_REPROCESS_ATTEMPTS}) reached for this document`
+      );
     }
 
     logger.info('Enqueueing document for reprocessing', {
@@ -427,13 +525,13 @@ export async function enqueueDocumentForReprocessing(
         isReprocessing: true,
         reprocessReason: reason,
         options: {
-          dpi: 600,
+          dpi: OCR_QUEUE_CONFIG.REPROCESSING_DPI,
           enhancedPreprocessing: true,
         },
       },
       {
-        priority: 1,
-        timeout: 600000,
+        priority: OCR_QUEUE_CONFIG.REPROCESSING_PRIORITY,
+        timeout: OCR_QUEUE_CONFIG.REPROCESSING_TIMEOUT_MS,
       }
     );
 
