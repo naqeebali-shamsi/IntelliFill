@@ -38,9 +38,13 @@ import { getTokenFamilyService } from '../services/RefreshTokenFamilyService';
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
 
 // Cookie configuration for httpOnly refreshToken (Phase 2 REQ-005)
+// Task 280: Environment-aware secure cookie configuration
+// - Production: Always secure (HTTPS required)
+// - Development: Secure when using local HTTPS (recommended)
+// - Test: Not secure (allows e2e testing without HTTPS)
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env.NODE_ENV !== 'test',
   sameSite: 'strict' as const,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
   path: '/api/auth',

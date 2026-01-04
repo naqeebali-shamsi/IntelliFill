@@ -49,10 +49,10 @@ export const requestContext = (
 
 /**
  * Basic security headers middleware
- * Helmet will be added in Phase 2 security hardening
+ * Task 280: Environment-aware HSTS headers
  */
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
-  // Basic security headers for Phase 0
+  // Basic security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   // Note: X-XSS-Protection header removed per modern security standards (2025).
@@ -61,8 +61,18 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
   // explicitly don't set it anymore. Content-Security-Policy is the recommended approach.
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
+  // Task 280: Environment-aware HSTS configuration
+  // - Production: 1 year max-age with includeSubDomains and preload
+  // - Development: 1 hour max-age for testing (allows reverting if needed)
+  // - Test: No HSTS to avoid complicating test environment
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  } else if (process.env.NODE_ENV !== 'test' && process.env.ENABLE_HSTS_DEV === 'true') {
+    // Development HSTS - only enabled when explicitly requested and running HTTPS
+    res.setHeader(
+      'Strict-Transport-Security',
+      'max-age=3600' // 1 hour - short duration for development
+    );
   }
 
   next();
