@@ -124,11 +124,16 @@ export async function uploadFile(
         key,
       };
     } catch (error) {
-      logger.error('R2 upload failed, falling back to local storage', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('R2 upload failed', {
+        error: errorMessage,
         localPath,
       });
-      // Fall through to local storage
+      // Don't fall back to local storage in production - it won't work with validation
+      // and Render's disk is ephemeral anyway
+      throw new Error(
+        `R2 upload failed: ${errorMessage}. Check R2 credentials and bucket permissions.`
+      );
     }
   }
 
