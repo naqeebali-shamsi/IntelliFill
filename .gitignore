@@ -76,3 +76,6 @@ dev-debug.log
 # Task files
 # tasks.json
 # tasks/ 
+
+# E2E test results
+test-results/
