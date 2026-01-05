@@ -29,6 +29,7 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { DemoLoginButton } from '@/components/features/demo-login-button';
 import { ErrorCode } from '@/constants/errorCodes';
+import { Testimonial } from '@/components/ui/design-testimonial';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -165,15 +166,9 @@ export default function Login() {
           </DemoLoginButton>
         </div>
 
-        {/* Testimonial */}
+        {/* Animated Testimonial Carousel */}
         <div className="relative z-10 mt-auto">
-          <blockquote className="text-white/90 text-lg italic">
-            "IntelliFill saves us 4+ hours daily on document processing. It's transformed how we
-            handle visa applications."
-          </blockquote>
-          <cite className="block mt-3 text-white/70 text-sm not-italic">
-            — PRO Agency Owner, Dubai
-          </cite>
+          <Testimonial />
         </div>
       </div>
 
