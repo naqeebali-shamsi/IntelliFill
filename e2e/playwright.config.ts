@@ -109,12 +109,13 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Enable additional Chrome features for testing
+        // Note: --disable-web-security was removed as it breaks httpOnly cookie handling
+        // after page.reload(), causing session persistence test failures.
+        // If CORS issues arise, fix them properly in backend configuration.
+
+        // Capture console logs for debugging
         launchOptions: {
-          args: [
-            '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process',
-          ],
+          args: ['--auto-open-devtools-for-tabs'],
         },
       },
     },

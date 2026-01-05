@@ -144,8 +144,44 @@ test.describe('Authentication', () => {
     // Wait for network to be idle before reloading (ensures session is saved)
     await page.waitForLoadState('networkidle');
 
+    // Wait for Zustand persist to save auth state to localStorage
+    await page.waitForFunction(() => {
+      const auth = localStorage.getItem('intellifill-backend-auth');
+      if (!auth) return false;
+      try {
+        const parsed = JSON.parse(auth);
+        return parsed.state?.sessionIndicator === true || parsed.state?.isAuthenticated === true;
+      } catch {
+        return false;
+      }
+    }, { timeout: 10000 });
+
     // Reload page - this tests session persistence
     await page.reload();
+
+    // Wait for auth initialization to complete after reload
+    // The app needs to: 1) rehydrate from localStorage, 2) detect missing in-memory token,
+    // 3) call silent refresh using httpOnly cookie, 4) restore session
+    await page.waitForLoadState('networkidle');
+
+    // Wait for either successful auth initialization OR redirect to login
+    // This gives the silent refresh time to complete
+    await page.waitForFunction(() => {
+      // Check if still loading
+      const loadingSpinner = document.querySelector('[class*="animate-spin"]');
+      if (loadingSpinner) return false; // Still loading
+
+      // Check if auth is restored
+      const auth = localStorage.getItem('intellifill-backend-auth');
+      if (!auth) return true; // No auth = initialization complete (failed)
+      try {
+        const parsed = JSON.parse(auth);
+        // Wait for loadingStage to be 'ready' or isInitialized to be true
+        return parsed.state?.loadingStage === 'ready' || parsed.state?.isInitialized === true;
+      } catch {
+        return true;
+      }
+    }, { timeout: 20000 });
 
     // After reload, the session should be restored from localStorage
     // The onRehydrateStorage callback validates the token with the backend

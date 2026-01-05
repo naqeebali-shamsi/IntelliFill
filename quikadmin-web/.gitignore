@@ -36,3 +36,8 @@ coverage/
 # Cypress
 cypress/videos/
 cypress/screenshots/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/

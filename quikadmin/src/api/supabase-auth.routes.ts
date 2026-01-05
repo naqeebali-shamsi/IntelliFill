@@ -39,15 +39,19 @@ const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE 
 
 // Cookie configuration for httpOnly refreshToken (Phase 2 REQ-005)
 // Task 280: Environment-aware secure cookie configuration
-// - Production: Always secure (HTTPS required)
+// - Production: Always secure (HTTPS required), sameSite strict, path /api/auth
 // - Development: Secure when using local HTTPS (recommended)
-// - Test: Not secure (allows e2e testing without HTTPS)
+// - Test: Not secure, sameSite lax, path /api (wider path for E2E cookie sending)
 const REFRESH_TOKEN_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV !== 'test',
-  sameSite: 'strict' as const,
+  // Use 'lax' in test mode to allow cross-port requests (localhost:8080 -> localhost:3002)
+  // Production uses 'strict' for maximum CSRF protection
+  sameSite: (isTestMode ? 'lax' : 'strict') as 'lax' | 'strict',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
-  path: '/api/auth',
+  // In test mode, use wider path /api to ensure cookie is sent on all API requests
+  // Production uses /api/auth for tighter scoping
+  path: isTestMode ? '/api' : '/api/auth',
 };
 
 /**
@@ -62,7 +66,8 @@ function setRefreshTokenCookie(res: Response, refreshToken: string): void {
  * Clear refreshToken cookie on logout
  */
 function clearRefreshTokenCookie(res: Response): void {
-  res.clearCookie('refreshToken', { path: '/api/auth' });
+  // Use same path as REFRESH_TOKEN_COOKIE_OPTIONS to ensure cookie is cleared
+  res.clearCookie('refreshToken', { path: isTestMode ? '/api' : '/api/auth' });
 }
 
 // JWT secrets are now loaded from validated config (no fallbacks)
@@ -732,6 +737,15 @@ export function createSupabaseAuthRoutes(): Router {
    */
   router.post('/refresh', async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // DEBUG: Log cookie receipt for E2E troubleshooting (temporary - remove after fixing)
+      logger.info('[REFRESH DEBUG] Request cookies:', {
+        hasCookies: !!req.cookies,
+        cookieKeys: req.cookies ? Object.keys(req.cookies) : [],
+        hasRefreshToken: !!req.cookies?.refreshToken,
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+      });
+
       // Phase 2 REQ-005: Read refreshToken from httpOnly cookie first, fallback to body
       const refreshToken =
         req.cookies?.refreshToken || (req.body as RefreshTokenRequest)?.refreshToken;

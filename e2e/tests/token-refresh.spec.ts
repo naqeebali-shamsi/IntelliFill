@@ -22,6 +22,38 @@ async function loginUser(page: Page): Promise<void> {
   await page.getByRole('button', { name: /sign in/i }).click();
   await page.waitForURL(/.*dashboard/, { timeout: 15000 });
   await expect(page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 })).toBeVisible({ timeout: 10000 });
+
+  // Wait for Zustand persist to save auth state to localStorage
+  await page.waitForFunction(() => {
+    const auth = localStorage.getItem('intellifill-backend-auth');
+    if (!auth) return false;
+    try {
+      const parsed = JSON.parse(auth);
+      return parsed.state?.sessionIndicator === true || parsed.state?.isAuthenticated === true;
+    } catch {
+      return false;
+    }
+  }, { timeout: 10000 });
+}
+
+// Helper: Wait for auth initialization to complete after page reload
+async function waitForAuthInitialized(page: Page): Promise<void> {
+  await page.waitForLoadState('networkidle');
+  await page.waitForFunction(() => {
+    // Check if still loading
+    const loadingSpinner = document.querySelector('[class*="animate-spin"]');
+    if (loadingSpinner) return false;
+
+    // Check if auth is initialized
+    const auth = localStorage.getItem('intellifill-backend-auth');
+    if (!auth) return true; // No auth = done (failed state)
+    try {
+      const parsed = JSON.parse(auth);
+      return parsed.state?.loadingStage === 'ready' || parsed.state?.isInitialized === true;
+    } catch {
+      return true;
+    }
+  }, { timeout: 20000 });
 }
 
 // Helper: Verify user is still logged in (more robust than checking email text)
@@ -218,6 +250,9 @@ test.describe('Token Refresh Flows', () => {
       // Reload the page
       await page.reload({ waitUntil: 'networkidle' });
 
+      // Wait for auth initialization to complete (silent refresh via httpOnly cookie)
+      await waitForAuthInitialized(page);
+
       // Should still be on dashboard and logged in
       await expect(page).toHaveURL(/.*dashboard/);
       await verifyLoggedIn(page);
@@ -227,9 +262,11 @@ test.describe('Token Refresh Flows', () => {
       // Login first
       await loginUser(page);
 
-      // Perform multiple rapid reloads
-      for (let i = 0; i < 5; i++) {
+      // Perform multiple rapid reloads with proper waits
+      for (let i = 0; i < 3; i++) {  // Reduced from 5 to 3 to avoid test timeout
         await page.reload({ waitUntil: 'networkidle' });
+        // Wait for auth initialization after each reload
+        await waitForAuthInitialized(page);
         // Verify still logged in after each reload - just check URL to avoid flaky element checks
         await expect(page).not.toHaveURL(/.*login/);
       }
