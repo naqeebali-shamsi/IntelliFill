@@ -508,13 +508,25 @@ export const useBackendAuthStore = create<AuthStore>()(
             // Case 2: Session indicator exists but in-memory token is missing (page refresh)
             // Task 278: Attempt silent refresh using httpOnly refresh cookie
             if (sessionIndicator && !hasInMemoryToken) {
+              // DEBUG: Log silent refresh attempt
+              console.log('[Auth DEBUG] Attempting silent refresh:', {
+                sessionIndicator,
+                hasInMemoryToken,
+              });
+
               set((state) => {
                 state.loadingStage = 'validating';
               });
 
               try {
                 // Silent refresh - the httpOnly cookie is sent automatically
+                console.log('[Auth DEBUG] Calling authService.refreshToken()...');
                 const response = await authService.refreshToken();
+                console.log('[Auth DEBUG] refreshToken response:', {
+                  success: response.success,
+                  hasTokens: !!response.data?.tokens,
+                  error: response.error,
+                });
 
                 if (response.success && response.data?.tokens) {
                   const newTokens = response.data.tokens;
@@ -742,7 +754,16 @@ export const useBackendAuthStore = create<AuthStore>()(
           // isAuthenticated should only be true when tokenManager has a valid token
           sessionIndicator: state.isAuthenticated, // Persist indicator, not actual auth state
           rememberMe: state.rememberMe,
-          isInitialized: state.isInitialized, // Persist initialization state to survive page reloads
+          // WHY isInitialized IS PERSISTED:
+          // We persist isInitialized to distinguish between:
+          // 1. Fresh app load (isInitialized=false) - needs full initialization
+          // 2. Page reload with existing session (isInitialized=true) - needs silent refresh
+          //
+          // IMPORTANT: When sessionIndicator=true but no in-memory token exists (page reload),
+          // onRehydrateStorage resets isInitialized=false to prevent ProtectedRoute from
+          // redirecting to login before initialize() can perform silent refresh.
+          // See onRehydrateStorage callback below for the race condition fix.
+          isInitialized: state.isInitialized,
           lastActivity: state.lastActivity,
         }),
         version: 1,
@@ -756,6 +777,14 @@ export const useBackendAuthStore = create<AuthStore>()(
               // Don't set isAuthenticated=true yet
               // initialize() will handle silent refresh and restore isAuthenticated
               state.isAuthenticated = false;
+              // CRITICAL FIX: Reset isInitialized to false to prevent ProtectedRoute
+              // from redirecting to login before initialize() can run silent refresh.
+              // Without this, the persisted isInitialized=true causes a race condition
+              // where ProtectedRoute sees isInitialized=true, calls checkSession() which
+              // fails (no token), and redirects to login before initialize() runs.
+              state.isInitialized = false;
+              state.isLoading = true;
+              state.loadingStage = 'rehydrating';
             }
           }
         },

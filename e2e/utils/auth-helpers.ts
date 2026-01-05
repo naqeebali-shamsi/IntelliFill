@@ -100,6 +100,20 @@ export async function loginAsUser(page: Page, user: TestUser): Promise<void> {
         }
       }
 
+      // Wait for Zustand persist middleware to flush auth state to localStorage
+      // This prevents race conditions when tests immediately check for tokens after login
+      await page.waitForFunction(() => {
+        const auth = localStorage.getItem('intellifill-backend-auth');
+        if (!auth) return false;
+        try {
+          const parsed = JSON.parse(auth);
+          // Check that sessionIndicator is set (tokens are stored in memory, not localStorage)
+          return parsed.state?.sessionIndicator === true || parsed.state?.isAuthenticated === true;
+        } catch {
+          return false;
+        }
+      }, { timeout: 10000 });
+
       // Success - exit the retry loop
       return;
     } catch (error) {
@@ -179,8 +193,9 @@ export async function isAuthenticated(page: Page): Promise<boolean> {
  * This prevents SecurityError when accessing localStorage from about:blank or cross-origin
  *
  * @param page Playwright page object
+ * @param skipIfOnApp If true, don't navigate if already on app pages (avoids race conditions)
  */
-async function ensureAppOrigin(page: Page): Promise<void> {
+async function ensureAppOrigin(page: Page, skipIfOnApp = false): Promise<void> {
   const currentUrl = page.url();
 
   // Check if we're already on the app's origin
@@ -188,32 +203,63 @@ async function ensureAppOrigin(page: Page): Promise<void> {
   if (currentUrl === 'about:blank' || currentUrl === '' || currentUrl === 'about:srcdoc') {
     // Navigate to the app's root URL (uses baseURL from playwright config)
     await page.goto('/', { waitUntil: 'domcontentloaded' });
+    return;
+  }
+
+  // If skipIfOnApp is true and we're already on an app page, don't navigate
+  // This prevents race conditions where navigation clears auth state
+  if (skipIfOnApp) {
+    const isOnApp = currentUrl.includes('localhost') ||
+                    currentUrl.includes('intellifill') ||
+                    currentUrl.includes('127.0.0.1');
+    if (isOnApp) {
+      return; // Already on app, no navigation needed
+    }
+    // Not on app, need to navigate
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
   }
 }
 
 /**
- * Get authentication token from storage
+ * Get authentication token for API calls
+ *
+ * Since Task 277 (XSS mitigation), access tokens are stored in memory only,
+ * not in localStorage. This function calls the refresh endpoint using the
+ * httpOnly cookie to obtain a fresh access token for E2E API tests.
  *
  * @param page Playwright page object
  * @returns Token string or null
  */
 export async function getAuthToken(page: Page): Promise<string | null> {
-  // Ensure we're on the app's origin before accessing localStorage
+  // Ensure we're on the app's origin before making requests
   await ensureAppOrigin(page);
 
-  // Check localStorage for token
-  // Backend auth store uses 'intellifill-backend-auth' key with nested structure
-  const token = await page.evaluate(() => {
-    const authData = localStorage.getItem('intellifill-backend-auth');
-    if (!authData) return null;
+  // Get API URL from environment or default
+  const apiUrl = process.env.API_URL || 'http://localhost:3002/api';
 
+  // Call the refresh endpoint using the httpOnly cookie set during login
+  // This mirrors how the app itself gets tokens after page reload
+  const token = await page.evaluate(async (url) => {
     try {
-      const parsed = JSON.parse(authData);
-      return parsed.state?.tokens?.accessToken || null;
-    } catch (e) {
+      const response = await fetch(`${url}/auth/v2/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Important: sends httpOnly cookies
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        console.log(`[getAuthToken] Refresh failed: ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json();
+      return data.data?.tokens?.accessToken || data.tokens?.accessToken || null;
+    } catch (error) {
+      console.log('[getAuthToken] Error calling refresh:', error);
       return null;
     }
-  });
+  }, apiUrl);
 
   return token;
 }
@@ -221,24 +267,32 @@ export async function getAuthToken(page: Page): Promise<string | null> {
 /**
  * Set authentication token in storage
  *
+ * @deprecated Since Task 277 (XSS mitigation), access tokens are no longer stored
+ * in localStorage. This function now only sets the sessionIndicator flag.
+ * For testing invalid token scenarios, use page.addInitScript() to set up
+ * localStorage state before navigation (see token-refresh.spec.ts for examples).
+ *
  * @param page Playwright page object
- * @param token Authentication token
+ * @param _token Authentication token (ignored - tokens are in memory only)
  */
-export async function setAuthToken(page: Page, token: string): Promise<void> {
+export async function setAuthToken(page: Page, _token: string): Promise<void> {
   // Ensure we're on the app's origin before accessing localStorage
   await ensureAppOrigin(page);
 
-  // Backend auth store uses 'intellifill-backend-auth' key with nested structure
-  await page.evaluate((token) => {
+  // Since Task 277, we can only set the session indicator, not the actual token
+  // The actual token lives in memory via tokenManager
+  await page.evaluate(() => {
     const authData = {
       state: {
+        // tokens.accessToken is NOT stored - it's in memory only (Task 277)
         tokens: {
-          accessToken: token,
-          refreshToken: '',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
         },
         user: null,
-        isAuthenticated: true,
-        isInitialized: true,
+        sessionIndicator: true, // Indicates a session exists
+        isAuthenticated: false, // Will be set true after token validation
+        isInitialized: false, // Will trigger initialization
         isLoading: false,
         error: null,
         loginAttempts: 0,
@@ -251,7 +305,12 @@ export async function setAuthToken(page: Page, token: string): Promise<void> {
       version: 1,
     };
     localStorage.setItem('intellifill-backend-auth', JSON.stringify(authData));
-  }, token);
+  });
+
+  console.warn(
+    '[setAuthToken] DEPRECATED: This function no longer sets actual tokens. ' +
+    'Use loginAsUser() for real authentication or page.addInitScript() for test scenarios.'
+  );
 }
 
 /**
@@ -261,8 +320,9 @@ export async function setAuthToken(page: Page, token: string): Promise<void> {
  */
 export async function clearAuth(page: Page): Promise<void> {
   // Ensure we're on the app's origin before accessing localStorage
+  // Use skipIfOnApp=true to avoid unnecessary navigation that causes race conditions
   // This prevents SecurityError when clearing storage from about:blank or cross-origin
-  await ensureAppOrigin(page);
+  await ensureAppOrigin(page, true);
 
   await page.evaluate(() => {
     localStorage.clear();

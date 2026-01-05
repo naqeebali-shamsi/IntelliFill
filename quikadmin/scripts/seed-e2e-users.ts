@@ -19,6 +19,13 @@ const E2E_TEST_USERS = [
     role: 'USER' as const,
   },
   {
+    email: 'test2@intellifill.local',
+    password: 'Test123!@#',
+    firstName: 'Test2',
+    lastName: 'User',
+    role: 'USER' as const,
+  },
+  {
     email: 'admin@intellifill.local',
     password: 'Admin123!@#',
     firstName: 'Admin',
