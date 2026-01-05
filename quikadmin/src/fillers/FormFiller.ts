@@ -9,6 +9,7 @@ import {
 import * as fs from 'fs/promises';
 import { MappingResult } from '../mappers/FieldMapper';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
+import { getFileBuffer } from '../utils/fileReader';
 
 export interface FillResult {
   success: boolean;
@@ -29,8 +30,8 @@ export class FormFiller {
     const warnings: string[] = [...mappings.warnings];
 
     try {
-      // Load the PDF
-      const pdfBytes = await fs.readFile(pdfPath);
+      // Load the PDF using shared fileReader utility (supports both local paths and R2 URLs)
+      const pdfBytes = await getFileBuffer(pdfPath);
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const form = pdfDoc.getForm();
 
@@ -176,7 +177,8 @@ export class FormFiller {
     fieldTypes: Record<string, string>;
   }> {
     try {
-      const pdfBytes = await fs.readFile(pdfPath);
+      // Use shared fileReader utility (supports both local paths and R2 URLs)
+      const pdfBytes = await getFileBuffer(pdfPath);
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const form = pdfDoc.getForm();
       const fields = form.getFields();

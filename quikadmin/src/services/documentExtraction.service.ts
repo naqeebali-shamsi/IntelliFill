@@ -20,12 +20,9 @@ import Tesseract from 'tesseract.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { logger } from '../utils/logger';
-import {
-  fileValidationService,
-  FileValidationResult,
-  FILE_LIMITS,
-} from './fileValidation.service';
+import { fileValidationService, FileValidationResult, FILE_LIMITS } from './fileValidation.service';
 import { memoryManager } from './memoryManager.service';
+import { getFileBuffer, isUrl } from '../utils/fileReader';
 
 // ============================================================================
 // Types & Interfaces
@@ -162,7 +159,13 @@ export class DocumentExtractionService {
           if (!opts.ocrEnabled) {
             throw new Error('OCR is disabled but image file requires OCR extraction');
           }
-          result = await this.extractImage(buffer, sanitizedFilename, detectedMimeType, opts, warnings);
+          result = await this.extractImage(
+            buffer,
+            sanitizedFilename,
+            detectedMimeType,
+            opts,
+            warnings
+          );
           break;
 
         default:
@@ -288,7 +291,9 @@ export class DocumentExtractionService {
         filename,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new Error(`Failed to extract PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to extract PDF: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -342,9 +347,7 @@ export class DocumentExtractionService {
   private parsePDFDate(dateString: string): Date | undefined {
     try {
       // PDF date format: D:YYYYMMDDHHmmSSOHH'mm'
-      const match = dateString.match(
-        /D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/
-      );
+      const match = dateString.match(/D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/);
       if (match) {
         const [, year, month, day, hour = '00', min = '00', sec = '00'] = match;
         return new Date(
@@ -379,9 +382,7 @@ export class DocumentExtractionService {
       const result = await mammoth.extractRawText({ buffer });
 
       if (result.messages.length > 0) {
-        warnings.push(
-          ...result.messages.map((m) => `DOCX warning: ${m.message}`)
-        );
+        warnings.push(...result.messages.map((m) => `DOCX warning: ${m.message}`));
       }
 
       const text = result.value;
@@ -440,7 +441,9 @@ export class DocumentExtractionService {
         filename,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new Error(`Failed to extract DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to extract DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -496,7 +499,9 @@ export class DocumentExtractionService {
         filename,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new Error(`Failed to extract text: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to extract text: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -518,9 +523,7 @@ export class DocumentExtractionService {
       const ocrResult = await this.ocrBuffer(buffer, options.language || 'eng');
 
       if (ocrResult.confidence < OCR_CONFIDENCE_THRESHOLD) {
-        warnings.push(
-          `Low OCR confidence (${ocrResult.confidence.toFixed(1)}%)`
-        );
+        warnings.push(`Low OCR confidence (${ocrResult.confidence.toFixed(1)}%)`);
       }
 
       const wordCount = this.countWords(ocrResult.text);
@@ -558,7 +561,9 @@ export class DocumentExtractionService {
         filename,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new Error(`Failed to OCR image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to OCR image: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -614,14 +619,28 @@ export class DocumentExtractionService {
   }
 
   /**
-   * Extract text from file path (convenience method)
+   * Extract text from file path or R2 URL (convenience method)
+   *
+   * @param pathOrUrl - Local file path or R2 URL
+   * @param options - Extraction options
    */
   async extractFromPath(
-    filePath: string,
+    pathOrUrl: string,
     options: ExtractionOptions = {}
   ): Promise<ExtractionResult> {
-    const buffer = await fs.readFile(filePath);
-    const filename = path.basename(filePath);
+    // Use shared fileReader utility for both local paths and R2 URLs
+    const buffer = await getFileBuffer(pathOrUrl);
+
+    // Extract filename from path or URL
+    let filename: string;
+    if (isUrl(pathOrUrl)) {
+      // For URLs, extract filename from the path portion
+      const url = new URL(pathOrUrl);
+      filename = path.basename(url.pathname) || 'document';
+    } else {
+      filename = path.basename(pathOrUrl);
+    }
+
     return this.extract(buffer, filename, undefined, options);
   }
 

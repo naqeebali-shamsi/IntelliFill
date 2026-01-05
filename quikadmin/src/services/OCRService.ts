@@ -6,25 +6,7 @@ import { fromPath } from 'pdf2pic';
 import * as path from 'path';
 import * as os from 'os';
 import { logger } from '../utils/logger';
-
-/**
- * Check if a path is a URL
- */
-function isUrl(pathOrUrl: string): boolean {
-  return pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
-}
-
-/**
- * Download file from URL to a buffer
- */
-async function downloadFile(url: string): Promise<Buffer> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
+import { getFileBuffer, isUrl } from '../utils/fileReader';
 
 export interface OCRResult {
   text: string;
@@ -92,20 +74,17 @@ export class OCRService {
     let tempPdfPath: string | null = null;
 
     try {
-      // Get PDF bytes - either from URL or local file
-      let pdfBytes: Buffer;
+      // Get PDF bytes - either from URL or local file using shared fileReader
+      const pdfBytes = await getFileBuffer(pdfPathOrUrl);
       let pdfPath: string;
 
       if (isUrl(pdfPathOrUrl)) {
-        logger.info(`Downloading PDF from URL for OCR processing`);
-        pdfBytes = await downloadFile(pdfPathOrUrl);
         // Save to temp file for pdf2pic (which requires a file path)
         tempPdfPath = path.join(tempDir, 'input.pdf');
         await fs.writeFile(tempPdfPath, pdfBytes);
         pdfPath = tempPdfPath;
         logger.info(`PDF downloaded (${pdfBytes.length} bytes)`);
       } else {
-        pdfBytes = await fs.readFile(pdfPathOrUrl);
         pdfPath = pdfPathOrUrl;
       }
 
@@ -236,14 +215,10 @@ export class OCRService {
     await this.initialize();
 
     try {
-      // Get image bytes - either from URL or local file
-      let imageBuffer: Buffer;
+      // Get image bytes - either from URL or local file using shared fileReader
+      const imageBuffer = await getFileBuffer(imagePathOrUrl);
       if (isUrl(imagePathOrUrl)) {
-        logger.info(`Downloading image from URL for OCR processing`);
-        imageBuffer = await downloadFile(imagePathOrUrl);
         logger.info(`Image downloaded (${imageBuffer.length} bytes)`);
-      } else {
-        imageBuffer = await fs.readFile(imagePathOrUrl);
       }
 
       // Preprocess image

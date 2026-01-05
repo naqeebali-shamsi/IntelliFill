@@ -1,38 +1,6 @@
-import * as fs from 'fs/promises';
 import pdfParse from 'pdf-parse';
 import { logger } from '../utils/logger';
-
-/**
- * Check if a string is an HTTP/HTTPS URL
- */
-function isUrl(pathOrUrl: string): boolean {
-  return pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
-}
-
-/**
- * Download a file from a URL and return as Buffer
- */
-async function downloadFile(url: string): Promise<Buffer> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
-  }
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-/**
- * Get file buffer from either a URL or local path
- */
-async function getFileBuffer(pathOrUrl: string): Promise<Buffer> {
-  if (isUrl(pathOrUrl)) {
-    logger.debug(`Downloading file from URL for detection`, { url: pathOrUrl.substring(0, 100) });
-    const buffer = await downloadFile(pathOrUrl);
-    logger.debug(`File downloaded`, { size: buffer.length });
-    return buffer;
-  }
-  return fs.readFile(pathOrUrl);
-}
+import { getFileBuffer, isUrl } from '../utils/fileReader';
 
 /**
  * Service for detecting document types and characteristics

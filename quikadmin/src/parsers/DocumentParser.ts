@@ -4,6 +4,7 @@ import * as mammoth from 'mammoth';
 import { parse } from 'csv-parse/sync';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import pdfParse from 'pdf-parse';
+import { getFileBuffer, isUrl } from '../utils/fileReader';
 
 export interface ParsedDocument {
   type: 'pdf' | 'docx' | 'txt' | 'csv' | 'image';
@@ -15,7 +16,7 @@ export interface ParsedDocument {
 export class DocumentParser {
   async parse(filePath: string): Promise<ParsedDocument> {
     const extension = filePath.split('.').pop()?.toLowerCase();
-    
+
     switch (extension) {
       case 'pdf':
         return this.parsePDF(filePath);
@@ -37,9 +38,10 @@ export class DocumentParser {
     }
   }
 
-  private async parsePDF(filePath: string): Promise<ParsedDocument> {
+  private async parsePDF(pathOrUrl: string): Promise<ParsedDocument> {
     try {
-      const pdfBytes = await fs.readFile(filePath);
+      // Use shared fileReader utility for both local paths and R2 URLs
+      const pdfBytes = await getFileBuffer(pathOrUrl);
 
       // Use pdf-parse for actual text extraction
       let content = '';
@@ -52,15 +54,19 @@ export class DocumentParser {
           numpages: pdfData.numpages,
           numrender: pdfData.numrender,
           info: pdfData.info,
-          metadata: pdfData.metadata
+          metadata: pdfData.metadata,
         };
 
         // Log extraction success
-        logger.info(`PDF text extracted: ${content.length} characters from ${pdfData.numpages} pages`);
+        logger.info(
+          `PDF text extracted: ${content.length} characters from ${pdfData.numpages} pages`
+        );
 
         // Warn if no text was extracted (might be scanned PDF)
         if (!content || content.trim().length === 0) {
-          logger.warn('PDF appears to have no extractable text. May require OCR for scanned documents.');
+          logger.warn(
+            'PDF appears to have no extractable text. May require OCR for scanned documents.'
+          );
         }
       } catch (parseError) {
         logger.warn('pdf-parse extraction failed, falling back to pdf-lib metadata:', parseError);
@@ -82,26 +88,29 @@ export class DocumentParser {
           hasText: content.trim().length > 0,
           textLength: content.length,
           requiresOCR: content.trim().length === 0,
-          ...pdfParseMetadata
-        }
+          ...pdfParseMetadata,
+        },
       };
     } catch (error) {
       logger.error('PDF parsing error:', error);
-      throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  private async parseDOCX(filePath: string): Promise<ParsedDocument> {
+  private async parseDOCX(pathOrUrl: string): Promise<ParsedDocument> {
     try {
-      const buffer = await fs.readFile(filePath);
+      // Use shared fileReader utility for both local paths and R2 URLs
+      const buffer = await getFileBuffer(pathOrUrl);
       const result = await mammoth.extractRawText({ buffer });
-      
+
       return {
         type: 'docx',
         content: result.value,
         metadata: {
-          messages: result.messages
-        }
+          messages: result.messages,
+        },
       };
     } catch (error) {
       logger.error('DOCX parsing error:', error);
@@ -109,17 +118,19 @@ export class DocumentParser {
     }
   }
 
-  private async parseTXT(filePath: string): Promise<ParsedDocument> {
+  private async parseTXT(pathOrUrl: string): Promise<ParsedDocument> {
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      
+      // Use shared fileReader utility for both local paths and R2 URLs
+      const buffer = await getFileBuffer(pathOrUrl);
+      const content = buffer.toString('utf-8');
+
       return {
         type: 'txt',
         content,
         metadata: {
           encoding: 'utf-8',
-          lines: content.split('\n').length
-        }
+          lines: content.split('\n').length,
+        },
       };
     } catch (error) {
       logger.error('TXT parsing error:', error);
@@ -127,22 +138,24 @@ export class DocumentParser {
     }
   }
 
-  private async parseCSV(filePath: string): Promise<ParsedDocument> {
+  private async parseCSV(pathOrUrl: string): Promise<ParsedDocument> {
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
+      // Use shared fileReader utility for both local paths and R2 URLs
+      const buffer = await getFileBuffer(pathOrUrl);
+      const content = buffer.toString('utf-8');
       const records = parse(content, {
         columns: true,
-        skip_empty_lines: true
+        skip_empty_lines: true,
       });
-      
+
       return {
         type: 'csv',
         content,
         metadata: {
           rowCount: records.length,
-          columns: records.length > 0 ? Object.keys(records[0]) : []
+          columns: records.length > 0 ? Object.keys(records[0]) : [],
         },
-        structuredData: { records }
+        structuredData: { records },
       };
     } catch (error) {
       logger.error('CSV parsing error:', error);
@@ -163,8 +176,8 @@ export class DocumentParser {
           format: extension,
           size: stats.size,
           path: filePath,
-          requiresOCR: true
-        }
+          requiresOCR: true,
+        },
       };
     } catch (error) {
       logger.error('Image parsing error:', error);
@@ -173,6 +186,6 @@ export class DocumentParser {
   }
 
   async parseMultiple(filePaths: string[]): Promise<ParsedDocument[]> {
-    return Promise.all(filePaths.map(path => this.parse(path)));
+    return Promise.all(filePaths.map((path) => this.parse(path)));
   }
 }

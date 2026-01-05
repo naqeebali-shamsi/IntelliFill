@@ -9,6 +9,7 @@ import { ValidationService } from '../validators/ValidationService';
 import { logger } from '../utils/logger';
 import { FillResult } from '../fillers/FormFiller';
 import { MappingResult } from '../mappers/FieldMapper';
+import { getFileBuffer } from '../utils/fileReader';
 
 export interface IntelliFillServiceConfig {
   documentParser?: DocumentParser;
@@ -206,7 +207,8 @@ export class IntelliFillService {
   }
 
   async fillPDF(formPath: string, data: Record<string, any>, outputPath: string): Promise<void> {
-    const formPdfBytes = await fs.readFile(formPath);
+    // Use shared fileReader utility (supports both local paths and R2 URLs)
+    const formPdfBytes = await getFileBuffer(formPath);
     const pdfDoc = await PDFDocument.load(formPdfBytes);
 
     const form = pdfDoc.getForm();
@@ -227,7 +229,8 @@ export class IntelliFillService {
   }
 
   async extractFormFields(formPath: string): Promise<string[]> {
-    const formPdfBytes = await fs.readFile(formPath);
+    // Use shared fileReader utility (supports both local paths and R2 URLs)
+    const formPdfBytes = await getFileBuffer(formPath);
     const pdfDoc = await PDFDocument.load(formPdfBytes);
     const form = pdfDoc.getForm();
     const fields = form.getFields();
@@ -239,7 +242,8 @@ export class IntelliFillService {
     const mergedPdf = await PDFDocument.create();
 
     for (const docPath of documents) {
-      const docBytes = await fs.readFile(docPath);
+      // Use shared fileReader utility (supports both local paths and R2 URLs)
+      const docBytes = await getFileBuffer(docPath);
       const doc = await PDFDocument.load(docBytes);
       const pages = await mergedPdf.copyPages(doc, doc.getPageIndices());
       pages.forEach((page) => mergedPdf.addPage(page));
