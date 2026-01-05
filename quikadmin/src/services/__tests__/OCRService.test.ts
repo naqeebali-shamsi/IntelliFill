@@ -29,7 +29,7 @@ import { fromPath } from 'pdf2pic';
 jest.mock('tesseract.js', () => ({
   createWorker: jest.fn(),
   PSM: {
-    AUTO_OSD: 1,
+    AUTO: 3,
   },
 }));
 
@@ -133,7 +133,7 @@ describe('OCRService', () => {
         tessedit_char_whitelist:
           '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,;:!?@#$%&*()-_+=[]{}|\\/<>"\' ',
         preserve_interword_spaces: '1',
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       });
     });
 

@@ -434,8 +434,20 @@ export async function enqueueDocumentForOCR(
   validateOcrJobDataOrThrow({ documentId, userId, filePath });
 
   try {
-    // Check if PDF needs OCR
-    if (!forceOCR) {
+    // Determine file type from extension (handle both paths and URLs with query strings)
+    let fileExt: string;
+    try {
+      // For URLs, parse and get pathname to avoid query string issues
+      const url = new URL(filePath);
+      fileExt = path.extname(url.pathname).toLowerCase();
+    } catch {
+      // Not a valid URL, treat as file path
+      fileExt = path.extname(filePath).toLowerCase();
+    }
+    const isImage = IMAGE_EXTENSIONS.includes(fileExt);
+
+    // Check if PDF needs OCR (only for PDFs, images always need OCR)
+    if (!forceOCR && !isImage) {
       const detectionService = new DocumentDetectionService();
       const isScanned = await detectionService.isScannedPDF(filePath);
 
@@ -443,6 +455,11 @@ export async function enqueueDocumentForOCR(
         logger.info(`Document ${documentId} is text-based, skipping OCR`);
         return null; // No OCR needed
       }
+    }
+
+    // Images always need OCR
+    if (isImage) {
+      logger.info(`Document ${documentId} is an image, OCR required`, { fileExt });
     }
 
     // Generate deterministic job ID for deduplication

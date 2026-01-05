@@ -50,11 +50,13 @@ export class OCRService {
       });
 
       // Configure for better accuracy
+      // Note: Using PSM.AUTO instead of PSM.AUTO_OSD to avoid requiring osd.traineddata
+      // AUTO_OSD requires the OSD trained data file which may not be available on all deployments
       await this.worker.setParameters({
         tessedit_char_whitelist:
           '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,;:!?@#$%&*()-_+=[]{}|\\/<>"\' ',
         preserve_interword_spaces: '1',
-        tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       });
 
       this.initialized = true;
