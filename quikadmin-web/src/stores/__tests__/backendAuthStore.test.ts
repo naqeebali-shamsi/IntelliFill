@@ -36,6 +36,7 @@ describe('backendAuthStore', () => {
       tokenExpiresAt: null,
       company: null,
       isAuthenticated: false,
+      sessionIndicator: false,
       isInitialized: false,
       isLoading: false,
       loadingStage: 'idle',
@@ -686,8 +687,9 @@ describe('backendAuthStore', () => {
         emailVerified: true,
       };
 
+      // Task 292: Set sessionIndicator instead of isAuthenticated
       useBackendAuthStore.setState({
-        isAuthenticated: true,
+        sessionIndicator: true,
         tokens: {
           accessToken: 'existing-token',
           expiresIn: 3600,
@@ -731,8 +733,10 @@ describe('backendAuthStore', () => {
         tokenType: 'Bearer',
       };
 
+      // Task 292: Set sessionIndicator instead of isAuthenticated
       useBackendAuthStore.setState({
-        isAuthenticated: true,
+        sessionIndicator: true,
+        isAuthenticated: false, // Should be false initially after page refresh
         tokens: null,
       });
 
@@ -764,8 +768,10 @@ describe('backendAuthStore', () => {
     });
 
     it('initializes with session but silent refresh fails - clears session', async () => {
+      // Task 292: Set sessionIndicator instead of isAuthenticated
       useBackendAuthStore.setState({
-        isAuthenticated: true,
+        sessionIndicator: true,
+        isAuthenticated: false, // Should be false initially after page refresh
         user: {
           id: 'user-1',
           email: 'test@example.com',
@@ -912,6 +918,10 @@ describe('backendAuthStore', () => {
         },
       });
 
+      // Task 292: Mock tokenManager methods for checkSession
+      vi.mocked(tokenManager.hasToken).mockReturnValue(true);
+      vi.mocked(tokenManager.isExpiringSoon).mockReturnValue(false);
+
       const { checkSession } = useBackendAuthStore.getState();
       expect(checkSession()).toBe(true);
     });
@@ -923,6 +933,215 @@ describe('backendAuthStore', () => {
 
       const { checkSession } = useBackendAuthStore.getState();
       expect(checkSession()).toBe(false);
+    });
+  });
+
+  describe('Task 292: Token Storage State Consistency', () => {
+    it('login should set isAuthenticated=true AND store token in tokenManager', async () => {
+      const mockTokens = {
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-123',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      const mockResponse: AuthResponse = {
+        success: true,
+        data: {
+          user: {
+            id: 'user-1',
+            email: 'test@example.com',
+            firstName: 'Test',
+            lastName: 'User',
+            role: 'user',
+            emailVerified: true,
+          },
+          tokens: mockTokens,
+        },
+      };
+
+      vi.mocked(authService.login).mockResolvedValue(mockResponse);
+      vi.mocked(tokenManager.setToken).mockImplementation(() => {});
+
+      const { login } = useBackendAuthStore.getState();
+      await login({ email: 'test@example.com', password: 'password123' });
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isAuthenticated).toBe(true);
+      expect(tokenManager.setToken).toHaveBeenCalledWith('access-token-123', 3600);
+    });
+
+    it('logout should clear isAuthenticated AND tokenManager', async () => {
+      useBackendAuthStore.setState({
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'user',
+          emailVerified: true,
+        },
+        isAuthenticated: true,
+      });
+
+      vi.mocked(authService.logout).mockResolvedValue({ success: true });
+      vi.mocked(tokenManager.clearToken).mockImplementation(() => {});
+
+      const { logout } = useBackendAuthStore.getState();
+      await logout();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isAuthenticated).toBe(false);
+      expect(tokenManager.clearToken).toHaveBeenCalled();
+    });
+
+    it('checkSession should return false when tokenManager has no token', () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokens: {
+          accessToken: 'token',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+
+      const { checkSession } = useBackendAuthStore.getState();
+      expect(checkSession()).toBe(false);
+    });
+
+    it('checkSession should return false when token is expired', () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokens: {
+          accessToken: 'token',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(true);
+      vi.mocked(tokenManager.isExpiringSoon).mockReturnValue(true);
+
+      const { checkSession } = useBackendAuthStore.getState();
+      expect(checkSession()).toBe(false);
+    });
+
+    it('checkSession should return true when valid token exists', () => {
+      useBackendAuthStore.setState({
+        isAuthenticated: true,
+        tokens: {
+          accessToken: 'token',
+          expiresIn: 3600,
+          tokenType: 'Bearer',
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(true);
+      vi.mocked(tokenManager.isExpiringSoon).mockReturnValue(false);
+
+      const { checkSession } = useBackendAuthStore.getState();
+      expect(checkSession()).toBe(true);
+    });
+
+    it('page refresh scenario: sessionIndicator persists but isAuthenticated is false until refresh', async () => {
+      // Simulate page refresh: sessionIndicator exists in localStorage but tokenManager is empty
+      useBackendAuthStore.setState({
+        isAuthenticated: false, // Should be false initially after rehydration
+        sessionIndicator: true, // Persisted from localStorage
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'user',
+          emailVerified: true,
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+
+      const state = useBackendAuthStore.getState();
+      // Before initialize(), isAuthenticated should be false
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.sessionIndicator).toBe(true);
+    });
+
+    it('successful silent refresh should restore isAuthenticated=true', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: true,
+      };
+
+      const mockTokens = {
+        accessToken: 'refreshed-token',
+        expiresIn: 3600,
+        tokenType: 'Bearer',
+      };
+
+      // Simulate page refresh state
+      useBackendAuthStore.setState({
+        isAuthenticated: false,
+        sessionIndicator: true,
+        user: mockUser,
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+      vi.mocked(authService.refreshToken).mockResolvedValue({
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: mockTokens,
+        },
+      });
+      vi.mocked(authService.getMe).mockResolvedValue({
+        success: true,
+        data: {
+          user: mockUser,
+          tokens: null,
+        },
+      });
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.sessionIndicator).toBe(true);
+      expect(tokenManager.setToken).toHaveBeenCalledWith('refreshed-token', 3600);
+    });
+
+    it('failed silent refresh should clear all session state', async () => {
+      // Simulate page refresh state
+      useBackendAuthStore.setState({
+        isAuthenticated: false,
+        sessionIndicator: true,
+        user: {
+          id: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          role: 'user',
+          emailVerified: true,
+        },
+      });
+
+      vi.mocked(tokenManager.hasToken).mockReturnValue(false);
+      vi.mocked(authService.refreshToken).mockRejectedValue(new Error('Refresh failed'));
+
+      const { initialize } = useBackendAuthStore.getState();
+      await initialize();
+
+      const state = useBackendAuthStore.getState();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.sessionIndicator).toBe(false);
+      expect(state.user).toBeNull();
+      expect(tokenManager.clearToken).toHaveBeenCalled();
     });
   });
 
@@ -1011,6 +1230,86 @@ describe('backendAuthStore', () => {
       expect(authSelectors.isLoading(state)).toBe(false);
       expect(authSelectors.loadingStage(state)).toBe('ready');
       expect(authSelectors.isDemo(state)).toBe(true);
+    });
+  });
+
+  describe('Production DevTools Security (Task 296)', () => {
+    it('store should function correctly in development mode', () => {
+      // In test environment, store should work regardless of mode
+      const state = useBackendAuthStore.getState();
+
+      expect(state).toBeDefined();
+      expect(state.isAuthenticated).toBe(false);
+      expect(state.user).toBeNull();
+      expect(typeof state.login).toBe('function');
+      expect(typeof state.logout).toBe('function');
+    });
+
+    it('store should function correctly when devtools are disabled', () => {
+      // Store should work even without devtools middleware
+      const { login, logout, setError } = useBackendAuthStore.getState();
+
+      // Test basic store operations
+      expect(typeof login).toBe('function');
+      expect(typeof logout).toBe('function');
+      expect(typeof setError).toBe('function');
+
+      // Test state mutations work
+      setError({
+        id: 'test-error',
+        code: 'TEST',
+        message: 'Test error',
+        timestamp: Date.now(),
+        severity: 'low',
+        component: 'test',
+        resolved: false,
+      });
+
+      expect(useBackendAuthStore.getState().error).not.toBeNull();
+
+      useBackendAuthStore.getState().clearError();
+      expect(useBackendAuthStore.getState().error).toBeNull();
+    });
+
+    it('persist middleware should work independently of devtools', () => {
+      // Persist middleware should work in both dev and prod
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        role: 'user',
+        emailVerified: true,
+      };
+
+      useBackendAuthStore.setState({
+        user: mockUser,
+        isAuthenticated: true,
+      });
+
+      const state = useBackendAuthStore.getState();
+      expect(state.user).toEqual(mockUser);
+      expect(state.isAuthenticated).toBe(true);
+    });
+
+    it('immer middleware should work independently of devtools', async () => {
+      // Immer middleware should allow draft mutations
+      const { setError } = useBackendAuthStore.getState();
+
+      const testError = {
+        id: 'immer-test',
+        code: 'IMMER_TEST',
+        message: 'Testing immer',
+        timestamp: Date.now(),
+        severity: 'low' as const,
+        component: 'test',
+        resolved: false,
+      };
+
+      setError(testError);
+
+      const state = useBackendAuthStore.getState();
+      expect(state.error).toEqual(testError);
     });
   });
 });

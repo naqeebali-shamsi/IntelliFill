@@ -158,8 +158,12 @@ export async function authenticateSupabase(
       // Record RLS failure for health monitoring
       recordRLSFailure();
 
-      // In production, fail closed on RLS errors (configurable)
-      if (process.env.RLS_FAIL_CLOSED === 'true') {
+      // SECURITY: Fail closed by default (opt-out with RLS_FAIL_CLOSED=false)
+      // Default behavior is to reject requests when RLS context fails
+      const shouldFailClosed = process.env.RLS_FAIL_CLOSED !== 'false';
+
+      if (shouldFailClosed) {
+        logger.error('SECURITY: RLS context failed - failing closed', { userId: dbUser.id });
         res.status(500).json({
           error: 'Internal Server Error',
           message: 'Security context initialization failed',
@@ -167,7 +171,14 @@ export async function authenticateSupabase(
         });
         return;
       }
-      // In development, continue but log warning about degraded security
+
+      // Only continue if explicitly opted-out with RLS_FAIL_CLOSED=false
+      logger.warn(
+        'SECURITY: RLS context failed but RLS_FAIL_CLOSED=false - continuing with degraded security',
+        {
+          userId: dbUser.id,
+        }
+      );
       logger.warn('Continuing without RLS context - application-level filtering only', {
         userId: dbUser.id,
       });
@@ -281,9 +292,25 @@ export async function optionalAuthSupabase(
         try {
           await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
           req.rlsContextSet = true;
-        } catch {
+        } catch (rlsError) {
+          // Log at ERROR level - RLS failures are security-relevant even for optional auth
+          logger.error('SECURITY: Failed to set RLS context in optional auth', {
+            userId: dbUser.id,
+            requestId: req.headers['x-request-id'] || 'N/A',
+            path: req.path,
+            method: req.method,
+            error: rlsError instanceof Error ? rlsError.message : String(rlsError),
+          });
+
+          // Record RLS failure for health monitoring
+          recordRLSFailure();
+
+          // SECURITY: Fail safe - do NOT attach user if RLS context failed
+          // This prevents authenticated access without proper RLS protection
+          // User continues as anonymous rather than with potentially insecure auth
           req.rlsContextSet = false;
-          // Silent failure for optional auth
+          req.user = undefined;
+          req.supabaseUser = undefined;
         }
       }
     }

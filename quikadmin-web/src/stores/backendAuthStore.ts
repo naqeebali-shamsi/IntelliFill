@@ -13,7 +13,7 @@
  * 2. Or set VITE_USE_BACKEND_AUTH=true in .env
  */
 
-import { create } from 'zustand';
+import { create, type StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
@@ -65,6 +65,7 @@ interface AuthState {
   tokenExpiresAt: number | null; // Unix timestamp (ms) when access token expires
   company: { id: string } | null;
   isAuthenticated: boolean;
+  sessionIndicator: boolean; // Task 292: Indicates a session MAY exist (for silent refresh detection)
   isInitialized: boolean;
   isLoading: boolean;
   loadingStage: LoadingStage; // REQ-009: Loading stage for better UX feedback
@@ -108,6 +109,7 @@ const initialState: AuthState = {
   tokenExpiresAt: null,
   company: null,
   isAuthenticated: false,
+  sessionIndicator: false, // Task 292: No session initially
   isInitialized: false,
   isLoading: false,
   loadingStage: 'idle', // REQ-009: Start in idle state
@@ -186,8 +188,18 @@ function createAuthError(error: unknown): AppError {
 
 // =================== STORE IMPLEMENTATION ===================
 
+// Task 296: Helper to conditionally apply devtools only in development mode
+const applyDevtools = <T>(middleware: T) => {
+  if (import.meta.env.DEV) {
+    return devtools(middleware as any, {
+      name: 'IntelliFill Backend Auth Store',
+    }) as T;
+  }
+  return middleware;
+};
+
 export const useBackendAuthStore = create<AuthStore>()(
-  devtools(
+  applyDevtools(
     persist(
       immer((set, get) => ({
         ...initialState,
@@ -226,6 +238,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 ? calculateTokenExpiresAt(tokens.expiresIn)
                 : null;
               state.isAuthenticated = true;
+              state.sessionIndicator = true; // Task 292: Set session indicator
               state.isInitialized = true; // Mark as initialized after successful login
               state.lastActivity = Date.now();
               state.rememberMe = credentials.rememberMe || false;
@@ -283,6 +296,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 ? calculateTokenExpiresAt(tokens.expiresIn)
                 : null;
               state.isAuthenticated = !!tokens;
+              state.sessionIndicator = !!tokens; // Task 292: Set session indicator
               state.isInitialized = true; // Mark as initialized after successful registration
               state.lastActivity = Date.now();
               state.isLoading = false;
@@ -317,6 +331,7 @@ export const useBackendAuthStore = create<AuthStore>()(
             state.tokens = null;
             state.tokenExpiresAt = null;
             state.isAuthenticated = false;
+            state.sessionIndicator = false; // Task 292: Clear session indicator
             state.isDemo = false;
             state.demoInfo = null;
             state.error = null;
@@ -352,6 +367,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 ? calculateTokenExpiresAt(tokens.expiresIn)
                 : null;
               state.isAuthenticated = true;
+              state.sessionIndicator = true; // Task 292: Set session indicator
               state.isInitialized = true;
               state.isDemo = true;
               state.demoInfo = demo || null;
@@ -475,11 +491,12 @@ export const useBackendAuthStore = create<AuthStore>()(
           });
 
           try {
-            const { isAuthenticated } = get();
+            // Task 292: Use sessionIndicator instead of isAuthenticated for session detection
+            const { sessionIndicator } = get();
             const hasInMemoryToken = tokenManager.hasToken();
 
-            // Case 1: No session exists - nothing to do
-            if (!isAuthenticated) {
+            // Case 1: No session indicator - nothing to do
+            if (!sessionIndicator) {
               set((state) => {
                 state.isInitialized = true;
                 state.isLoading = false;
@@ -488,9 +505,9 @@ export const useBackendAuthStore = create<AuthStore>()(
               return;
             }
 
-            // Case 2: Session exists but in-memory token is missing (page refresh)
+            // Case 2: Session indicator exists but in-memory token is missing (page refresh)
             // Task 278: Attempt silent refresh using httpOnly refresh cookie
-            if (isAuthenticated && !hasInMemoryToken) {
+            if (sessionIndicator && !hasInMemoryToken) {
               set((state) => {
                 state.loadingStage = 'validating';
               });
@@ -542,13 +559,14 @@ export const useBackendAuthStore = create<AuthStore>()(
                 console.warn('[Auth] Silent refresh failed:', refreshError);
               }
 
-              // Silent refresh failed - clear session
+              // Silent refresh failed - clear session (Task 292: clear sessionIndicator)
               tokenManager.clearToken();
               set((state) => {
                 state.user = null;
                 state.tokens = null;
                 state.tokenExpiresAt = null;
                 state.isAuthenticated = false;
+                state.sessionIndicator = false; // Task 292: Clear session indicator
                 state.isInitialized = true;
                 state.isLoading = false;
                 state.loadingStage = 'ready';
@@ -573,13 +591,14 @@ export const useBackendAuthStore = create<AuthStore>()(
                 state.loadingStage = 'ready';
               });
             } else {
-              // Token invalid, clear session
+              // Token invalid, clear session (Task 292: clear sessionIndicator)
               tokenManager.clearToken();
               set((state) => {
                 state.user = null;
                 state.tokens = null;
                 state.tokenExpiresAt = null;
                 state.isAuthenticated = false;
+                state.sessionIndicator = false; // Task 292: Clear session indicator
                 state.isInitialized = true;
                 state.isLoading = false;
                 state.loadingStage = 'ready';
@@ -593,6 +612,7 @@ export const useBackendAuthStore = create<AuthStore>()(
               state.tokens = null;
               state.tokenExpiresAt = null;
               state.isAuthenticated = false;
+              state.sessionIndicator = false; // Task 292: Clear session indicator
               state.isInitialized = true;
               state.isLoading = false;
               state.loadingStage = 'ready';
@@ -601,8 +621,9 @@ export const useBackendAuthStore = create<AuthStore>()(
         },
 
         checkSession: () => {
-          const { tokens, isAuthenticated } = get();
-          return isAuthenticated && !!tokens?.accessToken;
+          // Task 292: Verify token presence in tokenManager (source of truth)
+          const { isAuthenticated } = get();
+          return isAuthenticated && tokenManager.hasToken() && !tokenManager.isExpiringSoon(0);
         },
 
         // =================== ERROR HANDLING ===================
@@ -717,31 +738,29 @@ export const useBackendAuthStore = create<AuthStore>()(
             : null,
           tokenExpiresAt: state.tokenExpiresAt,
           company: state.company,
-          isAuthenticated: state.isAuthenticated,
+          // Task 292: Persist sessionIndicator, not isAuthenticated
+          // isAuthenticated should only be true when tokenManager has a valid token
+          sessionIndicator: state.isAuthenticated, // Persist indicator, not actual auth state
           rememberMe: state.rememberMe,
           isInitialized: state.isInitialized, // Persist initialization state to survive page reloads
           lastActivity: state.lastActivity,
         }),
         version: 1,
         // Handle rehydration from localStorage - runs after persist middleware loads saved state
-        // Task 278: Updated to work with in-memory token storage
+        // Task 292: Updated to work with sessionIndicator instead of isAuthenticated
         onRehydrateStorage: () => (state) => {
           if (state) {
-            // Task 278: Check if session indicator exists (isAuthenticated from localStorage)
-            // Access token is now in-memory only (Task 277), so we don't check for it here
-            // The initialize() method will handle silent refresh if needed
-            if (state.isAuthenticated) {
-              // Defer initialization to avoid race conditions with React
-              // The initialize() call happens in initializeStores() via App.tsx
-              // This just ensures the rehydrated state is ready
+            // Task 292: If sessionIndicator exists but no token in memory,
+            // isAuthenticated should remain false until initialize() completes silent refresh
+            if (state.sessionIndicator && !tokenManager.hasToken()) {
+              // Don't set isAuthenticated=true yet
+              // initialize() will handle silent refresh and restore isAuthenticated
+              state.isAuthenticated = false;
             }
           }
         },
       }
-    ),
-    {
-      name: 'IntelliFill Backend Auth Store',
-    }
+    )
   )
 );
 

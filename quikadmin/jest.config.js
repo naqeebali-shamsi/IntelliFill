@@ -1,5 +1,5 @@
 module.exports = {
-  preset: 'ts-jest',
+  // Using transform instead of preset for pnpm compatibility
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.(ts|js)', '**/?(*.)+(spec|test).(ts|js)'],

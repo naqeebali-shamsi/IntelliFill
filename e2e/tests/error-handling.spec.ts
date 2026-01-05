@@ -198,8 +198,7 @@ test.describe('Error Handling', () => {
       console.log('Invalid file was correctly rejected and not added to queue');
     }
 
-    // Test passes if we see the error message
-    expect(true).toBeTruthy();
+    // Test passes: error message was shown (assertion at line 181-183)
   });
 
   /**
@@ -274,7 +273,7 @@ test.describe('Error Handling', () => {
       // If both are empty, that's consistent
       if (profileStateBefore.empty && profileStateAfter.empty) {
         console.log('Profile remained empty - consistent state');
-        expect(true).toBeTruthy();
+        expect(profileStateAfter.empty).toBe(profileStateBefore.empty);
         return;
       }
 
@@ -284,8 +283,9 @@ test.describe('Error Handling', () => {
       }
     }
 
-    // Basic assertion - the test should complete without errors
-    expect(true).toBeTruthy();
+    // Verify profile states were captured (no exception during getProfileState)
+    expect(profileStateBefore).toBeDefined();
+    expect(profileStateAfter).toBeDefined();
   });
 
   /**
@@ -409,8 +409,10 @@ test.describe('Error Handling', () => {
       }
     }
 
-    // Test passes if we handled the scenarios without crashing
-    expect(true).toBeTruthy();
+    // Test verifies document library loaded successfully
+    await expect(
+      page.getByRole('heading', { name: 'Document Library', level: 1 })
+    ).toBeVisible();
   });
 
   /**
@@ -494,8 +496,10 @@ test.describe('Error Handling', () => {
       console.log('Document not found in library - may not have uploaded yet');
     }
 
-    // Basic pass - we verified the retry functionality flow
-    expect(true).toBeTruthy();
+    // Verify document library is accessible (test doesn't crash)
+    await expect(
+      page.getByRole('heading', { name: 'Document Library', level: 1 })
+    ).toBeVisible();
   });
 
   /**
@@ -688,10 +692,13 @@ test.describe('Error Recovery Edge Cases', () => {
       const queueEmpty = await page.getByText(/no files|queue empty|drag.*drop/i).isVisible({ timeout: 3000 }).catch(() => true);
 
       console.log(`Queue cleared successfully: ${queueEmpty}`);
+      expect(queueEmpty).toBeTruthy();
     } else {
       console.log('Clear All button not visible - queue may already be empty or file was rejected');
+      // Still valid: file was rejected and not added to queue
+      await expect(
+        page.getByRole('heading', { name: 'Upload Documents', level: 1 })
+      ).toBeVisible();
     }
-
-    expect(true).toBeTruthy();
   });
 });

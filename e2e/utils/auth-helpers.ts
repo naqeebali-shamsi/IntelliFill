@@ -72,8 +72,33 @@ export async function loginAsUser(page: Page, user: TestUser): Promise<void> {
       // Verify we navigated to dashboard
       await page.waitForURL(/.*dashboard/, { timeout: NAVIGATION_TIMEOUT });
 
-      // Verify dashboard loaded (greeting heading confirms authentication)
-      await page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }).waitFor({ state: 'visible', timeout: DASHBOARD_TIMEOUT });
+      // Verify dashboard loaded - use multiple indicators for mobile compatibility
+      // On mobile viewports, the greeting heading may be off-screen initially
+      const dashboardIndicators = [
+        page.getByRole('heading', { name: /good morning|good afternoon|good evening/i, level: 1 }),
+        page.getByRole('link', { name: /dashboard/i }), // Sidebar link
+        page.getByText('IntelliFill').first(), // Brand name
+      ];
+
+      let foundIndicator = false;
+      for (const indicator of dashboardIndicators) {
+        try {
+          // Try with shorter timeout per indicator
+          await indicator.waitFor({ state: 'visible', timeout: Math.floor(DASHBOARD_TIMEOUT / 3) });
+          foundIndicator = true;
+          break;
+        } catch {
+          // Try next indicator
+        }
+      }
+
+      if (!foundIndicator) {
+        // Last resort: check we're still on dashboard URL (not redirected to login)
+        const currentUrl = page.url();
+        if (!currentUrl.includes('dashboard')) {
+          throw new Error('Login failed - not on dashboard');
+        }
+      }
 
       // Success - exit the retry loop
       return;

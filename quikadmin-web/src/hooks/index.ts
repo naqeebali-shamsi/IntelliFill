@@ -26,6 +26,9 @@ export * from './useUpload';
 // Performance hooks
 export * from './useVirtualTable';
 
+// Error handling hooks
+export * from './useGlobalErrorHandlers';
+
 // =============================================================================
 // FOUNDATION HOOKS (from usehooks-ts)
 // Re-exported for consistent import paths across codebase

@@ -16,10 +16,25 @@ let refreshPromise: Promise<string | null> | null = null;
 // Shared promise for proactive refresh to prevent stampede
 let proactiveRefreshPromise: Promise<boolean> | null = null;
 
+// Task 294: Timeout constants for token refresh
+const TOKEN_REFRESH_TIMEOUT_MS = 30000; // 30 seconds timeout to prevent stuck requests
+
+// Task 294: Promise with timeout wrapper
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs}ms`)), timeoutMs)
+    ),
+  ]);
+}
+
 // Use backend auth store for session management
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
 // Task 277: Use in-memory token manager for XSS mitigation
 import { tokenManager } from '@/lib/tokenManager';
+// Task 295: Use React Router navigation instead of window.location.href
+import { navigateToLogin } from '@/lib/navigation';
 
 // Get auth store state
 function getAuthStore() {
@@ -39,16 +54,27 @@ api.interceptors.request.use(async (config) => {
   if (!isAuthEndpoint && authState.isAuthenticated && tokenManager.hasToken()) {
     if (tokenManager.isExpiringSoon()) {
       // Use shared promise to prevent multiple simultaneous refresh attempts
+      // Note: Clear promise via queueMicrotask to avoid race where new requests
+      // see null before existing awaits resolve (hostile audit fix)
+      // Task 294: Apply 30-second timeout to prevent stuck requests
       if (!proactiveRefreshPromise) {
-        proactiveRefreshPromise = (async () => {
-          try {
-            return await authState.refreshTokenIfNeeded();
-          } finally {
+        proactiveRefreshPromise = withTimeout(
+          authState.refreshTokenIfNeeded(),
+          TOKEN_REFRESH_TIMEOUT_MS,
+          'Proactive token refresh'
+        );
+        proactiveRefreshPromise.finally(() => {
+          queueMicrotask(() => {
             proactiveRefreshPromise = null;
-          }
-        })();
+          });
+        });
       }
-      await proactiveRefreshPromise;
+      try {
+        await proactiveRefreshPromise;
+      } catch (error) {
+        // Log timeout but don't block the request - let it proceed and fail naturally if token is invalid
+        console.warn('Proactive token refresh failed:', error);
+      }
     }
   }
 
@@ -81,28 +107,36 @@ api.interceptors.response.use(
 
       try {
         // Use shared refresh promise to prevent stampede
+        // Task 294: Apply 30-second timeout to prevent stuck requests
         if (!refreshPromise) {
-          refreshPromise = (async () => {
-            try {
-              const authStore = getAuthStore();
+          refreshPromise = withTimeout(
+            (async () => {
+              try {
+                const authStore = getAuthStore();
 
-              // With httpOnly cookies (Phase 2 REQ-005), refreshToken is in cookie not state
-              // Only check if user was authenticated before attempting refresh
-              if (!authStore.isAuthenticated) {
+                // With httpOnly cookies (Phase 2 REQ-005), refreshToken is in cookie not state
+                // Only check if user was authenticated before attempting refresh
+                if (!authStore.isAuthenticated) {
+                  return null;
+                }
+                await authStore.refreshToken();
+
+                const newState = getAuthStore();
+                return newState.tokens?.accessToken || null;
+              } catch (err) {
+                console.error('Token refresh failed:', err);
                 return null;
               }
-              await authStore.refreshToken();
-
-              const newState = getAuthStore();
-              return newState.tokens?.accessToken || null;
-            } catch (err) {
-              console.error('Token refresh failed:', err);
-              return null;
-            } finally {
-              // Clear promise after completion
+            })(),
+            TOKEN_REFRESH_TIMEOUT_MS,
+            'Token refresh on 401'
+          );
+          // Task 294: Clear promise synchronously upon completion to prevent race conditions
+          refreshPromise.finally(() => {
+            queueMicrotask(() => {
               refreshPromise = null;
-            }
-          })();
+            });
+          });
         }
 
         const newToken = await refreshPromise;
@@ -122,10 +156,9 @@ api.interceptors.response.use(
         const authStore = getAuthStore();
         await authStore.logout();
 
-        // Only redirect if we're not already on the login page
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+        // Task 295: Use React Router navigation with returnTo state
+        // This preserves application state and allows redirect back after login
+        navigateToLogin();
       }
     }
     return Promise.reject(error);

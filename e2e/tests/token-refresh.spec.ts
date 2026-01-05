@@ -84,7 +84,12 @@ async function getTokenExpiry(page: Page): Promise<number> {
 
 test.describe('Token Refresh Flows', () => {
   test.describe('Proactive Refresh', () => {
-    test('should proactively refresh token when near expiry', async ({ page }) => {
+    // Note: This test is skipped because proactive refresh checks tokenManager.isExpiringSoon()
+    // which uses an in-memory variable that cannot be mocked from E2E tests.
+    // The mockTokenExpiry helper only sets localStorage (Zustand persist), but the actual
+    // expiry check happens in the in-memory tokenManager module for XSS security (Task 277).
+    // The reactive refresh test below properly verifies token refresh via 401 interception.
+    test.skip('should proactively refresh token when near expiry', async ({ page }) => {
       // Login first
       await loginUser(page);
 
@@ -92,6 +97,8 @@ test.describe('Token Refresh Flows', () => {
       const initialExpiry = await getTokenExpiry(page);
 
       // Set token to expire in 1 minute (within 2-minute threshold)
+      // NOTE: This only sets localStorage, but api.ts checks tokenManager.isExpiringSoon()
+      // which uses an in-memory variable - this mock has no effect on actual refresh decisions
       const nearExpiry = Date.now() + 1 * 60 * 1000;
       await mockTokenExpiry(page, nearExpiry);
 
@@ -106,17 +113,10 @@ test.describe('Token Refresh Flows', () => {
       // Trigger an API call that should trigger proactive refresh
       await page.goto('/dashboard');
 
-      try {
-        await refreshPromise;
-        // Verify the token expiry was updated (should be > initial)
-        const newExpiry = await getTokenExpiry(page);
-        expect(newExpiry).toBeGreaterThan(nearExpiry);
-        console.log('Proactive refresh triggered successfully');
-      } catch {
-        // If refresh didn't happen, the test may still pass if token wasn't actually near expiry
-        // This can happen in test environments where time mocking is tricky
-        console.log('Note: Proactive refresh may not have triggered due to timing');
-      }
+      await refreshPromise;
+      // Verify the token expiry was updated (should be > initial)
+      const newExpiry = await getTokenExpiry(page);
+      expect(newExpiry).toBeGreaterThan(nearExpiry);
 
       // Verify user is still logged in using robust check
       await verifyLoggedIn(page);
@@ -241,7 +241,10 @@ test.describe('Token Refresh Flows', () => {
   });
 
   test.describe('Concurrent Refresh Prevention', () => {
-    test('should prevent multiple simultaneous refresh calls', async ({ page }) => {
+    // Note: This test is skipped for the same reason as proactive refresh - mockTokenExpiry
+    // sets localStorage but api.ts checks tokenManager.isExpiringSoon() (in-memory).
+    // The concurrent prevention logic itself is tested via unit tests of the api interceptors.
+    test.skip('should prevent multiple simultaneous refresh calls', async ({ page }) => {
       // Login first
       await loginUser(page);
 
@@ -259,6 +262,7 @@ test.describe('Token Refresh Flows', () => {
       });
 
       // Set token to near expiry to trigger proactive refresh
+      // NOTE: This only sets localStorage, but api.ts checks tokenManager.isExpiringSoon()
       await mockTokenExpiry(page, Date.now() + 30 * 1000); // 30 seconds
 
       // Trigger multiple API calls simultaneously from within the page context

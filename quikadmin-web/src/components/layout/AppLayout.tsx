@@ -240,6 +240,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               size="icon"
               className="md:hidden"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
             </Button>
