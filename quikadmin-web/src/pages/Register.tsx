@@ -32,8 +32,14 @@ interface PasswordStrength {
 
 const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
   <div className="flex items-center gap-1 text-xs">
-    {met ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-gray-400" />}
-    <span className={met ? 'text-green-600' : 'text-gray-500'}>{text}</span>
+    {met ? (
+      <Check className="h-3 w-3 text-green-500" />
+    ) : (
+      <X className="h-3 w-3 text-muted-foreground/60" />
+    )}
+    <span className={met ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+      {text}
+    </span>
   </div>
 );
 
@@ -164,7 +170,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-background dark:to-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
@@ -232,7 +238,7 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={toggleShowPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -246,9 +252,7 @@ export default function Register() {
                       <div
                         key={i}
                         className={`h-1 flex-1 rounded-full ${
-                          i < passwordStrength.score
-                            ? getPasswordStrengthColor()
-                            : 'bg-gray-200 dark:bg-gray-700'
+                          i < passwordStrength.score ? getPasswordStrengthColor() : 'bg-muted'
                         }`}
                       />
                     ))}
@@ -299,10 +303,7 @@ export default function Register() {
                 onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
                 disabled={isLoading}
               />
-              <label
-                htmlFor="terms"
-                className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
-              >
+              <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
                 I agree to the{' '}
                 <Link to="/terms" className="text-primary hover:underline">
                   Terms and Conditions
@@ -317,10 +318,7 @@ export default function Register() {
                 onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
                 disabled={isLoading}
               />
-              <label
-                htmlFor="marketing"
-                className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
-              >
+              <label htmlFor="marketing" className="text-sm text-muted-foreground cursor-pointer">
                 I'd like to receive updates and marketing emails
               </label>
             </div>
@@ -345,7 +343,7 @@ export default function Register() {
               )}
             </Button>
 
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-center text-sm text-muted-foreground">
               Already have an account?{' '}
               <Link to="/login" className="font-medium text-primary hover:underline">
                 Sign in

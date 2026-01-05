@@ -296,7 +296,7 @@ export default function Settings() {
                     <Separator className="bg-white/10" />
 
                     <SettingsSection title="Subscription" description="Manage your billing plan.">
-                      <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 p-4 rounded-xl border border-blue-500/20 flex items-center justify-between">
+                      <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className="font-bold text-lg text-primary">Free Plan</h4>

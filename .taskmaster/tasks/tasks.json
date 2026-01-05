@@ -5637,7 +5637,7 @@
         "testStrategy": "Test matrix: scannedPDF+noEXIF→OSD, nativePDF→noOSD, image+EXIF→noOSD, low-confidence→optionalOSD.",
         "priority": "medium",
         "dependencies": ["341", "347"],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -5663,7 +5663,7 @@
         "complexity": 6,
         "recommendedSubtasks": 2,
         "expansionPrompt": "Subtasks for: 1) isScannedPdf() helper and flag tracking, 2) Conditional pipeline integration and testing matrix.",
-        "updatedAt": "2026-01-05T15:56:56.002Z"
+        "updatedAt": "2026-01-05T16:33:46.503Z"
       },
       {
         "id": "349",
@@ -5673,7 +5673,7 @@
         "testStrategy": "Cypress/Playwright E2E: upload sideways PDF → verify extraction correct. Load test 1000 docs. Verify all NFR metrics pass. Feature flag toggle test.",
         "priority": "medium",
         "dependencies": ["345", "348"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -5708,14 +5708,203 @@
         ],
         "complexity": 7,
         "recommendedSubtasks": 3,
-        "expansionPrompt": "Create subtasks for: 1) E2E test scenarios, 2) Performance/load testing, 3) A/B testing and deployment checklist."
+        "expansionPrompt": "Create subtasks for: 1) E2E test scenarios, 2) Performance/load testing, 3) A/B testing and deployment checklist.",
+        "updatedAt": "2026-01-05T16:33:51.589Z"
+      },
+      {
+        "id": "350",
+        "title": "Update CSS Variables in index.css for Brand Teal",
+        "description": "Replace primary color CSS variables with brand teal hsl values per REQ-001",
+        "details": "In src/index.css (lines 145-234), update :root and .dark selectors: set --primary: 163 98% 39%; --primary-foreground: 135 5% 14%; --ring: 163 98% 39%; In .dark, set --primary-foreground: 0 0% 100%; Use Tailwind CSS v3.4+ (latest 2026) hsl(var(--primary)) format. Verify slate neutrals unchanged. Add comment: /* Brand teal modernization 2026-01-05 */",
+        "testStrategy": "Build project, inspect CSS variables in devtools both modes, confirm hsl(163 98% 39%) for primary, visual spot-check primary elements teal",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:32:16.719Z"
+      },
+      {
+        "id": "351",
+        "title": "Update Avatar SVG Colors",
+        "description": "Replace indigo colors in public/avatar.svg with brand teal per REQ-006",
+        "details": "In public/avatar.svg, replace fill='#6366f1' with fill='#02C39A', stroke='#6366f1' with stroke='#02C39A', #e0e7ff with #ccffeb (teal-50 equivalent). Use SVG editor or sed: s/#6366f1/#02C39A/g; s/#e0e7ff/#ccffeb/g. Ensure viewBox unchanged.",
+        "testStrategy": "Clear cache, check avatar displays teal in dashboard/profile, verify both light/dark modes",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:34:20.705Z"
+      },
+      {
+        "id": "352",
+        "title": "Migrate Login.tsx Hardcoded Grays",
+        "description": "Replace 8+ gray Tailwind classes in Login.tsx with semantic tokens per REQ-004",
+        "details": "In src/pages/Login.tsx: text-gray-500/600 → text-muted-foreground; bg-gray-50 → bg-background; bg-gray-100 → bg-muted; from-gray-50 to-gray-100 → from-background to-muted; border-gray-200 → border-border. Use VSCode multi-cursor replace. Tailwind v3.4+ semantic tokens.",
+        "testStrategy": "Visual inspection login page both modes, grep -r 'gray-' src/pages/Login.tsx returns 0, contrast check with axe DevTools",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.116Z"
+      },
+      {
+        "id": "353",
+        "title": "Migrate Register.tsx Hardcoded Grays",
+        "description": "Replace 11+ gray Tailwind classes in Register.tsx with semantic tokens",
+        "details": "In src/pages/Register.tsx: Apply same replacements as Login.tsx: gray-500/600→muted-foreground, gray-50→background, gray-100→muted, gradients from-background to-muted, border→border. Systematic find/replace.",
+        "testStrategy": "Visual register page both modes, grep confirms no gray-*, form contrast validation",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.144Z"
+      },
+      {
+        "id": "354",
+        "title": "Migrate ForgotPassword.tsx Grays",
+        "description": "Replace 5+ gray classes in ForgotPassword.tsx per REQ-004",
+        "details": "src/pages/ForgotPassword.tsx: text-gray-500→text-muted-foreground; bg-gray-50→bg-background; etc. Follow hardcoded replacements table from PRD Appendix.",
+        "testStrategy": "Page visual check, dark mode toggle, no visual regression from baseline screenshot",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.169Z"
+      },
+      {
+        "id": "355",
+        "title": "Migrate ResetPassword.tsx Grays",
+        "description": "Replace 9+ gray classes in ResetPassword.tsx",
+        "details": "src/pages/ResetPassword.tsx: Standard gray→semantic token migration using PRD replacement patterns.",
+        "testStrategy": "Full page render test both modes, accessibility scan with Lighthouse",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.190Z"
+      },
+      {
+        "id": "356",
+        "title": "Migrate VerifyEmail.tsx Grays",
+        "description": "Replace 5 gray classes in VerifyEmail.tsx",
+        "details": "src/pages/VerifyEmail.tsx: Migrate per REQ-004 patterns, ensure email link text uses muted-foreground.",
+        "testStrategy": "Page load test, contrast verification, dark mode consistency",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.210Z"
+      },
+      {
+        "id": "357",
+        "title": "Migrate AuthCallback.tsx Grays",
+        "description": "Replace 4 gray classes in AuthCallback.tsx",
+        "details": "src/pages/AuthCallback.tsx: Quick migration of remaining auth grays to semantic tokens.",
+        "testStrategy": "Auth flow test end-to-end, visual confirmation no grays",
+        "priority": "high",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.227Z"
+      },
+      {
+        "id": "358",
+        "title": "Phase 2 Auth Pages Checkpoint",
+        "description": "Verify all auth pages migrated, no remaining gray classes",
+        "details": "Run grep -r 'gray-[0-9]' src/pages/*Auth*; Run 'npm run build'; Test full auth flow light/dark; Use Playwright screenshot comparison if available.",
+        "testStrategy": "Grep returns 0 results, build succeeds, visual regression test passes",
+        "priority": "high",
+        "dependencies": ["352", "353", "354", "355", "356", "357"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.246Z"
+      },
+      {
+        "id": "359",
+        "title": "Update .text-gradient Utility in index.css",
+        "description": "Replace purple/indigo gradients with teal-based per REQ-005",
+        "details": "In src/index.css .text-gradient: change from-indigo-500 via-purple-500 to-primary via-primary/80; Add @layer utilities; background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary)/0.8));",
+        "testStrategy": "Inspect gradient text elements, confirm teal gradient both modes",
+        "priority": "medium",
+        "dependencies": ["350"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.265Z"
+      },
+      {
+        "id": "360",
+        "title": "Migrate AppLayout.tsx Gradients",
+        "description": "Replace purple gradients in AppLayout.tsx per REQ-005",
+        "details": "src/components/layout/AppLayout.tsx: from-indigo-* → from-primary; via-purple-* → via-primary/80; Update any bg-gradient-to-r patterns.",
+        "testStrategy": "Layout renders with teal gradients, no purple visible",
+        "priority": "medium",
+        "dependencies": ["359"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.283Z"
+      },
+      {
+        "id": "361",
+        "title": "Migrate SimpleFillForm.tsx Gradients",
+        "description": "Replace indigo gradients in SimpleFillForm.tsx",
+        "details": "src/pages/SimpleFillForm.tsx: Migrate gradient classes to primary-based per PRD table.",
+        "testStrategy": "Form page visual check, gradient inspector confirms teal",
+        "priority": "medium",
+        "dependencies": ["359"],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-05T19:44:13.302Z"
+      },
+      {
+        "id": "362",
+        "title": "Verify Component Focus States",
+        "description": "Confirm teal focus rings visible everywhere per REQ-008",
+        "details": "Tab through app: buttons, inputs, links, selects. --ring: 163 98% 39% should show teal ring. Test :focus-visible styles in shadcn/ui components.",
+        "testStrategy": "Keyboard navigation test, screen reader + high contrast mode",
+        "priority": "medium",
+        "dependencies": ["350", "358"],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "363",
+        "title": "Verify Demo Mode Indicator Harmony",
+        "description": "Review amber demo indicator per REQ-009",
+        "details": "src/components/demo-mode-indicator.tsx: Confirm amber (semantic warning) harmonious with teal primary. No changes if acceptable per PRD.",
+        "testStrategy": "Enable demo mode, visual harmony check both themes",
+        "priority": "low",
+        "dependencies": ["358"],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "364",
+        "title": "Full Audit and Accessibility Validation",
+        "description": "Final verification: zero hardcodes, WCAG AA compliance per NFR-001",
+        "details": "Run grep -r 'gray\\||indigo\\||purple\\|#[0-9a-f]\\{6\\}' src/ public/; Lighthouse accessibility score 95+; axe-core scan; contrast checker on key elements. Add ESLint rule: no-hardcoded-colors via stylelint.",
+        "testStrategy": "Automated scans pass, manual contrast verification 4.5:1 min, screenshot diff baseline",
+        "priority": "high",
+        "dependencies": ["358", "360", "361", "362"],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "365",
+        "title": "Implement ESLint Rule Against Hardcoded Colors",
+        "description": "Prevent future hardcoded colors per NFR-004",
+        "details": "Add to .eslintrc.js: module.exports.rules['no-hardcoded-colors'] or stylelint-config: { 'color-no-hex': true, 'color-named': 'never' }; Tailwind linting with @tailwindcss/lint v0.5+.",
+        "testStrategy": "Add test hex color, lint fails; existing code passes",
+        "priority": "medium",
+        "dependencies": ["364"],
+        "status": "pending",
+        "subtasks": []
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-05T15:56:56.007Z",
-      "taskCount": 163,
-      "completedCount": 131,
+      "lastModified": "2026-01-05T19:44:13.304Z",
+      "taskCount": 179,
+      "completedCount": 145,
       "tags": ["master"]
     }
   }

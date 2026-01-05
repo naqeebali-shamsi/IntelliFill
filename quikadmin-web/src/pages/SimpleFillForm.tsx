@@ -114,7 +114,7 @@ const FormStepper = ({ currentStep }: { currentStep: 'upload' | 'map' | 'process
       {/* Connector Lines */}
       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-white/10 -z-10" />
       <div
-        className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 ease-in-out -z-10"
+        className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-primary to-primary/80 transition-all duration-500 ease-in-out -z-10"
         style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
       />
 

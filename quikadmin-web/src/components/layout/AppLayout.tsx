@@ -140,7 +140,7 @@ const SidebarContent = ({
       <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
         <Avatar className="h-9 w-9 ring-2 ring-primary/10 ring-offset-2 ring-offset-background/50 cursor-pointer hover:ring-primary/30 transition-all">
           <AvatarImage src="/avatar.png" />
-          <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600 text-white font-medium">
+          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white font-medium">
             {user?.firstName?.charAt(0) || 'U'}
           </AvatarFallback>
         </Avatar>

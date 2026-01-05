@@ -321,7 +321,7 @@ export default function ConnectedDashboard() {
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
                   onClick={() => navigate('/documents')}
                 >
-                  <div className="h-8 w-8 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mr-3 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-white transition-colors">
                     <FolderOpen className="h-4 w-4" />
                   </div>
                   <div className="text-left">

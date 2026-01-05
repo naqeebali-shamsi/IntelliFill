@@ -53,7 +53,6 @@ export default function VerifyEmail() {
     success ? 2000 : null
   );
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -157,7 +156,7 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-background dark:to-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex justify-center mb-2">
@@ -251,7 +250,7 @@ export default function VerifyEmail() {
                   )}
                 </Button>
 
-                <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-center text-sm text-muted-foreground">
                   <p>
                     Didn't receive the code?{' '}
                     <button

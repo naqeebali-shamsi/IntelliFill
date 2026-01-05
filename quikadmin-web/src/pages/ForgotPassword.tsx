@@ -1,57 +1,64 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react'
-import { useAuthStore } from '@/stores/auth'
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth';
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [emailSent, setEmailSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { requestPasswordReset } = useAuthStore()
+  const { requestPasswordReset } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsLoading(true)
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
     try {
-      await requestPasswordReset(email)
-      setEmailSent(true)
-      toast.success('Password reset email sent!')
+      await requestPasswordReset(email);
+      setEmailSent(true);
+      toast.success('Password reset email sent!');
     } catch (err: any) {
-      console.error('Password reset error:', err)
-      setError(err.message || 'Failed to send reset email. Please try again.')
-      toast.error(err.message || 'Failed to send reset email')
+      console.error('Password reset error:', err);
+      setError(err.message || 'Failed to send reset email. Please try again.');
+      toast.error(err.message || 'Failed to send reset email');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleResend = async () => {
-    setError(null)
-    setIsLoading(true)
+    setError(null);
+    setIsLoading(true);
 
     try {
-      await requestPasswordReset(email)
-      toast.success('Reset email resent!')
+      await requestPasswordReset(email);
+      toast.success('Reset email resent!');
     } catch (err: any) {
-      console.error('Password reset resend error:', err)
-      toast.error('Failed to resend email')
+      console.error('Password reset resend error:', err);
+      toast.error('Failed to resend email');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-background dark:to-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2">
@@ -68,8 +75,7 @@ export default function ForgotPassword() {
           <CardDescription>
             {emailSent
               ? `We've sent a password reset link to ${email}`
-              : 'Enter your email address and we\'ll send you a link to reset your password.'
-            }
+              : "Enter your email address and we'll send you a link to reset your password."}
           </CardDescription>
         </CardHeader>
 
@@ -101,11 +107,7 @@ export default function ForgotPassword() {
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading || !email}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading || !email}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -119,12 +121,9 @@ export default function ForgotPassword() {
                 )}
               </Button>
 
-              <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+              <div className="text-center text-sm text-muted-foreground">
                 Remember your password?{' '}
-                <Link
-                  to="/login"
-                  className="font-medium text-primary hover:underline"
-                >
+                <Link to="/login" className="font-medium text-primary hover:underline">
                   Back to login
                 </Link>
               </div>
@@ -139,11 +138,10 @@ export default function ForgotPassword() {
 
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  If an account exists for <strong>{email}</strong>, you will receive a password reset link shortly.
+                  If an account exists for <strong>{email}</strong>, you will receive a password
+                  reset link shortly.
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  The link will expire in 1 hour.
-                </p>
+                <p className="text-sm text-muted-foreground">The link will expire in 1 hour.</p>
               </div>
 
               <div className="flex flex-col gap-3 w-full pt-4">
@@ -175,5 +173,5 @@ export default function ForgotPassword() {
         )}
       </Card>
     </div>
-  )
+  );
 }

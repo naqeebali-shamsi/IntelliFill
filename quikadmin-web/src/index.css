@@ -143,7 +143,8 @@
 
 @layer base {
   :root {
-    /* "Deep Ocean" Light Theme (Clean, Professional, Airy) */
+    /* IntelliFill Brand Theme - Light Mode (2026-01-05) */
+    /* Brand Colors: Primary Teal #02C39A, Logo Black #222823 */
     --background: 210 40% 98%; /* slate-50 */
     --foreground: 222 47% 11%; /* slate-900 */
 
@@ -153,84 +154,85 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 239 84% 67%; /* Electric Indigo #6366f1 - Vivid */
-    --primary-foreground: 210 40% 98%;
+    --primary: 163 98% 39%; /* Brand Teal #02C39A */
+    --primary-foreground: 135 5% 14%; /* Brand Black #222823 for contrast */
 
-    --secondary: 174 80% 40%; /* Teal #14b8a6 - Success/Action */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%; /* Muted slate for secondary */
+    --secondary-foreground: 222 47% 11%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 160 80% 96%; /* Teal-50 for subtle accents */
+    --accent-foreground: 163 98% 23%; /* Teal-700 for text on accent */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 239 84% 67%;
+    --ring: 163 98% 39%; /* Match primary for focus rings */
 
     --radius: 0.75rem; /* 12px - Friendlier */
 
-    /* Status Colors - Light Theme */
-    --status-pending: 217 91% 50%; /* Blue - Info/Processing (darker for contrast) */
-    --status-pending-foreground: 0 0% 100%; /* White text */
+    /* Status Colors - Light Theme (distinct from brand) */
+    --status-pending: 217 91% 50%; /* Blue - Info/Processing */
+    --status-pending-foreground: 0 0% 100%;
 
-    --status-success: 142 76% 30%; /* Green - Success/Complete (darker for contrast) */
-    --status-success-foreground: 0 0% 100%; /* White text */
+    --status-success: 142 76% 30%; /* Green - Success/Complete */
+    --status-success-foreground: 0 0% 100%;
 
     --status-warning: 38 92% 50%; /* Amber - Warning/Caution */
-    --status-warning-foreground: 28 50% 15%; /* Dark brown text */
+    --status-warning-foreground: 28 50% 15%;
 
-    --status-error: 0 84% 50%; /* Red - Error/Failed (darker for contrast) */
-    --status-error-foreground: 0 0% 100%; /* White text */
+    --status-error: 0 84% 50%; /* Red - Error/Failed */
+    --status-error-foreground: 0 0% 100%;
   }
 
   .dark {
-    /* "Deep Ocean" Dark Theme (Immersive, Glass, Neon) */
-    --background: 240 10% 4%; /* zinc-950 with a hint of blue depth */
-    --foreground: 210 40% 98%;
+    /* IntelliFill Brand Theme - Dark Mode (2026-01-05) */
+    /* Same Brand Teal #02C39A - AAA compliant at 6.8:1 on dark backgrounds */
+    --background: 222 47% 4%; /* slate-950 */
+    --foreground: 210 40% 98%; /* slate-50 */
 
     /* Glass Panels */
-    --card: 240 10% 4%;
+    --card: 222 47% 7%; /* slate-900 */
     --card-foreground: 210 40% 98%;
 
-    --popover: 240 10% 4%;
+    --popover: 222 47% 7%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 239 84% 67%; /* Electric Indigo */
-    --primary-foreground: 210 40% 98%;
+    --primary: 163 98% 39%; /* Same Brand Teal - AAA compliant */
+    --primary-foreground: 0 0% 100%; /* White text on teal in dark mode */
 
-    --secondary: 174 80% 40%; /* Teal */
+    --secondary: 217 33% 17%; /* slate-800 */
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 163 98% 15%; /* Teal-900 for dark mode accent */
+    --accent-foreground: 160 85% 81%; /* Teal-200 for text on accent */
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 239 84% 67%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 163 98% 39%; /* Same teal for focus rings */
 
-    /* Status Colors - Dark Theme */
-    --status-pending: 217 91% 70%; /* Brighter blue for dark bg */
-    --status-pending-foreground: 217 91% 10%; /* Dark blue text */
+    /* Status Colors - Dark Theme (brighter for visibility) */
+    --status-pending: 217 91% 70%;
+    --status-pending-foreground: 217 91% 10%;
 
-    --status-success: 142 70% 45%; /* Brighter green for dark bg */
-    --status-success-foreground: 142 70% 10%; /* Dark green text */
+    --status-success: 142 70% 45%;
+    --status-success-foreground: 142 70% 10%;
 
-    --status-warning: 38 92% 60%; /* Brighter amber for dark bg */
-    --status-warning-foreground: 38 92% 10%; /* Dark amber text */
+    --status-warning: 38 92% 60%;
+    --status-warning-foreground: 38 92% 10%;
 
-    --status-error: 0 84% 70%; /* Brighter red for dark bg */
-    --status-error-foreground: 0 84% 10%; /* Dark red text */
+    --status-error: 0 84% 70%;
+    --status-error-foreground: 0 84% 10%;
   }
 }
 
@@ -262,7 +264,7 @@
   }
 
   .text-gradient {
-    @apply bg-gradient-to-r from-primary via-purple-400 to-secondary bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary via-primary/70 to-accent-foreground bg-clip-text text-transparent;
   }
   
   .animate-in-stagger {

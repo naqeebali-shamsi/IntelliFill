@@ -92,7 +92,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+    <div className="min-h-screen flex bg-gradient-to-br from-background to-muted dark:from-background dark:to-background">
       {/* Hero Section - Left side */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-gradient-to-br from-primary/90 to-primary dark:from-primary/80 dark:to-primary/60 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background pattern */}
@@ -268,7 +268,7 @@ export default function Login() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -288,7 +288,7 @@ export default function Login() {
                   />
                   <label
                     htmlFor="rememberMe"
-                    className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
+                    className="text-sm text-muted-foreground cursor-pointer"
                   >
                     Remember me
                   </label>
@@ -324,7 +324,7 @@ export default function Login() {
                   Try Demo - No Account Needed
                 </DemoLoginButton>
 
-                <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-center text-sm text-muted-foreground">
                   Don't have an account?{' '}
                   <Link to="/register" className="font-medium text-primary hover:underline">
                     Sign up
