@@ -37,6 +37,41 @@ export class OCRService {
   private worker: Tesseract.Worker | null = null;
   private initialized = false;
 
+  /**
+   * Auto-orient buffer based on EXIF metadata (REQ-001, REQ-002)
+   * Sharp's rotate() with no args reads EXIF orientation tags (1-8)
+   * and auto-rotates the image, then removes the tag to prevent double-rotation.
+   * Handles invalid EXIF gracefully per NFR-005.
+   * @param buffer - Input image buffer
+   * @returns Auto-oriented buffer (unchanged if no EXIF or error)
+   */
+  private async autoOrientBuffer(buffer: Buffer): Promise<Buffer> {
+    if (!buffer || buffer.length === 0) {
+      return buffer;
+    }
+
+    try {
+      const start = Date.now();
+      const oriented = await sharp(buffer, { failOn: 'none' })
+        .rotate() // Auto-orient based on EXIF metadata
+        .toBuffer();
+      const elapsed = Date.now() - start;
+
+      // Log timing per NFR-002 (target <10ms)
+      if (elapsed > 10) {
+        logger.debug(`EXIF auto-rotation took ${elapsed}ms (exceeds 10ms target)`);
+      } else {
+        logger.debug(`EXIF auto-rotation completed in ${elapsed}ms`);
+      }
+
+      return oriented;
+    } catch (error) {
+      // Graceful fallback per NFR-005: return original if orientation fails
+      logger.debug('EXIF auto-rotation skipped (no EXIF or error):', error);
+      return buffer;
+    }
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
@@ -265,8 +300,12 @@ export class OCRService {
     }
 
     try {
+      // Stage 1: EXIF auto-orientation (REQ-001, REQ-002)
+      // Uses reusable helper function for consistent handling
+      const orientedBuffer = await this.autoOrientBuffer(imageBuffer);
+
       // Apply image preprocessing for better OCR accuracy
-      const processed = await sharp(imageBuffer)
+      const processed = await sharp(orientedBuffer)
         .greyscale() // Convert to grayscale
         .normalize() // Normalize contrast
         .sharpen() // Sharpen text
@@ -286,6 +325,7 @@ export class OCRService {
       if (!imageBuffer || imageBuffer.length < 50) {
         throw new Error('Cannot fall back to invalid original buffer');
       }
+      // Graceful fallback per NFR-005: return original if orientation fails
       return imageBuffer;
     }
   }
@@ -335,7 +375,12 @@ export class OCRService {
 
       logger.debug(`Converted PDF page ${pageNum} to image (${buffer.length} bytes)`);
 
-      return buffer;
+      // Apply auto-orientation per REQ-002 (consistent across all paths)
+      // Note: pdf2pic-generated images typically don't have EXIF, but this ensures
+      // consistent handling if source PDF contains embedded images with EXIF data
+      const orientedBuffer = await this.autoOrientBuffer(buffer);
+
+      return orientedBuffer;
     } catch (error) {
       logger.error(`Failed to convert PDF page ${pageIndex + 1} to image:`, error);
       throw new Error(`PDF page ${pageIndex + 1} conversion failed: ${error}`);

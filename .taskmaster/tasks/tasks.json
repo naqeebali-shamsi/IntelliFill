@@ -5179,13 +5179,530 @@
         "recommendedSubtasks": 3,
         "expansionPrompt": "Subtasks: 1) Axe/Lighthouse audit, 2) Keyboard navigation test, 3) Bundle analysis.",
         "updatedAt": "2026-01-05T13:19:41.304Z"
+      },
+      {
+        "id": "340",
+        "title": "Add Sharp EXIF Auto-Orientation to preprocessImage()",
+        "description": "Implement REQ-001: Add sharp().rotate() with no arguments to trigger EXIF-based auto-orientation in OCRService.ts preprocessImage() method for all supported formats (PNG, JPG, JPEG, TIFF)",
+        "details": "In quikadmin/src/services/OCRService.ts, modify preprocessImage(buffer: Buffer, format: string): Promise<Buffer> {\n  return sharp(buffer, { failOn: 'none' })\n    .rotate() // Auto-handles EXIF orientation 1-8, removes tag\n    .png({ quality: 90, compressionLevel: 6 }) // Consistent output format\n    .toBuffer();\n} Use Sharp v0.33.5 (latest stable 2026). Handles invalid EXIF gracefully per NFR-005. Add timing: const start = Date.now(); ... logger.debug('EXIF rotation took', Date.now() - start, 'ms'); Target <10ms per NFR-002.",
+        "testStrategy": "Unit test with test images: EXIF orientation 3(180°),6(90°CW),8(90°CCW). Verify output dimensions match expected rotated size. Measure processing time <10ms. Test invalid EXIF does nothing. Integration: upload rotated phone photo → verify OCR confidence improves.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Sharp rotate() in preprocessImage()",
+            "description": "Modify preprocessImage method to add sharp().rotate() for EXIF auto-orientation handling",
+            "dependencies": [],
+            "details": "Update quikadmin/src/services/OCRService.ts: sharp(buffer, { failOn: 'none' }).rotate().png({ quality: 90, compressionLevel: 6 }).toBuffer(). Supports PNG,JPG,JPEG,TIFF per REQ-001. Sharp v0.33.5 handles orientations 1-8 and removes EXIF tag.",
+            "status": "done",
+            "testStrategy": "Unit test with EXIF orientation 3,6,8 images. Verify output dimensions match expected rotated sizes and EXIF tag removed.",
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:31:23.440Z"
+          },
+          {
+            "id": 2,
+            "title": "Add Timing Measurement and Logging",
+            "description": "Implement performance timing around EXIF rotation operation with debug logging",
+            "dependencies": [1],
+            "details": "Add const start = Date.now(); before rotate(), then logger.debug('EXIF rotation took', Date.now() - start, 'ms') after toBuffer(). Target <10ms per NFR-002. Use existing logger infrastructure.",
+            "status": "done",
+            "testStrategy": "Measure average processing time across 100 test images. Assert timing <10ms. Verify log output contains timing information.",
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:31:30.829Z"
+          },
+          {
+            "id": 3,
+            "title": "Add Input Format Validation",
+            "description": "Validate supported formats (PNG,JPG,JPEG,TIFF) before processing with Sharp",
+            "dependencies": [1],
+            "details": "Add early return or throw if format not in ['png','jpg','jpeg','tiff']. Convert format to lowercase for comparison. Log unsupported format warning per NFR-005 graceful handling.",
+            "status": "pending",
+            "testStrategy": "Test valid formats pass through, invalid formats (gif, webp, bmp) throw Error or return original buffer unchanged.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Write Unit Tests for EXIF Auto-Orientation",
+            "description": "Create comprehensive unit tests covering EXIF orientations and edge cases",
+            "dependencies": [1, 2, 3],
+            "details": "Create __tests__/OCRService.test.ts. Test cases: orientation 1(normal),3(180°),6(90°CW),8(90°CCW), invalid EXIF, no EXIF. Use test fixtures with known dimensions. Verify timing logged.",
+            "status": "pending",
+            "testStrategy": "Jest tests with 100% branch coverage. Assert output buffer dimensions, format=png, processing time<10ms, invalid EXIF handled gracefully.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Integration Testing and Performance Validation",
+            "description": "Validate end-to-end OCR improvement with rotated images and performance NFR",
+            "dependencies": [1, 2, 3, 4],
+            "details": "Test upload rotated phone photo → preprocessImage → OCR. Verify OCR confidence improves post-rotation. Load test 1000 images measuring avg<10ms. Check Sharp v0.33.5 compatibility.",
+            "status": "pending",
+            "testStrategy": "Integration: sideways photo OCR confidence >0.8 post-rotation vs <0.5 pre-rotation. Performance: p95 timing <10ms across 1000 images. Regression: upright images unchanged.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into code implementation, timing logger addition, and format validation if needed.",
+        "updatedAt": "2026-01-05T15:32:30.363Z"
+      },
+      {
+        "id": "341",
+        "title": "Extend Auto-Orientation to All Preprocessing Paths",
+        "description": "Implement REQ-002: Ensure sharp().rotate() called consistently across all image processing paths including pdf2pic conversions",
+        "details": "Audit OCRService.ts for all buffer→image paths: 1) directImageUpload(), 2) pdfPageToImage() using pdf2pic v3.1.2, 3) any resize/crop methods. Wrapper function: async function autoOrientBuffer(buffer: Buffer): Promise<Buffer> { return sharp(buffer).rotate().toBuffer(); } Call before all OCR inputs. Test pdf2pic preserves no EXIF (Q2 mitigation). Sharp handles PDF page buffers correctly.",
+        "testStrategy": "Test rotated PDF→pdf2pic→autoOrient pipeline. Verify rotated PDF page gets corrected. Regression test: normal upright PDF unchanged. Integration test: sideways scanned PDF logs low confidence (Stage 1).",
+        "priority": "high",
+        "dependencies": ["340"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Audit OCRService.ts and Implement autoOrientBuffer Wrapper",
+            "description": "Review all buffer-to-image paths in OCRService.ts and create the autoOrientBuffer wrapper function for consistent sharp().rotate() application.",
+            "dependencies": [],
+            "details": "Audit directImageUpload(), pdfPageToImage() with pdf2pic v3.1.2, and resize/crop methods. Implement async autoOrientBuffer(buffer: Buffer) that calls sharp(buffer).rotate().toBuffer(). Ensure called before all OCR inputs.",
+            "status": "pending",
+            "testStrategy": "Unit test wrapper: verify rotates sideways images, preserves upright images, handles PDF page buffers correctly, confirms pdf2pic outputs lack EXIF data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Integration Testing for pdf2pic and Direct Upload Paths",
+            "description": "Test auto-orientation integration across pdf2pic conversion and direct image upload paths with rotated and upright test documents.",
+            "dependencies": [1],
+            "details": "Test full pipeline: rotated PDF → pdf2pic → autoOrient → OCR; upright PDF unchanged; sideways scanned PDF shows corrected orientation and low confidence logging. Include regression tests.",
+            "status": "pending",
+            "testStrategy": "Create test fixtures: rotated/upright PDFs and images. Verify orientation correction in outputs, no regressions on normal cases, integration with OCR confidence logging for sideways inputs.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Create subtasks for: 1) Code audit and wrapper function implementation, 2) Integration testing across pdf2pic and direct upload paths.",
+        "updatedAt": "2026-01-05T15:32:50.603Z"
+      },
+      {
+        "id": "342",
+        "title": "Implement Low-Confidence OCR Logging",
+        "description": "Implement REQ-003: Log detailed metadata when OCR confidence <40% in ocrQueue.ts processor",
+        "details": "In quikadmin/src/queues/ocrQueue.ts after Tesseract.recognize(): if (result.confidence < parseFloat(process.env.OCR_LOW_CONFIDENCE_THRESHOLD || '40')) {\n  logger.warn('LOW_CONFIDENCE_OCR', {\n    documentId,\n    confidence: result.confidence,\n    fileType: fileType,\n    storageUrl: storageUrl.slice(0, 50) + '...',\n    wasConvertedFromPdf: !!pdfPageNum,\n    timestamp: new Date().toISOString()\n  });\n} Use structured JSON logging. No PII per NFR-006.",
+        "testStrategy": "Unit test logger with mock <40% confidence. Verify log contains all 6 fields, truncated URL. Integration: upload rotated image → verify log appears. Query logs for trend analysis.",
+        "priority": "high",
+        "dependencies": ["340", "341"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Locate Tesseract.recognize() Call",
+            "description": "Find the exact location in ocrQueue.ts where Tesseract.recognize() is called and identify the result variable.",
+            "dependencies": [],
+            "details": "Search quikadmin/src/queues/ocrQueue.ts for Tesseract.recognize(). Note the line number and surrounding context including documentId, fileType, storageUrl, pdfPageNum variables.",
+            "status": "pending",
+            "testStrategy": null,
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add Confidence Threshold Check",
+            "description": "Insert the if-condition to check result.confidence against OCR_LOW_CONFIDENCE_THRESHOLD after Tesseract.recognize().",
+            "dependencies": [1],
+            "details": "Add: if (result.confidence < parseFloat(process.env.OCR_LOW_CONFIDENCE_THRESHOLD || '40')) { ... } immediately after the Tesseract result assignment. Ensure all variables are in scope.",
+            "status": "pending",
+            "testStrategy": "Verify condition evaluates correctly with mock confidence values 39 and 41.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Implement Structured JSON Logging",
+            "description": "Create the logger.warn call with all 6 required fields in JSON format inside the if-condition.",
+            "dependencies": [2],
+            "details": "Use logger.warn('LOW_CONFIDENCE_OCR', { documentId, confidence: result.confidence, fileType, storageUrl: storageUrl.slice(0,50)+'...', wasConvertedFromPdf: !!pdfPageNum, timestamp: new Date().toISOString() }); Ensure structured JSON output.",
+            "status": "pending",
+            "testStrategy": "Mock logger to capture and assert exact JSON structure with truncated URL.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Verify No PII Exposure per NFR-006",
+            "description": "Review logged fields to ensure compliance with NFR-006 by truncating storageUrl and excluding sensitive data.",
+            "dependencies": [3],
+            "details": "Confirm storageUrl is truncated to 50 chars + '...'. Verify no document content, page text, or user PII is included. Only metadata fields logged.",
+            "status": "pending",
+            "testStrategy": "Static code review and unit test with mock PII-containing storageUrl to verify truncation.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Write Unit Tests for Logging",
+            "description": "Create Jest unit tests to verify logging triggers correctly for low confidence and includes all fields.",
+            "dependencies": [3],
+            "details": "In ocrQueue.test.ts, mock Tesseract.recognize() with confidence <40 and >=40. Mock logger.warn. Assert log called once with correct 6 fields when low confidence.",
+            "status": "pending",
+            "testStrategy": "Run npm test. Verify 100% branch coverage for if-condition. Test env var override of threshold.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "No expansion needed - single conditional logging statement with structured fields.",
+        "updatedAt": "2026-01-05T15:35:53.204Z"
+      },
+      {
+        "id": "343",
+        "title": "Add Configurable Confidence Threshold",
+        "description": "Implement REQ-004: Make 40% threshold configurable via OCR_LOW_CONFIDENCE_THRESHOLD env var",
+        "details": "Add to .env.example: OCR_LOW_CONFIDENCE_THRESHOLD=40\nIn ocrQueue.ts: const threshold = parseFloat(process.env.OCR_LOW_CONFIDENCE_THRESHOLD || '40');\nAdd validation: if (isNaN(threshold) || threshold < 0 || threshold > 100) throw new Error('Invalid threshold');\nDefault 40 per PRD. Update docker-compose.yml and staging/prod envs.",
+        "testStrategy": "Unit test with env=20, env=60, missing env (defaults 40). Verify logging triggers correctly. Deployment test: change env var → restart → verify new threshold active.",
+        "priority": "medium",
+        "dependencies": ["342"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Update .env.example with new threshold variable",
+            "description": "Add OCR_LOW_CONFIDENCE_THRESHOLD=40 to .env.example file for documentation",
+            "dependencies": [],
+            "details": "Append the line 'OCR_LOW_CONFIDENCE_THRESHOLD=40' to .env.example with comment explaining it's the OCR confidence threshold in percent per REQ-004",
+            "status": "pending",
+            "testStrategy": "Verify line exists and has correct default value 40 in .env.example after commit",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement env var parsing and validation in ocrQueue.ts",
+            "description": "Replace hardcoded 40% with configurable threshold parsing and validation logic",
+            "dependencies": [],
+            "details": "Add: const threshold = parseFloat(process.env.OCR_LOW_CONFIDENCE_THRESHOLD || '40'); if (isNaN(threshold) || threshold < 0 || threshold > 100) throw new Error('Invalid OCR_LOW_CONFIDENCE_THRESHOLD'); Update all confidence checks to use this threshold variable",
+            "status": "pending",
+            "testStrategy": "Unit test parseFloat with valid/invalid values, boundary cases (0,100), NaN, and default fallback to 40",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Update docker-compose.yml with new environment variable",
+            "description": "Add OCR_LOW_CONFIDENCE_THRESHOLD to docker-compose.yml services configuration",
+            "dependencies": [1],
+            "details": "Add environment: OCR_LOW_CONFIDENCE_THRESHOLD: ${OCR_LOW_CONFIDENCE_THRESHOLD:-40} to relevant services (ocr-queue, etc.) to support local development with configurable threshold",
+            "status": "pending",
+            "testStrategy": "docker-compose up and verify env var is set correctly via docker-compose config command",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Deploy threshold configuration to staging environment",
+            "description": "Update staging environment with OCR_LOW_CONFIDENCE_THRESHOLD env var set to 40",
+            "dependencies": [2],
+            "details": "Coordinate with DevOps to set OCR_LOW_CONFIDENCE_THRESHOLD=40 in staging cluster/namespace. Verify via kubectl exec or logs that threshold loads correctly on pod restart",
+            "status": "pending",
+            "testStrategy": "Deploy to staging, trigger low-confidence OCR, verify threshold=40 active and logging works as expected",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Deploy to production and create unit tests",
+            "description": "Deploy to prod environment and implement comprehensive unit tests for threshold logic",
+            "dependencies": [3, 4],
+            "details": "Set OCR_LOW_CONFIDENCE_THRESHOLD=40 in production. Create tests in ocrQueue.test.ts: test env=20, env=60, missing env (defaults 40), invalid values throw Error. Verify integration with Task 342 logging",
+            "status": "pending",
+            "testStrategy": "Run npm test for threshold parsing/validation. Integration test: set env=30, upload low-confidence image, verify logging triggers at new threshold. Monitor prod logs post-deploy",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Single env var parsing with validation - no subtasks needed.",
+        "updatedAt": "2026-01-05T15:38:14.274Z"
+      },
+      {
+        "id": "344",
+        "title": "Implement Monitoring Alert for Low Confidence Trends",
+        "description": "Implement REQ-005: Alert when >5% documents in 24h fall below confidence threshold",
+        "details": "Use existing logging infra. Add aggregation query to monitoring dashboard (Grafana/Prometheus): hourly count(low_confidence_events) / total_ocr_jobs > 0.05 → alert. SQL: SELECT COUNT(*) FROM logs WHERE level='warn' AND message='LOW_CONFIDENCE_OCR' AND timestamp > NOW() - INTERVAL '24h'. Integrate with PagerDuty/Slack per existing alerts.",
+        "testStrategy": "Load test: generate 100 OCR jobs, 6 with low confidence → verify alert fires. Test <5% → no alert. Verify dashboard shows trends by fileType.",
+        "priority": "medium",
+        "dependencies": ["342", "343"],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Develop SQL Aggregation Query for Grafana",
+            "description": "Create and test SQL query to calculate low confidence OCR event ratio over 24h for Grafana/Prometheus dashboard.",
+            "dependencies": [],
+            "details": "Enhance provided SQL: SELECT COUNT(*) FROM logs WHERE level='warn' AND message='LOW_CONFIDENCE_OCR' AND timestamp > NOW() - INTERVAL '24h'. Add total_ocr_jobs count query. Compute ratio >0.05. Use $__timeFilter for Grafana compatibility. Test with sample log data.",
+            "status": "pending",
+            "testStrategy": "Verify query returns correct ratio with mock data: 6 low-confidence out of 100 jobs = 0.06. Test empty logs = 0. Test Grafana time range filtering.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Configure Alert Rule in Grafana/Prometheus",
+            "description": "Set up alert rule triggering when hourly low-confidence ratio exceeds 5% using developed queries.",
+            "dependencies": [1],
+            "details": "In Grafana: Add panel with Query A (low_conf/low total), set alert: if ratio > 0.05 for 1h. Prometheus recording rule optional. Configure hourly evaluation, labels for routing. Match existing alert patterns.",
+            "status": "pending",
+            "testStrategy": "Simulate >5% ratio in test env → verify alert state 'firing'. <5% → 'normal'. Check alert annotations display documentId/fileType trends.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Integrate Alerts with PagerDuty/Slack and Load Test",
+            "description": "Connect new alert to existing PagerDuty/Slack notifications and perform load testing per requirements.",
+            "dependencies": [2],
+            "details": "Copy existing alert contact points/routing. Test integration. Load test: Generate 100 OCR jobs (6 low conf <40%), verify alert fires. Test 4 low conf → no alert. Validate dashboard trends by fileType.",
+            "status": "pending",
+            "testStrategy": "PagerDuty: Verify test incident created. Slack: Check channel notification. Load: Use script to trigger 100 jobs, assert alert within 5min. Scale test: 1000 jobs performance.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break into: 1) SQL query development for Grafana/Prometheus, 2) Alert rule configuration, 3) Integration with PagerDuty/Slack and load testing."
+      },
+      {
+        "id": "345",
+        "title": "Unit Tests for Stage 1 Preprocessing and Logging",
+        "description": "Comprehensive unit tests for EXIF rotation and low-confidence logging per Testing Strategy",
+        "details": "Jest tests in OCRService.test.ts:\n- testExifRotation(type: 'jpg'|'png'|'tiff', orientation: 3|6|8)\n- testPdf2picRotationPreservation()\n- testLowConfidenceLogging(mockConfidence: 35)\nUse test images from PRD. Mock logger, sharp.toBuffer(). Coverage >90%. Add to CI pipeline.",
+        "testStrategy": "Run jest --coverage. Verify 100% pass rate. Test edge cases: corrupted EXIF, zero-size images, non-image buffers.",
+        "priority": "high",
+        "dependencies": ["340", "341", "342"],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create EXIF Rotation Test Suite",
+            "description": "Implement comprehensive Jest unit tests for EXIF rotation handling in OCRService.test.ts, covering jpg, png, tiff formats with orientations 3, 6, 8 using PRD test images.",
+            "dependencies": [],
+            "details": "Use AAA pattern: Arrange with test images and sharp mocks for toBuffer(); Act by calling rotation functions; Assert correct output buffers and metadata. Mock logger. Target >90% coverage. Test edge cases like corrupted EXIF per strategy.",
+            "status": "pending",
+            "testStrategy": "Run jest --coverage on suite; verify 100% pass rate, coverage >90%, and edge cases (corrupted EXIF, zero-size images) handled correctly.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 4,
+        "recommendedSubtasks": 1,
+        "expansionPrompt": "Separate test suite creation (EXIF rotation tests) from logger mocking tests.",
+        "updatedAt": "2026-01-05T15:42:14.187Z"
+      },
+      {
+        "id": "346",
+        "title": "Stage 2: Tesseract Legacy Mode Initialization",
+        "description": "Implement REQ-006: Conditional legacy Tesseract worker setup with feature flag",
+        "details": "In OCRService.initialize(): if (process.env.ENABLE_TESSERACT_OSD === 'true') {\n  this.worker = await Tesseract.createWorker('eng', 1, {\n    legacyCore: true,\n    legacyLang: true,\n    logger: m => logger.debug('Tesseract:', m)\n  });\n} Use Tesseract.js v5.1.0 (2026 stable). Monitor memory <100MB per NFR-004. Lazy init on first Stage 2 use.",
+        "testStrategy": "Unit test worker creation with/without flag. Memory test: before/after init <100MB delta. Verify osd() available only with legacy mode.",
+        "priority": "medium",
+        "dependencies": ["340"],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add Tesseract.js v5.1.0 Dependency",
+            "description": "Install and configure Tesseract.js version 5.1.0 as specified for legacy mode support.",
+            "dependencies": [],
+            "details": "Run `npm install tesseract.js@5.1.0` or update package.json. Verify installation with `npm ls tesseract.js`. Ensure compatibility with existing Node.js environment and no peer dependency conflicts.",
+            "status": "pending",
+            "testStrategy": "Verify version in package-lock.json and node_modules. Run `npm test` to ensure no breaking changes.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement Feature Flag Check in OCRService",
+            "description": "Add conditional logic in OCRService.initialize() based on ENABLE_TESSERACT_OSD environment variable.",
+            "dependencies": [1],
+            "details": "In OCRService class, check `if (process.env.ENABLE_TESSERACT_OSD === 'true')` before worker creation. Add fallback for undefined flag (default to false). Include null check for this.worker before assignment.",
+            "status": "pending",
+            "testStrategy": "Unit test: mock process.env with true/false/undefined. Verify worker created only when flag is 'true'.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Create Lazy Legacy Tesseract Worker",
+            "description": "Implement lazy initialization of Tesseract worker with legacyCore and legacyLang options on first Stage 2 use.",
+            "dependencies": [2],
+            "details": "Use `await Tesseract.createWorker('eng', 1, { legacyCore: true, legacyLang: true, logger: m => logger.debug('Tesseract:', m) })`. Add method like `getLegacyWorker()` that initializes only if !this.worker. Handle async properly.",
+            "status": "pending",
+            "testStrategy": "Unit test: call getLegacyWorker() multiple times → verify single creation. Mock Tesseract.createWorker success.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Add Memory Monitoring for Worker Initialization",
+            "description": "Implement memory usage monitoring ensuring <100MB delta per NFR-004 during worker creation.",
+            "dependencies": [3],
+            "details": "Use `process.memoryUsage()` before/after createWorker(). Calculate RSS/heapTotal delta. Throw error or log warning if >100MB. Add configurable threshold via env var. Integrate into lazy init method.",
+            "status": "pending",
+            "testStrategy": "Unit test: mock memoryUsage with high/low values. Verify throws on >100MB delta. Integration test with real worker creation.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add Unit Tests for Legacy Worker and Memory",
+            "description": "Create comprehensive unit tests covering feature flag, lazy init, memory monitoring, and osd availability.",
+            "dependencies": [2, 3, 4],
+            "details": "Test cases: flag on/off, multiple init calls (single creation), memory <100MB pass/fail, verify worker.detect() available with legacy mode. Mock Tesseract, logger, process.env, process.memoryUsage.",
+            "status": "pending",
+            "testStrategy": "Jest coverage >90%. Test flag combinations, memory thresholds (95MB/105MB), lazy init idempotency. Verify no worker creation without flag.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 4,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Feature flag + worker initialization with memory monitoring - single focused task."
+      },
+      {
+        "id": "347",
+        "title": "Stage 2: Implement OSD Orientation Detection",
+        "description": "Implement REQ-007: detectOrientation() method using Tesseract worker.detect()",
+        "details": "async detectOrientation(buffer: Buffer): Promise<{angle: number, script: string}> {\n  if (!this.worker) throw new Error('OSD not enabled');\n  const { data: { orientation, script } } = await this.worker.detect(buffer);\n  return { angle: [0,90,180,270][orientation], script };\n} Graceful fallback: try-catch → return {angle: 0, script: 'unknown'}.",
+        "testStrategy": "Unit test with 90° rotated image → returns 270. Test failure → returns 0. Accuracy test with 10 sample images >90%.",
+        "priority": "medium",
+        "dependencies": ["346"],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Core detectOrientation Method",
+            "description": "Create the detectOrientation method as a thin wrapper around Tesseract worker.detect() with angle mapping.",
+            "dependencies": [],
+            "details": "Implement async detectOrientation(buffer: Buffer) that checks this.worker existence, calls worker.detect(buffer), maps orientation to [0,90,180,270] array, and returns {angle, script}.",
+            "status": "pending",
+            "testStrategy": "Unit test successful detection with mock worker returning orientation: 3 → verify angle: 270, script preserved.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add Graceful Error Handling with Try-Catch",
+            "description": "Wrap worker.detect() call in try-catch to provide fallback for failures.",
+            "dependencies": [1],
+            "details": "Add try-catch around await this.worker.detect(buffer); on catch, return default {angle: 0, script: 'unknown'}. Handle worker null/undefined errors gracefully.",
+            "status": "pending",
+            "testStrategy": "Unit test worker failure scenarios (null worker, detect throws) → verify returns {angle: 0, script: 'unknown'} without crashing.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add Input Buffer Validation",
+            "description": "Validate input buffer before processing to prevent invalid calls.",
+            "dependencies": [1],
+            "details": "Check if buffer is Buffer instance and has length > 0; throw descriptive Error if invalid. Place before worker check.",
+            "status": "pending",
+            "testStrategy": "Unit test invalid inputs (null, non-Buffer, empty buffer) → verify throws specific validation errors.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Write Comprehensive Unit Tests",
+            "description": "Create unit tests covering happy path, error cases, and edge conditions.",
+            "dependencies": [2],
+            "details": "Use Jest to test: 90° rotated image → 270, worker failure → fallback, invalid buffer → error, OSD accuracy with sample images. Mock Tesseract worker.",
+            "status": "pending",
+            "testStrategy": "Run npm test → achieve 100% branch coverage. Test 10 sample images with >90% accuracy match expected orientations.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add TypeScript Types and Documentation",
+            "description": "Define proper interfaces and JSDoc for the detectOrientation method.",
+            "dependencies": [1],
+            "details": "Create interface OrientationResult { angle: number; script: string; }. Add JSDoc documenting return values, errors, and Tesseract OSD requirements.",
+            "status": "pending",
+            "testStrategy": "Verify TypeScript compilation passes. Check IDE hover shows correct types and documentation.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Single detectOrientation() method with error handling - no breakdown needed."
+      },
+      {
+        "id": "348",
+        "title": "Stage 2: Conditional OSD Trigger Logic",
+        "description": "Implement REQ-008: Run OSD only for scanned PDFs without EXIF data",
+        "details": "In ocrQueue processor: if (ENABLE_TESSERACT_OSD && isScannedPdf(fileType) && !hadExifData) {\n  const osdResult = await detectOrientation(buffer);\n  if (osdResult.angle !== 0) {\n    buffer = await sharp(buffer).rotate(osdResult.angle).toBuffer();\n  }\n} isScannedPdf(): !hasTextLayer && rasterPages > 0. Track hadExifData flag.",
+        "testStrategy": "Test matrix: scannedPDF+noEXIF→OSD, nativePDF→noOSD, image+EXIF→noOSD, low-confidence→optionalOSD.",
+        "priority": "medium",
+        "dependencies": ["341", "347"],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement isScannedPdf() Helper and hadExifData Flag Tracking",
+            "description": "Create the isScannedPdf() helper function and implement tracking of the hadExifData flag in the ocrQueue processor.",
+            "dependencies": [],
+            "details": "Define isScannedPdf(fileType) as !hasTextLayer && rasterPages > 0. Add hadExifData flag tracking from PDF metadata extraction. Update ocrQueue.ts to set and use this flag before OSD conditional.",
+            "status": "pending",
+            "testStrategy": "Unit tests: test isScannedPdf() with mock hasTextLayer=false/rasterPages=3 → true; hasTextLayer=true → false. Verify flag correctly set from EXIF presence.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Integrate Conditional OSD Pipeline and Create Testing Matrix",
+            "description": "Add the conditional OSD logic to the ocrQueue processor and develop comprehensive test matrix covering all scenarios.",
+            "dependencies": [1],
+            "details": "Implement if (ENABLE_TESSERACT_OSD && isScannedPdf(fileType) && !hadExifData) block with detectOrientation() and Sharp rotation. Create test matrix in Jest covering 4 scenarios from REQ-008.",
+            "status": "pending",
+            "testStrategy": "Test matrix: 1) scannedPDF+noEXIF→OSD runs, 2) nativePDF→noOSD, 3) image+EXIF→noOSD, 4) low-confidence→optionalOSD. Integration test: upload scanned PDF without EXIF → verify rotation applied if angle≠0.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 6,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Subtasks for: 1) isScannedPdf() helper and flag tracking, 2) Conditional pipeline integration and testing matrix."
+      },
+      {
+        "id": "349",
+        "title": "Stage 2 Integration Tests and Performance Validation",
+        "description": "Integration tests for Stage 2 + performance validation for all NFRs",
+        "details": "End-to-end tests: rotated scanned PDF → OSD detects → rotates → OCR confidence >40%. Performance: APM monitoring cold start <100ms (NFR-001), memory <100MB (NFR-004). A/B test Stage 1 vs Stage 2. Add to staging deployment checklist.",
+        "testStrategy": "Cypress/Playwright E2E: upload sideways PDF → verify extraction correct. Load test 1000 docs. Verify all NFR metrics pass. Feature flag toggle test.",
+        "priority": "medium",
+        "dependencies": ["345", "348"],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Develop E2E Test Scenarios for Stage 2",
+            "description": "Create and execute end-to-end integration test scenarios verifying rotated scanned PDF processing, OSD detection, rotation, and OCR confidence exceeding 40%.",
+            "dependencies": [],
+            "details": "Use Cypress/Playwright to script tests: upload sideways PDF, verify OSD detects rotation, applies correction, and OCR outputs confidence >40%. Include smoke tests with passport, invoice, ID samples. Validate extracted JSON accuracy.",
+            "status": "pending",
+            "testStrategy": "Run tests in staging; measure P95 processing <30s; log verification and DB checks for end-to-end flow.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Conduct Performance and Load Testing for NFRs",
+            "description": "Perform load testing and validate performance metrics including APM cold start <100ms (NFR-001) and memory usage <100MB (NFR-004).",
+            "dependencies": [1],
+            "details": "Set up load tests for 1000 documents; monitor via APM tools for cold start latency and memory; ensure all NFRs pass under load; include Queue->Worker->DB flow validation.",
+            "status": "pending",
+            "testStrategy": "Use load testing tools to simulate 1000 docs; capture metrics with timers; verify no regressions in P95 processing time.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Execute A/B Testing and Update Deployment Checklist",
+            "description": "Run A/B tests comparing Stage 1 vs Stage 2 performance; integrate results and add validation steps to staging deployment checklist.",
+            "dependencies": [1, 2],
+            "details": "Segment traffic for Stage 1 (control) vs Stage 2 (test) using feature flags; collect metrics on OCR accuracy, speed; update checklist with E2E, perf checks, rollback plan, KPIs.",
+            "status": "pending",
+            "testStrategy": "Analyze A/B data for superior version; verify deployment checklist covers testing, monitoring, backups per best practices.",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Create subtasks for: 1) E2E test scenarios, 2) Performance/load testing, 3) A/B testing and deployment checklist."
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-05T13:19:41.306Z",
-      "taskCount": 153,
-      "completedCount": 124,
+      "lastModified": "2026-01-05T15:42:14.190Z",
+      "taskCount": 163,
+      "completedCount": 129,
       "tags": ["master"]
     }
   }

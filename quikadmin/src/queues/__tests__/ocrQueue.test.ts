@@ -821,6 +821,370 @@ describe('ocrQueue', () => {
   });
 
   // ==========================================================================
+  // Low Confidence Threshold Configuration Tests (Task 343)
+  // ==========================================================================
+
+  describe('Low Confidence Threshold Configuration', () => {
+    it('should use default threshold of 40 when env var not set', () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(40);
+    });
+
+    it('should parse valid threshold from env var', () => {
+      process.env.OCR_LOW_CONFIDENCE_THRESHOLD = '55';
+
+      jest.resetModules();
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(55);
+
+      // Cleanup
+      delete process.env.OCR_LOW_CONFIDENCE_THRESHOLD;
+    });
+
+    it('should use default when env var is invalid (non-numeric)', () => {
+      process.env.OCR_LOW_CONFIDENCE_THRESHOLD = 'invalid';
+
+      jest.resetModules();
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      // Should fall back to default 40
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(40);
+      // Should log warning - check the first argument contains the message
+      expect(logger.warn).toHaveBeenCalled();
+      const warnCalls = (logger.warn as jest.Mock).mock.calls;
+      const hasInvalidWarning = warnCalls.some(
+        (call: any[]) =>
+          typeof call[0] === 'string' && call[0].includes('Invalid OCR_LOW_CONFIDENCE_THRESHOLD')
+      );
+      expect(hasInvalidWarning).toBe(true);
+
+      // Cleanup
+      delete process.env.OCR_LOW_CONFIDENCE_THRESHOLD;
+    });
+
+    it('should use default when env var is out of range (>100)', () => {
+      process.env.OCR_LOW_CONFIDENCE_THRESHOLD = '150';
+
+      jest.resetModules();
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      // Should fall back to default 40
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(40);
+      // Should log warning about out of range - check the first argument
+      expect(logger.warn).toHaveBeenCalled();
+      const warnCalls = (logger.warn as jest.Mock).mock.calls;
+      const hasOutOfRangeWarning = warnCalls.some(
+        (call: any[]) => typeof call[0] === 'string' && call[0].includes('out of range')
+      );
+      expect(hasOutOfRangeWarning).toBe(true);
+
+      // Cleanup
+      delete process.env.OCR_LOW_CONFIDENCE_THRESHOLD;
+    });
+
+    it('should use default when env var is out of range (<0)', () => {
+      process.env.OCR_LOW_CONFIDENCE_THRESHOLD = '-10';
+
+      jest.resetModules();
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      // Should fall back to default 40
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(40);
+      // Should log warning about out of range - check the first argument
+      expect(logger.warn).toHaveBeenCalled();
+      const warnCalls = (logger.warn as jest.Mock).mock.calls;
+      const hasOutOfRangeWarning = warnCalls.some(
+        (call: any[]) => typeof call[0] === 'string' && call[0].includes('out of range')
+      );
+      expect(hasOutOfRangeWarning).toBe(true);
+
+      // Cleanup
+      delete process.env.OCR_LOW_CONFIDENCE_THRESHOLD;
+    });
+
+    it('should accept boundary value of 0', () => {
+      process.env.OCR_LOW_CONFIDENCE_THRESHOLD = '0';
+
+      jest.resetModules();
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(0);
+
+      // Cleanup
+      delete process.env.OCR_LOW_CONFIDENCE_THRESHOLD;
+    });
+
+    it('should accept boundary value of 100', () => {
+      process.env.OCR_LOW_CONFIDENCE_THRESHOLD = '100';
+
+      jest.resetModules();
+      Bull.mockImplementation(() => mockQueue);
+
+      const { OCR_QUEUE_CONFIG } = require('../ocrQueue');
+
+      expect(OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD).toBe(100);
+
+      // Cleanup
+      delete process.env.OCR_LOW_CONFIDENCE_THRESHOLD;
+    });
+  });
+
+  // ==========================================================================
+  // Low Confidence OCR Logging Tests (Task 342)
+  // ==========================================================================
+
+  describe('Low Confidence OCR Logging', () => {
+    let mockOcrService: {
+      initialize: jest.Mock;
+      processImage: jest.Mock;
+      processPDF: jest.Mock;
+      extractStructuredData: jest.Mock;
+      cleanup: jest.Mock;
+    };
+
+    beforeEach(() => {
+      // Create mock OCR service instance
+      mockOcrService = {
+        initialize: jest.fn().mockResolvedValue(undefined),
+        processImage: jest.fn(),
+        processPDF: jest.fn(),
+        extractStructuredData: jest.fn().mockResolvedValue({ fields: {} }),
+        cleanup: jest.fn().mockResolvedValue(undefined),
+      };
+
+      // Mock OCRService constructor
+      jest.doMock('../../services/OCRService', () => ({
+        OCRService: jest.fn().mockImplementation(() => mockOcrService),
+        OCRProgress: {},
+      }));
+    });
+
+    it('should log warning when OCR confidence is below threshold (REQ-003)', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock low confidence result (below default 40%)
+      mockOcrService.processPDF.mockResolvedValue({
+        text: 'Low quality text',
+        confidence: 25, // Below 40% threshold
+        metadata: { pageCount: 1 },
+        pages: [],
+      });
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job for PDF (scanned document)
+      const mockJob = {
+        id: 'job-low-conf',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/scanned.pdf',
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor
+      await processorCallback!(mockJob);
+
+      // Verify low confidence warning was logged
+      expect(logger.warn).toHaveBeenCalledWith(
+        'LOW_CONFIDENCE_OCR',
+        expect.objectContaining({
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          confidence: 25,
+          threshold: 40,
+          fileType: 'scanned_pdf',
+          wasConvertedFromPdf: true,
+        })
+      );
+    });
+
+    it('should not log warning when OCR confidence is above threshold', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock high confidence result (above 40% threshold)
+      mockOcrService.processPDF.mockResolvedValue({
+        text: 'High quality text',
+        confidence: 85, // Above 40% threshold
+        metadata: { pageCount: 1 },
+        pages: [],
+      });
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      // Clear any previous calls
+      (logger.warn as jest.Mock).mockClear();
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job
+      const mockJob = {
+        id: 'job-high-conf',
+        data: {
+          documentId: '550e8400-e29b-41d4-a716-446655440000',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/clear.pdf',
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor
+      await processorCallback!(mockJob);
+
+      // Verify low confidence warning was NOT logged
+      expect(logger.warn).not.toHaveBeenCalledWith('LOW_CONFIDENCE_OCR', expect.anything());
+    });
+
+    it('should log correct fileType for image files', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock low confidence result for image
+      mockOcrService.processImage.mockResolvedValue({
+        text: 'Low quality image text',
+        confidence: 30, // Below 40% threshold
+        metadata: { pageCount: 1 },
+        pages: [],
+      });
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job for image file
+      const mockJob = {
+        id: 'job-image-low-conf',
+        data: {
+          documentId: '660e8400-e29b-41d4-a716-446655440001',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: 'https://testaccount.r2.cloudflarestorage.com/bucket/photo.jpg',
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor
+      await processorCallback!(mockJob);
+
+      // Verify fileType is 'image' for jpg files
+      expect(logger.warn).toHaveBeenCalledWith(
+        'LOW_CONFIDENCE_OCR',
+        expect.objectContaining({
+          fileType: 'image',
+          wasConvertedFromPdf: false,
+        })
+      );
+    });
+
+    it('should truncate long storage URLs in log output', async () => {
+      Bull.mockImplementation(() => mockQueue);
+
+      // Mock low confidence result
+      mockOcrService.processPDF.mockResolvedValue({
+        text: 'Low quality text',
+        confidence: 35,
+        metadata: { pageCount: 1 },
+        pages: [],
+      });
+
+      // Store the processor callback
+      let processorCallback: ((job: any) => Promise<any>) | null = null;
+      mockQueue.process = jest.fn().mockImplementation((_concurrency, callback) => {
+        processorCallback = callback;
+      });
+
+      // Import the module to register the processor
+      require('../ocrQueue');
+      const { logger } = require('../../utils/logger');
+
+      expect(processorCallback).not.toBeNull();
+
+      // Create a mock job with a long URL
+      const longUrl =
+        'https://testaccount.r2.cloudflarestorage.com/bucket/very/long/path/to/document/with/many/subdirectories/file.pdf';
+      const mockJob = {
+        id: 'job-long-url',
+        data: {
+          documentId: '770e8400-e29b-41d4-a716-446655440002',
+          userId: '6ba7b810-9dad-41d1-80b4-00c04fd430c8',
+          filePath: longUrl,
+          options: {},
+        },
+        progress: jest.fn(),
+      };
+
+      // Mock prisma update
+      mockPrismaDocument.update.mockResolvedValue({});
+
+      // Execute the processor
+      await processorCallback!(mockJob);
+
+      // Verify URL is truncated (should end with ...)
+      expect(logger.warn).toHaveBeenCalledWith(
+        'LOW_CONFIDENCE_OCR',
+        expect.objectContaining({
+          storageUrl: expect.stringMatching(
+            /^https:\/\/testaccount\.r2\.cloudflarestorage\.com\/buck.*\.\.\.$/
+          ),
+        })
+      );
+    });
+  });
+
+  // ==========================================================================
   // Graceful Shutdown Tests
   // ==========================================================================
 

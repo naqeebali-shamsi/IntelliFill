@@ -14,6 +14,34 @@ import { validateOcrJobDataOrThrow, OCRValidationError } from '../utils/ocrJobVa
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.tiff', '.tif', '.bmp', '.gif'];
 
 /**
+ * Parse and validate confidence threshold from environment
+ * @param envValue - Raw environment variable value
+ * @param defaultValue - Default if missing or invalid
+ * @returns Validated threshold (0-100)
+ */
+function parseConfidenceThreshold(envValue: string | undefined, defaultValue: number): number {
+  if (!envValue) return defaultValue;
+
+  const parsed = parseFloat(envValue);
+
+  if (isNaN(parsed)) {
+    logger.warn(
+      `Invalid OCR_LOW_CONFIDENCE_THRESHOLD value "${envValue}" - must be a number. Using default: ${defaultValue}`
+    );
+    return defaultValue;
+  }
+
+  if (parsed < 0 || parsed > 100) {
+    logger.warn(
+      `OCR_LOW_CONFIDENCE_THRESHOLD ${parsed} out of range (0-100). Using default: ${defaultValue}`
+    );
+    return defaultValue;
+  }
+
+  return parsed;
+}
+
+/**
  * OCR Queue Configuration Constants
  *
  * Centralized configuration to eliminate magic numbers and improve maintainability.
@@ -43,6 +71,14 @@ export const OCR_QUEUE_CONFIG = {
 
   /** Reprocessing timeout in ms (10 minutes) */
   REPROCESSING_TIMEOUT_MS: 600000,
+
+  /**
+   * Low confidence threshold for logging (REQ-003, REQ-004)
+   * Documents below this confidence % will be logged for monitoring
+   * Default: 40% (configurable via OCR_LOW_CONFIDENCE_THRESHOLD env var)
+   * Valid range: 0-100 (validated at startup with fallback to default)
+   */
+  LOW_CONFIDENCE_THRESHOLD: parseConfidenceThreshold(process.env.OCR_LOW_CONFIDENCE_THRESHOLD, 40),
 
   /** Health check thresholds */
   HEALTH: {
@@ -282,6 +318,21 @@ if (ocrQueue) {
       }
 
       await job.progress(90);
+
+      // REQ-003: Low-confidence OCR logging for monitoring
+      // Logs documents with confidence below threshold for orientation issue detection
+      if (ocrResult.confidence < OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD) {
+        logger.warn('LOW_CONFIDENCE_OCR', {
+          documentId,
+          confidence: ocrResult.confidence,
+          threshold: OCR_QUEUE_CONFIG.LOW_CONFIDENCE_THRESHOLD,
+          fileType: isImage ? 'image' : 'scanned_pdf',
+          storageUrl: filePath.length > 50 ? filePath.slice(0, 50) + '...' : filePath,
+          wasConvertedFromPdf: !isImage,
+          pageCount: ocrResult.metadata?.pageCount || 1,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       // Extract structured data from OCR text
       const structuredData = await ocrService.extractStructuredData(ocrResult.text);

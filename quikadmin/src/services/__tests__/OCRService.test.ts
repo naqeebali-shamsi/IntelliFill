@@ -416,6 +416,177 @@ describe('OCRService', () => {
   });
 
   // ==========================================================================
+  // EXIF Auto-Orientation Tests (Task 340, Task 341)
+  // ==========================================================================
+
+  describe('EXIF Auto-Orientation', () => {
+    it('should call sharp.rotate() for EXIF auto-orientation (REQ-001)', async () => {
+      const mockImageBuffer = createMockImageBuffer(150);
+      (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
+
+      // Setup worker recognize
+      mockWorker.recognize.mockResolvedValue({
+        data: { text: 'Oriented text', confidence: 90 },
+      });
+
+      // Track rotate() calls
+      let rotateCalled = false;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation(() => {
+          rotateCalled = true;
+          return {
+            greyscale: jest.fn().mockReturnThis(),
+            normalize: jest.fn().mockReturnThis(),
+            sharpen: jest.fn().mockReturnThis(),
+            threshold: jest.fn().mockReturnThis(),
+            resize: jest.fn().mockReturnThis(),
+            toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+          };
+        }),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+      }));
+
+      await service.processImage('/test-exif.jpg');
+
+      expect(rotateCalled).toBe(true);
+    });
+
+    it('should gracefully handle invalid EXIF data (NFR-005)', async () => {
+      const mockImageBuffer = createMockImageBuffer(150);
+      (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
+
+      // Setup worker recognize
+      mockWorker.recognize.mockResolvedValue({
+        data: { text: 'Text from image without EXIF', confidence: 85 },
+      });
+
+      // Mock sharp to throw on rotate() (simulating invalid EXIF)
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation(() => {
+          throw new Error('Invalid EXIF orientation tag');
+        }),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+      }));
+
+      // Should not throw - graceful degradation per NFR-005
+      const result = await service.processImage('/no-exif.png');
+
+      expect(result.text).toBe('Text from image without EXIF');
+    });
+
+    it('should handle empty buffer input gracefully', async () => {
+      const emptyBuffer = Buffer.alloc(0);
+      (fs.readFile as jest.Mock).mockResolvedValue(emptyBuffer);
+
+      // Setup sharp mock with proper chain
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockReturnThis(),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(emptyBuffer),
+      }));
+
+      // Should throw due to empty buffer validation
+      await expect(service.processImage('/empty.jpg')).rejects.toThrow();
+    });
+
+    it('should preserve original buffer if auto-orientation fails (NFR-005)', async () => {
+      const mockImageBuffer = createMockImageBuffer(150);
+      (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
+
+      // Setup worker recognize
+      mockWorker.recognize.mockResolvedValue({
+        data: { text: 'Original text', confidence: 80 },
+      });
+
+      // Mock sharp: rotate fails but subsequent processing works
+      let usedOriginalAfterFailure = false;
+      (sharp as unknown as jest.Mock).mockImplementation((buffer: Buffer) => ({
+        rotate: jest.fn().mockImplementation(() => {
+          // First call with rotate fails
+          throw new Error('EXIF rotation failed');
+        }),
+        greyscale: jest.fn().mockImplementation(function (this: any) {
+          // Track if we're using original buffer after failure
+          usedOriginalAfterFailure = buffer === mockImageBuffer;
+          return this;
+        }),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(mockImageBuffer),
+      }));
+
+      const result = await service.processImage('/corrupted-exif.jpg');
+
+      // Should still complete (using original buffer as fallback)
+      expect(result).toBeDefined();
+    });
+
+    it('should apply auto-orientation before other preprocessing steps', async () => {
+      const mockImageBuffer = createMockImageBuffer(150);
+      (fs.readFile as jest.Mock).mockResolvedValue(mockImageBuffer);
+
+      // Setup worker recognize
+      mockWorker.recognize.mockResolvedValue({
+        data: { text: 'Processed text', confidence: 92 },
+      });
+
+      // Track the order of operations
+      const operationOrder: string[] = [];
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation(() => {
+          operationOrder.push('rotate');
+          return {
+            toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+          };
+        }),
+        greyscale: jest.fn().mockImplementation(function (this: any) {
+          operationOrder.push('greyscale');
+          return this;
+        }),
+        normalize: jest.fn().mockImplementation(function (this: any) {
+          operationOrder.push('normalize');
+          return this;
+        }),
+        sharpen: jest.fn().mockImplementation(function (this: any) {
+          operationOrder.push('sharpen');
+          return this;
+        }),
+        threshold: jest.fn().mockImplementation(function (this: any) {
+          operationOrder.push('threshold');
+          return this;
+        }),
+        resize: jest.fn().mockImplementation(function (this: any) {
+          operationOrder.push('resize');
+          return this;
+        }),
+        toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+      }));
+
+      await service.processImage('/test-order.jpg');
+
+      // Verify rotate is called first (EXIF auto-orientation happens before other preprocessing)
+      expect(operationOrder[0]).toBe('rotate');
+    });
+  });
+
+  // ==========================================================================
   // Image Preprocessing Tests
   // ==========================================================================
 

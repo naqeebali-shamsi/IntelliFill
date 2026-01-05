@@ -1,5 +1,5 @@
 # QuikAdmin/IntelliFill Docker Compose Configuration
-# 
+#
 # Usage:
 #   Development:  docker-compose up
 #   Production:   docker-compose --profile production up
@@ -27,11 +27,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - '${DB_PORT:-5432}:5432'
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-intellifill}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-intellifill}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,11 +43,11 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - '${REDIS_PORT:-6379}:6379'
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -78,8 +78,8 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
     ports:
-      - "3001:3001"
-      - "${DEBUG_PORT:-9229}:9229"  # Node.js debugging
+      - '3001:3001'
+      - '${DEBUG_PORT:-9229}:9229' # Node.js debugging
     networks:
       - backend
       - frontend
@@ -105,6 +105,9 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-intellifill}:${DB_PASSWORD:-intellifill123}@postgres:5432/${DB_NAME:-intellifill}
       REDIS_URL: redis://redis:6379
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # OCR Configuration
+      OCR_CONCURRENCY: ${OCR_CONCURRENCY:-1}
+      OCR_LOW_CONFIDENCE_THRESHOLD: ${OCR_LOW_CONFIDENCE_THRESHOLD:-40}
     volumes:
       - ./src:/app/src
       - ./prisma:/app/prisma
@@ -136,7 +139,7 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       VITE_API_URL: ${VITE_API_URL:-http://app:3001/api}
     ports:
-      - "${WEB_PORT:-5173}:${WEB_INTERNAL_PORT:-5173}"
+      - '${WEB_PORT:-5173}:${WEB_INTERNAL_PORT:-5173}'
     networks:
       - frontend
     depends_on:
@@ -150,13 +153,13 @@ services:
   # ==================== Monitoring Services (Profile: monitoring) ====================
   prometheus:
     image: prom/prometheus:latest
-    profiles: ["monitoring"]
+    profiles: ['monitoring']
     restart: unless-stopped
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - '${PROMETHEUS_PORT:-9090}:9090'
     networks:
       - backend
     command:
@@ -172,7 +175,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    profiles: ["monitoring"]
+    profiles: ['monitoring']
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
@@ -184,7 +187,7 @@ services:
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     ports:
-      - "${GRAFANA_PORT:-3002}:3000"
+      - '${GRAFANA_PORT:-3002}:3000'
     networks:
       - backend
     depends_on:
@@ -198,14 +201,14 @@ services:
   # ==================== Production Database Backup (Profile: production) ====================
   postgres-backup:
     image: postgres:15-alpine
-    profiles: ["production"]
+    profiles: ['production']
     environment:
       PGPASSWORD: ${DB_PASSWORD:-intellifill123}
     volumes:
       - ./backups:/backups
     networks:
       - backend
-    entrypoint: ["/bin/sh", "-c"]
+    entrypoint: ['/bin/sh', '-c']
     command:
       - |
         while true; do
