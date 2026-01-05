@@ -47,7 +47,8 @@ import {
   useDocumentSort,
   useDocumentPagination,
 } from '@/stores/documentStore';
-import { Document, DocumentStatus, getFriendlyFileType, formatFileSize } from '@/types/document';
+import { Document, DocumentStatus, getFriendlyFileType } from '@/types/document';
+import { formatFileSize } from '@/utils/fileValidation';
 import { format } from 'date-fns';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';

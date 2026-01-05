@@ -57,7 +57,7 @@ import {
   useUploadLoading,
 } from '@/stores/knowledgeStore';
 import { SearchInterface } from '@/components/knowledge/SearchInterface';
-import { formatFileSize } from '@/types/document';
+import { formatFileSize } from '@/utils/fileValidation';
 import { format } from 'date-fns';
 
 // ============================================================================

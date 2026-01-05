@@ -43,6 +43,9 @@ const FormFillDemo = lazy(() => import('./pages/FormFillDemo'));
 const ProfileList = lazy(() => import('./pages/ProfileList'));
 const ProfileDetail = lazy(() => import('./pages/ProfileDetail'));
 
+// Development/Testing pages - lazy loaded
+const StatusColorTest = lazy(() => import('./pages/StatusColorTest'));
+
 // Loading spinner component for suspense fallback
 function PageLoadingSpinner() {
   return (
@@ -173,6 +176,8 @@ function App() {
                   <Route path="templates" element={<Templates />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="job/:jobId" element={<JobDetails />} />
+                  {/* Development/Testing Routes - Remove after Task 318 completion */}
+                  <Route path="dev/status-colors" element={<StatusColorTest />} />
                 </Route>
               </Routes>
             </Suspense>
