@@ -7,12 +7,86 @@
  * - File size limits (memory protection)
  * - Download timeouts (slow loris protection)
  * - Retry logic with exponential backoff
+ * - R2 SDK authentication for private buckets
  *
  * @module utils/fileReader
  */
 
 import * as fs from 'fs/promises';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { logger } from './logger';
+
+// ============================================================================
+// R2 SDK Configuration
+// ============================================================================
+
+/**
+ * Lazy-initialized R2 client for authenticated downloads
+ */
+let r2Client: S3Client | null = null;
+
+/**
+ * Check if R2 credentials are configured
+ */
+function isR2Configured(): boolean {
+  return !!(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.R2_BUCKET_NAME
+  );
+}
+
+/**
+ * Get or create R2 client (lazy initialization)
+ */
+function getR2Client(): S3Client {
+  if (!r2Client) {
+    if (!isR2Configured()) {
+      throw new Error('R2 credentials not configured');
+    }
+    r2Client = new S3Client({
+      region: 'auto',
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
+  return r2Client;
+}
+
+/**
+ * Check if URL is an R2 storage URL
+ */
+export function isR2Url(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  return url.includes('.r2.cloudflarestorage.com/') || url.includes('.r2.dev/');
+}
+
+/**
+ * Extract bucket name and key from R2 URL
+ *
+ * URL format: https://{accountId}.r2.cloudflarestorage.com/{bucket}/{key}
+ */
+function parseR2Url(url: string): { bucket: string; key: string } | null {
+  try {
+    const parsedUrl = new URL(url);
+    const pathParts = parsedUrl.pathname.split('/').filter(Boolean);
+
+    if (pathParts.length < 2) {
+      return null;
+    }
+
+    const bucket = pathParts[0];
+    const key = pathParts.slice(1).join('/');
+
+    return { bucket, key };
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================================
 // Custom Error Classes
@@ -45,6 +119,95 @@ export class DownloadTimeoutError extends Error {
   constructor(timeoutMs: number) {
     super(`Download timed out after ${timeoutMs}ms`);
     this.name = 'DownloadTimeoutError';
+  }
+}
+
+// ============================================================================
+// R2 SDK Download Function
+// ============================================================================
+
+/**
+ * Download file from R2 using SDK (authenticated)
+ *
+ * This bypasses the need for presigned URLs by using the S3-compatible SDK
+ * with configured credentials.
+ *
+ * @param url - R2 URL to download
+ * @param config - Configuration for size limits
+ * @returns File content as Buffer
+ */
+async function downloadFromR2(
+  url: string,
+  config: { maxSizeBytes: number; timeoutMs: number }
+): Promise<Buffer> {
+  const parsed = parseR2Url(url);
+  if (!parsed) {
+    throw new Error(`Invalid R2 URL format: ${url.substring(0, 100)}`);
+  }
+
+  const client = getR2Client();
+
+  logger.debug('Downloading from R2 via SDK', {
+    bucket: parsed.bucket,
+    key: parsed.key.substring(0, 50),
+  });
+
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: parsed.bucket,
+      Key: parsed.key,
+    });
+
+    const response = await client.send(command, {
+      abortSignal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    // Check content length
+    if (response.ContentLength && response.ContentLength > config.maxSizeBytes) {
+      throw new FileTooLargeError(response.ContentLength, config.maxSizeBytes);
+    }
+
+    // Read body to buffer
+    if (!response.Body) {
+      throw new Error('R2 response has no body');
+    }
+
+    // Convert readable stream to buffer
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+
+    // Handle both Node.js stream and web stream
+    const body = response.Body as AsyncIterable<Uint8Array>;
+    for await (const chunk of body) {
+      totalSize += chunk.length;
+      if (totalSize > config.maxSizeBytes) {
+        throw new FileTooLargeError(totalSize, config.maxSizeBytes);
+      }
+      chunks.push(chunk);
+    }
+
+    logger.debug('R2 download completed', {
+      bucket: parsed.bucket,
+      key: parsed.key.substring(0, 50),
+      size: totalSize,
+    });
+
+    return Buffer.concat(chunks);
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Convert abort to timeout error
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new DownloadTimeoutError(config.timeoutMs);
+    }
+
+    throw error;
   }
 }
 
@@ -226,6 +389,18 @@ export async function downloadFile(
       url: url.substring(0, 100),
     });
     throw new UrlNotAllowedError(url);
+  }
+
+  // R2 URLs require SDK authentication (private bucket)
+  // Route to SDK download if R2 URL and credentials are configured
+  if (isR2Url(url) && isR2Configured()) {
+    logger.debug('Routing R2 URL to SDK download (private bucket)', {
+      url: url.substring(0, 100),
+    });
+    return downloadFromR2(url, {
+      maxSizeBytes: config.maxSizeBytes,
+      timeoutMs: config.timeoutMs,
+    });
   }
 
   // Setup timeout using AbortController
