@@ -242,8 +242,10 @@ export function createDocumentRoutes(): Router {
             const ocrService = new OCRService();
 
             try {
-              // Extract text from native PDF
-              const extractedText = await detectionService.extractTextFromPDF(file.path);
+              // Extract text from native PDF using storage URL (R2 or local)
+              // Note: Use storageResult.url, not file.path, as the temp file
+              // may have been deleted after upload to R2
+              const extractedText = await detectionService.extractTextFromPDF(storageResult.url);
 
               // Extract structured data from text
               const structuredData = await ocrService.extractStructuredData(extractedText);
