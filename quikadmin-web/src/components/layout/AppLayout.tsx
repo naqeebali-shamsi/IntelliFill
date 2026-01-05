@@ -23,7 +23,6 @@ import {
   LogOut,
   Search,
   Plus,
-  Sparkles,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -68,9 +67,7 @@ const SidebarContent = ({
         collapsed ? 'justify-center px-2' : 'px-6'
       )}
     >
-      <div className="bg-primary/10 p-2 rounded-xl ring-1 ring-inset ring-primary/20">
-        <Sparkles className="h-5 w-5 text-primary" />
-      </div>
+      <img src="/logo.svg" alt="IntelliFill" className={cn('h-8 w-auto', collapsed && 'h-7')} />
       {!collapsed && (
         <span className="ml-3 font-heading font-semibold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-muted-foreground">
           IntelliFill
