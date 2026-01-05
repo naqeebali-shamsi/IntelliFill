@@ -2,14 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Edit2,
-  Trash2,
-  Check,
-  X,
-  FileText,
-  AlertCircle
-} from 'lucide-react';
+import { Edit2, Trash2, Check, X, FileText, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -27,12 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { ProfileFieldValue } from '@/services/userProfileService';
 import { getFieldValidator, validateField } from '@/lib/validations/profile';
@@ -62,14 +50,14 @@ export function ProfileFieldEditor({
   const displayValue = field.values.join(', ') || 'N/A';
   const fieldLabel = field.key
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
   // Get confidence color
   const getConfidenceColor = (confidence: number): string => {
-    if (confidence >= 80) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
-    if (confidence >= 50) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
-    return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    if (confidence >= 80) return 'bg-status-success/10 text-status-success-foreground';
+    if (confidence >= 50) return 'bg-status-warning/10 text-status-warning-foreground';
+    return 'bg-status-error/10 text-status-error-foreground';
   };
 
   // Handle edit mode
@@ -203,9 +191,7 @@ export function ProfileFieldEditor({
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground break-words">
-              {displayValue}
-            </p>
+            <p className="text-sm text-muted-foreground break-words">{displayValue}</p>
           )}
 
           {/* Metadata */}
@@ -215,11 +201,15 @@ export function ProfileFieldEditor({
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1 cursor-help">
                     <FileText className="h-3 w-3" />
-                    <span>{field.sourceCount} source{field.sourceCount !== 1 ? 's' : ''}</span>
+                    <span>
+                      {field.sourceCount} source{field.sourceCount !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Found in {field.sourceCount} document{field.sourceCount !== 1 ? 's' : ''}</p>
+                  <p>
+                    Found in {field.sourceCount} document{field.sourceCount !== 1 ? 's' : ''}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -235,7 +225,7 @@ export function ProfileFieldEditor({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
+                className="h-8 w-8 text-status-success-foreground hover:text-status-success-foreground hover:bg-status-success/10"
                 onClick={handleSave}
                 disabled={isUpdating || !editValue.trim()}
                 title="Save changes"
@@ -281,7 +271,8 @@ export function ProfileFieldEditor({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Field</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete the field "{fieldLabel}"? This action cannot be undone.
+                      Are you sure you want to delete the field "{fieldLabel}"? This action cannot
+                      be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

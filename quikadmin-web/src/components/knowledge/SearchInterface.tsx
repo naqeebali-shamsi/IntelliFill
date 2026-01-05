@@ -4,27 +4,23 @@
  * @module components/knowledge/SearchInterface
  */
 
-import * as React from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Slider } from '@/components/ui/slider'
+import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+} from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Search,
   FileText,
@@ -36,53 +32,46 @@ import {
   Zap,
   Book,
   ExternalLink,
-} from 'lucide-react'
+} from 'lucide-react';
 import {
   useKnowledgeStore,
   useSearchResults,
   useSearchLoading,
   useSearchQuery,
-} from '@/stores/knowledgeStore'
-import { SearchResult } from '@/services/knowledgeService'
-import { useDebouncedValue } from '@/hooks/useDebounce'
+} from '@/stores/knowledgeStore';
+import { SearchResult } from '@/services/knowledgeService';
+import { useDebouncedValue } from '@/hooks/useDebounce';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 interface SearchOptions {
-  topK: number
-  minScore: number
-  hybridMode: 'balanced' | 'semantic' | 'keyword'
-  useHybrid: boolean
+  topK: number;
+  minScore: number;
+  hybridMode: 'balanced' | 'semantic' | 'keyword';
+  useHybrid: boolean;
 }
 
 // ============================================================================
 // Helper Components
 // ============================================================================
 
-function SearchResultCard({
-  result,
-  index,
-}: {
-  result: SearchResult
-  index: number
-}) {
-  const [expanded, setExpanded] = React.useState(false)
-  const similarity = Math.round(result.similarity * 100)
+function SearchResultCard({ result, index }: { result: SearchResult; index: number }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const similarity = Math.round(result.similarity * 100);
 
   // Determine score badge color
   const scoreColor =
     similarity >= 80
-      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      ? 'bg-status-success/10 text-status-success-foreground'
       : similarity >= 60
-        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-        : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+        ? 'bg-status-warning/10 text-status-warning-foreground'
+        : 'bg-status-warning/10 text-status-warning-foreground';
 
   // Truncate text for preview
-  const previewText = result.text.length > 300
-    ? result.text.substring(0, 300) + '...'
-    : result.text
+  const previewText =
+    result.text.length > 300 ? result.text.substring(0, 300) + '...' : result.text;
 
   return (
     <Card className="overflow-hidden">
@@ -141,15 +130,15 @@ function SearchResultCard({
         </Collapsible>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 function SearchOptionsPanel({
   options,
   onChange,
 }: {
-  options: SearchOptions
-  onChange: (options: SearchOptions) => void
+  options: SearchOptions;
+  onChange: (options: SearchOptions) => void;
 }) {
   return (
     <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
@@ -218,7 +207,9 @@ function SearchOptionsPanel({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label>Minimum Score</Label>
-          <span className="text-sm text-muted-foreground">{Math.round(options.minScore * 100)}%</span>
+          <span className="text-sm text-muted-foreground">
+            {Math.round(options.minScore * 100)}%
+          </span>
         </div>
         <Slider
           value={[options.minScore * 100]}
@@ -229,7 +220,7 @@ function SearchOptionsPanel({
         />
       </div>
     </div>
-  )
+  );
 }
 
 // ============================================================================
@@ -238,32 +229,32 @@ function SearchOptionsPanel({
 
 export function SearchInterface() {
   // Store state
-  const searchResults = useSearchResults()
-  const searchLoading = useSearchLoading()
-  const searchQuery = useSearchQuery()
+  const searchResults = useSearchResults();
+  const searchLoading = useSearchLoading();
+  const searchQuery = useSearchQuery();
 
   // Store actions
-  const { search, hybridSearch, clearSearch, setSearchQuery } = useKnowledgeStore()
+  const { search, hybridSearch, clearSearch, setSearchQuery } = useKnowledgeStore();
 
   // Local state
-  const [query, setQuery] = React.useState(searchQuery)
-  const [showOptions, setShowOptions] = React.useState(false)
+  const [query, setQuery] = React.useState(searchQuery);
+  const [showOptions, setShowOptions] = React.useState(false);
   const [options, setOptions] = React.useState<SearchOptions>({
     topK: 5,
     minScore: 0.5,
     hybridMode: 'balanced',
     useHybrid: false,
-  })
-  const [searchTime, setSearchTime] = React.useState(0)
+  });
+  const [searchTime, setSearchTime] = React.useState(0);
 
   // Debounce query for autocomplete (future feature)
-  const debouncedQuery = useDebouncedValue(query, 300)
+  const debouncedQuery = useDebouncedValue(query, 300);
 
   // Handle search
   const handleSearch = async () => {
-    if (!query.trim()) return
+    if (!query.trim()) return;
 
-    const startTime = Date.now()
+    const startTime = Date.now();
 
     if (options.useHybrid) {
       await hybridSearch({
@@ -271,31 +262,31 @@ export function SearchInterface() {
         topK: options.topK,
         minScore: options.minScore,
         hybridMode: options.hybridMode,
-      })
+      });
     } else {
       await search({
         query: query.trim(),
         topK: options.topK,
         minScore: options.minScore,
-      })
+      });
     }
 
-    setSearchTime(Date.now() - startTime)
-  }
+    setSearchTime(Date.now() - startTime);
+  };
 
   // Handle key press
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleSearch()
+      handleSearch();
     }
-  }
+  };
 
   // Handle clear
   const handleClear = () => {
-    setQuery('')
-    clearSearch()
-    setSearchTime(0)
-  }
+    setQuery('');
+    clearSearch();
+    setSearchTime(0);
+  };
 
   return (
     <div className="space-y-4">
@@ -335,9 +326,7 @@ export function SearchInterface() {
       </div>
 
       {/* Search Options */}
-      {showOptions && (
-        <SearchOptionsPanel options={options} onChange={setOptions} />
-      )}
+      {showOptions && <SearchOptionsPanel options={options} onChange={setOptions} />}
 
       {/* Results Summary */}
       {searchResults.length > 0 && (
@@ -405,7 +394,7 @@ export function SearchInterface() {
         </Card>
       )}
     </div>
-  )
+  );
 }
 
-export default SearchInterface
+export default SearchInterface;

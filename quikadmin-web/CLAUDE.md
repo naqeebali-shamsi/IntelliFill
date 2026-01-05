@@ -32,27 +32,27 @@ bun run build
 
 ### Development URLs
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:8080 |
+| Service     | URL                       |
+| ----------- | ------------------------- |
+| Frontend    | http://localhost:8080     |
 | Backend API | http://localhost:3002/api |
 
 ---
 
 ## Technology Stack
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| React | 18.2 | UI Framework |
-| TypeScript | 5.2 | Type Safety |
-| Vite | 4.5 | Build Tool |
-| TailwindCSS | 4.0 beta | Styling |
-| Zustand | 5.0 | State Management |
-| React Query | 3.39 | Server State |
-| React Router | 6.18 | Routing |
-| Radix UI | latest | UI Primitives |
-| React Hook Form | 7.x | Form Handling |
-| Zod | 4.x | Validation |
+| Technology      | Version  | Purpose          |
+| --------------- | -------- | ---------------- |
+| React           | 18.2     | UI Framework     |
+| TypeScript      | 5.2      | Type Safety      |
+| Vite            | 4.5      | Build Tool       |
+| TailwindCSS     | 4.0 beta | Styling          |
+| Zustand         | 5.0      | State Management |
+| React Query     | 3.39     | Server State     |
+| React Router    | 6.18     | Routing          |
+| Radix UI        | latest   | UI Primitives    |
+| React Hook Form | 7.x      | Form Handling    |
+| Zod             | 4.x      | Validation       |
 
 ---
 
@@ -126,7 +126,7 @@ interface ExampleState {
   items: Item[];
   loading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchItems: () => Promise<void>;
   addItem: (item: Item) => void;
@@ -143,7 +143,7 @@ const initialState = {
 export const useExampleStore = create<ExampleState>()(
   immer((set, get) => ({
     ...initialState,
-    
+
     fetchItems: async () => {
       set({ loading: true, error: null });
       try {
@@ -153,19 +153,19 @@ export const useExampleStore = create<ExampleState>()(
         set({ error: 'Failed to fetch', loading: false });
       }
     },
-    
+
     addItem: (item) => {
       set((state) => {
         state.items.push(item);
       });
     },
-    
+
     removeItem: (id) => {
       set((state) => {
-        state.items = state.items.filter(i => i.id !== id);
+        state.items = state.items.filter((i) => i.id !== id);
       });
     },
-    
+
     reset: () => set(initialState),
   }))
 );
@@ -183,17 +183,17 @@ export const exampleService = {
     const response = await api.get<{ items: Item[] }>('/items');
     return response.data.items;
   },
-  
+
   getById: async (id: string): Promise<Item> => {
     const response = await api.get<{ item: Item }>(`/items/${id}`);
     return response.data.item;
   },
-  
+
   create: async (data: CreateItemDto): Promise<Item> => {
     const response = await api.post<{ item: Item }>('/items', data);
     return response.data.item;
   },
-  
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/items/${id}`);
   },
@@ -211,10 +211,10 @@ export function useExample(id: string) {
   const [data, setData] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   useEffect(() => {
     let cancelled = false;
-    
+
     async function fetch() {
       try {
         setLoading(true);
@@ -232,14 +232,14 @@ export function useExample(id: string) {
         }
       }
     }
-    
+
     fetch();
-    
+
     return () => {
       cancelled = true;
     };
   }, [id]);
-  
+
   return { data, loading, error };
 }
 ```
@@ -250,13 +250,13 @@ export function useExample(id: string) {
 
 ### Store Organization
 
-| Store | Purpose | Location |
-|-------|---------|----------|
-| `useAuthStore` | Authentication state | `stores/useAuthStore.ts` |
+| Store              | Purpose                   | Location                  |
+| ------------------ | ------------------------- | ------------------------- |
+| `useAuthStore`     | Authentication state      | `stores/useAuthStore.ts`  |
 | `useDocumentStore` | Document list & selection | `stores/documentStore.ts` |
-| `useUploadStore` | File upload state | `stores/uploadStore.ts` |
-| `useTemplateStore` | Form templates | `stores/templateStore.ts` |
-| `useUIStore` | UI state (modals, etc.) | `stores/uiStore.ts` |
+| `useUploadStore`   | File upload state         | `stores/uploadStore.ts`   |
+| `useTemplateStore` | Form templates            | `stores/templateStore.ts` |
+| `useUIStore`       | UI state (modals, etc.)   | `stores/uiStore.ts`       |
 
 ### State Access
 
@@ -266,14 +266,14 @@ function MyComponent() {
   // Select only needed state to prevent unnecessary re-renders
   const documents = useDocumentStore(state => state.documents);
   const loading = useDocumentStore(state => state.loading);
-  
+
   // Get actions
   const { fetchDocuments, deleteDocument } = useDocumentStore();
-  
+
   useEffect(() => {
     fetchDocuments();
   }, []);
-  
+
   return <DocumentList documents={documents} loading={loading} />;
 }
 ```
@@ -285,6 +285,7 @@ function MyComponent() {
 ### Component Library
 
 We use a combination of:
+
 - **Radix UI** - Accessible primitives
 - **shadcn/ui patterns** - Pre-built component styles
 - **Custom components** - Application-specific
@@ -357,17 +358,129 @@ Use semantic tokens from Tailwind config:
 
 ```typescript
 // Colors
-className="bg-background text-foreground"
-className="bg-primary text-primary-foreground"
-className="bg-destructive text-destructive-foreground"
+className = 'bg-background text-foreground';
+className = 'bg-primary text-primary-foreground';
+className = 'bg-destructive text-destructive-foreground';
 
 // Spacing
-className="p-4 m-2 gap-4"
+className = 'p-4 m-2 gap-4';
 
 // Typography
-className="text-sm font-medium"
-className="text-lg font-semibold"
+className = 'text-sm font-medium';
+className = 'text-lg font-semibold';
 ```
+
+---
+
+## Form Handling
+
+### Form Library Decision
+
+We use **React Hook Form (v7.70+)** with **Zod** for schema validation in complex forms.
+
+**When to use React Hook Form:**
+
+- Complex forms with multiple fields (5+ inputs)
+- Forms requiring validation schemas
+- Forms with dynamic fields or conditional logic
+- Forms that benefit from performance optimization (uncontrolled inputs)
+
+**When to use native controlled inputs:**
+
+- Simple forms (1-4 inputs)
+- Single-field inputs (search bars)
+- Forms where you need tight React state integration
+
+### React Hook Form Pattern
+
+```typescript
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+// Define schema
+const profileSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+  age: z.number().min(18, 'Must be 18+').optional(),
+});
+
+type ProfileFormData = z.infer<typeof profileSchema>;
+
+function ProfileForm() {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+    },
+  });
+
+  const onSubmit = async (data: ProfileFormData) => {
+    await api.updateProfile(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <Input
+        {...register('name')}
+        error={errors.name?.message}
+      />
+      <Input
+        {...register('email')}
+        type="email"
+        error={errors.email?.message}
+      />
+      <Button type="submit" loading={isSubmitting}>
+        Save
+      </Button>
+    </form>
+  );
+}
+```
+
+### Design Token Usage
+
+**ALWAYS use semantic tokens instead of hardcoded colors:**
+
+```typescript
+// GOOD - Uses semantic tokens
+className = 'bg-status-success text-status-success-foreground';
+className = 'bg-status-error text-status-error-foreground';
+className = 'bg-status-warning text-status-warning-foreground';
+
+// BAD - Hardcoded Tailwind colors
+className = 'bg-green-500 text-white'; // Don't do this
+className = 'bg-red-500 text-white'; // Don't do this
+```
+
+**Available semantic tokens:**
+
+| Token              | Purpose             | Light Mode    | Dark Mode     |
+| ------------------ | ------------------- | ------------- | ------------- |
+| `--status-success` | Success states      | Green         | Green         |
+| `--status-error`   | Error states        | Red           | Red           |
+| `--status-warning` | Warning states      | Yellow/Orange | Yellow/Orange |
+| `--status-pending` | Pending/info states | Blue          | Blue          |
+
+**Foreground colors:**
+
+- `text-status-success-foreground`
+- `text-status-error-foreground`
+- `text-status-warning-foreground`
+- `text-status-pending-foreground`
+
+### Form Validation Best Practices
+
+1. **Use Zod schemas** for type safety and validation
+2. **Show errors inline** below inputs
+3. **Disable submit button** while submitting
+4. **Provide clear error messages** that guide the user
+5. **Use aria-invalid** for accessibility (automatically handled by our Input component)
 
 ---
 
@@ -384,7 +497,7 @@ function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      
+
       {/* Protected routes */}
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
@@ -408,11 +521,11 @@ import { useAuthStore } from '@/stores/useAuthStore';
 
 export function ProtectedRoute() {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <Outlet />;
 }
 ```
@@ -452,9 +565,9 @@ describe('Button', () => {
   it('calls onClick when clicked', () => {
     const handleClick = vi.fn();
     render(<Button onClick={handleClick}>Click</Button>);
-    
+
     fireEvent.click(screen.getByText('Click'));
-    
+
     expect(handleClick).toHaveBeenCalled();
   });
 });
@@ -466,11 +579,11 @@ describe('exampleStore', () => {
   beforeEach(() => {
     useExampleStore.setState({ items: [] });
   });
-  
+
   it('adds item correctly', () => {
     const { addItem } = useExampleStore.getState();
     addItem({ id: '1', name: 'Test' });
-    
+
     const { items } = useExampleStore.getState();
     expect(items).toHaveLength(1);
   });
@@ -530,15 +643,15 @@ const isProd = import.meta.env.PROD;
 
 ## File Naming
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Components | kebab-case.tsx | `file-upload-zone.tsx` |
-| Pages | PascalCase.tsx | `DocumentLibrary.tsx` |
-| Stores | camelCaseStore.ts | `documentStore.ts` |
-| Services | camelCaseService.ts | `documentService.ts` |
-| Hooks | useCamelCase.ts | `useDocuments.ts` |
-| Types | camelCase.ts | `document.ts` |
-| Tests | *.test.tsx | `button.test.tsx` |
+| Type       | Convention          | Example                |
+| ---------- | ------------------- | ---------------------- |
+| Components | kebab-case.tsx      | `file-upload-zone.tsx` |
+| Pages      | PascalCase.tsx      | `DocumentLibrary.tsx`  |
+| Stores     | camelCaseStore.ts   | `documentStore.ts`     |
+| Services   | camelCaseService.ts | `documentService.ts`   |
+| Hooks      | useCamelCase.ts     | `useDocuments.ts`      |
+| Types      | camelCase.ts        | `document.ts`          |
+| Tests      | \*.test.tsx         | `button.test.tsx`      |
 
 ---
 
@@ -552,4 +665,3 @@ const isProd = import.meta.env.PROD;
 ---
 
 **Last Updated**: 2025-11-25
-

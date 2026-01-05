@@ -173,6 +173,19 @@
     --ring: 239 84% 67%;
 
     --radius: 0.75rem; /* 12px - Friendlier */
+
+    /* Status Colors - Light Theme */
+    --status-pending: 217 91% 50%; /* Blue - Info/Processing (darker for contrast) */
+    --status-pending-foreground: 0 0% 100%; /* White text */
+
+    --status-success: 142 76% 30%; /* Green - Success/Complete (darker for contrast) */
+    --status-success-foreground: 0 0% 100%; /* White text */
+
+    --status-warning: 38 92% 50%; /* Amber - Warning/Caution */
+    --status-warning-foreground: 28 50% 15%; /* Dark brown text */
+
+    --status-error: 0 84% 50%; /* Red - Error/Failed (darker for contrast) */
+    --status-error-foreground: 0 0% 100%; /* White text */
   }
 
   .dark {
@@ -181,7 +194,7 @@
     --foreground: 210 40% 98%;
 
     /* Glass Panels */
-    --card: 240 10% 4%; 
+    --card: 240 10% 4%;
     --card-foreground: 210 40% 98%;
 
     --popover: 240 10% 4%;
@@ -205,6 +218,19 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 239 84% 67%;
+
+    /* Status Colors - Dark Theme */
+    --status-pending: 217 91% 70%; /* Brighter blue for dark bg */
+    --status-pending-foreground: 217 91% 10%; /* Dark blue text */
+
+    --status-success: 142 70% 45%; /* Brighter green for dark bg */
+    --status-success-foreground: 142 70% 10%; /* Dark green text */
+
+    --status-warning: 38 92% 60%; /* Brighter amber for dark bg */
+    --status-warning-foreground: 38 92% 10%; /* Dark amber text */
+
+    --status-error: 0 84% 70%; /* Brighter red for dark bg */
+    --status-error-foreground: 0 84% 10%; /* Dark red text */
   }
 }
 

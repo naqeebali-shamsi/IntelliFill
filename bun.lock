@@ -129,12 +129,11 @@
         "date-fns": "^4.1.0",
         "framer-motion": "^12.23.25",
         "immer": "^10.2.0",
-        "next-themes": "^0.4.6",
         "p-queue": "^9.0.1",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-dropzone": "^14.3.8",
-        "react-hook-form": "^7.67.0",
+        "react-hook-form": "^7.70.0",
         "react-router-dom": "^6.30.2",
         "sonner": "^2.0.7",
         "usehooks-ts": "^3.1.1",
@@ -1995,8 +1994,6 @@
 
     "netmask": ["netmask@2.0.2", "", {}, ""],
 
-    "next-themes": ["next-themes@0.4.6", "", { "peerDependencies": { "react": "^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc", "react-dom": "^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc" } }, ""],
-
     "node-abort-controller": ["node-abort-controller@3.1.1", "", {}, "sha512-AGK2yQKIjRuqnc6VkX2Xj5d+QW8xZ87pa1UK6yA6ouUyuxfHuMP6umE5QK7UmTeOAymo+Zx1Fxiuw9rVx8taHQ=="],
 
     "node-addon-api": ["node-addon-api@8.5.0", "", {}, ""],
@@ -2217,7 +2214,7 @@
 
     "react-dropzone": ["react-dropzone@14.3.8", "", { "dependencies": { "attr-accept": "^2.2.4", "file-selector": "^2.1.0", "prop-types": "^15.8.1" }, "peerDependencies": { "react": ">= 16.8 || 18.0.0" } }, ""],
 
-    "react-hook-form": ["react-hook-form@7.67.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17 || ^18 || ^19" } }, ""],
+    "react-hook-form": ["react-hook-form@7.70.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17 || ^18 || ^19" } }, "sha512-COOMajS4FI3Wuwrs3GPpi/Jeef/5W1DRR84Yl5/ShlT3dKVFUfoGiEZ/QE6Uw8P4T2/CLJdcTVYKvWBMQTEpvw=="],
 
     "react-is": ["react-is@18.3.1", "", {}, ""],
 

@@ -48,6 +48,22 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "status-pending": {
+          DEFAULT: "hsl(var(--status-pending))",
+          foreground: "hsl(var(--status-pending-foreground))",
+        },
+        "status-success": {
+          DEFAULT: "hsl(var(--status-success))",
+          foreground: "hsl(var(--status-success-foreground))",
+        },
+        "status-warning": {
+          DEFAULT: "hsl(var(--status-warning))",
+          foreground: "hsl(var(--status-warning-foreground))",
+        },
+        "status-error": {
+          DEFAULT: "hsl(var(--status-error))",
+          foreground: "hsl(var(--status-error-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

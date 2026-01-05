@@ -73,17 +73,14 @@ function ProfileOption({ profile, isSelected, onSelect }: ProfileOptionProps) {
   return (
     <DropdownMenuItem
       onClick={onSelect}
-      className={cn(
-        'flex items-center gap-3 p-3 cursor-pointer',
-        isSelected && 'bg-accent'
-      )}
+      className={cn('flex items-center gap-3 p-3 cursor-pointer', isSelected && 'bg-accent')}
     >
       <div
         className={cn(
           'flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0',
           profile.type === 'BUSINESS'
-            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-            : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300'
+            ? 'bg-primary/10 text-primary'
+            : 'bg-status-success/10 text-status-success-foreground'
         )}
       >
         {profile.type === 'BUSINESS' ? (
@@ -94,13 +91,9 @@ function ProfileOption({ profile, isSelected, onSelect }: ProfileOptionProps) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-medium truncate">{profile.name}</div>
-        <div className="text-xs text-muted-foreground">
-          {getProfileTypeLabel(profile.type)}
-        </div>
+        <div className="text-xs text-muted-foreground">{getProfileTypeLabel(profile.type)}</div>
       </div>
-      {isSelected && (
-        <Check className="h-4 w-4 text-primary flex-shrink-0" />
-      )}
+      {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
     </DropdownMenuItem>
   );
 }
@@ -125,10 +118,11 @@ export function ProfileSelector({
     refetch,
   } = useQuery({
     queryKey: ['profiles-for-selector'],
-    queryFn: () => profilesService.list({
-      filter: { status: 'ACTIVE' },
-      limit: 50,
-    }),
+    queryFn: () =>
+      profilesService.list({
+        filter: { status: 'ACTIVE' },
+        limit: 50,
+      }),
     staleTime: 60000, // Cache for 1 minute
   });
 
@@ -179,12 +173,7 @@ export function ProfileSelector({
   if (error) {
     return (
       <div className={cn('flex items-center gap-2', className)}>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          className="text-destructive"
-        >
+        <Button variant="outline" size="sm" onClick={() => refetch()} className="text-destructive">
           <RefreshCw className="mr-2 h-4 w-4" />
           Failed to load profiles. Retry
         </Button>
@@ -204,9 +193,7 @@ export function ProfileSelector({
               </div>
               <div className="flex-1">
                 <div className="font-medium">No Profiles</div>
-                <div className="text-sm text-muted-foreground">
-                  Create a profile to get started
-                </div>
+                <div className="text-sm text-muted-foreground">Create a profile to get started</div>
               </div>
               <Button size="sm" onClick={handleCreateProfile}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -221,8 +208,8 @@ export function ProfileSelector({
             <DialogHeader>
               <DialogTitle>No Profiles Found</DialogTitle>
               <DialogDescription>
-                You need to create a profile before you can fill forms. Profiles store
-                your personal or business information that will be used to auto-fill forms.
+                You need to create a profile before you can fill forms. Profiles store your personal
+                or business information that will be used to auto-fill forms.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -245,10 +232,7 @@ export function ProfileSelector({
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild disabled={disabled}>
-          <Button
-            variant="outline"
-            className={cn('justify-between', className)}
-          >
+          <Button variant="outline" className={cn('justify-between', className)}>
             <span className="flex items-center gap-2">
               {selectedProfile ? (
                 <>
@@ -298,8 +282,8 @@ export function ProfileSelector({
                 className={cn(
                   'flex h-12 w-12 items-center justify-center rounded-full flex-shrink-0',
                   selectedProfile.type === 'BUSINESS'
-                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
-                    : 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-status-success/10 text-status-success-foreground'
                 )}
               >
                 {selectedProfile.type === 'BUSINESS' ? (

@@ -139,22 +139,22 @@ function HistoryEntryRow({ entry, showProfile = false }: HistoryEntryRowProps) {
       case 'completed':
         return {
           icon: CheckCircle,
-          color: 'text-green-600',
-          bgColor: 'bg-green-100 dark:bg-green-900',
+          color: 'text-status-success-foreground',
+          bgColor: 'bg-status-success/10',
           label: 'Completed',
         };
       case 'partial':
         return {
           icon: Clock,
-          color: 'text-yellow-600',
-          bgColor: 'bg-yellow-100 dark:bg-yellow-900',
+          color: 'text-status-warning-foreground',
+          bgColor: 'bg-status-warning/10',
           label: 'Partial',
         };
       case 'failed':
         return {
           icon: XCircle,
-          color: 'text-red-600',
-          bgColor: 'bg-red-100 dark:bg-red-900',
+          color: 'text-status-error-foreground',
+          bgColor: 'bg-status-error/10',
           label: 'Failed',
         };
     }
@@ -251,11 +251,11 @@ function CompactHistoryEntry({ entry }: { entry: FormFillHistoryEntry }) {
   const getStatusColor = () => {
     switch (entry.status) {
       case 'completed':
-        return 'text-green-600';
+        return 'text-status-success-foreground';
       case 'partial':
-        return 'text-yellow-600';
+        return 'text-status-warning-foreground';
       case 'failed':
-        return 'text-red-600';
+        return 'text-status-error-foreground';
     }
   };
 

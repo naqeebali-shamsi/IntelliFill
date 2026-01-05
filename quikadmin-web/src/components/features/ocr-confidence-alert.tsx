@@ -7,13 +7,7 @@
 import * as React from 'react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
-  Info,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, XCircle, RefreshCw, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -21,8 +15,8 @@ import { cn } from '@/lib/utils';
  */
 const CONFIDENCE_THRESHOLDS = {
   HIGH: 0.85,
-  MEDIUM: 0.70,
-  LOW: 0.50,
+  MEDIUM: 0.7,
+  LOW: 0.5,
 } as const;
 
 export interface OCRConfidenceAlertProps {
@@ -77,9 +71,9 @@ function getConfidenceInfo(level: 'high' | 'medium' | 'low' | 'very_low') {
         icon: CheckCircle2,
         title: 'High Confidence',
         description: 'The extracted data appears accurate and reliable.',
-        color: 'text-green-600 dark:text-green-500',
-        bgColor: 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800',
-        iconBg: 'bg-green-100 dark:bg-green-900/30',
+        color: 'text-status-success-foreground',
+        bgColor: 'bg-status-success/10 border-status-success/30',
+        iconBg: 'bg-status-success/20',
         suggestion: null,
       };
     case 'medium':
@@ -87,9 +81,9 @@ function getConfidenceInfo(level: 'high' | 'medium' | 'low' | 'very_low') {
         icon: Info,
         title: 'Medium Confidence',
         description: 'Some data may need manual verification. Please review before use.',
-        color: 'text-amber-600 dark:text-amber-500',
-        bgColor: 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800',
-        iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+        color: 'text-status-warning-foreground',
+        bgColor: 'bg-status-warning/10 border-status-warning/30',
+        iconBg: 'bg-status-warning/20',
         suggestion: 'Review extracted fields for accuracy.',
       };
     case 'low':
@@ -97,19 +91,20 @@ function getConfidenceInfo(level: 'high' | 'medium' | 'low' | 'very_low') {
         icon: AlertTriangle,
         title: 'Low Confidence',
         description: 'The document may be blurry or poor quality. Data may be inaccurate.',
-        color: 'text-orange-600 dark:text-orange-500',
-        bgColor: 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800',
-        iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+        color: 'text-status-warning-foreground',
+        bgColor: 'bg-status-warning/10 border-status-warning/30',
+        iconBg: 'bg-status-warning/20',
         suggestion: 'Consider reprocessing or uploading a clearer scan.',
       };
     case 'very_low':
       return {
         icon: XCircle,
         title: 'Very Low Confidence',
-        description: 'OCR could not reliably extract text. The document may be illegible or damaged.',
-        color: 'text-red-600 dark:text-red-500',
-        bgColor: 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800',
-        iconBg: 'bg-red-100 dark:bg-red-900/30',
+        description:
+          'OCR could not reliably extract text. The document may be illegible or damaged.',
+        color: 'text-status-error-foreground',
+        bgColor: 'bg-status-error/10 border-status-error/30',
+        iconBg: 'bg-status-error/20',
         suggestion: 'Reprocess with enhanced settings or upload a higher quality scan.',
       };
   }
@@ -164,9 +159,7 @@ export function OCRConfidenceAlert({
         )}
       >
         <Icon className={cn('h-4 w-4 shrink-0', info.color)} />
-        <span className={cn('font-medium', info.color)}>
-          {confidencePercent}% confidence
-        </span>
+        <span className={cn('font-medium', info.color)}>{confidencePercent}% confidence</span>
         {level !== 'high' && (
           <span className="text-muted-foreground">
             - {level === 'medium' ? 'verify data' : 'review recommended'}
@@ -177,27 +170,17 @@ export function OCRConfidenceAlert({
   }
 
   return (
-    <Alert
-      className={cn(
-        'border',
-        info.bgColor,
-        className
-      )}
-    >
+    <Alert className={cn('border', info.bgColor, className)}>
       <div className={cn('p-1.5 rounded-md', info.iconBg)}>
         <Icon className={cn('h-4 w-4', info.color)} />
       </div>
       <AlertTitle className={cn('flex items-center gap-2', info.color)}>
         {info.title}
-        <span className="text-sm font-normal text-muted-foreground">
-          ({confidencePercent}%)
-        </span>
+        <span className="text-sm font-normal text-muted-foreground">({confidencePercent}%)</span>
       </AlertTitle>
       <AlertDescription className="space-y-2">
         <p>{info.description}</p>
-        {info.suggestion && (
-          <p className="text-sm font-medium">{info.suggestion}</p>
-        )}
+        {info.suggestion && <p className="text-sm font-medium">{info.suggestion}</p>}
         {onReprocess && (level === 'low' || level === 'very_low') && (
           <Button
             variant="outline"
@@ -224,11 +207,7 @@ export interface ConfidenceBadgeProps {
   className?: string;
 }
 
-export function ConfidenceBadge({
-  confidence,
-  showLabel = true,
-  className,
-}: ConfidenceBadgeProps) {
+export function ConfidenceBadge({ confidence, showLabel = true, className }: ConfidenceBadgeProps) {
   if (confidence === null || confidence === undefined) {
     return null;
   }
@@ -240,11 +219,7 @@ export function ConfidenceBadge({
 
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1 text-xs font-medium',
-        info.color,
-        className
-      )}
+      className={cn('inline-flex items-center gap-1 text-xs font-medium', info.color, className)}
       title={`OCR Confidence: ${confidencePercent}% - ${info.title}`}
     >
       <Icon className="h-3 w-3" />

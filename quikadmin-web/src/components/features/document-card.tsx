@@ -1,17 +1,25 @@
-import * as React from "react"
-import { format } from "date-fns"
-import { cn } from "@/lib/utils"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction } from "@/components/ui/card"
-import { StatusBadge } from "./status-badge"
-import { ConfidenceBadge } from "./ocr-confidence-alert"
-import { Button } from "@/components/ui/button"
+import * as React from 'react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { formatFileSize } from '@/utils/fileValidation';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardAction,
+} from '@/components/ui/card';
+import { StatusBadge } from './status-badge';
+import { ConfidenceBadge } from './ocr-confidence-alert';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from '@/components/ui/dropdown-menu';
 import {
   FileText,
   File as FileIcon,
@@ -23,10 +31,10 @@ import {
   Eye,
   Edit,
   type LucideIcon,
-} from "lucide-react"
+} from 'lucide-react';
 
-export type DocumentFileType = "pdf" | "docx" | "csv" | "xlsx" | "txt" | "image" | "other"
-export type DocumentStatus = "pending" | "processing" | "completed" | "failed"
+export type DocumentFileType = 'pdf' | 'docx' | 'csv' | 'xlsx' | 'txt' | 'image' | 'other';
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 const fileTypeIconMap: Record<DocumentFileType, LucideIcon> = {
   pdf: FileText,
@@ -36,73 +44,73 @@ const fileTypeIconMap: Record<DocumentFileType, LucideIcon> = {
   txt: FileIcon,
   image: ImageIcon,
   other: FileIcon,
-}
+};
 
 export interface DocumentCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
   /**
    * Document ID
    */
-  id: string
+  id: string;
   /**
    * Document name
    */
-  name: string
+  name: string;
   /**
    * File type
    */
-  fileType: DocumentFileType
+  fileType: DocumentFileType;
   /**
    * Document status
    */
-  status: DocumentStatus
+  status: DocumentStatus;
   /**
    * Upload date
    */
-  uploadDate: string | Date
+  uploadDate: string | Date;
   /**
    * File size in bytes
    */
-  fileSize?: number
+  fileSize?: number;
   /**
    * Number of pages (for documents)
    */
-  pageCount?: number
+  pageCount?: number;
   /**
    * Additional metadata
    */
-  metadata?: Record<string, string | number>
+  metadata?: Record<string, string | number>;
   /**
    * OCR confidence score (0-1)
    */
-  confidence?: number | null
+  confidence?: number | null;
   /**
    * Download handler
    */
-  onDownload?: (id: string) => void
+  onDownload?: (id: string) => void;
   /**
    * Delete handler
    */
-  onDelete?: (id: string) => void
+  onDelete?: (id: string) => void;
   /**
    * View handler
    */
-  onView?: (id: string) => void
+  onView?: (id: string) => void;
   /**
    * Edit handler
    */
-  onEdit?: (id: string) => void
+  onEdit?: (id: string) => void;
   /**
    * Card click handler
    */
-  onClick?: (id: string) => void
+  onClick?: (id: string) => void;
   /**
    * Show actions menu
    */
-  showActions?: boolean
+  showActions?: boolean;
   /**
    * Compact variant
    */
-  compact?: boolean
+  compact?: boolean;
 }
 
 /**
@@ -142,69 +150,44 @@ function DocumentCard({
   className,
   ...props
 }: DocumentCardProps) {
-  const FileTypeIcon = fileTypeIconMap[fileType] || FileIcon
-  const formattedDate = typeof uploadDate === "string"
-    ? uploadDate
-    : format(uploadDate, "MMM d, yyyy")
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
-  }
+  const FileTypeIcon = fileTypeIconMap[fileType] || FileIcon;
+  const formattedDate =
+    typeof uploadDate === 'string' ? uploadDate : format(uploadDate, 'MMM d, yyyy');
 
   const handleCardClick = () => {
     if (onClick) {
-      onClick(id)
+      onClick(id);
     }
-  }
+  };
 
   const handleAction = (action: () => void) => (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent card onClick
-    action()
-  }
+    e.stopPropagation(); // Prevent card onClick
+    action();
+  };
 
   return (
     <Card
       data-slot="document-card"
-      className={cn(
-        "transition-shadow hover:shadow-md",
-        onClick && "cursor-pointer",
-        className
-      )}
+      className={cn('transition-shadow hover:shadow-md', onClick && 'cursor-pointer', className)}
       onClick={handleCardClick}
       {...props}
     >
-      <CardHeader className={cn(compact && "py-4")}>
+      <CardHeader className={cn(compact && 'py-4')}>
         <div className="flex items-start gap-3">
           {/* File Type Icon */}
-          <div className={cn(
-            "rounded-lg bg-primary/10 p-2.5 shrink-0",
-            compact && "p-2"
-          )}>
+          <div className={cn('rounded-lg bg-primary/10 p-2.5 shrink-0', compact && 'p-2')}>
             <FileTypeIcon
-              className={cn(
-                "text-primary",
-                compact ? "h-5 w-5" : "h-6 w-6"
-              )}
+              className={cn('text-primary', compact ? 'h-5 w-5' : 'h-6 w-6')}
               aria-hidden="true"
             />
           </div>
 
           {/* Document Info */}
           <div className="flex-1 min-w-0">
-            <CardTitle className={cn(
-              "truncate",
-              compact ? "text-base" : "text-lg"
-            )}>
+            <CardTitle className={cn('truncate', compact ? 'text-base' : 'text-lg')}>
               {name}
             </CardTitle>
-            <CardDescription className={cn(
-              "flex items-center gap-2 mt-1",
-              compact && "text-xs"
-            )}>
+            <CardDescription className={cn('flex items-center gap-2 mt-1', compact && 'text-xs')}>
               <span>{formattedDate}</span>
               {fileSize && (
                 <>
@@ -215,7 +198,9 @@ function DocumentCard({
               {pageCount && (
                 <>
                   <span>•</span>
-                  <span>{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
+                  <span>
+                    {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+                  </span>
                 </>
               )}
             </CardDescription>
@@ -224,14 +209,11 @@ function DocumentCard({
           {/* Status and Confidence Badges */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Show confidence badge for completed docs with low/medium confidence */}
-            {status === "completed" && confidence !== null && confidence !== undefined && confidence < 0.85 && (
-              <ConfidenceBadge confidence={confidence} />
-            )}
-            <StatusBadge
-              status={status}
-              showIcon
-              size={compact ? "sm" : "md"}
-            />
+            {status === 'completed' &&
+              confidence !== null &&
+              confidence !== undefined &&
+              confidence < 0.85 && <ConfidenceBadge confidence={confidence} />}
+            <StatusBadge status={status} showIcon size={compact ? 'sm' : 'md'} />
           </div>
         </div>
 
@@ -293,7 +275,7 @@ function DocumentCard({
             {Object.entries(metadata).map(([key, value]) => (
               <div key={key} className="space-y-0.5">
                 <dt className="text-muted-foreground text-xs capitalize">
-                  {key.replace(/_/g, " ")}
+                  {key.replace(/_/g, ' ')}
                 </dt>
                 <dd className="font-medium truncate">{value}</dd>
               </div>
@@ -302,7 +284,7 @@ function DocumentCard({
         </CardContent>
       )}
     </Card>
-  )
+  );
 }
 
 /**
@@ -312,7 +294,7 @@ export interface DocumentCardSkeletonProps extends React.HTMLAttributes<HTMLDivE
   /**
    * Compact variant
    */
-  compact?: boolean
+  compact?: boolean;
 }
 
 /**
@@ -325,35 +307,21 @@ export interface DocumentCardSkeletonProps extends React.HTMLAttributes<HTMLDivE
  *   <DocumentCard {...props} />
  * )}
  */
-function DocumentCardSkeleton({
-  compact = false,
-  className,
-  ...props
-}: DocumentCardSkeletonProps) {
+function DocumentCardSkeleton({ compact = false, className, ...props }: DocumentCardSkeletonProps) {
   return (
-    <Card
-      data-slot="document-card-skeleton"
-      className={cn("animate-pulse", className)}
-      {...props}
-    >
-      <CardHeader className={cn(compact && "py-4")}>
+    <Card data-slot="document-card-skeleton" className={cn('animate-pulse', className)} {...props}>
+      <CardHeader className={cn(compact && 'py-4')}>
         <div className="flex items-start gap-3">
-          <div className={cn(
-            "rounded-lg bg-muted shrink-0",
-            compact ? "h-9 w-9" : "h-11 w-11"
-          )} />
+          <div className={cn('rounded-lg bg-muted shrink-0', compact ? 'h-9 w-9' : 'h-11 w-11')} />
           <div className="flex-1 space-y-2">
-            <div className={cn(
-              "h-5 w-3/4 bg-muted rounded",
-              compact && "h-4"
-            )} />
+            <div className={cn('h-5 w-3/4 bg-muted rounded', compact && 'h-4')} />
             <div className="h-4 w-1/2 bg-muted rounded" />
           </div>
           <div className="h-6 w-20 bg-muted rounded-full" />
         </div>
       </CardHeader>
     </Card>
-  )
+  );
 }
 
-export { DocumentCard, DocumentCardSkeleton }
+export { DocumentCard, DocumentCardSkeleton };

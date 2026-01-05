@@ -4,6 +4,7 @@
  */
 
 import { FileValidationError } from '@/types/upload';
+import { BYTES_PER_KB } from '@/constants/file';
 
 /**
  * Accepted file types with their MIME types and extensions
@@ -24,12 +25,12 @@ export const FILE_SIZE_LIMITS = {
   /**
    * Maximum size for a single file (10MB)
    */
-  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+  MAX_FILE_SIZE: 10 * BYTES_PER_KB * BYTES_PER_KB, // 10MB
 
   /**
    * Maximum total size for all files (50MB)
    */
-  MAX_TOTAL_SIZE: 50 * 1024 * 1024, // 50MB
+  MAX_TOTAL_SIZE: 50 * BYTES_PER_KB * BYTES_PER_KB, // 50MB
 
   /**
    * Maximum number of files
@@ -62,7 +63,7 @@ export function validateFile(file: File): string | null {
 
   // Check file size
   if (file.size > FILE_SIZE_LIMITS.MAX_FILE_SIZE) {
-    const maxSizeMB = FILE_SIZE_LIMITS.MAX_FILE_SIZE / (1024 * 1024);
+    const maxSizeMB = FILE_SIZE_LIMITS.MAX_FILE_SIZE / (BYTES_PER_KB * BYTES_PER_KB);
     return `File size exceeds ${maxSizeMB}MB limit`;
   }
 
@@ -132,8 +133,8 @@ export function validateFiles(
         code: error.includes('empty')
           ? VALIDATION_ERROR_CODES.EMPTY_FILE
           : error.includes('size')
-          ? VALIDATION_ERROR_CODES.FILE_TOO_LARGE
-          : VALIDATION_ERROR_CODES.INVALID_FILE_TYPE,
+            ? VALIDATION_ERROR_CODES.FILE_TOO_LARGE
+            : VALIDATION_ERROR_CODES.INVALID_FILE_TYPE,
         message: error,
       });
       continue;
@@ -142,7 +143,7 @@ export function validateFiles(
     // Check total size
     newTotalSize += file.size;
     if (existingTotalSize + newTotalSize > FILE_SIZE_LIMITS.MAX_TOTAL_SIZE) {
-      const maxSizeMB = FILE_SIZE_LIMITS.MAX_TOTAL_SIZE / (1024 * 1024);
+      const maxSizeMB = FILE_SIZE_LIMITS.MAX_TOTAL_SIZE / (BYTES_PER_KB * BYTES_PER_KB);
       invalid.push({
         file,
         code: VALIDATION_ERROR_CODES.TOTAL_SIZE_EXCEEDED,
@@ -167,11 +168,10 @@ export function validateFiles(
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
 
-  const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i = Math.floor(Math.log(bytes) / Math.log(BYTES_PER_KB));
 
-  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
+  return `${Math.round((bytes / Math.pow(BYTES_PER_KB, i)) * 100) / 100} ${sizes[i]}`;
 }
 
 /**
@@ -207,9 +207,7 @@ export function getAcceptedExtensions(): string {
  * @param mimeType - MIME type
  * @returns File type category
  */
-export function getFileTypeCategory(
-  mimeType: string
-): 'pdf' | 'docx' | 'csv' | 'image' | 'other' {
+export function getFileTypeCategory(mimeType: string): 'pdf' | 'docx' | 'csv' | 'image' | 'other' {
   if (mimeType === 'application/pdf') return 'pdf';
   if (
     mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
@@ -254,8 +252,8 @@ export function canAddFiles(
   const totalSize = existingSize + newSize;
 
   if (totalSize > FILE_SIZE_LIMITS.MAX_TOTAL_SIZE) {
-    const maxSizeMB = FILE_SIZE_LIMITS.MAX_TOTAL_SIZE / (1024 * 1024);
-    const currentSizeMB = Math.round((existingSize / (1024 * 1024)) * 100) / 100;
+    const maxSizeMB = FILE_SIZE_LIMITS.MAX_TOTAL_SIZE / (BYTES_PER_KB * BYTES_PER_KB);
+    const currentSizeMB = Math.round((existingSize / (BYTES_PER_KB * BYTES_PER_KB)) * 100) / 100;
     return {
       canAdd: false,
       reason: `Total size exceeds ${maxSizeMB}MB limit. Current: ${currentSizeMB}MB`,

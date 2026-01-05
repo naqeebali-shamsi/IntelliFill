@@ -125,9 +125,9 @@ export default function ConnectedUpload() {
   const getFileStatusIcon = (status: UploadFile['status']) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+        return <CheckCircle2 className="h-5 w-5 text-status-success-foreground" />;
       case 'failed':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
+        return <AlertCircle className="h-5 w-5 text-status-error-foreground" />;
       case 'uploading':
       case 'processing':
         return <Sparkles className="h-5 w-5 text-primary animate-pulse" />;
@@ -190,7 +190,7 @@ export default function ConnectedUpload() {
                       size="sm"
                       onClick={clearAll}
                       disabled={hasActiveUploads}
-                      className="text-xs h-7 text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                      className="text-xs h-7 text-status-error-foreground hover:text-status-error-foreground hover:bg-status-error/10"
                     >
                       Clear All
                     </Button>
@@ -276,14 +276,14 @@ export default function ConnectedUpload() {
 
                           {/* Error Message */}
                           {uploadFile.error && (
-                            <p className="text-xs text-red-400 mt-2 flex items-center gap-1">
+                            <p className="text-xs text-status-error-foreground mt-2 flex items-center gap-1">
                               <AlertCircle className="h-3 w-3" /> {uploadFile.error}
                             </p>
                           )}
 
                           {/* Success Message */}
                           {uploadFile.status === 'completed' && uploadFile.result && (
-                            <div className="mt-2 text-xs text-green-400/80 flex items-center gap-1">
+                            <div className="mt-2 text-xs text-status-success-foreground flex items-center gap-1">
                               <CheckCircle2 className="h-3 w-3" />
                               <span>Processing complete</span>
                               {uploadFile.result.metadata?.confidence && (
@@ -322,7 +322,7 @@ export default function ConnectedUpload() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-950/20"
+                              className="h-6 w-6 text-status-error-foreground hover:text-status-error-foreground hover:bg-status-error/10"
                               onClick={() => removeFile(uploadFile.id)}
                             >
                               <Trash2 className="h-3 w-3" />

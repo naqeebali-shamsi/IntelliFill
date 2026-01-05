@@ -2,6 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { useVirtualTable } from '@/hooks/useVirtualTable';
+import { DATA_TABLE } from '@/constants/ui';
 import {
   Table,
   TableBody,
@@ -12,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingStateSkeleton } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
 import { VirtualTableBody } from './virtual-table-body';
@@ -128,11 +129,13 @@ export interface DataTableProps<T> {
    */
   virtualizeThreshold?: number;
   /**
-   * Estimated row height in pixels for virtualization (default: 52)
+   * Estimated row height in pixels for virtualization
+   * @default DATA_TABLE.ROW_HEIGHT_PX (52)
    */
   estimatedRowHeight?: number;
   /**
-   * Max height for virtualized container in pixels (default: 400)
+   * Max height for virtualized container in pixels
+   * @default DATA_TABLE.MAX_HEIGHT_PX (400)
    */
   maxHeight?: number;
 }
@@ -174,12 +177,12 @@ function DataTable<T extends Record<string, unknown>>({
   className,
   tableClassName,
   virtualized,
-  virtualizeThreshold = 30,
-  estimatedRowHeight = 52,
-  maxHeight = 400,
+  virtualizeThreshold = DATA_TABLE.VIRTUALIZE_THRESHOLD,
+  estimatedRowHeight = DATA_TABLE.ROW_HEIGHT_PX,
+  maxHeight = DATA_TABLE.MAX_HEIGHT_PX,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = React.useState('');
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 300); // 300ms debounce for filtering
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, DATA_TABLE.SEARCH_DEBOUNCE_MS);
   const [sortColumn, setSortColumn] = React.useState<keyof T | null>(null);
   const [sortDirection, setSortDirection] = React.useState<SortDirection>(null);
   const [currentPage, setCurrentPage] = React.useState(pagination?.currentPage || 1);
@@ -272,7 +275,7 @@ function DataTable<T extends Record<string, unknown>>({
   });
 
   // Determine if virtualization should be active
-  const shouldVirtualize = virtualized ?? (paginatedData.length > virtualizeThreshold);
+  const shouldVirtualize = virtualized ?? paginatedData.length > virtualizeThreshold;
 
   // Handle select all
   const handleSelectAll = (checked: boolean) => {
@@ -352,11 +355,7 @@ function DataTable<T extends Record<string, unknown>>({
 
       {/* Loading State */}
       {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
+        <LoadingStateSkeleton lines={5} size="lg" aria-label="Loading table data" />
       ) : paginatedData.length === 0 ? (
         // Empty State
         emptyState || (
@@ -465,7 +464,9 @@ function DataTable<T extends Record<string, unknown>>({
                           <TableCell onClick={(e) => e.stopPropagation()} className="w-12">
                             <Checkbox
                               checked={isSelected}
-                              onCheckedChange={(checked) => handleRowSelect(rowId, checked === true)}
+                              onCheckedChange={(checked) =>
+                                handleRowSelect(rowId, checked === true)
+                              }
                               aria-label={`Select row ${rowIndex + 1}`}
                             />
                           </TableCell>

@@ -108,31 +108,100 @@ export interface ProfileFieldsManagerProps {
 
 // =================== FIELD CATEGORIES ===================
 
-const FIELD_CATEGORIES: Record<string, { name: string; icon: React.ComponentType<{ className?: string }>; keywords: string[] }> = {
+const FIELD_CATEGORIES: Record<
+  string,
+  { name: string; icon: React.ComponentType<{ className?: string }>; keywords: string[] }
+> = {
   personal: {
     name: 'Personal Information',
     icon: User,
-    keywords: ['name', 'first', 'last', 'middle', 'full', 'dob', 'birth', 'gender', 'nationality', 'citizen', 'ssn', 'social', 'passport', 'license', 'id'],
+    keywords: [
+      'name',
+      'first',
+      'last',
+      'middle',
+      'full',
+      'dob',
+      'birth',
+      'gender',
+      'nationality',
+      'citizen',
+      'ssn',
+      'social',
+      'passport',
+      'license',
+      'id',
+    ],
   },
   contact: {
     name: 'Contact Information',
     icon: MapPin,
-    keywords: ['email', 'phone', 'mobile', 'tel', 'address', 'street', 'city', 'state', 'zip', 'postal', 'country', 'apt', 'apartment', 'suite', 'unit'],
+    keywords: [
+      'email',
+      'phone',
+      'mobile',
+      'tel',
+      'address',
+      'street',
+      'city',
+      'state',
+      'zip',
+      'postal',
+      'country',
+      'apt',
+      'apartment',
+      'suite',
+      'unit',
+    ],
   },
   employment: {
     name: 'Employment',
     icon: Briefcase,
-    keywords: ['employer', 'job', 'title', 'occupation', 'company', 'work', 'position', 'department', 'office', 'salary', 'income', 'annual'],
+    keywords: [
+      'employer',
+      'job',
+      'title',
+      'occupation',
+      'company',
+      'work',
+      'position',
+      'department',
+      'office',
+      'salary',
+      'income',
+      'annual',
+    ],
   },
   financial: {
     name: 'Financial',
     icon: CreditCard,
-    keywords: ['bank', 'account', 'routing', 'credit', 'card', 'tax', 'ein', 'tin', 'payment', 'balance', 'amount'],
+    keywords: [
+      'bank',
+      'account',
+      'routing',
+      'credit',
+      'card',
+      'tax',
+      'ein',
+      'tin',
+      'payment',
+      'balance',
+      'amount',
+    ],
   },
   documents: {
     name: 'Document Details',
     icon: FileText,
-    keywords: ['issue', 'expiry', 'expiration', 'number', 'document', 'visa', 'permit', 'certificate'],
+    keywords: [
+      'issue',
+      'expiry',
+      'expiration',
+      'number',
+      'document',
+      'visa',
+      'permit',
+      'certificate',
+    ],
   },
   other: {
     name: 'Other',
@@ -146,7 +215,7 @@ function categorizeField(fieldKey: string): string {
 
   for (const [category, config] of Object.entries(FIELD_CATEGORIES)) {
     if (category === 'other') continue;
-    if (config.keywords.some(keyword => lowerKey.includes(keyword))) {
+    if (config.keywords.some((keyword) => lowerKey.includes(keyword))) {
       return category;
     }
   }
@@ -160,12 +229,15 @@ function formatFieldName(key: string): string {
     .replace(/_/g, ' ')
     .replace(/\./g, ' ')
     .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
     .trim();
 }
 
-function getSourceBadge(source?: string): { label: string; variant: 'default' | 'secondary' | 'outline' } {
+function getSourceBadge(source?: string): {
+  label: string;
+  variant: 'default' | 'secondary' | 'outline';
+} {
   switch (source) {
     case 'ocr':
       return { label: 'OCR', variant: 'secondary' };
@@ -235,10 +307,10 @@ function FieldRow({ fieldKey, value, source, editable, onEdit, onDelete }: Field
               className="h-8"
             />
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleSave}>
-              <Check className="h-4 w-4 text-green-600" />
+              <Check className="h-4 w-4 text-status-success" />
             </Button>
             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
-              <X className="h-4 w-4 text-red-600" />
+              <X className="h-4 w-4 text-status-error" />
             </Button>
           </div>
         ) : (
@@ -270,7 +342,8 @@ function FieldRow({ fieldKey, value, source, editable, onEdit, onDelete }: Field
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Field</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete "{formatFieldName(fieldKey)}"? This action cannot be undone.
+                  Are you sure you want to delete "{formatFieldName(fieldKey)}"? This action cannot
+                  be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

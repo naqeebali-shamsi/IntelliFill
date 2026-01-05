@@ -1,53 +1,53 @@
-import * as React from "react"
-import { useDropzone, type FileRejection, type DropzoneOptions } from "react-dropzone"
-import { cn } from "@/lib/utils"
-import { Upload, File, X, AlertCircle, CheckCircle2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
+import * as React from 'react';
+import { useDropzone, type FileRejection, type DropzoneOptions } from 'react-dropzone';
+import { cn } from '@/lib/utils';
+import { formatFileSize } from '@/utils/fileValidation';
+import { Upload, File, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
-export interface FileUploadZoneProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onDrop"> {
+export interface FileUploadZoneProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onDrop'> {
   /**
    * Callback when files are accepted
    */
-  onFilesAccepted: (files: File[]) => void
+  onFilesAccepted: (files: File[]) => void;
   /**
    * Callback when files are rejected (validation failed)
    */
-  onFilesRejected?: (rejections: FileRejection[]) => void
+  onFilesRejected?: (rejections: FileRejection[]) => void;
   /**
    * Accepted file types (MIME types)
    * @example { 'image/*': ['.png', '.jpg'], 'application/pdf': ['.pdf'] }
    */
-  accept?: DropzoneOptions["accept"]
+  accept?: DropzoneOptions['accept'];
   /**
    * Maximum file size in bytes
    */
-  maxSize?: number
+  maxSize?: number;
   /**
    * Maximum number of files
    */
-  maxFiles?: number
+  maxFiles?: number;
   /**
    * Allow multiple files
    */
-  multiple?: boolean
+  multiple?: boolean;
   /**
    * Disable the upload zone
    */
-  disabled?: boolean
+  disabled?: boolean;
   /**
    * Show accepted file list
    */
-  showFileList?: boolean
+  showFileList?: boolean;
   /**
    * Upload progress (0-100) for showing progress bar
    */
-  uploadProgress?: number
+  uploadProgress?: number;
   /**
    * Custom content to display in the drop zone
    */
-  children?: React.ReactNode
+  children?: React.ReactNode;
 }
 
 /**
@@ -85,73 +85,78 @@ function FileUploadZone({
   className,
   ...props
 }: FileUploadZoneProps) {
-  const [acceptedFiles, setAcceptedFiles] = React.useState<File[]>([])
-  const [rejectedFiles, setRejectedFiles] = React.useState<FileRejection[]>([])
+  const [acceptedFiles, setAcceptedFiles] = React.useState<File[]>([]);
+  const [rejectedFiles, setRejectedFiles] = React.useState<FileRejection[]>([]);
 
   const onDrop = React.useCallback(
     (accepted: File[], rejected: FileRejection[]) => {
-      setAcceptedFiles(accepted)
-      setRejectedFiles(rejected)
+      setAcceptedFiles(accepted);
+      setRejectedFiles(rejected);
 
       if (accepted.length > 0) {
-        onFilesAccepted(accepted)
+        onFilesAccepted(accepted);
       }
 
       if (rejected.length > 0 && onFilesRejected) {
-        onFilesRejected(rejected)
+        onFilesRejected(rejected);
       }
     },
     [onFilesAccepted, onFilesRejected]
-  )
+  );
 
-  const {
-    getRootProps,
-    getInputProps,
-    isDragActive,
-    isDragAccept,
-    isDragReject,
-  } = useDropzone({
-    onDrop,
-    accept,
-    maxSize,
-    maxFiles,
-    multiple,
-    disabled,
-  })
+  const { getRootProps, getInputProps, isDragActive, isDragAccept, isDragReject, open } =
+    useDropzone({
+      onDrop,
+      accept,
+      maxSize,
+      maxFiles,
+      multiple,
+      disabled,
+      noClick: true, // Disable default click to handle manually
+      noKeyboard: true, // Disable default keyboard to handle manually
+    });
 
   const removeFile = (index: number) => {
-    setAcceptedFiles((files) => files.filter((_, i) => i !== index))
-  }
+    setAcceptedFiles((files) => files.filter((_, i) => i !== index));
+  };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
-  }
+  // Keyboard accessibility handler
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      open(); // Open file picker dialog
+    }
+  };
+
+  // Click handler
+  const handleClick = () => {
+    if (!disabled) {
+      open();
+    }
+  };
 
   return (
-    <div
-      data-slot="file-upload-zone"
-      className={cn("space-y-4", className)}
-      {...props}
-    >
+    <div data-slot="file-upload-zone" className={cn('space-y-4', className)} {...props}>
       {/* Drop Zone */}
       <div
         {...getRootProps()}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
         className={cn(
-          "relative flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer",
-          "hover:border-primary hover:bg-accent/50",
-          isDragActive && "border-primary bg-accent/50",
-          isDragAccept && "border-green-500 bg-green-50 dark:bg-green-950",
-          isDragReject && "border-red-500 bg-red-50 dark:bg-red-950",
-          disabled && "opacity-50 cursor-not-allowed pointer-events-none",
-          !isDragActive && "border-border bg-background"
+          'relative flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-8 transition-colors cursor-pointer',
+          'hover:border-primary hover:bg-accent/50',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          isDragActive && 'border-primary bg-accent/50',
+          isDragAccept && 'border-status-success bg-status-success/10',
+          isDragReject && 'border-status-error bg-status-error/10',
+          disabled && 'opacity-50 cursor-not-allowed pointer-events-none',
+          !isDragActive && 'border-border bg-background'
         )}
         role="button"
-        aria-label="File upload drop zone"
-        tabIndex={0}
+        aria-label="File upload drop zone. Press Enter or Space to select files"
+        tabIndex={disabled ? -1 : 0}
       >
         <input {...getInputProps()} aria-label="File upload input" />
 
@@ -160,8 +165,8 @@ function FileUploadZone({
             <div className="rounded-full bg-primary/10 p-4">
               <Upload
                 className={cn(
-                  "h-8 w-8 text-primary transition-transform",
-                  isDragActive && "scale-110"
+                  'h-8 w-8 text-primary transition-transform',
+                  isDragActive && 'scale-110'
                 )}
                 aria-hidden="true"
               />
@@ -169,15 +174,13 @@ function FileUploadZone({
 
             <div className="text-center space-y-2">
               <p className="text-sm font-medium">
-                {isDragActive
-                  ? "Drop files here"
-                  : "Drag and drop files here, or click to browse"}
+                {isDragActive ? 'Drop files here' : 'Drag and drop files here, or click to browse'}
               </p>
               <p className="text-xs text-muted-foreground">
                 {accept
-                  ? `Accepted: ${Object.values(accept).flat().join(", ")}`
-                  : "All file types accepted"}
-                {" "}• Max size: {formatFileSize(maxSize)}
+                  ? `Accepted: ${Object.values(accept).flat().join(', ')}`
+                  : 'All file types accepted'}{' '}
+                • Max size: {formatFileSize(maxSize)}
                 {multiple && ` • Max files: ${maxFiles}`}
               </p>
             </div>
@@ -187,12 +190,7 @@ function FileUploadZone({
 
       {/* Upload Progress */}
       {uploadProgress !== undefined && uploadProgress > 0 && uploadProgress < 100 && (
-        <Progress
-          value={uploadProgress}
-          showPercentage
-          label="Uploading..."
-          variant="default"
-        />
+        <Progress value={uploadProgress} showPercentage label="Uploading..." variant="default" />
       )}
 
       {/* Accepted Files List */}
@@ -205,12 +203,10 @@ function FileUploadZone({
                 key={`${file.name}-${index}`}
                 className="flex items-center gap-3 rounded-lg border bg-card p-3"
               >
-                <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                <CheckCircle2 className="h-5 w-5 text-status-success shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(file.size)}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -242,11 +238,11 @@ function FileUploadZone({
                   <ul className="text-xs text-destructive space-y-1 mt-1">
                     {errors.map((error) => (
                       <li key={error.code}>
-                        {error.code === "file-too-large"
+                        {error.code === 'file-too-large'
                           ? `File is too large. Max size: ${formatFileSize(maxSize)}`
-                          : error.code === "file-invalid-type"
-                          ? "Invalid file type"
-                          : error.message}
+                          : error.code === 'file-invalid-type'
+                            ? 'Invalid file type'
+                            : error.message}
                       </li>
                     ))}
                   </ul>
@@ -257,7 +253,7 @@ function FileUploadZone({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /**
@@ -267,27 +263,27 @@ export interface FileUploadButtonProps {
   /**
    * Callback when files are selected
    */
-  onFilesSelected: (files: File[]) => void
+  onFilesSelected: (files: File[]) => void;
   /**
    * Button label
    */
-  label?: string
+  label?: string;
   /**
    * Button variant
    */
-  variant?: "default" | "secondary" | "outline" | "ghost"
+  variant?: 'default' | 'secondary' | 'outline' | 'ghost';
   /**
    * Accepted file types
    */
-  accept?: string
+  accept?: string;
   /**
    * Allow multiple files
    */
-  multiple?: boolean
+  multiple?: boolean;
   /**
    * Disable the button
    */
-  disabled?: boolean
+  disabled?: boolean;
 }
 
 /**
@@ -302,28 +298,28 @@ export interface FileUploadButtonProps {
  */
 function FileUploadButton({
   onFilesSelected,
-  label = "Upload Files",
-  variant = "default",
+  label = 'Upload Files',
+  variant = 'default',
   accept,
   multiple = false,
   disabled = false,
 }: FileUploadButtonProps) {
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
-    inputRef.current?.click()
-  }
+    inputRef.current?.click();
+  };
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
+    const files = Array.from(event.target.files || []);
     if (files.length > 0) {
-      onFilesSelected(files)
+      onFilesSelected(files);
     }
     // Reset input to allow uploading the same file again
     if (inputRef.current) {
-      inputRef.current.value = ""
+      inputRef.current.value = '';
     }
-  }
+  };
 
   return (
     <>
@@ -336,17 +332,12 @@ function FileUploadButton({
         className="sr-only"
         aria-label="File input"
       />
-      <Button
-        variant={variant}
-        onClick={handleClick}
-        disabled={disabled}
-        aria-label={label}
-      >
+      <Button variant={variant} onClick={handleClick} disabled={disabled} aria-label={label}>
         <Upload className="mr-2 h-4 w-4" />
         {label}
       </Button>
     </>
-  )
+  );
 }
 
-export { FileUploadZone, FileUploadButton }
+export { FileUploadZone, FileUploadButton };

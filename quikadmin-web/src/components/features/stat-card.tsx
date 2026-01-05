@@ -63,19 +63,19 @@ const variantStyles = {
     decorative: 'text-muted-foreground/5',
   },
   success: {
-    icon: 'text-emerald-500 dark:text-emerald-400',
-    iconBg: 'bg-emerald-500/10 border-emerald-500/20',
-    decorative: 'text-emerald-500/5',
+    icon: 'text-status-success-foreground',
+    iconBg: 'bg-status-success/10 border-status-success/20',
+    decorative: 'text-status-success/5',
   },
   warning: {
-    icon: 'text-amber-500 dark:text-amber-400',
-    iconBg: 'bg-amber-500/10 border-amber-500/20',
-    decorative: 'text-amber-500/5',
+    icon: 'text-status-warning-foreground',
+    iconBg: 'bg-status-warning/10 border-status-warning/20',
+    decorative: 'text-status-warning/5',
   },
   error: {
-    icon: 'text-red-500 dark:text-red-400',
-    iconBg: 'bg-red-500/10 border-red-500/20',
-    decorative: 'text-red-500/5',
+    icon: 'text-status-error-foreground',
+    iconBg: 'bg-status-error/10 border-status-error/20',
+    decorative: 'text-status-error/5',
   },
 } as const;
 

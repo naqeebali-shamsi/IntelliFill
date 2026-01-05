@@ -1,6 +1,6 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@/lib/utils"
+import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 import {
   Clock,
   Loader2,
@@ -9,34 +9,34 @@ import {
   AlertTriangle,
   Info,
   type LucideIcon,
-} from "lucide-react"
+} from 'lucide-react';
 
 const statusBadgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-full border font-medium transition-colors",
+  'inline-flex items-center gap-1.5 rounded-full border font-medium transition-colors',
   {
     variants: {
       status: {
-        pending: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700",
-        processing: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
-        completed: "bg-green-100 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
-        success: "bg-green-100 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
-        failed: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
-        error: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
-        warning: "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300 dark:border-yellow-800",
-        info: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+        pending: 'bg-status-pending text-status-pending-foreground border-border',
+        processing: 'bg-status-pending text-status-pending-foreground border-border',
+        completed: 'bg-status-success text-status-success-foreground border-border',
+        success: 'bg-status-success text-status-success-foreground border-border',
+        failed: 'bg-status-error text-status-error-foreground border-border',
+        error: 'bg-status-error text-status-error-foreground border-border',
+        warning: 'bg-status-warning text-status-warning-foreground border-border',
+        info: 'bg-status-pending text-status-pending-foreground border-border',
       },
       size: {
-        sm: "px-2 py-0.5 text-xs",
-        md: "px-2.5 py-1 text-sm",
-        lg: "px-3 py-1.5 text-base",
+        sm: 'px-2 py-0.5 text-xs',
+        md: 'px-2.5 py-1 text-sm',
+        lg: 'px-3 py-1.5 text-base',
       },
     },
     defaultVariants: {
-      status: "pending",
-      size: "md",
+      status: 'pending',
+      size: 'md',
     },
   }
-)
+);
 
 const statusIconMap: Record<string, LucideIcon> = {
   pending: Clock,
@@ -47,23 +47,22 @@ const statusIconMap: Record<string, LucideIcon> = {
   error: XCircle,
   warning: AlertTriangle,
   info: Info,
-}
+};
 
 export interface StatusBadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof statusBadgeVariants> {
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof statusBadgeVariants> {
   /**
    * Whether to show the status icon
    */
-  showIcon?: boolean
+  showIcon?: boolean;
   /**
    * Custom icon to override the default
    */
-  icon?: LucideIcon
+  icon?: LucideIcon;
   /**
    * Custom label (if not provided, uses status as label)
    */
-  label?: string
+  label?: string;
 }
 
 /**
@@ -92,9 +91,9 @@ function StatusBadge({
   children,
   ...props
 }: StatusBadgeProps) {
-  const Icon = icon || statusIconMap[status || "pending"]
-  const displayLabel = label || children || (status ? capitalizeFirst(status) : "")
-  const isProcessing = status === "processing"
+  const Icon = icon || statusIconMap[status || 'pending'];
+  const displayLabel = label || children || (status ? capitalizeFirst(status) : '');
+  const isProcessing = status === 'processing';
 
   return (
     <div
@@ -107,18 +106,18 @@ function StatusBadge({
       {showIcon && Icon && (
         <Icon
           className={cn(
-            "shrink-0",
-            size === "sm" && "h-3 w-3",
-            size === "md" && "h-3.5 w-3.5",
-            size === "lg" && "h-4 w-4",
-            isProcessing && "animate-spin"
+            'shrink-0',
+            size === 'sm' && 'h-3 w-3',
+            size === 'md' && 'h-3.5 w-3.5',
+            size === 'lg' && 'h-4 w-4',
+            isProcessing && 'animate-spin'
           )}
           aria-hidden="true"
         />
       )}
       {displayLabel && <span>{displayLabel}</span>}
     </div>
-  )
+  );
 }
 
 /**
@@ -128,15 +127,23 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * Status variant
    */
-  status: "pending" | "processing" | "completed" | "success" | "failed" | "error" | "warning" | "info"
+  status:
+    | 'pending'
+    | 'processing'
+    | 'completed'
+    | 'success'
+    | 'failed'
+    | 'error'
+    | 'warning'
+    | 'info';
   /**
    * Size of the dot
    */
-  size?: "sm" | "md" | "lg"
+  size?: 'sm' | 'md' | 'lg';
   /**
    * Whether the dot should pulse (for processing/active states)
    */
-  pulse?: boolean
+  pulse?: boolean;
 }
 
 /**
@@ -148,50 +155,44 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLDivElement> {
  *   <span>Online</span>
  * </div>
  */
-function StatusDot({
-  status,
-  size = "md",
-  pulse = false,
-  className,
-  ...props
-}: StatusDotProps) {
+function StatusDot({ status, size = 'md', pulse = false, className, ...props }: StatusDotProps) {
   const colorMap = {
-    pending: "bg-gray-500",
-    processing: "bg-blue-500",
-    completed: "bg-green-500",
-    success: "bg-green-500",
-    failed: "bg-red-500",
-    error: "bg-red-500",
-    warning: "bg-yellow-500",
-    info: "bg-blue-500",
-  }
+    pending: 'bg-status-pending',
+    processing: 'bg-status-pending',
+    completed: 'bg-status-success',
+    success: 'bg-status-success',
+    failed: 'bg-status-error',
+    error: 'bg-status-error',
+    warning: 'bg-status-warning',
+    info: 'bg-status-pending',
+  };
 
   const sizeMap = {
-    sm: "h-2 w-2",
-    md: "h-2.5 w-2.5",
-    lg: "h-3 w-3",
-  }
+    sm: 'h-2 w-2',
+    md: 'h-2.5 w-2.5',
+    lg: 'h-3 w-3',
+  };
 
   return (
     <div
       data-slot="status-dot"
       className={cn(
-        "rounded-full shrink-0",
+        'rounded-full shrink-0',
         colorMap[status],
         sizeMap[size],
-        pulse && "animate-pulse",
+        pulse && 'animate-pulse',
         className
       )}
       role="status"
       aria-label={`Status: ${status}`}
       {...props}
     />
-  )
+  );
 }
 
 // Helper function to capitalize first letter
 function capitalizeFirst(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1)
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export { StatusBadge, StatusDot, statusBadgeVariants }
+export { StatusBadge, StatusDot, statusBadgeVariants };

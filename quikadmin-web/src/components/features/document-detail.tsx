@@ -4,7 +4,7 @@
  * @module components/features/document-detail
  */
 
-import * as React from "react"
+import * as React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,20 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { StatusBadge } from "./status-badge"
-import { OCRConfidenceAlert } from "./ocr-confidence-alert"
-import { cn } from "@/lib/utils"
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StatusBadge } from './status-badge';
+import { OCRConfidenceAlert } from './ocr-confidence-alert';
+import { cn } from '@/lib/utils';
 import {
   FileText,
   Download,
@@ -38,37 +33,33 @@ import {
   FileType,
   Clock,
   CheckCircle2,
-} from "lucide-react"
-import { useDocumentDetail } from "@/hooks/useDocumentDetail"
-import { useDocumentActions } from "@/hooks/useDocumentActions"
-import {
-  Document,
-  formatFileSize,
-  getFriendlyFileType,
-  getFileTypeCategory,
-} from "@/types/document"
-import { format } from "date-fns"
+} from 'lucide-react';
+import { useDocumentDetail } from '@/hooks/useDocumentDetail';
+import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { Document, getFriendlyFileType, getFileTypeCategory } from '@/types/document';
+import { formatFileSize } from '@/utils/fileValidation';
+import { format } from 'date-fns';
 
 export interface DocumentDetailProps {
   /**
    * Document ID to display
    */
-  documentId: string | null
+  documentId: string | null;
 
   /**
    * Dialog open state
    */
-  open: boolean
+  open: boolean;
 
   /**
    * Close callback
    */
-  onClose: () => void
+  onClose: () => void;
 
   /**
    * Optional document data (to avoid refetch if already available)
    */
-  initialDocument?: Document
+  initialDocument?: Document;
 }
 
 /**
@@ -91,26 +82,31 @@ export function DocumentDetail({
   onClose,
   initialDocument,
 }: DocumentDetailProps) {
-  const { data: document, isLoading, error } = useDocumentDetail(documentId, {
+  const {
+    data: document,
+    isLoading,
+    error,
+  } = useDocumentDetail(documentId, {
     initialData: initialDocument,
-  })
-  const { downloadDocument, deleteDocument, isDeleting, reprocessDocument, isReprocessing } = useDocumentActions()
+  });
+  const { downloadDocument, deleteDocument, isDeleting, reprocessDocument, isReprocessing } =
+    useDocumentActions();
 
   const handleDownload = async () => {
-    if (!document) return
-    await downloadDocument({ id: document.id, fileName: document.fileName })
-  }
+    if (!document) return;
+    await downloadDocument({ id: document.id, fileName: document.fileName });
+  };
 
   const handleDelete = async () => {
-    if (!document) return
-    await deleteDocument(document.id)
-    onClose()
-  }
+    if (!document) return;
+    await deleteDocument(document.id);
+    onClose();
+  };
 
   const handleReprocess = async () => {
-    if (!document) return
-    await reprocessDocument(document.id)
-  }
+    if (!document) return;
+    await reprocessDocument(document.id);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -177,7 +173,7 @@ export function DocumentDetail({
               <Button
                 variant="outline"
                 onClick={handleDownload}
-                disabled={document.status !== "completed"}
+                disabled={document.status !== 'completed'}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
@@ -186,26 +182,22 @@ export function DocumentDetail({
                 <Button
                   variant="secondary"
                   onClick={handleReprocess}
-                  disabled={isReprocessing || document.status === "processing"}
+                  disabled={isReprocessing || document.status === 'processing'}
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  {isReprocessing ? "Reprocessing..." : "Reprocess OCR"}
+                  {isReprocessing ? 'Reprocessing...' : 'Reprocess OCR'}
                 </Button>
               )}
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={isDeleting}
-              >
+              <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
                 <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </Button>
             </DialogFooter>
           </>
         ) : null}
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 /**
@@ -215,25 +207,25 @@ function MetadataSection({ document }: { document: Document }) {
   const metadata = [
     {
       icon: <FileType className="h-4 w-4" />,
-      label: "File Type",
+      label: 'File Type',
       value: getFriendlyFileType(document.fileType),
     },
     {
       icon: <HardDrive className="h-4 w-4" />,
-      label: "File Size",
+      label: 'File Size',
       value: formatFileSize(document.fileSize),
     },
     {
       icon: <Calendar className="h-4 w-4" />,
-      label: "Uploaded",
-      value: format(new Date(document.createdAt), "PPp"),
+      label: 'Uploaded',
+      value: format(new Date(document.createdAt), 'PPp'),
     },
     ...(document.processedAt
       ? [
           {
             icon: <CheckCircle2 className="h-4 w-4" />,
-            label: "Processed",
-            value: format(new Date(document.processedAt), "PPp"),
+            label: 'Processed',
+            value: format(new Date(document.processedAt), 'PPp'),
           },
         ]
       : []),
@@ -241,7 +233,7 @@ function MetadataSection({ document }: { document: Document }) {
       ? [
           {
             icon: <FileText className="h-4 w-4" />,
-            label: "Pages",
+            label: 'Pages',
             value: document.pageCount.toString(),
           },
         ]
@@ -250,20 +242,18 @@ function MetadataSection({ document }: { document: Document }) {
       ? [
           {
             icon: <Target className="h-4 w-4" />,
-            label: "Confidence",
+            label: 'Confidence',
             value: `${Math.round(document.confidence * 100)}%`,
           },
         ]
       : []),
-  ]
+  ];
 
   return (
     <dl className="grid grid-cols-2 gap-4">
       {metadata.map((item, index) => (
         <div key={index} className="flex items-start gap-3">
-          <div className="rounded bg-muted p-2 text-muted-foreground">
-            {item.icon}
-          </div>
+          <div className="rounded bg-muted p-2 text-muted-foreground">{item.icon}</div>
           <div className="space-y-0.5">
             <dt className="text-xs text-muted-foreground">{item.label}</dt>
             <dd className="font-medium">{item.value}</dd>
@@ -271,29 +261,27 @@ function MetadataSection({ document }: { document: Document }) {
         </div>
       ))}
     </dl>
-  )
+  );
 }
 
 /**
  * Extracted data section component
  */
 function ExtractedDataSection({ document }: { document: Document }) {
-  if (document.status !== "completed") {
+  if (document.status !== 'completed') {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
         <p className="text-muted-foreground">
-          {document.status === "processing"
-            ? "Document is still being processed"
-            : document.status === "failed"
-            ? "Document processing failed"
-            : "No extracted data available"}
+          {document.status === 'processing'
+            ? 'Document is still being processed'
+            : document.status === 'failed'
+              ? 'Document processing failed'
+              : 'No extracted data available'}
         </p>
-        {document.error && (
-          <p className="text-sm text-destructive mt-2">{document.error}</p>
-        )}
+        {document.error && <p className="text-sm text-destructive mt-2">{document.error}</p>}
       </div>
-    )
+    );
   }
 
   if (!document.extractedData || Object.keys(document.extractedData).length === 0) {
@@ -302,7 +290,7 @@ function ExtractedDataSection({ document }: { document: Document }) {
         <FileText className="h-12 w-12 text-muted-foreground mb-3" />
         <p className="text-muted-foreground">No extracted data available</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -313,15 +301,15 @@ function ExtractedDataSection({ document }: { document: Document }) {
           className="flex justify-between items-start gap-4 p-3 rounded-lg border bg-muted/50"
         >
           <span className="text-sm font-medium text-muted-foreground capitalize">
-            {key.replace(/_/g, " ")}:
+            {key.replace(/_/g, ' ')}:
           </span>
           <span className="text-sm text-right max-w-md truncate" title={String(value)}>
-            {typeof value === "object" ? JSON.stringify(value) : String(value)}
+            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
           </span>
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 /**
@@ -331,17 +319,17 @@ function HistorySection({ document }: { document: Document }) {
   const events = [
     {
       icon: <Calendar className="h-4 w-4" />,
-      label: "Document Uploaded",
+      label: 'Document Uploaded',
       timestamp: document.createdAt,
-      variant: "default" as const,
+      variant: 'default' as const,
     },
     ...(document.updatedAt && document.updatedAt !== document.createdAt
       ? [
           {
             icon: <Clock className="h-4 w-4" />,
-            label: "Document Updated",
+            label: 'Document Updated',
             timestamp: document.updatedAt,
-            variant: "default" as const,
+            variant: 'default' as const,
           },
         ]
       : []),
@@ -349,23 +337,23 @@ function HistorySection({ document }: { document: Document }) {
       ? [
           {
             icon: <CheckCircle2 className="h-4 w-4" />,
-            label: "Processing Completed",
+            label: 'Processing Completed',
             timestamp: document.processedAt,
-            variant: "success" as const,
+            variant: 'success' as const,
           },
         ]
       : []),
-    ...(document.status === "failed" && document.error
+    ...(document.status === 'failed' && document.error
       ? [
           {
             icon: <AlertCircle className="h-4 w-4" />,
             label: `Processing Failed: ${document.error}`,
             timestamp: document.updatedAt || document.createdAt,
-            variant: "error" as const,
+            variant: 'error' as const,
           },
         ]
       : []),
-  ]
+  ];
 
   return (
     <div className="space-y-4">
@@ -373,10 +361,10 @@ function HistorySection({ document }: { document: Document }) {
         <div key={index} className="flex items-start gap-3">
           <div
             className={cn(
-              "rounded p-2",
-              event.variant === "success" && "bg-green-100 dark:bg-green-900/20 text-green-600",
-              event.variant === "error" && "bg-red-100 dark:bg-red-900/20 text-red-600",
-              event.variant === "default" && "bg-muted text-muted-foreground"
+              'rounded p-2',
+              event.variant === 'success' && 'bg-status-success/10 text-status-success-foreground',
+              event.variant === 'error' && 'bg-status-error/10 text-status-error-foreground',
+              event.variant === 'default' && 'bg-muted text-muted-foreground'
             )}
           >
             {event.icon}
@@ -384,13 +372,13 @@ function HistorySection({ document }: { document: Document }) {
           <div className="flex-1 space-y-1">
             <p className="text-sm font-medium">{event.label}</p>
             <p className="text-xs text-muted-foreground">
-              {format(new Date(event.timestamp), "PPp")}
+              {format(new Date(event.timestamp), 'PPp')}
             </p>
           </div>
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 /**
@@ -416,7 +404,7 @@ function DocumentDetailSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -430,5 +418,5 @@ function DocumentDetailError({ error, onClose }: { error: string; onClose: () =>
       <DialogDescription className="mb-4">{error}</DialogDescription>
       <Button onClick={onClose}>Close</Button>
     </div>
-  )
+  );
 }

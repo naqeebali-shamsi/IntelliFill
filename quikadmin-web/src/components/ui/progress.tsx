@@ -1,71 +1,69 @@
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
-import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "@/lib/utils"
+import * as React from 'react';
+import * as ProgressPrimitive from '@radix-ui/react-progress';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 
-const progressVariants = cva(
-  "relative w-full overflow-hidden rounded-full",
-  {
-    variants: {
-      size: {
-        sm: "h-1",
-        md: "h-2",
-        lg: "h-3",
-      },
-      variant: {
-        default: "bg-primary/20",
-        success: "bg-green-500/20",
-        warning: "bg-yellow-500/20",
-        error: "bg-red-500/20",
-      },
+const progressVariants = cva('relative w-full overflow-hidden rounded-full', {
+  variants: {
+    size: {
+      sm: 'h-1',
+      md: 'h-2',
+      lg: 'h-3',
     },
-    defaultVariants: {
-      size: "md",
-      variant: "default",
+    variant: {
+      default: 'bg-primary/20',
+      success: 'bg-status-success/20',
+      warning: 'bg-status-warning/20',
+      error: 'bg-status-error/20',
     },
-  }
-)
+  },
+  defaultVariants: {
+    size: 'md',
+    variant: 'default',
+  },
+});
 
 const progressIndicatorVariants = cva(
-  "h-full w-full flex-1 transition-all duration-300 ease-in-out",
+  'h-full w-full flex-1 transition-all duration-300 ease-in-out',
   {
     variants: {
       variant: {
-        default: "bg-primary",
-        success: "bg-green-500",
-        warning: "bg-yellow-500",
-        error: "bg-red-500",
+        default: 'bg-primary',
+        success: 'bg-status-success',
+        warning: 'bg-status-warning',
+        error: 'bg-status-error',
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: 'default',
     },
   }
-)
+);
 
 export interface ProgressProps
-  extends React.ComponentProps<typeof ProgressPrimitive.Root>,
+  extends
+    React.ComponentProps<typeof ProgressPrimitive.Root>,
     VariantProps<typeof progressVariants> {
   /**
    * Progress value (0-100). If undefined, shows indeterminate progress.
    */
-  value?: number
+  value?: number;
   /**
    * Show percentage text
    */
-  showPercentage?: boolean
+  showPercentage?: boolean;
   /**
    * Optional label for the progress bar
    */
-  label?: string
+  label?: string;
   /**
    * Custom percentage formatter
    */
-  formatPercentage?: (value: number) => string
+  formatPercentage?: (value: number) => string;
   /**
    * Indeterminate progress (animated, no specific value)
    */
-  indeterminate?: boolean
+  indeterminate?: boolean;
 }
 
 /**
@@ -84,19 +82,15 @@ function Progress({
   indeterminate = false,
   ...props
 }: ProgressProps) {
-  const clampedValue = indeterminate ? undefined : Math.min(100, Math.max(0, value ?? 0))
+  const clampedValue = indeterminate ? undefined : Math.min(100, Math.max(0, value ?? 0));
 
   return (
     <div data-slot="progress-wrapper" className="w-full">
       {(label || (showPercentage && !indeterminate)) && (
         <div className="mb-2 flex items-center justify-between text-sm">
-          {label && (
-            <span className="font-medium text-foreground">{label}</span>
-          )}
+          {label && <span className="font-medium text-foreground">{label}</span>}
           {showPercentage && !indeterminate && clampedValue !== undefined && (
-            <span className="text-muted-foreground">
-              {formatPercentage(clampedValue)}
-            </span>
+            <span className="text-muted-foreground">{formatPercentage(clampedValue)}</span>
           )}
         </div>
       )}
@@ -104,7 +98,7 @@ function Progress({
         data-slot="progress"
         className={cn(progressVariants({ size, variant }), className)}
         value={clampedValue}
-        aria-label={label || (indeterminate ? "Loading..." : `${clampedValue}% complete`)}
+        aria-label={label || (indeterminate ? 'Loading...' : `${clampedValue}% complete`)}
         aria-valuenow={indeterminate ? undefined : clampedValue}
         aria-valuemin={indeterminate ? undefined : 0}
         aria-valuemax={indeterminate ? undefined : 100}
@@ -114,17 +108,15 @@ function Progress({
           data-slot="progress-indicator"
           className={cn(
             progressIndicatorVariants({ variant }),
-            indeterminate && "w-1/3 animate-progress-indeterminate"
+            indeterminate && 'w-1/3 animate-progress-indeterminate'
           )}
           style={
-            indeterminate
-              ? undefined
-              : { transform: `translateX(-${100 - (clampedValue ?? 0)}%)` }
+            indeterminate ? undefined : { transform: `translateX(-${100 - (clampedValue ?? 0)}%)` }
           }
         />
       </ProgressPrimitive.Root>
     </div>
-  )
+  );
 }
 
 /**
@@ -134,23 +126,23 @@ export interface ProgressCircularProps extends React.HTMLAttributes<HTMLDivEleme
   /**
    * Progress value (0-100)
    */
-  value: number
+  value: number;
   /**
    * Size of the circular progress
    */
-  size?: "sm" | "md" | "lg"
+  size?: 'sm' | 'md' | 'lg';
   /**
    * Stroke width
    */
-  strokeWidth?: number
+  strokeWidth?: number;
   /**
    * Show percentage in center
    */
-  showPercentage?: boolean
+  showPercentage?: boolean;
   /**
    * Color variant
    */
-  variant?: "default" | "success" | "warning" | "error"
+  variant?: 'default' | 'success' | 'warning' | 'error';
 }
 
 /**
@@ -161,37 +153,37 @@ export interface ProgressCircularProps extends React.HTMLAttributes<HTMLDivEleme
  */
 function ProgressCircular({
   value = 0,
-  size = "md",
+  size = 'md',
   strokeWidth = 4,
   showPercentage = false,
-  variant = "default",
+  variant = 'default',
   className,
   ...props
 }: ProgressCircularProps) {
-  const clampedValue = Math.min(100, Math.max(0, value))
+  const clampedValue = Math.min(100, Math.max(0, value));
 
   const sizeMap = {
     sm: 40,
     md: 64,
     lg: 96,
-  }
+  };
 
-  const dimensions = sizeMap[size]
-  const radius = (dimensions - strokeWidth) / 2
-  const circumference = radius * 2 * Math.PI
-  const offset = circumference - (clampedValue / 100) * circumference
+  const dimensions = sizeMap[size];
+  const radius = (dimensions - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (clampedValue / 100) * circumference;
 
   const colorMap = {
-    default: "text-primary",
-    success: "text-green-500",
-    warning: "text-yellow-500",
-    error: "text-red-500",
-  }
+    default: 'text-primary',
+    success: 'text-status-success',
+    warning: 'text-status-warning',
+    error: 'text-status-error',
+  };
 
   return (
     <div
       data-slot="progress-circular"
-      className={cn("relative inline-flex items-center justify-center", className)}
+      className={cn('relative inline-flex items-center justify-center', className)}
       role="progressbar"
       aria-valuenow={clampedValue}
       aria-valuemin={0}
@@ -220,7 +212,7 @@ function ProgressCircular({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className={cn("transition-all duration-300 ease-in-out", colorMap[variant])}
+          className={cn('transition-all duration-300 ease-in-out', colorMap[variant])}
         />
       </svg>
       {showPercentage && (
@@ -229,8 +221,7 @@ function ProgressCircular({
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export { Progress, ProgressCircular, progressVariants, progressIndicatorVariants }
-
+export { Progress, ProgressCircular, progressVariants, progressIndicatorVariants };

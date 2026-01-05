@@ -18,7 +18,8 @@ import {
   Target,
   TrendingUp,
 } from 'lucide-react';
-import { DocumentStatistics as DocumentStatsType, formatFileSize } from '@/types/document';
+import { DocumentStatistics as DocumentStatsType } from '@/types/document';
+import { formatFileSize } from '@/utils/fileValidation';
 
 export interface DocumentStatisticsProps {
   /**
@@ -178,10 +179,10 @@ function StatCardComponent({
 }: StatCardComponentProps) {
   const variantClasses = {
     default: 'text-muted-foreground',
-    success: 'text-green-600 dark:text-green-400',
-    warning: 'text-yellow-600 dark:text-yellow-400',
-    error: 'text-red-600 dark:text-red-400',
-    info: 'text-blue-600 dark:text-blue-400',
+    success: 'text-status-success-foreground',
+    warning: 'text-status-warning-foreground',
+    error: 'text-status-error-foreground',
+    info: 'text-primary',
   };
 
   return (

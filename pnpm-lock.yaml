@@ -271,7 +271,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.2.2(react-hook-form@7.68.0(react@18.3.1))
+        version: 5.2.2(react-hook-form@7.70.0(react@18.3.1))
       '@radix-ui/react-alert-dialog':
         specifier: 1.1.15
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.27))(@types/react@18.3.27)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -347,9 +347,6 @@ importers:
       immer:
         specifier: ^10.2.0
         version: 10.2.0
-      next-themes:
-        specifier: ^0.4.6
-        version: 0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       p-queue:
         specifier: ^9.0.1
         version: 9.0.1
@@ -363,8 +360,8 @@ importers:
         specifier: ^14.3.8
         version: 14.3.8(react@18.3.1)
       react-hook-form:
-        specifier: ^7.67.0
-        version: 7.68.0(react@18.3.1)
+        specifier: ^7.70.0
+        version: 7.70.0(react@18.3.1)
       react-router-dom:
         specifier: ^6.30.2
         version: 6.30.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -8597,15 +8594,6 @@ packages:
       }
     engines: { node: '>= 0.4.0' }
 
-  next-themes@0.4.6:
-    resolution:
-      {
-        integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==,
-      }
-    peerDependencies:
-      react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-
   node-abort-controller@3.1.1:
     resolution:
       {
@@ -9443,10 +9431,10 @@ packages:
     peerDependencies:
       react: '>= 16.8 || 18.0.0'
 
-  react-hook-form@7.68.0:
+  react-hook-form@7.70.0:
     resolution:
       {
-        integrity: sha512-oNN3fjrZ/Xo40SWlHf1yCjlMK417JxoSJVUXQjGdvdRCU07NTFei1i1f8ApUAts+IVh14e4EdakeLEA+BEAs/Q==,
+        integrity: sha512-COOMajS4FI3Wuwrs3GPpi/Jeef/5W1DRR84Yl5/ShlT3dKVFUfoGiEZ/QE6Uw8P4T2/CLJdcTVYKvWBMQTEpvw==,
       }
     engines: { node: '>=18.0.0' }
     peerDependencies:
@@ -12271,10 +12259,10 @@ snapshots:
     dependencies:
       '@hapi/hoek': 9.3.0
 
-  '@hookform/resolvers@5.2.2(react-hook-form@7.68.0(react@18.3.1))':
+  '@hookform/resolvers@5.2.2(react-hook-form@7.70.0(react@18.3.1))':
     dependencies:
       '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.68.0(react@18.3.1)
+      react-hook-form: 7.70.0(react@18.3.1)
 
   '@humanfs/core@0.19.1': {}
 
@@ -16896,11 +16884,6 @@ snapshots:
 
   netmask@2.0.2: {}
 
-  next-themes@0.4.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
-    dependencies:
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-
   node-abort-controller@3.1.1: {}
 
   node-addon-api@8.5.0: {}
@@ -17407,7 +17390,7 @@ snapshots:
       prop-types: 15.8.1
       react: 18.3.1
 
-  react-hook-form@7.68.0(react@18.3.1):
+  react-hook-form@7.70.0(react@18.3.1):
     dependencies:
       react: 18.3.1
 

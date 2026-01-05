@@ -4,34 +4,21 @@
  * @module components/knowledge/SuggestionPopover
  */
 
-import * as React from 'react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sparkles, FileText, Check, ChevronDown, Lightbulb, Info, Loader2 } from 'lucide-react';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Sparkles,
-  FileText,
-  Check,
-  ChevronDown,
-  Lightbulb,
-  Info,
-  Loader2,
-} from 'lucide-react'
-import { useKnowledgeStore, useFieldSuggestions, useSuggestionsLoading } from '@/stores/knowledgeStore'
-import { FieldSuggestion } from '@/services/knowledgeService'
-import { cn } from '@/lib/utils'
+  useKnowledgeStore,
+  useFieldSuggestions,
+  useSuggestionsLoading,
+} from '@/stores/knowledgeStore';
+import { FieldSuggestion } from '@/services/knowledgeService';
+import { cn } from '@/lib/utils';
 
 // ============================================================================
 // Types
@@ -41,43 +28,43 @@ export interface SuggestionPopoverProps {
   /**
    * Field name to get suggestions for
    */
-  fieldName: string
+  fieldName: string;
   /**
    * Field type hint for better suggestions
    */
-  fieldType?: 'text' | 'date' | 'email' | 'phone' | 'number' | 'address' | 'name'
+  fieldType?: 'text' | 'date' | 'email' | 'phone' | 'number' | 'address' | 'name';
   /**
    * Current field value (for contextual suggestions)
    */
-  currentValue?: string
+  currentValue?: string;
   /**
    * Other filled field values (for contextual suggestions)
    */
-  filledFields?: Record<string, string>
+  filledFields?: Record<string, string>;
   /**
    * Callback when a suggestion is selected
    */
-  onSelect: (value: string) => void
+  onSelect: (value: string) => void;
   /**
    * Custom trigger element (defaults to sparkle icon button)
    */
-  trigger?: React.ReactNode
+  trigger?: React.ReactNode;
   /**
    * Whether the popover is disabled
    */
-  disabled?: boolean
+  disabled?: boolean;
   /**
    * Additional class names for the trigger
    */
-  className?: string
+  className?: string;
   /**
    * Popover alignment
    */
-  align?: 'start' | 'center' | 'end'
+  align?: 'start' | 'center' | 'end';
   /**
    * Popover side
    */
-  side?: 'top' | 'right' | 'bottom' | 'left'
+  side?: 'top' | 'right' | 'bottom' | 'left';
 }
 
 // ============================================================================
@@ -89,26 +76,29 @@ function SuggestionItem({
   onSelect,
   isSelected,
 }: {
-  suggestion: FieldSuggestion
-  onSelect: () => void
-  isSelected: boolean
+  suggestion: FieldSuggestion;
+  onSelect: () => void;
+  isSelected: boolean;
 }) {
-  const confidence = Math.round(suggestion.confidence * 100)
+  const confidence = Math.round(suggestion.confidence * 100);
 
   // Determine confidence badge color
   const confidenceColor =
     confidence >= 80
-      ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+      ? 'bg-status-success/10 text-status-success-foreground'
       : confidence >= 60
-        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
-        : 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+        ? 'bg-status-warning/10 text-status-warning-foreground'
+        : 'bg-status-warning/10 text-status-warning-foreground';
 
   // Extraction method badge
   const methodBadge = {
-    regex: { label: 'Pattern', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-    semantic: { label: 'Semantic', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' },
-    context: { label: 'Context', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  }[suggestion.extractionMethod] || { label: suggestion.extractionMethod, color: 'bg-gray-100 text-gray-700' }
+    regex: { label: 'Pattern', color: 'bg-primary/10 text-primary' },
+    semantic: { label: 'Semantic', color: 'bg-secondary/50 text-secondary-foreground' },
+    context: { label: 'Context', color: 'bg-muted text-muted-foreground' },
+  }[suggestion.extractionMethod] || {
+    label: suggestion.extractionMethod,
+    color: 'bg-muted text-muted-foreground',
+  };
 
   return (
     <button
@@ -154,7 +144,7 @@ function SuggestionItem({
         </div>
       </div>
     </button>
-  )
+  );
 }
 
 function LoadingSuggestions() {
@@ -170,7 +160,7 @@ function LoadingSuggestions() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 function EmptySuggestions() {
@@ -178,11 +168,9 @@ function EmptySuggestions() {
     <div className="p-4 text-center text-muted-foreground">
       <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
       <p className="text-sm font-medium">No suggestions found</p>
-      <p className="text-xs mt-1">
-        Upload more documents to improve suggestions
-      </p>
+      <p className="text-xs mt-1">Upload more documents to improve suggestions</p>
     </div>
-  )
+  );
 }
 
 // ============================================================================
@@ -201,17 +189,18 @@ export function SuggestionPopover({
   align = 'start',
   side = 'bottom',
 }: SuggestionPopoverProps) {
-  const [open, setOpen] = React.useState(false)
-  const [selectedIndex, setSelectedIndex] = React.useState(-1)
+  const [open, setOpen] = React.useState(false);
+  const [selectedIndex, setSelectedIndex] = React.useState(-1);
 
   // Store state and actions
-  const suggestions = useFieldSuggestions(fieldName)
-  const suggestionsLoading = useSuggestionsLoading()
-  const { fetchFieldSuggestions, fetchContextualSuggestions, clearSuggestions } = useKnowledgeStore()
+  const suggestions = useFieldSuggestions(fieldName);
+  const suggestionsLoading = useSuggestionsLoading();
+  const { fetchFieldSuggestions, fetchContextualSuggestions, clearSuggestions } =
+    useKnowledgeStore();
 
   // Fetch suggestions when popover opens
   React.useEffect(() => {
-    if (!open) return
+    if (!open) return;
 
     // Use contextual suggestions if we have filled fields
     if (filledFields && Object.keys(filledFields).length > 0) {
@@ -219,57 +208,65 @@ export function SuggestionPopover({
         fieldName,
         filledFields,
         maxSuggestions: 5,
-      })
+      });
     } else {
       fetchFieldSuggestions({
         fieldName,
         fieldType,
         context: currentValue,
         maxSuggestions: 5,
-      })
+      });
     }
-  }, [open, fieldName, fieldType, currentValue, filledFields, fetchFieldSuggestions, fetchContextualSuggestions])
+  }, [
+    open,
+    fieldName,
+    fieldType,
+    currentValue,
+    filledFields,
+    fetchFieldSuggestions,
+    fetchContextualSuggestions,
+  ]);
 
   // Handle suggestion selection
   const handleSelect = (suggestion: FieldSuggestion) => {
-    onSelect(suggestion.value)
-    setOpen(false)
-    setSelectedIndex(-1)
-  }
+    onSelect(suggestion.value);
+    setOpen(false);
+    setSelectedIndex(-1);
+  };
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) return
+    if (!open) return;
 
     switch (e.key) {
       case 'ArrowDown':
-        e.preventDefault()
-        setSelectedIndex((prev) => Math.min(prev + 1, suggestions.length - 1))
-        break
+        e.preventDefault();
+        setSelectedIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
+        break;
       case 'ArrowUp':
-        e.preventDefault()
-        setSelectedIndex((prev) => Math.max(prev - 1, 0))
-        break
+        e.preventDefault();
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        break;
       case 'Enter':
-        e.preventDefault()
+        e.preventDefault();
         if (selectedIndex >= 0 && suggestions[selectedIndex]) {
-          handleSelect(suggestions[selectedIndex])
+          handleSelect(suggestions[selectedIndex]);
         }
-        break
+        break;
       case 'Escape':
-        e.preventDefault()
-        setOpen(false)
-        setSelectedIndex(-1)
-        break
+        e.preventDefault();
+        setOpen(false);
+        setSelectedIndex(-1);
+        break;
     }
-  }
+  };
 
   // Clean up on unmount
   React.useEffect(() => {
     return () => {
-      clearSuggestions(fieldName)
-    }
-  }, [fieldName, clearSuggestions])
+      clearSuggestions(fieldName);
+    };
+  }, [fieldName, clearSuggestions]);
 
   // Default trigger
   const defaultTrigger = (
@@ -283,19 +280,12 @@ export function SuggestionPopover({
       <Sparkles className="h-4 w-4" />
       <span className="sr-only">Get suggestions for {fieldName}</span>
     </Button>
-  )
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {trigger || defaultTrigger}
-      </PopoverTrigger>
-      <PopoverContent
-        align={align}
-        side={side}
-        className="w-80 p-0"
-        onKeyDown={handleKeyDown}
-      >
+      <PopoverTrigger asChild>{trigger || defaultTrigger}</PopoverTrigger>
+      <PopoverContent align={align} side={side} className="w-80 p-0" onKeyDown={handleKeyDown}>
         {/* Header */}
         <div className="px-3 py-2 border-b">
           <div className="flex items-center gap-2">
@@ -305,9 +295,7 @@ export function SuggestionPopover({
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-auto" />
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            From your knowledge base
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">From your knowledge base</p>
         </div>
 
         {/* Content */}
@@ -341,7 +329,7 @@ export function SuggestionPopover({
         )}
       </PopoverContent>
     </Popover>
-  )
+  );
 }
 
 // ============================================================================
@@ -351,11 +339,14 @@ export function SuggestionPopover({
 /**
  * SuggestionInput - Input with integrated suggestion button
  */
-export interface SuggestionInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onSelect'> {
-  fieldName: string
-  fieldType?: SuggestionPopoverProps['fieldType']
-  filledFields?: Record<string, string>
-  onValueChange?: (value: string) => void
+export interface SuggestionInputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'onSelect'
+> {
+  fieldName: string;
+  fieldType?: SuggestionPopoverProps['fieldType'];
+  filledFields?: Record<string, string>;
+  onValueChange?: (value: string) => void;
 }
 
 export function SuggestionInput({
@@ -368,24 +359,24 @@ export function SuggestionInput({
   onChange,
   ...props
 }: SuggestionInputProps) {
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleSuggestionSelect = (suggestionValue: string) => {
     // Update via callback
-    onValueChange?.(suggestionValue)
+    onValueChange?.(suggestionValue);
 
     // Also update via native event for form libraries
     if (inputRef.current) {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype,
         'value'
-      )?.set
-      nativeInputValueSetter?.call(inputRef.current, suggestionValue)
+      )?.set;
+      nativeInputValueSetter?.call(inputRef.current, suggestionValue);
 
-      const event = new Event('input', { bubbles: true })
-      inputRef.current.dispatchEvent(event)
+      const event = new Event('input', { bubbles: true });
+      inputRef.current.dispatchEvent(event);
     }
-  }
+  };
 
   return (
     <div className="relative">
@@ -415,7 +406,7 @@ export function SuggestionInput({
         />
       </div>
     </div>
-  )
+  );
 }
 
-export default SuggestionPopover
+export default SuggestionPopover;
