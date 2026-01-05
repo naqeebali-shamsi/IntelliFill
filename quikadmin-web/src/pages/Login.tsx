@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { DemoLoginButton } from '@/components/features/demo-login-button';
+import { ErrorCode } from '@/constants/errorCodes';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -79,9 +80,9 @@ export default function Login() {
       console.error('Login error:', err);
       // Error is already set in the store by the login action
       // Show toast for better UX
-      if (err.code === 'ACCOUNT_LOCKED') {
+      if (err.code === ErrorCode.ACCOUNT_LOCKED) {
         toast.error('Account locked due to multiple failed attempts');
-      } else if (err.code === 'INVALID_CREDENTIALS') {
+      } else if (err.code === ErrorCode.INVALID_CREDENTIALS) {
         toast.error('Invalid email or password');
       } else {
         toast.error(err.message || 'Login failed. Please try again.');
@@ -105,9 +106,12 @@ export default function Login() {
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-gradient-to-br from-primary/90 to-primary dark:from-primary/80 dark:to-primary/60 p-12 flex-col justify-between relative overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}
+          />
         </div>
 
         {/* Content */}
@@ -125,8 +129,8 @@ export default function Login() {
           </h2>
 
           <p className="text-xl text-white/80 max-w-lg mb-8">
-            Intelligent document processing for UAE PRO agencies. Upload client documents,
-            extract data automatically, and fill government forms in seconds.
+            Intelligent document processing for UAE PRO agencies. Upload client documents, extract
+            data automatically, and fill government forms in seconds.
           </p>
 
           {/* Feature highlights */}
@@ -164,8 +168,8 @@ export default function Login() {
         {/* Testimonial */}
         <div className="relative z-10 mt-auto">
           <blockquote className="text-white/90 text-lg italic">
-            "IntelliFill saves us 4+ hours daily on document processing.
-            It's transformed how we handle visa applications."
+            "IntelliFill saves us 4+ hours daily on document processing. It's transformed how we
+            handle visa applications."
           </blockquote>
           <cite className="block mt-3 text-white/70 text-sm not-italic">
             — PRO Agency Owner, Dubai
@@ -192,161 +196,161 @@ export default function Login() {
               </CardDescription>
             </CardHeader>
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {wasExpired && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>Your session has expired. Please log in again.</AlertDescription>
-              </Alert>
-            )}
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                {wasExpired && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Your session has expired. Please log in again.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {error.message}
-                  {isLocked && lockExpiry && (
-                    <div className="mt-2 text-sm">
-                      Account locked until {new Date(lockExpiry).toLocaleTimeString()}
-                    </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {error.message}
+                      {isLocked && lockExpiry && (
+                        <div className="mt-2 text-sm">
+                          Account locked until {new Date(lockExpiry).toLocaleTimeString()}
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {loginAttempts > 0 && loginAttempts < 5 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {5 - loginAttempts} login attempts remaining
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="companySlug">Company (Optional)</Label>
+                  <Input
+                    id="companySlug"
+                    name="companySlug"
+                    type="text"
+                    placeholder="your-company-slug"
+                    value={formData.companySlug}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    disabled={isLoading}
+                    autoComplete="email"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm text-primary hover:underline"
+                      tabIndex={-1}
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter your password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      disabled={isLoading}
+                      autoComplete="current-password"
+                      className="w-full pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rememberMe"
+                    name="rememberMe"
+                    checked={formData.rememberMe}
+                    onCheckedChange={(checked) => {
+                      setFormData((prev) => ({ ...prev, rememberMe: checked as boolean }));
+                    }}
+                    disabled={isLoading}
+                  />
+                  <label
+                    htmlFor="rememberMe"
+                    className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
+                  >
+                    Remember me
+                  </label>
+                </div>
+              </CardContent>
+
+              <CardFooter className="flex flex-col space-y-4">
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Sign in
+                    </>
                   )}
-                </AlertDescription>
-              </Alert>
-            )}
+                </Button>
 
-            {loginAttempts > 0 && loginAttempts < 5 && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{5 - loginAttempts} login attempts remaining</AlertDescription>
-              </Alert>
-            )}
+                {/* Demo Login - Always visible for demo showcase */}
+                <div className="relative w-full">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">or try demo</span>
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="companySlug">Company (Optional)</Label>
-              <Input
-                id="companySlug"
-                name="companySlug"
-                type="text"
-                placeholder="your-company-slug"
-                value={formData.companySlug}
-                onChange={handleChange}
-                disabled={isLoading}
-                className="w-full"
-              />
-            </div>
+                <DemoLoginButton variant="outline" className="w-full" disabled={isLoading}>
+                  Try Demo - No Account Needed
+                </DemoLoginButton>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="name@example.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                disabled={isLoading}
-                autoComplete="email"
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  to="/forgot-password"
-                  className="text-sm text-primary hover:underline"
-                  tabIndex={-1}
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  disabled={isLoading}
-                  autoComplete="current-password"
-                  className="w-full pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="rememberMe"
-                name="rememberMe"
-                checked={formData.rememberMe}
-                onCheckedChange={(checked) => {
-                  setFormData((prev) => ({ ...prev, rememberMe: checked as boolean }));
-                }}
-                disabled={isLoading}
-              />
-              <label
-                htmlFor="rememberMe"
-                className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
-              >
-                Remember me
-              </label>
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Sign in
-                </>
-              )}
-            </Button>
-
-            {/* Demo Login - Always visible for demo showcase */}
-            <div className="relative w-full">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="w-full" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">or try demo</span>
-              </div>
-            </div>
-
-            <DemoLoginButton
-              variant="outline"
-              className="w-full"
-              disabled={isLoading}
-            >
-              Try Demo - No Account Needed
-            </DemoLoginButton>
-
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{' '}
-              <Link to="/register" className="font-medium text-primary hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
+                <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+                  Don't have an account?{' '}
+                  <Link to="/register" className="font-medium text-primary hover:underline">
+                    Sign up
+                  </Link>
+                </p>
+              </CardFooter>
+            </form>
           </Card>
 
           {/* Mobile demo features */}

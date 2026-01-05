@@ -1,6 +1,6 @@
 /**
  * Template Store
- * 
+ *
  * Zustand store for managing template state and operations.
  * Handles template CRUD operations with React Query integration.
  */
@@ -8,6 +8,16 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+
+// Task 296: Helper to conditionally apply devtools only in development mode
+const applyDevtools = <T>(middleware: T) => {
+  if (import.meta.env.DEV) {
+    return devtools(middleware as any, {
+      name: 'IntelliFill Template Store',
+    }) as T;
+  }
+  return middleware;
+};
 import type { MappingTemplate } from '@/types/formFilling';
 import * as formService from '@/services/formService';
 
@@ -90,7 +100,7 @@ const initialState: TemplateState = {
 };
 
 export const useTemplateStore = create<TemplateStore>()(
-  devtools(
+  applyDevtools(
     immer((set, get) => ({
       ...initialState,
 
@@ -139,9 +149,7 @@ export const useTemplateStore = create<TemplateStore>()(
         }
       },
 
-      createTemplate: async (
-        template: Omit<MappingTemplate, 'id' | 'createdAt' | 'updatedAt'>
-      ) => {
+      createTemplate: async (template: Omit<MappingTemplate, 'id' | 'createdAt' | 'updatedAt'>) => {
         set((state) => {
           state.isLoading = true;
           state.error = null;
@@ -245,10 +253,6 @@ export const useTemplateStore = create<TemplateStore>()(
           state.error = null;
         });
       },
-    })),
-    {
-      name: 'Template Store',
-    }
+    }))
   )
 );
-

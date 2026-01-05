@@ -8,15 +8,20 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import {
-  DocumentFilter,
-  DocumentSort,
-  DocumentViewMode,
-  DateRangePreset,
-} from '@/types/document';
+import { DocumentFilter, DocumentSort, DocumentViewMode, DateRangePreset } from '@/types/document';
 
 // Import React for useMemo
 import * as React from 'react';
+
+// Task 296: Helper to conditionally apply devtools only in development mode
+const applyDevtools = <T>(middleware: T) => {
+  if (import.meta.env.DEV) {
+    return devtools(middleware as any, {
+      name: 'IntelliFill Document Store',
+    }) as T;
+  }
+  return middleware;
+};
 
 // =================== STORE INTERFACES ===================
 
@@ -257,7 +262,7 @@ function getDateRangeFromPreset(preset: DateRangePreset): { start: Date | null; 
 // =================== STORE IMPLEMENTATION ===================
 
 export const useDocumentStore = create<DocumentStore>()(
-  devtools(
+  applyDevtools(
     persist(
       immer((set, get) => ({
         ...initialState,
@@ -438,10 +443,7 @@ export const useDocumentStore = create<DocumentStore>()(
           pageSize: state.pageSize,
         }),
       }
-    ),
-    {
-      name: 'Document Library Store',
-    }
+    )
   )
 );
 
@@ -500,7 +502,16 @@ export const useDocumentSelection = () => {
       clearSelection,
       isSelected,
     }),
-    [selectedIds, selectionCount, selectDocument, deselectDocument, toggleDocument, selectAll, clearSelection, isSelected]
+    [
+      selectedIds,
+      selectionCount,
+      selectDocument,
+      deselectDocument,
+      toggleDocument,
+      selectAll,
+      clearSelection,
+      isSelected,
+    ]
   );
 };
 
@@ -542,7 +553,16 @@ export const useDocumentFilters = () => {
       setDateRangePreset,
       applyDateRangePreset,
     }),
-    [filter, setFilter, clearFilter, setSearchQuery, hasActiveFilters, dateRangePreset, setDateRangePreset, applyDateRangePreset]
+    [
+      filter,
+      setFilter,
+      clearFilter,
+      setSearchQuery,
+      hasActiveFilters,
+      dateRangePreset,
+      setDateRangePreset,
+      applyDateRangePreset,
+    ]
   );
 };
 

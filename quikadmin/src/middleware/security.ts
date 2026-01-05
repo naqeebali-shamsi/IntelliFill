@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import { logger } from '../utils/logger';
 // Note: helmet will be added in Phase 2 security hardening
 
 /**
@@ -33,16 +34,20 @@ export const requestContext = (
 
   // Add request ID to response headers for client correlation
   res.setHeader('X-Request-ID', req.id);
-  res.setHeader('X-Response-Time', '0');
 
   // Track response time
   const startTime = process.hrtime.bigint();
 
-  res.on('finish', () => {
+  // Override writeHead to inject response time before headers are sent
+  const originalWriteHead = res.writeHead;
+  res.writeHead = function (this: Response, ...args: any[]): Response {
     const endTime = process.hrtime.bigint();
     const responseTime = Number((endTime - startTime) / BigInt(1000000)); // Convert to ms
     res.setHeader('X-Response-Time', `${responseTime}ms`);
-  });
+
+    // Call original writeHead
+    return originalWriteHead.apply(this, args);
+  };
 
   next();
 };
@@ -79,69 +84,9 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 };
 // Basic security implementation - helmet configuration moved to Phase 2
 
-/**
- * Request signature verification middleware
- * Validates HMAC signatures for API requests
- */
-export const verifyRequestSignature = (secret: string) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const signature = req.headers['x-signature'] as string;
-    const timestamp = req.headers['x-timestamp'] as string;
+// Task 302: Removed unused verifyRequestSignature utility
 
-    if (!signature || !timestamp) {
-      return res.status(401).json({ error: 'Missing signature headers' });
-    }
-
-    // Check timestamp to prevent replay attacks (5 minute window)
-    const requestTime = parseInt(timestamp);
-    const currentTime = Date.now();
-    if (Math.abs(currentTime - requestTime) > 300000) {
-      return res.status(401).json({ error: 'Request timestamp expired' });
-    }
-
-    // Verify HMAC signature
-    const payload = `${timestamp}.${JSON.stringify(req.body)}`;
-    const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-
-    if (signature !== expectedSignature) {
-      return res.status(401).json({ error: 'Invalid signature' });
-    }
-
-    next();
-  };
-};
-
-/**
- * Middleware composition utility
- * Combines multiple middleware into a single middleware function
- */
-export const compose = (
-  ...middlewares: Array<(req: Request, res: Response, next: NextFunction) => void>
-) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    let index = -1;
-
-    const dispatch = async (i: number): Promise<void> => {
-      if (i <= index) {
-        throw new Error('next() called multiple times');
-      }
-      index = i;
-
-      const fn = middlewares[i];
-      if (!fn) {
-        return next();
-      }
-
-      try {
-        await fn(req, res, () => dispatch(i + 1));
-      } catch (err) {
-        next(err);
-      }
-    };
-
-    return dispatch(0);
-  };
-};
+// Task 302: Removed unused compose utility
 
 /**
  * Environment variable validation middleware
@@ -202,13 +147,20 @@ export const cacheControl = (
 /**
  * Request sanitization middleware
  * Removes dangerous characters from request data
+ * Logs a warning if sanitization modifies any data
  */
 export const sanitizeRequest = (req: Request, res: Response, next: NextFunction) => {
+  let wasModified = false;
+
   const sanitize = (obj: any): any => {
     if (typeof obj === 'string') {
       // Remove null bytes and control characters
       // eslint-disable-next-line no-control-regex
-      return obj.replace(/\0/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+      const sanitized = obj.replace(/\0/g, '').replace(/[\x00-\x1F\x7F]/g, '');
+      if (sanitized !== obj) {
+        wasModified = true;
+      }
+      return sanitized;
     }
 
     if (Array.isArray(obj)) {
@@ -242,103 +194,17 @@ export const sanitizeRequest = (req: Request, res: Response, next: NextFunction)
     req.params = sanitize(req.params) as any;
   }
 
+  // Log warning if sanitization modified data (potential attack indicator)
+  if (wasModified) {
+    logger.warn('Request sanitization modified input data', {
+      path: req.path,
+      method: req.method,
+      requestId: req.headers['x-request-id'] || 'N/A',
+      ip: req.ip,
+    });
+  }
+
   next();
 };
 
-/**
- * Performance monitoring middleware
- * Tracks slow requests and logs performance metrics
- */
-export const performanceMonitor = (threshold: number = 1000) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const start = Date.now();
-
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-
-      if (duration > threshold) {
-        console.warn(`Slow request detected: ${req.method} ${req.path} took ${duration}ms`);
-      }
-
-      // Log metrics (integrate with your metrics service)
-      const metrics = {
-        method: req.method,
-        path: req.path,
-        status: res.statusCode,
-        duration,
-        timestamp: new Date().toISOString(),
-      };
-
-      // Example: Send to monitoring service
-      // metricsService.record(metrics);
-    });
-
-    next();
-  };
-};
-
-/**
- * IP-based rate limiting with exponential backoff
- * More sophisticated than basic rate limiting
- */
-export class AdaptiveRateLimiter {
-  private attempts: Map<string, { count: number; resetTime: number; backoffLevel: number }> =
-    new Map();
-
-  constructor(
-    private windowMs: number = 60000,
-    private maxAttempts: number = 10,
-    private backoffMultiplier: number = 2
-  ) {}
-
-  middleware = (req: Request, res: Response, next: NextFunction) => {
-    const ip = req.ip || 'unknown';
-    const now = Date.now();
-
-    let record = this.attempts.get(ip);
-
-    if (!record || record.resetTime < now) {
-      // Create new record or reset expired one
-      record = {
-        count: 1,
-        resetTime: now + this.windowMs,
-        backoffLevel: 0,
-      };
-      this.attempts.set(ip, record);
-      return next();
-    }
-
-    record.count++;
-
-    if (record.count > this.maxAttempts) {
-      // Apply exponential backoff
-      record.backoffLevel++;
-      const backoffTime = this.windowMs * Math.pow(this.backoffMultiplier, record.backoffLevel);
-      record.resetTime = now + backoffTime;
-
-      const retryAfter = Math.ceil((record.resetTime - now) / 1000);
-      res.setHeader('Retry-After', retryAfter.toString());
-
-      return res.status(429).json({
-        error: 'Too many requests',
-        retryAfter,
-        message: `Please retry after ${retryAfter} seconds`,
-      });
-    }
-
-    next();
-  };
-
-  // Cleanup old records periodically
-  cleanup() {
-    const now = Date.now();
-    for (const [ip, record] of this.attempts.entries()) {
-      if (record.resetTime < now - this.windowMs * 10) {
-        this.attempts.delete(ip);
-      }
-    }
-  }
-}
-
-// Export a pre-configured instance
-export const adaptiveRateLimiter = new AdaptiveRateLimiter();
+// Task 302: Removed unused performanceMonitor and AdaptiveRateLimiter utilities

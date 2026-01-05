@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, UserPlus, Eye, EyeOff, AlertCircle, Check, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
+import { ErrorCode } from '@/constants/errorCodes';
 
 interface PasswordStrength {
   score: number;
@@ -129,9 +130,9 @@ export default function Register() {
       console.error('Registration error:', err);
       // Error is already set in the store by the register action
       // Show toast for better UX
-      if (err.code === 'EMAIL_EXISTS') {
+      if (err.code === ErrorCode.EMAIL_EXISTS) {
         toast.error('An account with this email already exists');
-      } else if (err.code === 'RATE_LIMIT') {
+      } else if (err.code === ErrorCode.RATE_LIMIT) {
         toast.error('Too many registration attempts. Please try again later.');
       } else {
         toast.error(err.message || 'Registration failed. Please try again.');

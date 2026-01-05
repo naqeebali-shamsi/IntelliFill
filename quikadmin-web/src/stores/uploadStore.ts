@@ -10,6 +10,16 @@ import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { UploadFile, UploadStatus, UploadResult, UploadStats } from '@/types/upload';
 
+// Task 296: Helper to conditionally apply devtools only in development mode
+const applyDevtools = <T>(middleware: T) => {
+  if (import.meta.env.DEV) {
+    return devtools(middleware as any, {
+      name: 'IntelliFill Upload Store',
+    }) as T;
+  }
+  return middleware;
+};
+
 // =================== STORE INTERFACES ===================
 
 interface UploadState {
@@ -96,6 +106,16 @@ interface UploadActions {
   clearAll: () => void;
 
   /**
+   * Task 305: Cancel all active uploads (abort HTTP requests)
+   */
+  cancelAllActiveUploads: () => void;
+
+  /**
+   * Task 305: Cleanup stale completed/failed/cancelled files older than threshold
+   */
+  cleanupStale: (maxAgeMs?: number) => number;
+
+  /**
    * Get files by status
    */
   getFilesByStatus: (status: UploadStatus) => UploadFile[];
@@ -151,7 +171,7 @@ function createUploadFile(file: File): UploadFile {
 // =================== STORE IMPLEMENTATION ===================
 
 export const useUploadStore = create<UploadStore>()(
-  devtools(
+  applyDevtools(
     immer((set, get) => ({
       ...initialState,
 
@@ -309,6 +329,48 @@ export const useUploadStore = create<UploadStore>()(
         });
       },
 
+      // Task 305: Cancel all active uploads without clearing the queue
+      cancelAllActiveUploads: () => {
+        set((state) => {
+          state.files.forEach((file) => {
+            if ((file.status === 'uploading' || file.status === 'processing') && file.cancelToken) {
+              file.cancelToken.abort();
+              file.cancelToken = undefined;
+              file.status = 'cancelled';
+              file.completedAt = Date.now();
+            }
+          });
+        });
+      },
+
+      // Task 305: Cleanup stale completed/failed/cancelled files
+      cleanupStale: (maxAgeMs: number = 5 * 60 * 1000): number => {
+        const now = Date.now();
+        let removedCount = 0;
+
+        set((state) => {
+          const initialLength = state.files.length;
+          state.files = state.files.filter((file) => {
+            // Keep active files
+            if (
+              file.status === 'pending' ||
+              file.status === 'validating' ||
+              file.status === 'uploading' ||
+              file.status === 'processing'
+            ) {
+              return true;
+            }
+
+            // Remove completed/failed/cancelled files older than threshold
+            const age = file.completedAt ? now - file.completedAt : 0;
+            return age < maxAgeMs;
+          });
+          removedCount = initialLength - state.files.length;
+        });
+
+        return removedCount;
+      },
+
       // =================== SELECTORS ===================
 
       getFilesByStatus: (status: UploadStatus) => {
@@ -381,10 +443,7 @@ export const useUploadStore = create<UploadStore>()(
           state.autoStart = autoStart;
         });
       },
-    })),
-    {
-      name: 'Upload Queue Store',
-    }
+    }))
   )
 );
 
@@ -418,13 +477,13 @@ export const uploadSelectors = {
 export const useUploadQueue = () =>
   useUploadStore(
     useShallow((state) => ({
-    files: state.files,
-    addFiles: state.addFiles,
-    removeFile: state.removeFile,
-    cancelUpload: state.cancelUpload,
-    retryUpload: state.retryUpload,
-    clearCompleted: state.clearCompleted,
-    clearAll: state.clearAll,
+      files: state.files,
+      addFiles: state.addFiles,
+      removeFile: state.removeFile,
+      cancelUpload: state.cancelUpload,
+      retryUpload: state.retryUpload,
+      clearCompleted: state.clearCompleted,
+      clearAll: state.clearAll,
     }))
   );
 
@@ -435,28 +494,26 @@ export const useUploadQueue = () =>
 export const useUploadStats = (): UploadStats => {
   // Subscribe only to primitives, not computed objects
   const total = useUploadStore((state) => state.files.length);
-  const pending = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'pending' || f.status === 'validating').length
+  const pending = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'pending' || f.status === 'validating').length
   );
-  const uploading = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'uploading').length
+  const uploading = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'uploading').length
   );
-  const processing = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'processing').length
+  const processing = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'processing').length
   );
-  const completed = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'completed').length
+  const completed = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'completed').length
   );
-  const failed = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'failed').length
+  const failed = useUploadStore((state) => state.files.filter((f) => f.status === 'failed').length);
+  const cancelled = useUploadStore(
+    (state) => state.files.filter((f) => f.status === 'cancelled').length
   );
-  const cancelled = useUploadStore((state) => 
-    state.files.filter((f) => f.status === 'cancelled').length
-  );
-  const totalBytes = useUploadStore((state) => 
+  const totalBytes = useUploadStore((state) =>
     state.files.reduce((sum, f) => sum + f.file.size, 0)
   );
-  const uploadedBytes = useUploadStore((state) => 
+  const uploadedBytes = useUploadStore((state) =>
     state.files.reduce((sum, f) => sum + (f.file.size * f.progress) / 100, 0)
   );
   const overallProgress = totalBytes > 0 ? Math.round((uploadedBytes / totalBytes) * 100) : 0;

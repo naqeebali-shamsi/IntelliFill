@@ -8,7 +8,23 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import type { Profile, ProfileFilter, ProfileSort, ProfileType, ProfileStatus } from '@/types/profile';
+
+// Task 296: Helper to conditionally apply devtools only in development mode
+const applyDevtools = <T>(middleware: T) => {
+  if (import.meta.env.DEV) {
+    return devtools(middleware as any, {
+      name: 'IntelliFill Profiles Store',
+    }) as T;
+  }
+  return middleware;
+};
+import type {
+  Profile,
+  ProfileFilter,
+  ProfileSort,
+  ProfileType,
+  ProfileStatus,
+} from '@/types/profile';
 
 // View modes
 export type ProfileViewMode = 'grid' | 'table';
@@ -88,7 +104,7 @@ const initialState: ProfilesState = {
 // =================== STORE IMPLEMENTATION ===================
 
 export const useProfilesStore = create<ProfilesStore>()(
-  devtools(
+  applyDevtools(
     persist(
       immer((set, get) => ({
         ...initialState,
@@ -245,8 +261,7 @@ export const useProfilesStore = create<ProfilesStore>()(
           sort: state.sort,
         }),
       }
-    ),
-    { name: 'ProfilesStore' }
+    )
   )
 );
 
@@ -290,9 +305,7 @@ export const useProfilesFilters = () => {
   const setStatusFilter = useProfilesStore((state) => state.setStatusFilter);
   const setSearchQuery = useProfilesStore((state) => state.setSearchQuery);
 
-  const hasActiveFilters = Boolean(
-    filter.search || filter.type || filter.status
-  );
+  const hasActiveFilters = Boolean(filter.search || filter.type || filter.status);
 
   return {
     filter,

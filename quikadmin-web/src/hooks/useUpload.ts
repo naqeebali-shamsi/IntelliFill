@@ -37,6 +37,9 @@ export function useUpload(options: UseUploadOptions = {}) {
   const setFileJobId = useUploadStore((state) => state.setFileJobId);
   const setFileCancelToken = useUploadStore((state) => state.setFileCancelToken);
   const setMaxConcurrent = useUploadStore((state) => state.setMaxConcurrent);
+  // Task 305: Store actions for cleanup
+  const cancelAllActiveUploads = useUploadStore((state) => state.cancelAllActiveUploads);
+  const cleanupStale = useUploadStore((state) => state.cleanupStale);
 
   // Store selectors - use memoized selectors to prevent infinite loops
   const pendingFilesCount = useUploadStore(
@@ -85,15 +88,37 @@ export function useUpload(options: UseUploadOptions = {}) {
     // Update store setting
     setMaxConcurrent(maxConcurrent);
 
-    // Cleanup on unmount
+    // Task 305: Cleanup on unmount - abort active uploads and clear queue
     return () => {
       if (queueRef.current) {
         queueRef.current.clear();
         queueRef.current.pause();
       }
       enqueuedFilesRef.current.clear();
+
+      // Task 305: Abort all active HTTP requests to prevent memory leaks
+      // This ensures network requests don't continue after component unmount
+      cancelAllActiveUploads();
     };
-  }, [maxConcurrent, setMaxConcurrent]);
+  }, [maxConcurrent, setMaxConcurrent, cancelAllActiveUploads]);
+
+  // Task 305: Periodic cleanup of stale completed/failed/cancelled states
+  // Runs every 5 minutes to prevent memory accumulation from old uploads
+  useEffect(() => {
+    const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+    const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+    const cleanupTimer = setInterval(() => {
+      const removed = cleanupStale(STALE_THRESHOLD_MS);
+      if (removed > 0) {
+        console.debug(`[useUpload] Cleaned up ${removed} stale upload entries`);
+      }
+    }, CLEANUP_INTERVAL_MS);
+
+    return () => {
+      clearInterval(cleanupTimer);
+    };
+  }, [cleanupStale]);
 
   /**
    * Upload a single file
@@ -230,7 +255,6 @@ export function useUpload(options: UseUploadOptions = {}) {
    * Add file to queue for processing
    */
   const enqueueFileRef = useRef<((uploadFile: UploadFile) => Promise<void>) | null>(null);
-
 
   const enqueueFile = useCallback(
     async (uploadFile: UploadFile) => {

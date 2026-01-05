@@ -56,6 +56,7 @@ import { csrfProtection } from './middleware/csrf';
 import { realtimeService } from './services/RealtimeService';
 import { createAuditMiddleware } from './middleware/auditLogger';
 import { cspMiddleware, cspReportHandler } from './middleware/csp';
+import { requestContext, sanitizeRequest } from './middleware/security';
 import {
   getAuthCircuitBreakerMetrics,
   isAuthCircuitOpen,
@@ -68,6 +69,7 @@ import {
   SecurityEventType,
   SecuritySeverity,
 } from './services/SecurityEventService';
+import { ErrorCode, HttpStatus } from './constants/errorCodes';
 
 // Validate configuration explicitly at startup (will throw and exit if invalid)
 try {
@@ -142,6 +144,9 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
       validationService,
     });
 
+    // Request context middleware - MUST be first for request ID tracking
+    app.use(requestContext);
+
     // Security middleware
     // Helmet handles most security headers; CSP is handled by our custom middleware
     app.use(
@@ -158,12 +163,45 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     // Custom CSP middleware with nonce support and environment-aware configuration
     app.use(cspMiddleware());
 
-    // CORS configuration with pattern matching for Vercel preview URLs
-    const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) || [];
-    const allowedPatterns = [
-      /^https:\/\/intellifill.*\.vercel\.app$/, // All Vercel preview/production URLs for this project
-      /^http:\/\/localhost:\d+$/, // Local development
+    // CORS configuration with strict origin validation
+    // Task 301: Tightened patterns to prevent subdomain hijacking
+    const allowedOrigins =
+      process.env.CORS_ORIGINS?.split(',')
+        .map((o) => o.trim())
+        .filter(Boolean) || [];
+
+    // Explicit allowed production domains (highest priority)
+    const productionOrigins = [
+      'https://intellifill.vercel.app',
+      'https://www.intellifill.com',
+      'https://intellifill.com',
     ];
+
+    // Restrictive patterns for Vercel preview deployments
+    // Vercel preview URLs follow format: {project}-{deployment-hash}.vercel.app
+    // or: {project}-git-{branch}-{team}.vercel.app
+    const allowedPatterns = [
+      // Match: intellifill-<deployment-hash>.vercel.app (exactly 9 alphanumeric chars)
+      /^https:\/\/intellifill-[a-z0-9]{6,20}\.vercel\.app$/,
+      // Match: intellifill-git-<branch>-<team>.vercel.app (git branch previews)
+      /^https:\/\/intellifill-git-[a-z0-9-]+-[a-z0-9-]+\.vercel\.app$/,
+      // Local development (only localhost, not 0.0.0.0 or other IPs)
+      /^http:\/\/localhost:\d{4,5}$/,
+    ];
+
+    // Validate origin with strict security
+    const isOriginAllowed = (origin: string): boolean => {
+      // Check production origins first (explicit allowlist)
+      if (productionOrigins.includes(origin)) return true;
+
+      // Check environment-specified origins
+      if (allowedOrigins.includes(origin)) return true;
+
+      // Check preview URL patterns (strictly anchored)
+      if (allowedPatterns.some((pattern) => pattern.test(origin))) return true;
+
+      return false;
+    };
 
     app.use(
       cors({
@@ -171,18 +209,18 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
           // Allow requests with no origin (mobile apps, Postman, server-to-server)
           if (!origin) return callback(null, true);
 
-          // Check exact matches first
-          if (allowedOrigins.includes(origin)) {
+          // Validate origin against strict rules
+          if (isOriginAllowed(origin)) {
             return callback(null, true);
           }
 
-          // Check pattern matches (Vercel preview URLs)
-          if (allowedPatterns.some((pattern) => pattern.test(origin))) {
-            return callback(null, true);
-          }
-
-          // Log rejected origin for security monitoring
-          logger.warn('CORS rejection', { origin, allowedOrigins: allowedOrigins.length });
+          // Log rejected origin with detailed context for security monitoring
+          logger.warn('CORS origin rejected', {
+            origin,
+            reason: 'Origin not in allowlist or does not match secure patterns',
+            allowedOriginsCount: productionOrigins.length + allowedOrigins.length,
+            method: 'CORS validation',
+          });
 
           // Return error with CORS_REJECTED code for proper 403 handling
           const corsError = new Error(`Origin ${origin} not allowed by CORS`);
@@ -214,17 +252,36 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(cookieParser());
 
+    // Request sanitization - strips null bytes and control characters
+    // Security: prevents injection attacks via malformed characters
+    app.use(sanitizeRequest);
+    logger.info('Request sanitization middleware enabled');
+
     // Global audit logging middleware - AFTER body parser, BEFORE routes
     // Logs all API requests for compliance and security monitoring
+    // Task 304: Configurable exclusion paths via environment variable
+    const defaultAuditExcludePaths = [
+      '/api/health',
+      '/api/metrics',
+      '/api/docs',
+      '/api/csp-report', // High-volume, low-value for audit purposes
+    ];
+    const envExcludePaths = process.env.AUDIT_EXCLUDE_PATHS
+      ? process.env.AUDIT_EXCLUDE_PATHS.split(',').map((p) => p.trim())
+      : [];
+    const auditExcludePaths = [...defaultAuditExcludePaths, ...envExcludePaths];
+
     app.use(
       '/api/',
       createAuditMiddleware({
-        excludePaths: ['/api/health', '/api/metrics', '/api/docs'],
+        excludePaths: auditExcludePaths,
         includeRequestBody: true,
         includeResponseBody: false, // Avoid logging sensitive response data
       })
     );
-    logger.info('Global audit middleware registered');
+    logger.info('Global audit middleware registered', {
+      excludedPaths: auditExcludePaths,
+    });
 
     // Apply rate limiting - BEFORE routes
     app.use('/api/', standardLimiter); // Standard rate limit for all API routes
@@ -233,12 +290,12 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     app.use('/api/documents/upload', uploadLimiter); // Upload rate limit
 
     // CSRF protection for state-changing operations
-    // Environment-aware: enabled in production, can be enabled in dev/test via ENABLE_CSRF=true
-    if (config.server.nodeEnv === 'production' || process.env.ENABLE_CSRF === 'true') {
+    // Secure by default: enabled unless explicitly disabled via DISABLE_CSRF=true
+    if (process.env.DISABLE_CSRF !== 'true') {
       app.use(csrfProtection);
       logger.info('CSRF protection enabled');
     } else {
-      logger.warn('⚠️ CSRF protection disabled in development mode');
+      logger.warn('⚠️ SECURITY WARNING: CSRF protection disabled via DISABLE_CSRF=true');
     }
 
     // CSP violation report endpoint (must be before routes, no auth required)
@@ -288,24 +345,40 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     setupRoutes(app, intelliFillService, db);
 
     // Error handling middleware (must be after routes)
+    // Task 300: Include requestId in all error responses for client-side correlation
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      logger.error('Unhandled error:', err);
+      // Extract request ID from middleware context or header
+      const requestId = (req as any).id || req.headers['x-request-id'] || 'unknown';
+
+      // Log error with request ID for correlation
+      logger.error('Unhandled error:', {
+        requestId,
+        error: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method,
+      });
 
       // CORS rejection errors (Task #275)
-      if (err.code === 'CORS_REJECTED' || err.message?.includes('not allowed by CORS')) {
+      if (err.code === ErrorCode.CORS_REJECTED || err.message?.includes('not allowed by CORS')) {
         // Log security event for CORS rejection
         SecurityEventService.logCORSRejected(req, req.headers.origin || 'unknown');
-        return res.status(403).json({
+        return res.status(HttpStatus.FORBIDDEN).json({
           error: 'Forbidden',
           message: 'Origin not allowed',
-          code: 'CORS_REJECTED',
+          code: ErrorCode.CORS_REJECTED,
+          requestId,
         });
       }
 
       // JWT errors
       if (err.name === 'JsonWebTokenError') {
         SecurityEventService.logTokenInvalid(req, 'Invalid JWT signature');
-        return res.status(401).json({ error: 'Invalid token' });
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          error: 'Invalid token',
+          code: ErrorCode.TOKEN_INVALID,
+          requestId,
+        });
       }
 
       if (err.name === 'TokenExpiredError') {
@@ -315,34 +388,52 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
           req,
           details: { reason: 'JWT token expired' },
         });
-        return res.status(401).json({ error: 'Token expired' });
+        return res.status(HttpStatus.UNAUTHORIZED).json({
+          error: 'Token expired',
+          code: ErrorCode.TOKEN_EXPIRED,
+          requestId,
+        });
       }
 
       // Multer errors (file upload)
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ error: 'File too large', code: 'FILE_SIZE_EXCEEDED' });
-      }
-
-      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        return res.status(400).json({ error: 'Invalid file field', code: 'INVALID_FILE_FIELD' });
-      }
-
-      if (err.code === 'LIMIT_FILE_COUNT') {
-        return res.status(400).json({ error: 'Too many files', code: 'FILE_COUNT_EXCEEDED' });
-      }
-
-      // File validation errors with specific codes (from FileValidationError)
-      if (err.name === 'FileValidationError' || err.code === 'DOUBLE_EXTENSION') {
-        return res.status(400).json({
-          error: err.message,
-          code: err.code || 'FILE_VALIDATION_FAILED',
+        return res.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
+          error: 'File too large',
+          code: ErrorCode.FILE_SIZE_EXCEEDED,
+          requestId,
         });
       }
 
-      if (err.code === 'MIME_TYPE_MISMATCH') {
-        return res.status(415).json({
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          error: 'Invalid file field',
+          code: ErrorCode.INVALID_FILE_FIELD,
+          requestId,
+        });
+      }
+
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          error: 'Too many files',
+          code: ErrorCode.FILE_COUNT_EXCEEDED,
+          requestId,
+        });
+      }
+
+      // File validation errors with specific codes (from FileValidationError)
+      if (err.name === 'FileValidationError' || err.code === ErrorCode.DOUBLE_EXTENSION) {
+        return res.status(HttpStatus.BAD_REQUEST).json({
           error: err.message,
-          code: 'MIME_TYPE_MISMATCH',
+          code: err.code || ErrorCode.FILE_VALIDATION_FAILED,
+          requestId,
+        });
+      }
+
+      if (err.code === ErrorCode.MIME_TYPE_MISMATCH) {
+        return res.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).json({
+          error: err.message,
+          code: ErrorCode.MIME_TYPE_MISMATCH,
+          requestId,
         });
       }
 
@@ -356,9 +447,10 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
           err.message.includes('Only PDF') ||
           err.message.includes('Allowed:'))
       ) {
-        return res.status(415).json({
+        return res.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).json({
           error: err.message,
-          code: 'UNSUPPORTED_MEDIA_TYPE',
+          code: ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+          requestId,
         });
       }
 
@@ -371,39 +463,58 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
           err.message.includes('double extension') ||
           err.message.includes('suspicious'))
       ) {
-        return res.status(422).json({
+        return res.status(HttpStatus.UNPROCESSABLE_ENTITY).json({
           error: err.message,
-          code: 'FILE_VALIDATION_FAILED',
+          code: ErrorCode.FILE_VALIDATION_FAILED,
+          requestId,
         });
       }
 
       // Database errors
       if (err.code === '23505') {
         // Unique constraint violation
-        return res.status(409).json({ error: 'Resource already exists' });
+        return res.status(HttpStatus.CONFLICT).json({
+          error: 'Resource already exists',
+          code: ErrorCode.RESOURCE_EXISTS,
+          requestId,
+        });
       }
 
       if (err.code === '23503') {
         // Foreign key violation
-        return res.status(400).json({ error: 'Invalid reference' });
+        return res.status(HttpStatus.BAD_REQUEST).json({
+          error: 'Invalid reference',
+          code: ErrorCode.INVALID_REFERENCE,
+          requestId,
+        });
       }
 
       // Rate limit errors
       if (err.status === 429) {
-        return res.status(429).json({ error: 'Too many requests' });
+        return res.status(HttpStatus.TOO_MANY_REQUESTS).json({
+          error: 'Too many requests',
+          code: ErrorCode.RATE_LIMIT,
+          requestId,
+        });
       }
 
       // Default error response
-      res.status(err.status || 500).json({
+      res.status(err.status || HttpStatus.INTERNAL_SERVER_ERROR).json({
         error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+        code: ErrorCode.INTERNAL_ERROR,
+        requestId,
       });
     });
 
     // 404 handler (must be last)
+    // Task 300: Include requestId for client-side correlation
     app.use('*', (req: express.Request, res: express.Response) => {
-      res.status(404).json({
+      const requestId = (req as any).id || req.headers['x-request-id'] || 'unknown';
+      res.status(HttpStatus.NOT_FOUND).json({
         error: 'Not found',
         message: `Route ${req.method} ${req.originalUrl} not found`,
+        code: ErrorCode.NOT_FOUND,
+        requestId,
       });
     });
 

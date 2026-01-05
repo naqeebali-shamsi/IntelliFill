@@ -2822,7 +2822,7 @@
         "testStrategy": "Unit test for the validation function. Manual test attempting to start the server without environment variables defined, expecting a crash with a clear error message.",
         "priority": "high",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -2875,7 +2875,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2026-01-04T10:55:08.370Z"
+        "updatedAt": "2026-01-04T10:57:27.865Z"
       },
       {
         "id": "273",
@@ -2885,7 +2885,7 @@
         "testStrategy": "Inspect HTTP response headers in browser dev tools for 'Content-Security-Policy'. Verify that inline scripts without a nonce are blocked in a simulated production build.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -2937,7 +2937,8 @@
             "testStrategy": "Manual inspection of the 'Network' tab in browser dev tools for 'Content-Security-Policy' headers and verifying zero console errors related to CSP in development mode.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:04:01.162Z"
       },
       {
         "id": "274",
@@ -2947,8 +2948,9 @@
         "testStrategy": "Manually trigger a CSP violation by injecting a script and verify the browser sends a report to /api/csp-report and that it appears in the server logs.",
         "priority": "medium",
         "dependencies": ["273"],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-04T11:06:03.590Z"
       },
       {
         "id": "275",
@@ -2958,7 +2960,7 @@
         "testStrategy": "Use Postman or cURL to send requests with various 'Origin' headers. Verify that whitelisted origins get a 200/204 while unknown origins receive a 403 Forbidden.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3010,7 +3012,8 @@
             "testStrategy": "Execute 'curl -v -H \"Origin: https://malicious-site.com\" http://localhost:port' and verify that the response status code is exactly 403 Forbidden.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:07:40.405Z"
       },
       {
         "id": "276",
@@ -3020,7 +3023,7 @@
         "testStrategy": "Trigger specific security failures (e.g., bad login) and verify that the database or log file contains the standardized SecurityEvent entry.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3072,7 +3075,8 @@
             "testStrategy": "Verify through integration tests that events with severity below the MIN_LOG_LEVEL are ignored, while CRITICAL events are always recorded and formatted as valid JSON.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:11:02.891Z"
       },
       {
         "id": "277",
@@ -3082,7 +3086,7 @@
         "testStrategy": "Log in to the application, then check browser 'LocalStorage'. Verify the access token is not present. Refresh the page and confirm the token is gone from memory (necessitating the next task).",
         "priority": "high",
         "dependencies": ["275"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3134,7 +3138,8 @@
             "testStrategy": "Manual verification: 1. Login. 2. Check LocalStorage (must be empty of token). 3. Refresh (app should require refresh/re-auth as per Task 278 requirements later).",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:16:11.402Z"
       },
       {
         "id": "278",
@@ -3144,7 +3149,7 @@
         "testStrategy": "Log in, refresh the browser page. The user should remain logged in without re-entering credentials. Inspect network tab to see the refresh request succeed.",
         "priority": "high",
         "dependencies": ["277"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3196,7 +3201,8 @@
             "testStrategy": "Mock a 401 error for the refresh endpoint and verify that the user is redirected to the login page and local storage is cleared.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:18:44.287Z"
       },
       {
         "id": "279",
@@ -3206,7 +3212,7 @@
         "testStrategy": "Perform a refresh, then attempt to use the previous refresh token again. Verify that the second request fails and subsequent requests with the 'new' token also fail due to family invalidation.",
         "priority": "high",
         "dependencies": ["276"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3258,7 +3264,8 @@
             "testStrategy": "Perform an end-to-end test where a family is revoked manually in Redis, then attempt a refresh with a 'valid' (non-used) token from that family to confirm it is rejected.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:24:05.890Z"
       },
       {
         "id": "280",
@@ -3268,7 +3275,7 @@
         "testStrategy": "Verify the HSTS header presence in browser dev tools for dev/staging/prod environments. Verify 'Secure' flag on cookies in the 'Application' tab of dev tools.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3310,7 +3317,8 @@
             "testStrategy": "Verify that the backend API responds correctly to HTTPS requests from the Vite frontend and that session cookies are successfully persisted over the secure connection.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:26:57.475Z"
       },
       {
         "id": "281",
@@ -3320,7 +3328,7 @@
         "testStrategy": "Send a request to a validated endpoint with extra fields and invalid data types. Verify that unknown fields are removed and invalid data returns 400 Bad Request with details.",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3362,7 +3370,8 @@
             "testStrategy": "Send invalid requests to the API and verify that the response body contains a clear 'errors' array and a 400 HTTP status.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:31:18.455Z"
       },
       {
         "id": "282",
@@ -3372,8 +3381,9 @@
         "testStrategy": "Simulate multiple CSP violations and check the database for aggregated records. Verify that an internal alert or log entry is generated when the spike threshold is met.",
         "priority": "medium",
         "dependencies": ["274"],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-04T11:35:52.325Z"
       },
       {
         "id": "283",
@@ -3383,7 +3393,7 @@
         "testStrategy": "Sign a token with an 'old' secret, update the server with a 'new' primary secret but keep the 'old' as secondary. Verify the token is still accepted. Then remove the secondary secret and verify the token is rejected.",
         "priority": "medium",
         "dependencies": ["272"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3425,7 +3435,8 @@
             "testStrategy": "Verify the response status codes (200 vs 401) during each phase of the simulated rotation.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:39:28.896Z"
       },
       {
         "id": "284",
@@ -3435,7 +3446,7 @@
         "testStrategy": "Flood the password reset endpoint and verify a 429 status code after 5 attempts. Check headers on a normal request to ensure the limit and remaining counts are visible and accurate.",
         "priority": "medium",
         "dependencies": ["276"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -3477,7 +3488,8 @@
             "testStrategy": "Run 'npm test' or the specific integration test file to verify all assertions regarding status codes (429), header values, and adaptive logic transitions pass.",
             "parentId": "undefined"
           }
-        ]
+        ],
+        "updatedAt": "2026-01-04T11:41:36.728Z"
       },
       {
         "id": "285",
@@ -3487,8 +3499,9 @@
         "testStrategy": "Query the metrics endpoint and verify the JSON data matches the events triggered in earlier tasks. Perform an export and verify the file content contains the expected security event fields.",
         "priority": "low",
         "dependencies": ["276", "282"],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-04T11:48:23.707Z"
       },
       {
         "id": "286",
@@ -3498,15 +3511,515 @@
         "testStrategy": "Manual review of documentation by a non-primary developer to ensure the rotation steps are clear and executable without prior context.",
         "priority": "low",
         "dependencies": ["283"],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-04T11:50:35.736Z"
+      },
+      {
+        "id": "287",
+        "title": "Fix ProfileFieldsManager Silent Data Loss",
+        "description": "Resolve a critical issue where field updates in the ProfileDetail page are not persisted to the backend despite a success toast being shown.",
+        "details": "1. In `src/pages/ProfileDetail.tsx`, implement a mutation handler using the `profilesStore` or directly calling the API to update profile data. 2. Pass this handler as the `onFieldsUpdate` prop to the `ProfileFieldsManager` component. 3. Update `ProfileFieldsManager` to receive this prop and ensure `handleSaveChanges` invokes it with the current `localFields` state. 4. Implement a loading state in `ProfileDetail.tsx` to disable the 'Save Changes' button during the API request. 5. Add error handling to catch failed updates and display an error toast instead of a success toast.",
+        "testStrategy": "1. Manually edit a profile field and click 'Save Changes'. Verify the network tab shows a successful POST/PATCH request. 2. Refresh the page and confirm the changes persist. 3. Mock an API failure and verify an error toast appears and the local state does not reset improperly.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement updateProfileData mutation in API service",
+            "description": "Create a new function to handle profile updates via backend API calls.",
+            "dependencies": [],
+            "details": "Add an updateProfileData method to the profiles store or API utility layer to send PATCH requests to the profile endpoint with edited fields.",
+            "status": "pending",
+            "testStrategy": "Verify the mutation correctly generates a PATCH request with the expected payload using a network inspector or mock server.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Expose onFieldsUpdate prop in ProfileFieldsManager",
+            "description": "Modify the component signature to support external data persistence handlers.",
+            "dependencies": [1],
+            "details": "Update the ProfileFieldsManager component props to include onFieldsUpdate. Modify the internal handleSaveChanges logic to await this callback.",
+            "status": "pending",
+            "testStrategy": "Unit test the component to ensure that clicking save triggers the onFieldsUpdate callback with the correct local state data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Wire update handler in ProfileDetail page",
+            "description": "Connect the mutation logic to the ProfileFieldsManager component within the page.",
+            "dependencies": [2],
+            "details": "In ProfileDetail.tsx, implement the mutation call and pass it as the onFieldsUpdate prop to ensure the component can persist data to the backend.",
+            "status": "pending",
+            "testStrategy": "Manual verification that saving a field results in a successful network request to the backend profile update endpoint.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Implement loading state UI feedback",
+            "description": "Add visual feedback and prevent concurrent submissions during save operations.",
+            "dependencies": [3],
+            "details": "Manage a boolean isLoading state in ProfileDetail.tsx and use it to disable the 'Save Changes' button while the update mutation is in progress.",
+            "status": "pending",
+            "testStrategy": "Trigger a slow network response and verify the save button is disabled and a loading indicator is shown until the request completes.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add robust error handling and notifications",
+            "description": "Ensure API failures are communicated via error toasts instead of silent failures.",
+            "dependencies": [4],
+            "details": "Wrap the update mutation in a try-catch block. Replace the current success toast with an error toast on failure and prevent state reset.",
+            "status": "pending",
+            "testStrategy": "Mock a 500 server error and verify that an error toast appears and the user's unsaved changes remain in the form fields.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Verify data persistence after page refresh",
+            "description": "Perform an end-to-end check to confirm changes are saved to the database.",
+            "dependencies": [5],
+            "details": "Conduct a test where a profile field is modified and saved. Refresh the browser and verify the updated value is retrieved from the server.",
+            "status": "pending",
+            "testStrategy": "Confirm that after a page reload, the profile fields reflect the values previously submitted via the Update mutation.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-01-04T15:45:40.721Z"
+      },
+      {
+        "id": "288",
+        "title": "Implement Unit Tests for backendAuthStore",
+        "description": "Create comprehensive unit tests for the 784-line backendAuthStore.ts to ensure reliability of authentication and session management logic.",
+        "details": "1. Create `quikadmin-web/src/stores/__tests__/backendAuthStore.test.ts`. 2. Use Vitest and mock the API service and `localStorage`. 3. Write test cases for `login()`, `register()`, `logout()`, and `demoLogin()`, asserting state changes (e.g., `isAuthenticated`, `user`, `loadingStage`). 4. Test token refresh logic including `isTokenExpiringSoon` and `refreshTokenIfNeeded` using `vi.useFakeTimers()` to simulate time passage. 5. Test the `initialize()` method under three conditions: empty storage, valid session, and expired session. 6. Validate account lockout logic by simulating multiple failed login attempts.",
+        "testStrategy": "Execute tests using `vitest run src/stores/__tests__/backendAuthStore.test.ts --coverage` and ensure code coverage for the store file reaches at least 90%.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Setup Test Environment and Base Mocks",
+            "description": "Create the test file and configure Vitest environment with necessary mocks for the backendAuthStore.",
+            "dependencies": [],
+            "details": "Create 'quikadmin-web/src/stores/__tests__/backendAuthStore.test.ts'. Use 'vi.mock' for the API service and implement a 'localStorage' mock to simulate browser storage behavior during tests.",
+            "status": "pending",
+            "testStrategy": "Run 'vitest' to ensure the test file is recognized and the basic setup doesn't throw errors.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Test Auth Store Initialization Logic",
+            "description": "Validate the 'initialize()' method behavior under various persistent storage conditions.",
+            "dependencies": [1],
+            "details": "Implement three test cases for 'initialize()': one with empty localStorage, one with a valid JWT/user object, and one with an expired session. Assert that state properties like 'isAuthenticated' and 'user' are set correctly.",
+            "status": "pending",
+            "testStrategy": "Assert that store.isAuthenticated is false for empty storage and true for valid storage after calling initialize().",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Test Successful Login Flow",
+            "description": "Verify that a successful login updates the store state and local storage as expected.",
+            "dependencies": [2],
+            "details": "Mock a successful API response from 'authApi.login'. Call 'store.login()' and verify that 'isAuthenticated' becomes true, the 'user' object is populated, and 'loadingStage' transitions to 'success'.",
+            "status": "pending",
+            "testStrategy": "Check that the 'user' object in the store matches the mocked API response data.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Test Login Failure and Account Lockout",
+            "description": "Verify handling of incorrect credentials and the progression towards an account lockout state.",
+            "dependencies": [3],
+            "details": "Mock API errors for 'authApi.login'. Test that failed attempts increment internal counters (if applicable) and eventually set a lockout status or specific error message in the store state.",
+            "status": "pending",
+            "testStrategy": "Assert that 'error' property is not null after a failed login and check for lockout specific error codes.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Test User Registration Flow",
+            "description": "Verify that the registration method correctly calls the API and manages store state.",
+            "dependencies": [1],
+            "details": "Mock 'authApi.register'. Ensure that calling 'store.register()' correctly updates 'loadingStage' and handles the transition to an authenticated state upon successful registration response.",
+            "status": "pending",
+            "testStrategy": "Verify that the mock register API was called with the correct user data payload.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Test Logout Logic and State Clearing",
+            "description": "Ensure that logging out completely resets the store and clears persistent data.",
+            "dependencies": [3],
+            "details": "Call 'store.logout()'. Assert that 'isAuthenticated' is reset to false, 'user' becomes null, and 'localStorage.removeItem' is called for the auth keys.",
+            "status": "pending",
+            "testStrategy": "Assert that the store state returns to its initial default values after logout.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 7,
+            "title": "Test Demo Login Functionality",
+            "description": "Validate that the demo login path correctly initializes a session with demo credentials.",
+            "dependencies": [1],
+            "details": "Invoke 'store.demoLogin()'. Verify that it sets the 'isAuthenticated' flag and populates the 'user' object with expected demo profile information without needing external API calls.",
+            "status": "pending",
+            "testStrategy": "Verify 'store.user.role' is set to a value reflecting demo access if such logic exists.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Test Token Expiration Detection",
+            "description": "Test the utility logic that determines if a JWT is nearing its expiration time.",
+            "dependencies": [2],
+            "details": "Mock 'isTokenExpiringSoon' logic using specific timestamps. Verify it returns true when the token is within the buffer window and false when it is well before expiration.",
+            "status": "pending",
+            "testStrategy": "Provide a JWT with an 'exp' claim and verify the boolean return of the internal helper function.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 9,
+            "title": "Test Token Refresh Logic with Fake Timers",
+            "description": "Use Vitest fake timers to simulate time passage and trigger automatic token refreshes.",
+            "dependencies": [8],
+            "details": "Setup 'vi.useFakeTimers()'. Call 'refreshTokenIfNeeded' or simulate the interval that checks tokens. Assert that the 'authApi.refreshToken' method is called when time is advanced to the expiration window.",
+            "status": "pending",
+            "testStrategy": "Verify API call frequency using 'vi.advanceTimersByTime' and 'toHaveBeenCalled' assertions.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 10,
+            "title": "Test Loading Stage Transitions and Password Reset",
+            "description": "Verify that the store correctly cycles through loading stages for long-running operations like password resets.",
+            "dependencies": [1],
+            "details": "Implement tests for 'forgotPassword' or 'resetPassword'. Assert that 'loadingStage' moves from 'idle' to 'loading' then to 'success' or 'error' based on the API outcome.",
+            "status": "pending",
+            "testStrategy": "Capture state snapshots or use watchers to verify the sequence of 'loadingStage' values.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-01-04T15:47:11.875Z"
+      },
+      {
+        "id": "289",
+        "title": "Reduce :any Type Escapes and Implement Shared Error Types",
+        "description": "Address technical debt by replacing `: any` types with specific interfaces and generics, primarily in the API layer and auth store.",
+        "details": "1. Create `src/types/errors.ts` and define `ApiError`, `AuthError`, and `ValidationError` interfaces. 2. Refactor `src/services/api.ts` to use generic response types (e.g., `get<T>(url: string): Promise<T>`) instead of returning `any`. 3. In `src/stores/backendAuthStore.ts`, update catch blocks to use `unknown` and type guards for the new error interfaces. 4. Identify and update component props in `pages/*.tsx` that currently use `any`. 5. Update ESLint configuration to set `@typescript-eslint/no-explicit-any` to 'warn' to prevent new regressions. 6. Retain `any` only for variadic logger arguments.",
+        "testStrategy": "1. Run `npm run lint` to verify that the `: any` count has decreased by at least 50% (targeting < 50 occurrences). 2. Run `tsc --noEmit` to ensure type safety is maintained across the project.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define shared error interfaces in src/types/errors.ts",
+            "description": "Create a centralized type definition file for common API and authentication errors.",
+            "dependencies": [],
+            "details": "Implement ApiError, AuthError, and ValidationError interfaces. Ensure they include standard fields like message, status code, and error details for consistent handling across the app.\n<info added on 2026-01-04T15:48:47.644Z>\nThe shared error types have been successfully implemented in quikadmin-web/src/types/errors.ts. The implementation includes the ApiError, AuthError, and ValidationError interfaces, ensuring consistent error handling with standard fields. Additionally, type guard functions isApiError and isAuthError, along with the getErrorMessage utility, have been provided to facilitate safe error processing throughout the application.\n</info added on 2026-01-04T15:48:47.644Z>",
+            "status": "pending",
+            "testStrategy": "Verify file existence and ensure no compilation errors when importing these types into other files.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Refactor src/services/api.ts to use generic response types",
+            "description": "Update the API service methods to support TypeScript generics instead of returning 'any'.",
+            "dependencies": [1],
+            "details": "Modify methods like get, post, and put to accept a type parameter T, e.g., get<T>(url: string): Promise<T>. Update internal Axios/fetch calls to use these generics.\n<info added on 2026-01-04T15:49:14.565Z>\nSuccessfully refactored backendAuthStore.ts by replacing 10 instances of 'error: any' with 'error: unknown' and implementing proper type assertions in the createAuthError helper function. Verified that TypeScript compiles successfully without errors.\n</info added on 2026-01-04T15:49:14.565Z>",
+            "status": "pending",
+            "testStrategy": "Run 'tsc --noEmit' to ensure that callers of the API service are now correctly typed and receiving expected data structures.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Enhance error handling in backendAuthStore.ts with type guards",
+            "description": "Update the authentication store to handle errors safely using 'unknown' and the new error interfaces.",
+            "dependencies": [1, 2],
+            "details": "Change catch blocks from 'catch (error: any)' to 'catch (error: unknown)'. Implement type guard functions (e.g., isApiError) to safely access error properties in the UI/Store state.\n<info added on 2026-01-04T15:49:40.286Z>\nCompleted refactor of error handlers across ProfileDetail.tsx, ProfileSettings.tsx, Templates.tsx, and SimpleFillForm.tsx, covering 11 instances total. Replaced error: any with error: unknown in all onError and catch blocks and implemented proper type assertions, ensuring successful TypeScript compilation.\n</info added on 2026-01-04T15:49:40.286Z>",
+            "status": "pending",
+            "testStrategy": "Unit test the auth store by mocking failed API responses and verifying that error states are correctly populated without type casting.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Replace ': any' in page component props and state",
+            "description": "Identify and refactor components in pages/*.tsx that use 'any' for props or local state.",
+            "dependencies": [2],
+            "details": "Search for ': any' and 'as any' in the pages directory. Define interfaces for component props and ensure API data passed to components follows the generic types defined earlier.",
+            "status": "pending",
+            "testStrategy": "Run a recursive grep for ': any' in the pages directory to ensure the count has significantly decreased. Verify components render correctly.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Update ESLint configuration for no-explicit-any rule",
+            "description": "Enable the '@typescript-eslint/no-explicit-any' rule as a warning to maintain type discipline.",
+            "dependencies": [4],
+            "details": "Modify .eslintrc.json or equivalent config file. Set the rule to 'warn' to alert developers of new 'any' usage while allowing existing technical debt to be resolved incrementally.",
+            "status": "pending",
+            "testStrategy": "Run 'npm run lint' and verify that explicit 'any' usages are now flagged as warnings.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Document 'any' policy and audit logger usage",
+            "description": "Finalize the policy for acceptable 'any' usage and ensure variadic loggers are correctly handled.",
+            "dependencies": [5],
+            "details": "Add comments or documentation specifying that 'any' is only permitted for logger variadic arguments. Review logger implementations to ensure they don't lose type safety elsewhere.",
+            "status": "pending",
+            "testStrategy": "Verify that all remaining 'any' occurrences are documented and restricted to logging utilities.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2026-01-04T15:48:16.876Z"
+      },
+      {
+        "id": "290",
+        "title": "Implement RLS Fail-Closed Default in Supabase Auth Middleware",
+        "description": "Modify the Supabase authentication middleware to fail closed by default if Row Level Security (RLS) context cannot be established.",
+        "details": "Update quikadmin/src/middleware/supabaseAuth.ts. Change the logic to: const shouldFailClosed = process.env.RLS_FAIL_CLOSED !== 'false';. If shouldFailClosed is true and the RLS context setting fails, the middleware must return a 500 error, log at ERROR level, and notify the health service. Ensure the error code is specific (e.g., 'DB_RLS_INIT_FAILURE').",
+        "testStrategy": "Unit tests: 1. Mock supabase client to fail and verify 500 response. 2. Set RLS_FAIL_CLOSED=false and verify request proceeds. 3. Verify health service call on failure.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Update main supabaseAuth middleware logic, 2) Update optionalAuthSupabase function, 3) Add comprehensive unit tests, 4) Verify integration with existing RLS failure recording.",
+        "updatedAt": "2026-01-04T20:41:36.512Z"
+      },
+      {
+        "id": "291",
+        "title": "Mount Global Error Boundary and Unhandled Rejection Handler",
+        "description": "Implement a root-level Error Boundary in the frontend and a global listener for unhandled promise rejections.",
+        "details": "In quikadmin-web/src/App.tsx, wrap the root application with an ErrorBoundary component. Add a window event listener for 'unhandledrejection' to capture async errors. Integrate a placeholder for Sentry or similar error reporting. Ensure the UI provides a 'Reset' or 'Retry' button that clears the error state.",
+        "testStrategy": "Manual test: 1. Trigger a render error and verify UI fallback. 2. Trigger an unhandled promise rejection and verify it is captured. 3. Verify 'Reset' restores the app.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Implement ErrorBoundary wrapper in App.tsx, 2) Add global unhandledrejection handler, 3) Create comprehensive ErrorBoundary tests, 4) Integration test with QueryClientProvider.",
+        "updatedAt": "2026-01-04T20:43:16.138Z"
+      },
+      {
+        "id": "292",
+        "title": "Refactor Token Storage Consistency in Auth Store",
+        "description": "Update the authentication store to ensure isAuthenticated reflects actual token presence and manage session indicators separately.",
+        "details": "In quikadmin-web/src/stores/backendAuthStore.ts, modify state to include 'hasValidSession'. Update 'isAuthenticated' to be a derived value or strictly tied to accessToken presence in memory. Persist only a 'sessionIndicator' (boolean) to localStorage instead of 'isAuthenticated'. On app load, if sessionIndicator is true, trigger a silent refresh.",
+        "testStrategy": "Integration test: 1. Perform login and check localStorage. 2. Refresh page and verify silent refresh triggers. 3. Manually clear tokens in memory and verify isAuthenticated becomes false.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 6,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Break down into: 1) Refactor Zustand store persistence schema (sessionIndicator), 2) Update checkSession and onRehydrateStorage logic, 3) Create page refresh scenario tests, 4) Verify silent refresh integration.",
+        "updatedAt": "2026-01-04T20:44:21.192Z"
+      },
+      {
+        "id": "293",
+        "title": "Enable CSRF Protection by Default",
+        "description": "Switch CSRF middleware to be active by default across all environments unless explicitly disabled via environment variables.",
+        "details": "In quikadmin/src/index.ts, update CSRF conditional logic. Replace the check so that app.use(csrfProtection) is executed unless process.env.DISABLE_CSRF === 'true'. Add a console.warn message if CSRF is disabled.",
+        "testStrategy": "Security test: 1. Attempt POST without CSRF token in development and verify 403. 2. Set DISABLE_CSRF=true and verify POST succeeds. 3. Verify GET/HEAD requests are not blocked.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Update CSRF middleware registration logic, 2) Add production error logging, 3) Create integration tests for CSRF validation scenarios.",
+        "updatedAt": "2026-01-04T20:45:27.252Z"
+      },
+      {
+        "id": "294",
+        "title": "Implement API Request Interceptor Mutex for Token Refresh",
+        "description": "Add a synchronization mechanism to the API client to prevent multiple concurrent token refresh calls.",
+        "details": "In quikadmin-web/src/services/api.ts, implement a mutex or a shared promise pattern for token refreshing. Ensure that if multiple 401s occur simultaneously, only one refresh request is made. Use a 30-second timeout to prevent stuck requests and clear the promise synchronously upon completion.",
+        "testStrategy": "Concurrency test: 1. Mock 5 parallel requests that all return 401. 2. Verify only one refresh API call is made. 3. Verify all 5 original requests retry with the new token.",
+        "priority": "high",
+        "dependencies": ["292"],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 8,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down into: 1) Implement mutex pattern with promise sharing and timeout, 2) Update axios interceptor logic, 3) Create concurrent request simulation tests, 4) Add timeout/logout integration tests.",
+        "updatedAt": "2026-01-04T20:48:06.373Z"
+      },
+      {
+        "id": "295",
+        "title": "Update Unauthorized Redirects to use React Router",
+        "description": "Replace window.location.href with React Router navigation for 401 error handling to preserve application state.",
+        "details": "In quikadmin-web/src/services/api.ts, replace window.location.href = '/login' with a call to the router navigation utility. Capture the current path and pass it as a 'returnTo' parameter in the navigation state. This avoids a full page reload and allows redirection back after login.",
+        "testStrategy": "Manual test: 1. Trigger a 401 from a deep link. 2. Verify redirect to /login via router state. 3. Complete login and verify redirection back to the original link.",
+        "priority": "high",
+        "dependencies": ["294"],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 1,
+        "expansionPrompt": "Break down into: 1) Create navigation helper module with React Router ref, 2) Update App.tsx with NavigationSetter, 3) Replace api.ts 401 redirect logic, 4) Add navigation tests.",
+        "updatedAt": "2026-01-04T20:51:55.348Z"
+      },
+      {
+        "id": "296",
+        "title": "Conditional Redux/Zustand DevTools in Production",
+        "description": "Ensure state management DevTools are strictly disabled in production builds to prevent sensitive data exposure.",
+        "details": "In quikadmin-web/src/stores/backendAuthStore.ts (and any other store files), wrap the devtools middleware configuration in a check for process.env.NODE_ENV === 'development'. Ensure the production build bundle does not include or activate the extension middleware.",
+        "testStrategy": "Build test: 1. Run a production build. 2. Verify in a browser with Redux/Zustand devtools installed that the store is not visible/accessible.",
+        "priority": "high",
+        "dependencies": ["292"],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 1,
+        "expansionPrompt": "Break down into: 1) Create conditional devtools wrapper function, 2) Apply to all Zustand stores (auth, upload, document), 3) Verify production build excludes devtools.",
+        "updatedAt": "2026-01-04T20:58:36.224Z"
+      },
+      {
+        "id": "297",
+        "title": "Implement Global Request ID Middleware",
+        "description": "Add middleware to generate and propagate a unique Request ID (UUID) for every incoming backend request.",
+        "details": "In quikadmin/src/index.ts, mount a new middleware at the very top of the stack. Use a library like 'uuid' to generate IDs. Set the 'X-Request-ID' header on the response object and store the ID in the request context (or async local storage) for use by the logger.",
+        "testStrategy": "Unit test: 1. Call any API endpoint. 2. Verify 'X-Request-ID' header is present in the response and is a valid UUID.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Mount requestContext middleware first in stack, 2) Update error handler to include requestId, 3) Add integration tests for request ID consistency.",
+        "updatedAt": "2026-01-04T20:37:45.067Z"
+      },
+      {
+        "id": "298",
+        "title": "Enhance checkSession with Token Expiration Check",
+        "description": "Update the checkSession utility to validate both token presence and its expiration status.",
+        "details": "In quikadmin-web/src/stores/backendAuthStore.ts, modify checkSession. It must now use tokenManager to verify if the token exists AND if it is not expiring within a safety margin (e.g., 0-30 seconds). Return false if the token is expired even if isAuthenticated is true.",
+        "testStrategy": "Unit test: 1. Mock an expired token and verify checkSession returns false. 2. Mock a valid token and verify it returns true.",
+        "priority": "medium",
+        "dependencies": ["292"],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Update checkSession to use tokenManager, 2) Add unit tests for token/expiration scenarios.",
+        "updatedAt": "2026-01-04T21:07:29.264Z"
+      },
+      {
+        "id": "299",
+        "title": "Enable Request Sanitization Middleware",
+        "description": "Mount sanitization middleware to strip null bytes and control characters from request bodies and parameters.",
+        "details": "In quikadmin/src/index.ts, mount the sanitizeRequest() middleware after the body-parser/json middleware. It should recursively traverse req.body, req.query, and req.params to remove invalid characters. Log a warning if sanitization actually modifies data.",
+        "testStrategy": "Security test: 1. Send POST with a null byte in a string. 2. Verify the backend receives the string without the null byte. 3. Verify valid UTF-8 remains untouched.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Mount sanitizeRequest after body parsers, 2) Add optional sanitization logging, 3) Create sanitization unit tests.",
+        "updatedAt": "2026-01-04T21:03:24.339Z"
+      },
+      {
+        "id": "300",
+        "title": "Propagate Request ID to Error Handler Responses",
+        "description": "Ensure that the global error handler includes the Request ID in the JSON response body for client-side correlation.",
+        "details": "In quikadmin/src/index.ts error handling block, extract the Request ID from the request context or header. Include 'requestId' as a field in the error response payload. Ensure the logger logs the error along with this Request ID.",
+        "testStrategy": "Integration test: 1. Trigger a 400/500 error. 2. Verify response JSON contains 'requestId'. 3. Verify the same ID appears in server logs for that error.",
+        "priority": "medium",
+        "dependencies": ["297"],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Update error handler to include requestId in all responses, 2) Verify logging includes requestId.",
+        "updatedAt": "2026-01-04T21:09:40.617Z"
+      },
+      {
+        "id": "301",
+        "title": "Restrict CORS Pattern Security",
+        "description": "Tighten CORS origin patterns to prevent subdomain hijacking and prefer explicit allowed origins.",
+        "details": "In quikadmin/src/index.ts, replace loose regex patterns like /^https:\\/\\/intellifill.*\\.vercel\\.app$/ with a more restrictive list. Ideally, use an array of allowed origins from environment variables. If regex is required, ensure it anchors strictly to prevented unexpected subdomains (e.g., ^https:\\/\\/intellifill-admin\\.vercel\\.app$).",
+        "testStrategy": "Security test: 1. Request from an unauthorized subdomain and verify CORS rejection. 2. Request from the exact authorized domain and verify success.",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 1,
+        "expansionPrompt": "Break down into: 1) Update CORS regex patterns to be more restrictive, 2) Add security logging, 3) Create regex validation tests, 4) Implement optional env-based whitelist.",
+        "updatedAt": "2026-01-04T21:05:16.753Z"
+      },
+      {
+        "id": "302",
+        "title": "Remove Unused Security Middleware Utilities",
+        "description": "Clean up the codebase by removing unused utilities identified in the security audit.",
+        "details": "In quikadmin/src/middleware/security.ts, delete AdaptiveRateLimiter, verifyRequestSignature, performanceMonitor, and the 'compose' utility. Retain asyncHandler and cacheControl as they are currently in use.",
+        "testStrategy": "Build test: 1. Run grep/search for removed utility names to ensure no imports remain. 2. Verify the backend compiles and starts correctly.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 1,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Remove specified unused functions/classes, 2) Verify TypeScript compilation, 3) Run test suite.",
+        "updatedAt": "2026-01-04T21:11:54.846Z"
+      },
+      {
+        "id": "303",
+        "title": "Standardize Shared Error Codes",
+        "description": "Create a shared constants file for error codes to be used by both the backend response and frontend handlers.",
+        "details": "Create a common directory or use an existing shared package. Define an Enum/Object for ErrorCodes (e.g., AUTH_EXPIRED, VALIDATION_ERROR). Update quikadmin-web/src/stores/backendAuthStore.ts and quikadmin/src/index.ts to use these shared constants.",
+        "testStrategy": "Code review: 1. Verify both FE and BE projects import from the same source. 2. Verify error mapping consistency.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 1,
+        "expansionPrompt": "Break down into: 1) Create backend errorCodes.ts with HTTP status mapping, 2) Duplicate to frontend, 3) Update error handlers to use constants.",
+        "updatedAt": "2026-01-05T02:56:13.163Z"
+      },
+      {
+        "id": "304",
+        "title": "Configure Audit Middleware Exclusion Paths",
+        "description": "Add high-volume, low-value paths like CSP reports to the audit logging exclusion list and make it configurable.",
+        "details": "In quikadmin/src/index.ts, update the audit/logger middleware to exclude '/api/csp-report'. Refactor the hardcoded list into a variable that merges a default list with an environment variable (e.g., AUDIT_EXCLUDE_PATHS).",
+        "testStrategy": "Integration test: 1. Post to /api/csp-report. 2. Verify no audit log is generated. 3. Post to a standard API and verify logs are generated.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Break down into: 1) Update audit middleware exclude paths, 2) Add env var configuration support.",
+        "updatedAt": "2026-01-05T02:57:32.308Z"
+      },
+      {
+        "id": "305",
+        "title": "Implement Upload Store Cleanup and Abort Logic",
+        "description": "Add lifecycle management for file uploads to prevent memory leaks and handle component unmounting.",
+        "details": "In quikadmin-web/src/hooks/useUpload.ts, maintain a registry of AbortController instances for active uploads. Implement a cleanup function that calls abort() on all active controllers when the hook/component unmounts. Periodically clear completed or failed upload states from memory.",
+        "testStrategy": "Manual test: 1. Start a large file upload. 2. Navigate away from the page. 3. Verify the network request is cancelled in the browser DevTools.",
+        "priority": "low",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 7,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Break down into: 1) Implement AbortController tracking in useUpload hook, 2) Add unmount cleanup logic, 3) Implement periodic stale cleanup, 4) Create memory leak prevention tests.",
+        "updatedAt": "2026-01-05T03:00:29.675Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-04T10:55:08.372Z",
-      "taskCount": 100,
-      "completedCount": 57,
+      "lastModified": "2026-01-05T03:00:29.679Z",
+      "taskCount": 119,
+      "completedCount": 91,
       "tags": ["master"]
     }
   }
