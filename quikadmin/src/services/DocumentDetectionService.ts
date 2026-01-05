@@ -3,18 +3,52 @@ import pdfParse from 'pdf-parse';
 import { logger } from '../utils/logger';
 
 /**
+ * Check if a string is an HTTP/HTTPS URL
+ */
+function isUrl(pathOrUrl: string): boolean {
+  return pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://');
+}
+
+/**
+ * Download a file from a URL and return as Buffer
+ */
+async function downloadFile(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Get file buffer from either a URL or local path
+ */
+async function getFileBuffer(pathOrUrl: string): Promise<Buffer> {
+  if (isUrl(pathOrUrl)) {
+    logger.debug(`Downloading file from URL for detection`, { url: pathOrUrl.substring(0, 100) });
+    const buffer = await downloadFile(pathOrUrl);
+    logger.debug(`File downloaded`, { size: buffer.length });
+    return buffer;
+  }
+  return fs.readFile(pathOrUrl);
+}
+
+/**
  * Service for detecting document types and characteristics
  * Determines if a PDF is scanned (no text layer) or text-based (native PDF)
+ *
+ * Supports both local file paths and HTTP/HTTPS URLs (e.g., R2 storage)
  */
 export class DocumentDetectionService {
   /**
    * Detect if a PDF is scanned (no text layer) or text-based
-   * @param pdfPath - Path to the PDF file
+   * @param pdfPathOrUrl - Path to the PDF file or HTTP URL
    * @returns true if PDF is scanned (needs OCR), false if text-based
    */
-  async isScannedPDF(pdfPath: string): Promise<boolean> {
+  async isScannedPDF(pdfPathOrUrl: string): Promise<boolean> {
     try {
-      const dataBuffer = await fs.readFile(pdfPath);
+      const dataBuffer = await getFileBuffer(pdfPathOrUrl);
       const data = await pdfParse(dataBuffer);
 
       // Extract text content
@@ -25,8 +59,13 @@ export class DocumentDetectionService {
       const textLength = text.length;
       const textPerPage = pageCount > 0 ? textLength / pageCount : 0;
 
+      // Log path safely (truncate URLs for privacy)
+      const logPath = isUrl(pdfPathOrUrl)
+        ? `URL:${pdfPathOrUrl.substring(0, 50)}...`
+        : pdfPathOrUrl;
+
       logger.debug('PDF Analysis:', {
-        path: pdfPath,
+        path: logPath,
         pages: pageCount,
         textLength,
         textPerPage,
@@ -38,13 +77,13 @@ export class DocumentDetectionService {
       // 3. Text is mostly whitespace or special characters
 
       if (textLength === 0) {
-        logger.info(`PDF detected as SCANNED (no text): ${pdfPath}`);
+        logger.info(`PDF detected as SCANNED (no text): ${logPath}`);
         return true; // Definitely scanned
       }
 
       if (textPerPage < 50) {
         logger.info(
-          `PDF detected as SCANNED (low text density ${textPerPage.toFixed(1)} chars/page): ${pdfPath}`
+          `PDF detected as SCANNED (low text density ${textPerPage.toFixed(1)} chars/page): ${logPath}`
         );
         return true; // Likely scanned with minimal OCR text
       }
@@ -55,15 +94,18 @@ export class DocumentDetectionService {
 
       if (meaningfulRatio < 0.1) {
         logger.info(
-          `PDF detected as SCANNED (low meaningful text ratio ${meaningfulRatio.toFixed(2)}): ${pdfPath}`
+          `PDF detected as SCANNED (low meaningful text ratio ${meaningfulRatio.toFixed(2)}): ${logPath}`
         );
         return true; // Mostly whitespace, likely scanned
       }
 
-      logger.info(`PDF detected as TEXT-BASED (${textPerPage.toFixed(1)} chars/page): ${pdfPath}`);
+      logger.info(`PDF detected as TEXT-BASED (${textPerPage.toFixed(1)} chars/page): ${logPath}`);
       return false; // Has substantial text layer, use direct extraction
     } catch (error) {
-      logger.error(`Error detecting PDF type for ${pdfPath}:`, error);
+      const logPath = isUrl(pdfPathOrUrl)
+        ? `URL:${pdfPathOrUrl.substring(0, 50)}...`
+        : pdfPathOrUrl;
+      logger.error(`Error detecting PDF type for ${logPath}:`, error);
       // Default to scanned if detection fails - safer to OCR than miss content
       logger.warn('Defaulting to SCANNED mode due to detection error');
       return true;
@@ -72,26 +114,29 @@ export class DocumentDetectionService {
 
   /**
    * Extract text directly from text-based PDF
-   * @param pdfPath - Path to the PDF file
+   * @param pdfPathOrUrl - Path to the PDF file or HTTP URL
    * @returns Extracted text content
    */
-  async extractTextFromPDF(pdfPath: string): Promise<string> {
+  async extractTextFromPDF(pdfPathOrUrl: string): Promise<string> {
     try {
-      const dataBuffer = await fs.readFile(pdfPath);
+      const dataBuffer = await getFileBuffer(pdfPathOrUrl);
       const data = await pdfParse(dataBuffer);
       return data.text;
     } catch (error) {
-      logger.error(`Error extracting text from PDF ${pdfPath}:`, error);
+      const logPath = isUrl(pdfPathOrUrl)
+        ? `URL:${pdfPathOrUrl.substring(0, 50)}...`
+        : pdfPathOrUrl;
+      logger.error(`Error extracting text from PDF ${logPath}:`, error);
       throw new Error(`Failed to extract text from PDF: ${error}`);
     }
   }
 
   /**
    * Get detailed PDF information
-   * @param pdfPath - Path to the PDF file
+   * @param pdfPathOrUrl - Path to the PDF file or HTTP URL
    * @returns PDF metadata and statistics
    */
-  async getPDFInfo(pdfPath: string): Promise<{
+  async getPDFInfo(pdfPathOrUrl: string): Promise<{
     numPages: number;
     textLength: number;
     textPerPage: number;
@@ -99,12 +144,22 @@ export class DocumentDetectionService {
     metadata: any;
   }> {
     try {
-      const dataBuffer = await fs.readFile(pdfPath);
+      const dataBuffer = await getFileBuffer(pdfPathOrUrl);
       const data = await pdfParse(dataBuffer);
-      const isScanned = await this.isScannedPDF(pdfPath);
 
+      // Use the buffer we already have instead of re-downloading
       const textLength = data.text.trim().length;
       const textPerPage = data.numpages > 0 ? textLength / data.numpages : 0;
+
+      // Determine if scanned based on the same logic
+      let isScanned = false;
+      if (textLength === 0 || textPerPage < 50) {
+        isScanned = true;
+      } else {
+        const meaningfulChars = data.text.trim().replace(/[\s\n\r\t]/g, '').length;
+        const meaningfulRatio = textLength > 0 ? meaningfulChars / textLength : 0;
+        isScanned = meaningfulRatio < 0.1;
+      }
 
       return {
         numPages: data.numpages,
@@ -114,27 +169,31 @@ export class DocumentDetectionService {
         metadata: data.info,
       };
     } catch (error) {
-      logger.error(`Error getting PDF info for ${pdfPath}:`, error);
+      const logPath = isUrl(pdfPathOrUrl)
+        ? `URL:${pdfPathOrUrl.substring(0, 50)}...`
+        : pdfPathOrUrl;
+      logger.error(`Error getting PDF info for ${logPath}:`, error);
       throw new Error(`Failed to get PDF info: ${error}`);
     }
   }
 
   /**
    * Batch check multiple PDFs for scanned status
-   * @param pdfPaths - Array of PDF file paths
-   * @returns Map of path to isScanned status
+   * @param pdfPathsOrUrls - Array of PDF file paths or URLs
+   * @returns Map of path/URL to isScanned status
    */
-  async batchCheckScanned(pdfPaths: string[]): Promise<Map<string, boolean>> {
+  async batchCheckScanned(pdfPathsOrUrls: string[]): Promise<Map<string, boolean>> {
     const results = new Map<string, boolean>();
 
     await Promise.all(
-      pdfPaths.map(async (path) => {
+      pdfPathsOrUrls.map(async (pathOrUrl) => {
         try {
-          const isScanned = await this.isScannedPDF(path);
-          results.set(path, isScanned);
+          const isScanned = await this.isScannedPDF(pathOrUrl);
+          results.set(pathOrUrl, isScanned);
         } catch (error) {
-          logger.error(`Batch check failed for ${path}:`, error);
-          results.set(path, true); // Default to scanned on error
+          const logPath = isUrl(pathOrUrl) ? `URL:${pathOrUrl.substring(0, 50)}...` : pathOrUrl;
+          logger.error(`Batch check failed for ${logPath}:`, error);
+          results.set(pathOrUrl, true); // Default to scanned on error
         }
       })
     );
