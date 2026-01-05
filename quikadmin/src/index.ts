@@ -173,6 +173,7 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     // Explicit allowed production domains (highest priority)
     const productionOrigins = [
       'https://intellifill.vercel.app',
+      'https://intellifill-web.vercel.app', // Vercel free tier deployment
       'https://www.intellifill.com',
       'https://intellifill.com',
     ];
