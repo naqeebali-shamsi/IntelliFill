@@ -108,6 +108,7 @@ services:
       # OCR Configuration
       OCR_CONCURRENCY: ${OCR_CONCURRENCY:-1}
       OCR_LOW_CONFIDENCE_THRESHOLD: ${OCR_LOW_CONFIDENCE_THRESHOLD:-40}
+      ENABLE_TESSERACT_OSD: ${ENABLE_TESSERACT_OSD:-false}
     volumes:
       - ./src:/app/src
       - ./prisma:/app/prisma

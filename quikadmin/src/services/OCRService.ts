@@ -33,24 +33,102 @@ export interface OCRProgress {
 
 export type ProgressCallback = (progress: OCRProgress) => void;
 
+/**
+ * OCR Service Configuration
+ */
+export const OCR_SERVICE_CONFIG = {
+  /** REQ-010: Feature flag to enable Tesseract OSD (Stage 2) */
+  ENABLE_OSD: process.env.ENABLE_TESSERACT_OSD === 'true',
+  /** NFR-004: Maximum allowed memory increase for legacy worker (100MB) */
+  MAX_LEGACY_MEMORY_DELTA_MB: 100,
+};
+
+/**
+ * Result from preprocessing with EXIF tracking
+ */
+export interface PreprocessingResult {
+  /** Processed image buffer */
+  buffer: Buffer;
+  /** Whether EXIF orientation was detected and applied */
+  hadExifOrientation: boolean;
+}
+
+/**
+ * Result from orientation detection (OSD)
+ */
+export interface OrientationDetectionResult {
+  /** Detected orientation in degrees (0, 90, 180, 270) */
+  orientation: number;
+  /** Detected script type (e.g., 'Latin', 'Cyrillic') */
+  script: string;
+  /** Confidence of detection (0-100) */
+  confidence: number;
+}
+
 export class OCRService {
   private worker: Tesseract.Worker | null = null;
   private initialized = false;
+
+  /** REQ-006: Separate legacy worker for OSD (lazy initialized) */
+  private legacyWorker: Tesseract.Worker | null = null;
+  private legacyInitialized = false;
+
+  /** Memory tracking for NFR-004 compliance */
+  private memoryBeforeLegacyInit: number | null = null;
+
+  /**
+   * Check if an image buffer has EXIF orientation metadata
+   * EXIF orientation values (1-8) indicate how the image should be rotated/flipped.
+   * Value 1 means no rotation needed, but EXIF orientation data is still present.
+   *
+   * @param buffer - Image buffer to check
+   * @returns true if EXIF orientation tag exists (value 1-8), false otherwise
+   */
+  async checkHasExifOrientation(buffer: Buffer): Promise<boolean> {
+    if (!buffer || buffer.length === 0) {
+      return false;
+    }
+
+    try {
+      const metadata = await sharp(buffer).metadata();
+      // EXIF orientation values are 1-8
+      // 1 = no rotation needed, but orientation data exists
+      // 2-8 = various rotations/flips needed
+      const hasOrientation =
+        typeof metadata.orientation === 'number' &&
+        metadata.orientation >= 1 &&
+        metadata.orientation <= 8;
+
+      if (hasOrientation) {
+        logger.debug(`EXIF orientation detected: ${metadata.orientation}`);
+      }
+
+      return hasOrientation;
+    } catch (error) {
+      // Graceful fallback: if we can't read metadata, assume no EXIF
+      logger.debug('Failed to read EXIF metadata:', error);
+      return false;
+    }
+  }
 
   /**
    * Auto-orient buffer based on EXIF metadata (REQ-001, REQ-002)
    * Sharp's rotate() with no args reads EXIF orientation tags (1-8)
    * and auto-rotates the image, then removes the tag to prevent double-rotation.
    * Handles invalid EXIF gracefully per NFR-005.
+   *
    * @param buffer - Input image buffer
-   * @returns Auto-oriented buffer (unchanged if no EXIF or error)
+   * @returns PreprocessingResult with buffer and hadExifOrientation flag
    */
-  private async autoOrientBuffer(buffer: Buffer): Promise<Buffer> {
+  async autoOrientBuffer(buffer: Buffer): Promise<PreprocessingResult> {
     if (!buffer || buffer.length === 0) {
-      return buffer;
+      return { buffer, hadExifOrientation: false };
     }
 
     try {
+      // Check for EXIF orientation BEFORE rotation
+      const hadExifOrientation = await this.checkHasExifOrientation(buffer);
+
       const start = Date.now();
       const oriented = await sharp(buffer, { failOn: 'none' })
         .rotate() // Auto-orient based on EXIF metadata
@@ -64,11 +142,11 @@ export class OCRService {
         logger.debug(`EXIF auto-rotation completed in ${elapsed}ms`);
       }
 
-      return oriented;
+      return { buffer: oriented, hadExifOrientation };
     } catch (error) {
       // Graceful fallback per NFR-005: return original if orientation fails
       logger.debug('EXIF auto-rotation skipped (no EXIF or error):', error);
-      return buffer;
+      return { buffer, hadExifOrientation: false };
     }
   }
 
@@ -99,6 +177,200 @@ export class OCRService {
     } catch (error) {
       logger.error('Failed to initialize OCR service:', error);
       throw new Error(`OCR initialization failed: ${error}`);
+    }
+  }
+
+  /**
+   * Check if OSD feature is enabled (REQ-010)
+   * @returns true if ENABLE_TESSERACT_OSD=true in environment
+   */
+  isOSDEnabled(): boolean {
+    return OCR_SERVICE_CONFIG.ENABLE_OSD;
+  }
+
+  /**
+   * Get current memory usage in MB
+   * Used for NFR-004 memory monitoring
+   */
+  private getMemoryUsageMB(): number {
+    const usage = process.memoryUsage();
+    return Math.round(usage.heapUsed / 1024 / 1024);
+  }
+
+  /**
+   * REQ-006: Initialize legacy Tesseract worker for OSD (Orientation Script Detection)
+   * Lazy initialization - only called when OSD is actually needed.
+   * Requires legacyCore and legacyLang for worker.detect() support.
+   *
+   * @throws Error if OSD is not enabled or initialization fails
+   * @throws Error if memory increase exceeds NFR-004 limit (100MB)
+   */
+  async initializeLegacyWorker(): Promise<void> {
+    // Check feature flag first
+    if (!OCR_SERVICE_CONFIG.ENABLE_OSD) {
+      throw new Error('Tesseract OSD is not enabled. Set ENABLE_TESSERACT_OSD=true to enable.');
+    }
+
+    if (this.legacyInitialized) return;
+
+    try {
+      // NFR-004: Track memory before initialization
+      this.memoryBeforeLegacyInit = this.getMemoryUsageMB();
+      logger.info(
+        `Starting legacy Tesseract worker initialization. Memory before: ${this.memoryBeforeLegacyInit}MB`
+      );
+
+      // REQ-006: Create worker with legacy support for OSD
+      // IMPORTANT: OSD detection requires 'osd' traineddata, NOT 'eng'
+      // Tesseract.js will automatically download osd.traineddata.gz from CDN
+      this.legacyWorker = await Tesseract.createWorker('osd', 1, {
+        legacyCore: true,
+        legacyLang: true,
+        logger: (m: any) => {
+          if (m.status) {
+            logger.debug(
+              `Tesseract Legacy: ${m.status} ${m.progress ? `${(m.progress * 100).toFixed(1)}%` : ''}`
+            );
+          }
+        },
+      });
+
+      this.legacyInitialized = true;
+
+      // NFR-004: Check memory increase
+      const memoryAfter = this.getMemoryUsageMB();
+      const memoryDelta = memoryAfter - this.memoryBeforeLegacyInit;
+
+      logger.info(
+        `Legacy Tesseract worker initialized. Memory after: ${memoryAfter}MB (delta: ${memoryDelta}MB)`
+      );
+
+      if (memoryDelta > OCR_SERVICE_CONFIG.MAX_LEGACY_MEMORY_DELTA_MB) {
+        logger.warn(
+          `Legacy worker memory increase (${memoryDelta}MB) exceeds NFR-004 limit (${OCR_SERVICE_CONFIG.MAX_LEGACY_MEMORY_DELTA_MB}MB)`
+        );
+      }
+    } catch (error) {
+      logger.error('Failed to initialize legacy Tesseract worker:', error);
+      throw new Error(`Legacy Tesseract initialization failed: ${error}`);
+    }
+  }
+
+  /**
+   * Check if legacy worker is ready for OSD
+   */
+  isLegacyWorkerReady(): boolean {
+    return this.legacyInitialized && this.legacyWorker !== null;
+  }
+
+  /**
+   * Get memory delta from legacy worker initialization (for monitoring)
+   * @returns Memory increase in MB, or null if not yet initialized
+   */
+  getLegacyWorkerMemoryDelta(): number | null {
+    if (this.memoryBeforeLegacyInit === null || !this.legacyInitialized) {
+      return null;
+    }
+    return this.getMemoryUsageMB() - this.memoryBeforeLegacyInit;
+  }
+
+  /**
+   * REQ-007: Detect document orientation using Tesseract OSD
+   * Uses the legacy worker's detect() method to determine rotation angle.
+   *
+   * @param buffer - Image buffer to analyze
+   * @returns Orientation detection result with angle (0, 90, 180, 270) and script type
+   * @throws Error if OSD is not enabled or legacy worker not initialized
+   */
+  async detectOrientation(buffer: Buffer): Promise<OrientationDetectionResult> {
+    // Validate input buffer (REQ-003 style validation)
+    if (!buffer || buffer.length === 0) {
+      logger.warn('detectOrientation called with empty buffer');
+      return { orientation: 0, script: 'unknown', confidence: 0 };
+    }
+
+    // Minimum valid image size (a 1x1 PNG is ~68 bytes)
+    if (buffer.length < 50) {
+      logger.warn(`detectOrientation: buffer too small (${buffer.length} bytes)`);
+      return { orientation: 0, script: 'unknown', confidence: 0 };
+    }
+
+    // Check feature flag
+    if (!OCR_SERVICE_CONFIG.ENABLE_OSD) {
+      throw new Error('Tesseract OSD is not enabled. Set ENABLE_TESSERACT_OSD=true to enable.');
+    }
+
+    // Ensure legacy worker is initialized (lazy init)
+    if (!this.legacyInitialized) {
+      await this.initializeLegacyWorker();
+    }
+
+    if (!this.legacyWorker) {
+      throw new Error('Legacy Tesseract worker not available for OSD');
+    }
+
+    try {
+      const start = Date.now();
+
+      // Call Tesseract OSD detection
+      const result = await this.legacyWorker.detect(buffer);
+
+      const elapsed = Date.now() - start;
+      logger.debug(`OSD detection completed in ${elapsed}ms`);
+
+      // Tesseract returns orientation_degrees directly (0, 90, 180, 270)
+      // and orientation_confidence as a percentage
+      const orientation = result.data?.orientation_degrees ?? 0;
+      const script = result.data?.script ?? 'unknown';
+      const confidence = result.data?.orientation_confidence ?? 0;
+
+      logger.info(
+        `OSD detected orientation: ${orientation}°, script: ${script}, confidence: ${confidence}%`
+      );
+
+      return { orientation, script, confidence };
+    } catch (error) {
+      // NFR-005: Graceful fallback on detection failure
+      logger.warn('OSD detection failed, returning default orientation (0°):', error);
+      return { orientation: 0, script: 'unknown', confidence: 0 };
+    }
+  }
+
+  /**
+   * Rotate an image buffer by the specified degrees
+   * Used after OSD detection to correct document orientation.
+   *
+   * @param buffer - Image buffer to rotate
+   * @param degrees - Rotation angle (0, 90, 180, 270)
+   * @returns Rotated image buffer
+   */
+  async rotateBuffer(buffer: Buffer, degrees: number): Promise<Buffer> {
+    if (!buffer || buffer.length === 0) {
+      return buffer;
+    }
+
+    // Only rotate if degrees is non-zero
+    if (degrees === 0) {
+      return buffer;
+    }
+
+    // Validate degrees (must be 0, 90, 180, or 270)
+    if (![0, 90, 180, 270].includes(degrees)) {
+      logger.warn(
+        `Invalid rotation degrees: ${degrees}. Must be 0, 90, 180, or 270. Returning original.`
+      );
+      return buffer;
+    }
+
+    try {
+      const start = Date.now();
+      const rotated = await sharp(buffer).rotate(degrees).toBuffer();
+      const elapsed = Date.now() - start;
+      logger.debug(`Rotated image by ${degrees}° in ${elapsed}ms`);
+      return rotated;
+    } catch (error) {
+      logger.warn(`Failed to rotate image by ${degrees}°:`, error);
+      return buffer;
     }
   }
 
@@ -158,8 +430,8 @@ export class OCRService {
           message: `Preprocessing page ${pageNum}/${pageCount}...`,
         });
 
-        // Preprocess image for better OCR
-        const processedImage = await this.preprocessImage(imageBuffer);
+        // Preprocess image for better OCR (scanned PDF = true for OSD detection)
+        const { buffer: processedImage } = await this.preprocessImage(imageBuffer, true);
 
         // Progress: Recognizing
         onProgress?.({
@@ -258,8 +530,8 @@ export class OCRService {
         logger.info(`Image downloaded (${imageBuffer.length} bytes)`);
       }
 
-      // Preprocess image
-      const processedImage = await this.preprocessImage(imageBuffer);
+      // Preprocess image (standalone image, not from scanned PDF)
+      const { buffer: processedImage } = await this.preprocessImage(imageBuffer, false);
 
       // Perform OCR
       const result = await this.worker!.recognize(processedImage);
@@ -288,7 +560,18 @@ export class OCRService {
     }
   }
 
-  private async preprocessImage(imageBuffer: Buffer): Promise<Buffer> {
+  /**
+   * Preprocess an image buffer for OCR
+   * Includes EXIF auto-orientation and optional OSD-based rotation
+   *
+   * @param imageBuffer - Raw image buffer
+   * @param isFromScannedPdf - Whether this image came from a scanned PDF page
+   * @returns PreprocessingResult with processed buffer and EXIF tracking
+   */
+  private async preprocessImage(
+    imageBuffer: Buffer,
+    isFromScannedPdf: boolean = false
+  ): Promise<PreprocessingResult> {
     // CRITICAL: Validate input buffer to prevent tesseract worker crashes
     if (!imageBuffer || imageBuffer.length === 0) {
       throw new Error('Cannot preprocess empty image buffer');
@@ -302,10 +585,35 @@ export class OCRService {
     try {
       // Stage 1: EXIF auto-orientation (REQ-001, REQ-002)
       // Uses reusable helper function for consistent handling
-      const orientedBuffer = await this.autoOrientBuffer(imageBuffer);
+      const { buffer: orientedBuffer, hadExifOrientation } =
+        await this.autoOrientBuffer(imageBuffer);
+
+      // Stage 2: OSD-based rotation for scanned PDFs without EXIF (REQ-008)
+      // Only run OSD if: feature enabled AND scanned PDF AND no EXIF was applied
+      let finalBuffer = orientedBuffer;
+      if (OCR_SERVICE_CONFIG.ENABLE_OSD && isFromScannedPdf && !hadExifOrientation) {
+        logger.debug('Running OSD detection for scanned PDF without EXIF');
+        try {
+          const osdResult = await this.detectOrientation(orientedBuffer);
+
+          if (osdResult.orientation !== 0 && osdResult.confidence > 50) {
+            logger.info(
+              `OSD detected ${osdResult.orientation}° rotation with ${osdResult.confidence}% confidence`
+            );
+            finalBuffer = await this.rotateBuffer(orientedBuffer, osdResult.orientation);
+          } else {
+            logger.debug(
+              `OSD: No rotation needed (${osdResult.orientation}° with ${osdResult.confidence}% confidence)`
+            );
+          }
+        } catch (osdError) {
+          // NFR-005: Graceful fallback - continue without OSD rotation
+          logger.warn('OSD detection failed, continuing without rotation:', osdError);
+        }
+      }
 
       // Apply image preprocessing for better OCR accuracy
-      const processed = await sharp(orientedBuffer)
+      const processed = await sharp(finalBuffer)
         .greyscale() // Convert to grayscale
         .normalize() // Normalize contrast
         .sharpen() // Sharpen text
@@ -318,7 +626,7 @@ export class OCRService {
         throw new Error('Sharp produced empty output buffer');
       }
 
-      return processed;
+      return { buffer: processed, hadExifOrientation };
     } catch (error) {
       logger.warn('Image preprocessing failed:', error);
       // Don't return empty/invalid buffer - throw instead
@@ -326,7 +634,7 @@ export class OCRService {
         throw new Error('Cannot fall back to invalid original buffer');
       }
       // Graceful fallback per NFR-005: return original if orientation fails
-      return imageBuffer;
+      return { buffer: imageBuffer, hadExifOrientation: false };
     }
   }
 
@@ -378,7 +686,8 @@ export class OCRService {
       // Apply auto-orientation per REQ-002 (consistent across all paths)
       // Note: pdf2pic-generated images typically don't have EXIF, but this ensures
       // consistent handling if source PDF contains embedded images with EXIF data
-      const orientedBuffer = await this.autoOrientBuffer(buffer);
+      // We don't do OSD here - it will be done in preprocessImage() for scanned PDFs
+      const { buffer: orientedBuffer } = await this.autoOrientBuffer(buffer);
 
       return orientedBuffer;
     } catch (error) {
@@ -452,10 +761,30 @@ export class OCRService {
   }
 
   async cleanup(): Promise<void> {
+    const cleanupTasks: Promise<void>[] = [];
+
     if (this.worker) {
-      await this.worker.terminate();
-      this.worker = null;
-      this.initialized = false;
+      cleanupTasks.push(
+        this.worker.terminate().then(() => {
+          this.worker = null;
+          this.initialized = false;
+        })
+      );
+    }
+
+    // Also cleanup legacy worker if initialized
+    if (this.legacyWorker) {
+      cleanupTasks.push(
+        this.legacyWorker.terminate().then(() => {
+          this.legacyWorker = null;
+          this.legacyInitialized = false;
+          this.memoryBeforeLegacyInit = null;
+        })
+      );
+    }
+
+    if (cleanupTasks.length > 0) {
+      await Promise.all(cleanupTasks);
       logger.info('OCR Service cleaned up');
     }
   }

@@ -18,7 +18,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { OCRService } from '../OCRService';
+import { OCRService, OCR_SERVICE_CONFIG } from '../OCRService';
 import Tesseract from 'tesseract.js';
 import { PDFDocument } from 'pdf-lib';
 import * as fs from 'fs/promises';
@@ -513,15 +513,14 @@ describe('OCRService', () => {
       });
 
       // Mock sharp: rotate fails but subsequent processing works
-      let usedOriginalAfterFailure = false;
       (sharp as unknown as jest.Mock).mockImplementation((buffer: Buffer) => ({
         rotate: jest.fn().mockImplementation(() => {
           // First call with rotate fails
           throw new Error('EXIF rotation failed');
         }),
         greyscale: jest.fn().mockImplementation(function (this: any) {
-          // Track if we're using original buffer after failure
-          usedOriginalAfterFailure = buffer === mockImageBuffer;
+          // Verify we're using original buffer after failure
+          expect(buffer).toBe(mockImageBuffer);
           return this;
         }),
         normalize: jest.fn().mockReturnThis(),
@@ -859,6 +858,915 @@ describe('OCRService', () => {
       mockWorker.terminate.mockRejectedValue(new Error('Termination failed'));
 
       await expect(service.cleanup()).rejects.toThrow('Termination failed');
+    });
+  });
+
+  // ==========================================================================
+  // Stage 2: Legacy Tesseract Worker Tests (Task 346)
+  // ==========================================================================
+
+  describe('Legacy Tesseract Worker (Stage 2 OSD)', () => {
+    describe('isOSDEnabled', () => {
+      it('should return false when ENABLE_TESSERACT_OSD is not set', () => {
+        // Default config should be false
+        const result = service.isOSDEnabled();
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('isLegacyWorkerReady', () => {
+      it('should return false when legacy worker is not initialized', () => {
+        expect(service.isLegacyWorkerReady()).toBe(false);
+      });
+    });
+
+    describe('initializeLegacyWorker', () => {
+      it('should throw error when OSD feature is disabled', async () => {
+        // Default config has OSD disabled
+        await expect(service.initializeLegacyWorker()).rejects.toThrow(
+          'Tesseract OSD is not enabled'
+        );
+      });
+
+      it('should not reinitialize if already initialized', async () => {
+        // This test needs OSD enabled - we'll test the early return path
+        // by manually setting the internal state
+        const serviceAny = service as any;
+        serviceAny.legacyInitialized = true;
+        serviceAny.legacyWorker = mockWorker;
+
+        // Clear the mock to track calls
+        mockCreateWorker.mockClear();
+
+        // Even with legacyInitialized=true, the feature flag check happens first
+        // So this will throw because OSD is disabled
+        await expect(service.initializeLegacyWorker()).rejects.toThrow(
+          'Tesseract OSD is not enabled'
+        );
+
+        // Worker shouldn't be created since it short-circuited at feature flag check
+        expect(mockCreateWorker).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('getLegacyWorkerMemoryDelta', () => {
+      it('should return null when legacy worker is not initialized', () => {
+        expect(service.getLegacyWorkerMemoryDelta()).toBeNull();
+      });
+
+      it('should return null when memoryBeforeLegacyInit is null', () => {
+        const serviceAny = service as any;
+        serviceAny.legacyInitialized = true;
+        serviceAny.memoryBeforeLegacyInit = null;
+
+        expect(service.getLegacyWorkerMemoryDelta()).toBeNull();
+      });
+    });
+
+    describe('cleanup with legacy worker', () => {
+      it('should terminate both workers when both are initialized', async () => {
+        // Initialize main worker
+        await service.initialize();
+
+        // Manually set legacy worker state
+        const legacyMockWorker = {
+          terminate: jest.fn().mockResolvedValue(undefined),
+        };
+        const serviceAny = service as any;
+        serviceAny.legacyWorker = legacyMockWorker;
+        serviceAny.legacyInitialized = true;
+        serviceAny.memoryBeforeLegacyInit = 100;
+
+        await service.cleanup();
+
+        // Both workers should be terminated
+        expect(mockWorker.terminate).toHaveBeenCalled();
+        expect(legacyMockWorker.terminate).toHaveBeenCalled();
+
+        // State should be reset
+        expect(serviceAny.legacyWorker).toBeNull();
+        expect(serviceAny.legacyInitialized).toBe(false);
+        expect(serviceAny.memoryBeforeLegacyInit).toBeNull();
+      });
+
+      it('should only terminate legacy worker when main worker is not initialized', async () => {
+        // Only set legacy worker state (main worker not initialized)
+        const legacyMockWorker = {
+          terminate: jest.fn().mockResolvedValue(undefined),
+        };
+        const serviceAny = service as any;
+        serviceAny.legacyWorker = legacyMockWorker;
+        serviceAny.legacyInitialized = true;
+
+        await service.cleanup();
+
+        // Legacy worker should be terminated
+        expect(legacyMockWorker.terminate).toHaveBeenCalled();
+
+        // Main worker terminate should not have been called (not initialized)
+        expect(mockWorker.terminate).not.toHaveBeenCalled();
+      });
+
+      it('should handle legacy worker termination errors', async () => {
+        const legacyMockWorker = {
+          terminate: jest.fn().mockRejectedValue(new Error('Legacy termination failed')),
+        };
+        const serviceAny = service as any;
+        serviceAny.legacyWorker = legacyMockWorker;
+        serviceAny.legacyInitialized = true;
+
+        await expect(service.cleanup()).rejects.toThrow('Legacy termination failed');
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Stage 2: Legacy Worker with Feature Flag Enabled
+  // ==========================================================================
+
+  describe('Legacy Tesseract Worker (OSD Enabled)', () => {
+    afterEach(() => {
+      // Reset OSD flag after each test
+      OCR_SERVICE_CONFIG.ENABLE_OSD = false;
+    });
+
+    it('should create legacy worker with legacyCore and legacyLang options when OSD is enabled', async () => {
+      // Enable OSD
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+
+      // Clear previous calls
+      mockCreateWorker.mockClear();
+
+      await service.initializeLegacyWorker();
+
+      // Verify createWorker was called with legacy options and 'osd' language for OSD detection
+      expect(mockCreateWorker).toHaveBeenCalledWith(
+        'osd',
+        1,
+        expect.objectContaining({
+          legacyCore: true,
+          legacyLang: true,
+          logger: expect.any(Function),
+        })
+      );
+
+      expect(service.isLegacyWorkerReady()).toBe(true);
+
+      // Cleanup
+      await service.cleanup();
+    });
+
+    it('should track memory before and after legacy worker initialization', async () => {
+      // Enable OSD
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+
+      await service.initializeLegacyWorker();
+
+      // Memory delta should be tracked (might be 0 or positive in test environment)
+      const memoryDelta = service.getLegacyWorkerMemoryDelta();
+      expect(memoryDelta).not.toBeNull();
+      expect(typeof memoryDelta).toBe('number');
+
+      // Cleanup
+      await service.cleanup();
+    });
+
+    it('should handle legacy worker creation failure gracefully', async () => {
+      // Enable OSD
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+
+      // Make createWorker fail
+      mockCreateWorker.mockRejectedValueOnce(new Error('Failed to load legacy model'));
+
+      await expect(service.initializeLegacyWorker()).rejects.toThrow(
+        'Legacy Tesseract initialization failed'
+      );
+
+      expect(service.isLegacyWorkerReady()).toBe(false);
+    });
+
+    it('should not reinitialize legacy worker if already initialized', async () => {
+      // Enable OSD
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+
+      // Clear previous calls
+      mockCreateWorker.mockClear();
+
+      // First initialization
+      await service.initializeLegacyWorker();
+      const callCount = mockCreateWorker.mock.calls.length;
+      expect(callCount).toBe(1);
+
+      // Second initialization should be no-op
+      await service.initializeLegacyWorker();
+
+      // createWorker should not have been called again
+      expect(mockCreateWorker.mock.calls.length).toBe(callCount);
+
+      // Cleanup
+      await service.cleanup();
+    });
+  });
+
+  // ==========================================================================
+  // Stage 2: OSD Orientation Detection Tests (Task 347)
+  // ==========================================================================
+
+  describe('OSD Orientation Detection (detectOrientation)', () => {
+    afterEach(() => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = false;
+    });
+
+    describe('Input Validation', () => {
+      it('should return default orientation for empty buffer', async () => {
+        OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+
+        const result = await service.detectOrientation(Buffer.alloc(0));
+
+        expect(result).toEqual({ orientation: 0, script: 'unknown', confidence: 0 });
+      });
+
+      it('should return default orientation for buffer too small', async () => {
+        OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+
+        const smallBuffer = Buffer.alloc(30);
+        const result = await service.detectOrientation(smallBuffer);
+
+        expect(result).toEqual({ orientation: 0, script: 'unknown', confidence: 0 });
+      });
+
+      it('should throw error when OSD is not enabled', async () => {
+        OCR_SERVICE_CONFIG.ENABLE_OSD = false;
+
+        await expect(service.detectOrientation(createMockImageBuffer(150))).rejects.toThrow(
+          'Tesseract OSD is not enabled'
+        );
+      });
+    });
+
+    describe('Detection with OSD Enabled', () => {
+      beforeEach(() => {
+        OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      });
+
+      it('should call legacy worker detect method', async () => {
+        // Setup legacy worker mock
+        const detectMock = jest.fn().mockResolvedValue({
+          data: {
+            orientation_degrees: 90,
+            script: 'Latin',
+            orientation_confidence: 95,
+          },
+        });
+
+        mockWorker.detect = detectMock;
+        mockCreateWorker.mockClear();
+
+        const buffer = createMockImageBuffer(150);
+        const result = await service.detectOrientation(buffer);
+
+        expect(result).toEqual({ orientation: 90, script: 'Latin', confidence: 95 });
+        expect(detectMock).toHaveBeenCalledWith(buffer);
+
+        await service.cleanup();
+      });
+
+      it('should return correct orientation for 180° rotated image', async () => {
+        const detectMock = jest.fn().mockResolvedValue({
+          data: {
+            orientation_degrees: 180,
+            script: 'Latin',
+            orientation_confidence: 88,
+          },
+        });
+
+        mockWorker.detect = detectMock;
+
+        const result = await service.detectOrientation(createMockImageBuffer(150));
+
+        expect(result.orientation).toBe(180);
+
+        await service.cleanup();
+      });
+
+      it('should return correct orientation for 270° rotated image', async () => {
+        const detectMock = jest.fn().mockResolvedValue({
+          data: {
+            orientation_degrees: 270,
+            script: 'Latin',
+            orientation_confidence: 92,
+          },
+        });
+
+        mockWorker.detect = detectMock;
+
+        const result = await service.detectOrientation(createMockImageBuffer(150));
+
+        expect(result.orientation).toBe(270);
+
+        await service.cleanup();
+      });
+
+      it('should gracefully handle detection failure (NFR-005)', async () => {
+        const detectMock = jest.fn().mockRejectedValue(new Error('Detection failed'));
+        mockWorker.detect = detectMock;
+
+        const result = await service.detectOrientation(createMockImageBuffer(150));
+
+        expect(result).toEqual({ orientation: 0, script: 'unknown', confidence: 0 });
+
+        await service.cleanup();
+      });
+
+      it('should handle null orientation_degrees gracefully', async () => {
+        const detectMock = jest.fn().mockResolvedValue({
+          data: {
+            orientation_degrees: null,
+            script: null,
+            orientation_confidence: null,
+          },
+        });
+
+        mockWorker.detect = detectMock;
+
+        const result = await service.detectOrientation(createMockImageBuffer(150));
+
+        expect(result).toEqual({ orientation: 0, script: 'unknown', confidence: 0 });
+
+        await service.cleanup();
+      });
+
+      it('should lazy-initialize legacy worker on first call', async () => {
+        mockCreateWorker.mockClear();
+
+        const detectMock = jest.fn().mockResolvedValue({
+          data: {
+            orientation_degrees: 0,
+            script: 'Latin',
+            orientation_confidence: 100,
+          },
+        });
+        mockWorker.detect = detectMock;
+
+        // First call should initialize legacy worker
+        await service.detectOrientation(createMockImageBuffer(150));
+
+        // Verify 'osd' language is used for OSD traineddata (required for orientation detection)
+        expect(mockCreateWorker).toHaveBeenCalledWith(
+          'osd',
+          1,
+          expect.objectContaining({
+            legacyCore: true,
+            legacyLang: true,
+          })
+        );
+
+        await service.cleanup();
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Stage 2: Image Rotation Tests (Task 347)
+  // ==========================================================================
+
+  describe('Image Rotation (rotateBuffer)', () => {
+    it('should return original buffer for empty input', async () => {
+      const emptyBuffer = Buffer.alloc(0);
+      const result = await service.rotateBuffer(emptyBuffer, 90);
+      expect(result).toBe(emptyBuffer);
+    });
+
+    it('should return original buffer for 0 degrees', async () => {
+      const buffer = createMockImageBuffer(150);
+      const result = await service.rotateBuffer(buffer, 0);
+      expect(result).toBe(buffer);
+    });
+
+    it('should return original buffer for invalid degrees', async () => {
+      const buffer = createMockImageBuffer(150);
+      const result = await service.rotateBuffer(buffer, 45);
+      expect(result).toBe(buffer);
+    });
+
+    it('should call sharp.rotate for 90 degrees', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      let rotateCalledWithDegrees: number | undefined;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation((degrees: number) => {
+          rotateCalledWithDegrees = degrees;
+          return {
+            toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+          };
+        }),
+      }));
+
+      await service.rotateBuffer(buffer, 90);
+
+      expect(rotateCalledWithDegrees).toBe(90);
+    });
+
+    it('should call sharp.rotate for 180 degrees', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      let rotateCalledWithDegrees: number | undefined;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation((degrees: number) => {
+          rotateCalledWithDegrees = degrees;
+          return {
+            toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+          };
+        }),
+      }));
+
+      await service.rotateBuffer(buffer, 180);
+
+      expect(rotateCalledWithDegrees).toBe(180);
+    });
+
+    it('should call sharp.rotate for 270 degrees', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      let rotateCalledWithDegrees: number | undefined;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation((degrees: number) => {
+          rotateCalledWithDegrees = degrees;
+          return {
+            toBuffer: jest.fn().mockResolvedValue(createMockImageBuffer(150)),
+          };
+        }),
+      }));
+
+      await service.rotateBuffer(buffer, 270);
+
+      expect(rotateCalledWithDegrees).toBe(270);
+    });
+
+    it('should gracefully handle rotation failure', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        rotate: jest.fn().mockImplementation(() => {
+          return {
+            toBuffer: jest.fn().mockRejectedValue(new Error('Rotation failed')),
+          };
+        }),
+      }));
+
+      // Should return original buffer on failure
+      const result = await service.rotateBuffer(buffer, 90);
+
+      expect(result).toBe(buffer);
+    });
+  });
+
+  // ==========================================================================
+  // Stage 2: EXIF Detection and Conditional OSD Trigger Tests (Task 348)
+  // ==========================================================================
+
+  describe('EXIF Orientation Detection (checkHasExifOrientation)', () => {
+    it('should return false for empty buffer', async () => {
+      const result = await service.checkHasExifOrientation(Buffer.alloc(0));
+      expect(result).toBe(false);
+    });
+
+    it('should return false for null buffer', async () => {
+      const result = await service.checkHasExifOrientation(null as any);
+      expect(result).toBe(false);
+    });
+
+    it('should return true when EXIF orientation metadata exists', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      // Mock sharp to return orientation metadata
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({
+          width: 100,
+          height: 100,
+          orientation: 6, // 90° CW rotation needed
+        }),
+      }));
+
+      const result = await service.checkHasExifOrientation(buffer);
+      expect(result).toBe(true);
+    });
+
+    it('should return true for orientation value 1 (no rotation but EXIF exists)', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({
+          orientation: 1, // No rotation needed, but EXIF orientation tag exists
+        }),
+      }));
+
+      const result = await service.checkHasExifOrientation(buffer);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when no orientation metadata exists', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({
+          width: 100,
+          height: 100,
+          // No orientation field
+        }),
+      }));
+
+      const result = await service.checkHasExifOrientation(buffer);
+      expect(result).toBe(false);
+    });
+
+    it('should return false for orientation value 0 (invalid)', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({
+          orientation: 0, // Invalid orientation
+        }),
+      }));
+
+      const result = await service.checkHasExifOrientation(buffer);
+      expect(result).toBe(false);
+    });
+
+    it('should return false for orientation value > 8 (invalid)', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({
+          orientation: 9, // Invalid orientation (only 1-8 valid)
+        }),
+      }));
+
+      const result = await service.checkHasExifOrientation(buffer);
+      expect(result).toBe(false);
+    });
+
+    it('should gracefully handle metadata read failure', async () => {
+      const buffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockRejectedValue(new Error('Cannot read metadata')),
+      }));
+
+      const result = await service.checkHasExifOrientation(buffer);
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('autoOrientBuffer with PreprocessingResult', () => {
+    it('should return hadExifOrientation=false for empty buffer', async () => {
+      const result = await service.autoOrientBuffer(Buffer.alloc(0));
+      expect(result.hadExifOrientation).toBe(false);
+      expect(result.buffer.length).toBe(0);
+    });
+
+    it('should return hadExifOrientation=true when EXIF orientation exists', async () => {
+      const buffer = createMockImageBuffer(150);
+      const rotatedBuffer = createMockImageBuffer(160);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ orientation: 6 }),
+        rotate: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(rotatedBuffer),
+      }));
+
+      const result = await service.autoOrientBuffer(buffer);
+      expect(result.hadExifOrientation).toBe(true);
+      expect(result.buffer).toBe(rotatedBuffer);
+    });
+
+    it('should return hadExifOrientation=false when no EXIF orientation', async () => {
+      const buffer = createMockImageBuffer(150);
+      const processedBuffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }),
+        rotate: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(processedBuffer),
+      }));
+
+      const result = await service.autoOrientBuffer(buffer);
+      expect(result.hadExifOrientation).toBe(false);
+    });
+
+    it('should gracefully handle EXIF check failure but still process', async () => {
+      const buffer = createMockImageBuffer(150);
+      const processedBuffer = createMockImageBuffer(150);
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockRejectedValue(new Error('Metadata error')),
+        rotate: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(processedBuffer),
+      }));
+
+      const result = await service.autoOrientBuffer(buffer);
+      expect(result.hadExifOrientation).toBe(false);
+    });
+  });
+
+  describe('Conditional OSD Trigger Logic (Task 348)', () => {
+    beforeEach(() => {
+      // Reset OSD enabled state before each test
+      OCR_SERVICE_CONFIG.ENABLE_OSD = false;
+    });
+
+    afterEach(() => {
+      // Ensure OSD is disabled after tests
+      OCR_SERVICE_CONFIG.ENABLE_OSD = false;
+    });
+
+    it('should NOT run OSD when feature is disabled (default)', async () => {
+      const buffer = createMockImageBuffer(150);
+      let detectCalled = false;
+
+      // Create fresh service instance
+      const testService = new OCRService();
+
+      // Mock legacy worker detect
+      const mockLegacyWorker = {
+        detect: jest.fn().mockImplementation(() => {
+          detectCalled = true;
+          return { data: { orientation_degrees: 90, orientation_confidence: 95, script: 'Latin' } };
+        }),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      // Access private legacyWorker
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      // Setup sharp mock
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }), // No EXIF
+        rotate: jest.fn().mockReturnThis(),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      // Process with OSD disabled (default)
+      await (testService as any).preprocessImage(buffer, true);
+
+      // OSD should NOT be called when feature is disabled
+      expect(detectCalled).toBe(false);
+    });
+
+    it('should NOT run OSD when image has EXIF orientation (even if OSD enabled)', async () => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      const buffer = createMockImageBuffer(150);
+      let detectCalled = false;
+
+      const testService = new OCRService();
+
+      // Mock legacy worker
+      const mockLegacyWorker = {
+        detect: jest.fn().mockImplementation(() => {
+          detectCalled = true;
+          return { data: { orientation_degrees: 90, orientation_confidence: 95, script: 'Latin' } };
+        }),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      // Setup sharp mock with EXIF orientation present
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ orientation: 6 }), // EXIF present
+        rotate: jest.fn().mockReturnThis(),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      // Process scanned PDF with EXIF orientation
+      await (testService as any).preprocessImage(buffer, true);
+
+      // OSD should NOT be called when EXIF orientation exists
+      expect(detectCalled).toBe(false);
+    });
+
+    it('should NOT run OSD for standalone images (not from scanned PDF)', async () => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      const buffer = createMockImageBuffer(150);
+      let detectCalled = false;
+
+      const testService = new OCRService();
+
+      const mockLegacyWorker = {
+        detect: jest.fn().mockImplementation(() => {
+          detectCalled = true;
+          return { data: { orientation_degrees: 90, orientation_confidence: 95, script: 'Latin' } };
+        }),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }), // No EXIF
+        rotate: jest.fn().mockReturnThis(),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      // Process as standalone image (isFromScannedPdf = false)
+      await (testService as any).preprocessImage(buffer, false);
+
+      // OSD should NOT be called for standalone images
+      expect(detectCalled).toBe(false);
+    });
+
+    it('should run OSD when enabled AND scanned PDF AND no EXIF', async () => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      const buffer = createMockImageBuffer(150);
+      const rotatedBuffer = createMockImageBuffer(160);
+      let detectCalled = false;
+
+      const testService = new OCRService();
+
+      const mockLegacyWorker = {
+        detect: jest.fn().mockImplementation(() => {
+          detectCalled = true;
+          return { data: { orientation_degrees: 90, orientation_confidence: 80, script: 'Latin' } };
+        }),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      let rotateCalledWithDegrees: number | null = null;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }), // No EXIF
+        rotate: jest.fn().mockImplementation((degrees?: number) => {
+          if (degrees !== undefined) {
+            rotateCalledWithDegrees = degrees;
+          }
+          return {
+            greyscale: jest.fn().mockReturnThis(),
+            normalize: jest.fn().mockReturnThis(),
+            sharpen: jest.fn().mockReturnThis(),
+            threshold: jest.fn().mockReturnThis(),
+            resize: jest.fn().mockReturnThis(),
+            toBuffer: jest.fn().mockResolvedValue(rotatedBuffer),
+          };
+        }),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      // Process as scanned PDF without EXIF
+      await (testService as any).preprocessImage(buffer, true);
+
+      // OSD should be called
+      expect(detectCalled).toBe(true);
+      // And rotation should be applied (90° detected)
+      expect(rotateCalledWithDegrees).toBe(90);
+    });
+
+    it('should NOT rotate when OSD detects 0° orientation', async () => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      const buffer = createMockImageBuffer(150);
+
+      const testService = new OCRService();
+
+      const mockLegacyWorker = {
+        detect: jest.fn().mockResolvedValue({
+          data: { orientation_degrees: 0, orientation_confidence: 90, script: 'Latin' },
+        }),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      let explicitRotateCalled = false;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }), // No EXIF
+        rotate: jest.fn().mockImplementation((degrees?: number) => {
+          if (degrees !== undefined && degrees !== 0) {
+            explicitRotateCalled = true;
+          }
+          return {
+            greyscale: jest.fn().mockReturnThis(),
+            normalize: jest.fn().mockReturnThis(),
+            sharpen: jest.fn().mockReturnThis(),
+            threshold: jest.fn().mockReturnThis(),
+            resize: jest.fn().mockReturnThis(),
+            toBuffer: jest.fn().mockResolvedValue(buffer),
+          };
+        }),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      await (testService as any).preprocessImage(buffer, true);
+
+      // No explicit rotation should be called for 0° orientation
+      expect(explicitRotateCalled).toBe(false);
+    });
+
+    it('should NOT rotate when OSD confidence is below threshold (50%)', async () => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      const buffer = createMockImageBuffer(150);
+
+      const testService = new OCRService();
+
+      const mockLegacyWorker = {
+        detect: jest.fn().mockResolvedValue({
+          data: { orientation_degrees: 180, orientation_confidence: 30, script: 'Latin' }, // Low confidence
+        }),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      let explicitRotateCalled = false;
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }),
+        rotate: jest.fn().mockImplementation((degrees?: number) => {
+          if (degrees !== undefined && degrees !== 0) {
+            explicitRotateCalled = true;
+          }
+          return {
+            greyscale: jest.fn().mockReturnThis(),
+            normalize: jest.fn().mockReturnThis(),
+            sharpen: jest.fn().mockReturnThis(),
+            threshold: jest.fn().mockReturnThis(),
+            resize: jest.fn().mockReturnThis(),
+            toBuffer: jest.fn().mockResolvedValue(buffer),
+          };
+        }),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      await (testService as any).preprocessImage(buffer, true);
+
+      // No rotation when confidence < 50%
+      expect(explicitRotateCalled).toBe(false);
+    });
+
+    it('should gracefully handle OSD detection failure (NFR-005)', async () => {
+      OCR_SERVICE_CONFIG.ENABLE_OSD = true;
+      const buffer = createMockImageBuffer(150);
+
+      const testService = new OCRService();
+
+      const mockLegacyWorker = {
+        detect: jest.fn().mockRejectedValue(new Error('OSD detection failed')),
+        terminate: jest.fn().mockResolvedValue(undefined),
+      };
+
+      (testService as any).legacyWorker = mockLegacyWorker;
+      (testService as any).legacyInitialized = true;
+
+      (sharp as unknown as jest.Mock).mockImplementation(() => ({
+        metadata: jest.fn().mockResolvedValue({ width: 100, height: 100 }),
+        rotate: jest.fn().mockReturnThis(),
+        greyscale: jest.fn().mockReturnThis(),
+        normalize: jest.fn().mockReturnThis(),
+        sharpen: jest.fn().mockReturnThis(),
+        threshold: jest.fn().mockReturnThis(),
+        resize: jest.fn().mockReturnThis(),
+        toBuffer: jest.fn().mockResolvedValue(buffer),
+      }));
+
+      // Should NOT throw - graceful degradation
+      const result = await (testService as any).preprocessImage(buffer, true);
+
+      // Should return processed buffer despite OSD failure
+      expect(result.buffer).toBeTruthy();
     });
   });
 

@@ -5495,7 +5495,7 @@
         "testStrategy": "Unit test worker creation with/without flag. Memory test: before/after init <100MB delta. Verify osd() available only with legacy mode.",
         "priority": "medium",
         "dependencies": ["340"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -5503,9 +5503,10 @@
             "description": "Install and configure Tesseract.js version 5.1.0 as specified for legacy mode support.",
             "dependencies": [],
             "details": "Run `npm install tesseract.js@5.1.0` or update package.json. Verify installation with `npm ls tesseract.js`. Ensure compatibility with existing Node.js environment and no peer dependency conflicts.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify version in package-lock.json and node_modules. Run `npm test` to ensure no breaking changes.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:47:05.056Z"
           },
           {
             "id": 2,
@@ -5513,9 +5514,10 @@
             "description": "Add conditional logic in OCRService.initialize() based on ENABLE_TESSERACT_OSD environment variable.",
             "dependencies": [1],
             "details": "In OCRService class, check `if (process.env.ENABLE_TESSERACT_OSD === 'true')` before worker creation. Add fallback for undefined flag (default to false). Include null check for this.worker before assignment.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test: mock process.env with true/false/undefined. Verify worker created only when flag is 'true'.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:48:49.557Z"
           },
           {
             "id": 3,
@@ -5523,9 +5525,10 @@
             "description": "Implement lazy initialization of Tesseract worker with legacyCore and legacyLang options on first Stage 2 use.",
             "dependencies": [2],
             "details": "Use `await Tesseract.createWorker('eng', 1, { legacyCore: true, legacyLang: true, logger: m => logger.debug('Tesseract:', m) })`. Add method like `getLegacyWorker()` that initializes only if !this.worker. Handle async properly.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test: call getLegacyWorker() multiple times → verify single creation. Mock Tesseract.createWorker success.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:48:57.047Z"
           },
           {
             "id": 4,
@@ -5533,9 +5536,10 @@
             "description": "Implement memory usage monitoring ensuring <100MB delta per NFR-004 during worker creation.",
             "dependencies": [3],
             "details": "Use `process.memoryUsage()` before/after createWorker(). Calculate RSS/heapTotal delta. Throw error or log warning if >100MB. Add configurable threshold via env var. Integrate into lazy init method.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test: mock memoryUsage with high/low values. Verify throws on >100MB delta. Integration test with real worker creation.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:49:04.577Z"
           },
           {
             "id": 5,
@@ -5543,14 +5547,16 @@
             "description": "Create comprehensive unit tests covering feature flag, lazy init, memory monitoring, and osd availability.",
             "dependencies": [2, 3, 4],
             "details": "Test cases: flag on/off, multiple init calls (single creation), memory <100MB pass/fail, verify worker.detect() available with legacy mode. Mock Tesseract, logger, process.env, process.memoryUsage.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Jest coverage >90%. Test flag combinations, memory thresholds (95MB/105MB), lazy init idempotency. Verify no worker creation without flag.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:51:58.394Z"
           }
         ],
         "complexity": 4,
         "recommendedSubtasks": 0,
-        "expansionPrompt": "Feature flag + worker initialization with memory monitoring - single focused task."
+        "expansionPrompt": "Feature flag + worker initialization with memory monitoring - single focused task.",
+        "updatedAt": "2026-01-05T15:51:58.394Z"
       },
       {
         "id": "347",
@@ -5560,7 +5566,7 @@
         "testStrategy": "Unit test with 90° rotated image → returns 270. Test failure → returns 0. Accuracy test with 10 sample images >90%.",
         "priority": "medium",
         "dependencies": ["346"],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -5568,9 +5574,10 @@
             "description": "Create the detectOrientation method as a thin wrapper around Tesseract worker.detect() with angle mapping.",
             "dependencies": [],
             "details": "Implement async detectOrientation(buffer: Buffer) that checks this.worker existence, calls worker.detect(buffer), maps orientation to [0,90,180,270] array, and returns {angle, script}.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test successful detection with mock worker returning orientation: 3 → verify angle: 270, script preserved.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:55:57.522Z"
           },
           {
             "id": 2,
@@ -5578,9 +5585,10 @@
             "description": "Wrap worker.detect() call in try-catch to provide fallback for failures.",
             "dependencies": [1],
             "details": "Add try-catch around await this.worker.detect(buffer); on catch, return default {angle: 0, script: 'unknown'}. Handle worker null/undefined errors gracefully.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test worker failure scenarios (null worker, detect throws) → verify returns {angle: 0, script: 'unknown'} without crashing.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:56:02.808Z"
           },
           {
             "id": 3,
@@ -5588,9 +5596,10 @@
             "description": "Validate input buffer before processing to prevent invalid calls.",
             "dependencies": [1],
             "details": "Check if buffer is Buffer instance and has length > 0; throw descriptive Error if invalid. Place before worker check.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test invalid inputs (null, non-Buffer, empty buffer) → verify throws specific validation errors.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:56:08.109Z"
           },
           {
             "id": 4,
@@ -5598,9 +5607,10 @@
             "description": "Create unit tests covering happy path, error cases, and edge conditions.",
             "dependencies": [2],
             "details": "Use Jest to test: 90° rotated image → 270, worker failure → fallback, invalid buffer → error, OSD accuracy with sample images. Mock Tesseract worker.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run npm test → achieve 100% branch coverage. Test 10 sample images with >90% accuracy match expected orientations.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:56:13.425Z"
           },
           {
             "id": 5,
@@ -5608,14 +5618,16 @@
             "description": "Define proper interfaces and JSDoc for the detectOrientation method.",
             "dependencies": [1],
             "details": "Create interface OrientationResult { angle: number; script: string; }. Add JSDoc documenting return values, errors, and Tesseract OSD requirements.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify TypeScript compilation passes. Check IDE hover shows correct types and documentation.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2026-01-05T15:56:18.657Z"
           }
         ],
         "complexity": 3,
         "recommendedSubtasks": 0,
-        "expansionPrompt": "Single detectOrientation() method with error handling - no breakdown needed."
+        "expansionPrompt": "Single detectOrientation() method with error handling - no breakdown needed.",
+        "updatedAt": "2026-01-05T15:56:18.657Z"
       },
       {
         "id": "348",
@@ -5625,7 +5637,7 @@
         "testStrategy": "Test matrix: scannedPDF+noEXIF→OSD, nativePDF→noOSD, image+EXIF→noOSD, low-confidence→optionalOSD.",
         "priority": "medium",
         "dependencies": ["341", "347"],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -5650,7 +5662,8 @@
         ],
         "complexity": 6,
         "recommendedSubtasks": 2,
-        "expansionPrompt": "Subtasks for: 1) isScannedPdf() helper and flag tracking, 2) Conditional pipeline integration and testing matrix."
+        "expansionPrompt": "Subtasks for: 1) isScannedPdf() helper and flag tracking, 2) Conditional pipeline integration and testing matrix.",
+        "updatedAt": "2026-01-05T15:56:56.002Z"
       },
       {
         "id": "349",
@@ -5700,9 +5713,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-01-05T15:42:14.190Z",
+      "lastModified": "2026-01-05T15:56:56.007Z",
       "taskCount": 163,
-      "completedCount": 129,
+      "completedCount": 131,
       "tags": ["master"]
     }
   }
