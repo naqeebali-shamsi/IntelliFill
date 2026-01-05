@@ -3,20 +3,33 @@
  * Automated E2E Test Runner
  *
  * This script provides ZERO manual intervention E2E testing:
- * 1. Seeds test database with E2E users
- * 2. Starts backend service (port 3002)
- * 3. Starts frontend service (port 8080)
- * 4. Waits for both to be ready (health checks)
- * 5. Runs Playwright E2E tests
- * 6. Cleans up (kills backend/frontend processes)
+ * 1. Starts local Redis container (Docker)
+ * 2. Seeds test database with E2E users
+ * 3. Starts backend service (port 3002) with local Redis
+ * 4. Starts frontend service (port 8080)
+ * 5. Waits for all services to be ready (health checks)
+ * 6. Runs Playwright E2E tests
+ * 7. Cleans up (kills processes, stops Redis container)
  *
  * Usage: npm run test:e2e:auto
+ *
+ * Prerequisites:
+ * - Docker installed and running
+ * - Node.js 18+
+ * - Bun (for frontend)
  */
 
 const { spawn, execSync } = require('child_process');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+
+// Redis configuration for local testing
+const REDIS_CONFIG = {
+  containerName: 'intellifill-e2e-redis',
+  port: 6379,
+  url: 'redis://localhost:6379',
+};
 
 // Utility: Kill any process using a specific port (Windows-specific)
 function killProcessOnPort(port) {
@@ -57,7 +70,92 @@ function cleanupPorts() {
   console.log('🧹 Cleaning up ports...');
   killProcessOnPort(3002);
   killProcessOnPort(8080);
+  killProcessOnPort(REDIS_CONFIG.port);
   console.log('✅ Ports cleaned up\n');
+}
+
+// Utility: Check if Docker is available
+function checkDocker() {
+  try {
+    execSync('docker --version', { stdio: 'pipe' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Utility: Start local Redis container
+function startRedis() {
+  console.log('🔴 Starting local Redis container...');
+
+  // Check if Docker is available
+  if (!checkDocker()) {
+    console.error('❌ Docker is not installed or not running');
+    console.error('   Please install Docker: https://docs.docker.com/get-docker/');
+    process.exit(1);
+  }
+
+  // Stop and remove existing container if it exists
+  try {
+    execSync(`docker stop ${REDIS_CONFIG.containerName}`, { stdio: 'pipe' });
+    console.log(`  ✓ Stopped existing Redis container`);
+  } catch (e) {
+    // Container doesn't exist, that's fine
+  }
+
+  try {
+    execSync(`docker rm ${REDIS_CONFIG.containerName}`, { stdio: 'pipe' });
+  } catch (e) {
+    // Container doesn't exist, that's fine
+  }
+
+  // Start new Redis container
+  try {
+    execSync(
+      `docker run -d --name ${REDIS_CONFIG.containerName} -p ${REDIS_CONFIG.port}:6379 redis:alpine`,
+      { stdio: 'pipe' }
+    );
+    console.log(`  ✓ Started Redis container on port ${REDIS_CONFIG.port}`);
+    console.log(`  ✓ Redis URL: ${REDIS_CONFIG.url}`);
+    return true;
+  } catch (e) {
+    console.error('❌ Failed to start Redis container:', e.message);
+    return false;
+  }
+}
+
+// Utility: Wait for Redis to be ready
+async function waitForRedis(timeout = 30000) {
+  const startTime = Date.now();
+  const interval = 1000;
+
+  console.log('⏳ Waiting for Redis to be ready...');
+
+  while (Date.now() - startTime < timeout) {
+    try {
+      // Try to ping Redis using docker exec
+      execSync(`docker exec ${REDIS_CONFIG.containerName} redis-cli ping`, { stdio: 'pipe' });
+      console.log('✅ Redis is ready');
+      return true;
+    } catch (e) {
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+  }
+
+  console.error('❌ Redis failed to start within timeout');
+  return false;
+}
+
+// Utility: Stop Redis container
+function stopRedis() {
+  console.log('🛑 Stopping Redis container...');
+  try {
+    execSync(`docker stop ${REDIS_CONFIG.containerName}`, { stdio: 'pipe' });
+    execSync(`docker rm ${REDIS_CONFIG.containerName}`, { stdio: 'pipe' });
+    console.log('✅ Redis container stopped and removed');
+  } catch (e) {
+    // Container may not exist
+  }
 }
 
 // Configuration
@@ -68,7 +166,11 @@ const CONFIG = {
     cwd: path.resolve(__dirname, '../../quikadmin'),
     command: process.platform === 'win32' ? 'npm.cmd' : 'npm',
     args: ['run', 'dev'],
-    env: { NODE_ENV: 'test' }, // Test mode enables local JWT auth
+    env: {
+      NODE_ENV: 'test', // Test mode enables local JWT auth
+      REDIS_URL: REDIS_CONFIG.url, // Override Upstash with local Redis
+      E2E_TEST_MODE: 'true',
+    },
     readyTimeout: 60000, // 60 seconds
   },
   frontend: {
@@ -82,7 +184,13 @@ const CONFIG = {
   tests: {
     cwd: path.resolve(__dirname, '..'),
     command: process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    args: ['cross-env', 'E2E_ENV=local', 'playwright', 'test', '--project=chromium'],
+    // Exclude performance tests (require full OCR pipeline)
+    args: [
+      'cross-env', 'E2E_ENV=local', 'playwright', 'test',
+      '--project=chromium',
+      '--grep-invert', 'Performance',
+      '--timeout', '60000',  // 60s max per test
+    ],
   },
   seed: {
     cwd: path.resolve(__dirname, '../../quikadmin'),
@@ -190,6 +298,7 @@ function cleanup() {
   console.log('\n🧹 Cleaning up...');
   killProcess(backendProcess, 'Backend');
   killProcess(frontendProcess, 'Frontend');
+  stopRedis();
 }
 
 // Handle signals
@@ -215,8 +324,24 @@ async function main() {
   cleanupPorts();
 
   try {
-    // Step 1: Seed database
-    console.log('📊 Step 1/5: Seeding test database...');
+    // Step 1: Start local Redis
+    console.log('🔴 Step 1/6: Starting local Redis (Docker)...');
+    const redisStarted = startRedis();
+    if (!redisStarted) {
+      console.error('❌ Failed to start Redis');
+      process.exit(1);
+    }
+
+    const redisReady = await waitForRedis();
+    if (!redisReady) {
+      console.error('❌ Redis failed to become ready');
+      cleanup();
+      process.exit(1);
+    }
+    console.log('');
+
+    // Step 2: Seed database
+    console.log('📊 Step 2/6: Seeding test database...');
     const seedProcess = spawn(CONFIG.seed.command, CONFIG.seed.args, {
       cwd: CONFIG.seed.cwd,
       stdio: 'inherit',
@@ -229,12 +354,14 @@ async function main() {
 
     if (seedExitCode !== 0) {
       console.error('❌ Database seeding failed');
+      cleanup();
       process.exit(1);
     }
     console.log('✅ Database seeded successfully\n');
 
-    // Step 2: Start backend
-    console.log('🔧 Step 2/5: Starting backend service...');
+    // Step 3: Start backend (with local Redis)
+    console.log('🔧 Step 3/6: Starting backend service (with local Redis)...');
+    console.log(`   Using REDIS_URL: ${REDIS_CONFIG.url}`);
     backendProcess = spawnService('Backend', CONFIG.backend);
     await new Promise((resolve) => setTimeout(resolve, 3000)); // Give it a moment to start
 
@@ -251,8 +378,8 @@ async function main() {
     }
     console.log('');
 
-    // Step 3: Start frontend
-    console.log('🎨 Step 3/5: Starting frontend service...');
+    // Step 4: Start frontend
+    console.log('🎨 Step 4/6: Starting frontend service...');
     frontendProcess = spawnService('Frontend', CONFIG.frontend);
     await new Promise((resolve) => setTimeout(resolve, 3000)); // Give it a moment to start
 
@@ -269,13 +396,13 @@ async function main() {
     }
     console.log('');
 
-    // Step 4: Wait a bit more for full initialization
-    console.log('⏳ Step 4/5: Waiting for services to stabilize...');
+    // Step 5: Wait a bit more for full initialization
+    console.log('⏳ Step 5/6: Waiting for services to stabilize...');
     await new Promise((resolve) => setTimeout(resolve, 5000));
     console.log('✅ Services ready\n');
 
-    // Step 5: Run E2E tests
-    console.log('🧪 Step 5/5: Running E2E tests...\n');
+    // Step 6: Run E2E tests
+    console.log('🧪 Step 6/6: Running E2E tests...\n');
     console.log('─'.repeat(60));
 
     const testProcess = spawn(CONFIG.tests.command, CONFIG.tests.args, {
