@@ -10,6 +10,7 @@
  */
 
 import { piiSafeLogger as logger } from './piiSafeLogger';
+import { isR2Configured } from '../services/storageHelper';
 
 /**
  * Validation configuration constants
@@ -178,13 +179,35 @@ export function validateFilePath(filePath: string): ValidationResult {
   }
 
   // Validate URL format and allowed domains
-  if (!isAllowedUrl(filePath)) {
-    errors.push({
-      field: 'filePath',
-      code: 'INVALID_URL',
-      message: 'filePath must be a valid URL from an allowed storage domain (R2)',
-    });
-    return { valid: false, errors };
+  // When R2 is configured (production), require R2 URLs for security
+  // When R2 is not configured (development), allow local paths
+  if (isR2Configured()) {
+    // Production mode: require R2 URLs
+    if (!isAllowedUrl(filePath)) {
+      errors.push({
+        field: 'filePath',
+        code: 'INVALID_URL',
+        message: 'filePath must be a valid URL from an allowed storage domain (R2)',
+      });
+      return { valid: false, errors };
+    }
+  } else {
+    // Development mode: allow local paths but validate they're safe
+    // Check that it starts with expected upload directory prefix
+    const isLocalUpload =
+      filePath.startsWith('uploads/') ||
+      filePath.startsWith('./uploads/') ||
+      filePath.startsWith('/uploads/');
+    const isR2Url = isAllowedUrl(filePath);
+
+    if (!isLocalUpload && !isR2Url) {
+      errors.push({
+        field: 'filePath',
+        code: 'INVALID_PATH',
+        message: 'filePath must be from uploads directory or a valid R2 URL',
+      });
+      return { valid: false, errors };
+    }
   }
 
   return { valid: true, errors: [] };

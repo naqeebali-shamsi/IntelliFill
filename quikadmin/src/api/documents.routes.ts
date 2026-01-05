@@ -17,6 +17,7 @@ import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { OCRService } from '../services/OCRService';
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
+import { uploadFile as uploadToStorage, isR2Configured } from '../services/storageHelper';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
@@ -193,20 +194,33 @@ export function createDocumentRoutes(): Router {
         const results = [];
 
         for (const file of files) {
-          // Create document record
+          // Upload file to storage (R2 if configured, otherwise local)
+          const storageResult = await uploadToStorage(
+            file.path,
+            userId,
+            file.originalname,
+            file.mimetype
+          );
+
+          logger.info('File uploaded to storage', {
+            storageType: storageResult.storageType,
+            url: storageResult.storageType === 'r2' ? storageResult.key : 'local',
+          });
+
+          // Create document record with storage URL
           const document = await prisma.document.create({
             data: {
               userId,
               fileName: file.originalname,
               fileType: file.mimetype,
               fileSize: file.size,
-              storageUrl: file.path,
+              storageUrl: storageResult.url,
               status: 'PENDING',
             },
           });
 
-          // Queue for OCR processing
-          const job = await enqueueDocumentForOCR(document.id, userId, file.path);
+          // Queue for OCR processing with the correct storage URL
+          const job = await enqueueDocumentForOCR(document.id, userId, storageResult.url);
 
           if (job) {
             results.push({
