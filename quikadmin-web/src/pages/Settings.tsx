@@ -14,14 +14,13 @@ import {
   Mail,
   Save,
   Download,
-  Upload,
   RefreshCw,
-  LogOut,
   ChevronRight,
   Monitor,
   AlertCircle,
 } from 'lucide-react';
 
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -112,16 +111,12 @@ export default function Settings() {
   }, [user]);
 
   return (
-    <div className="max-w-7xl mx-auto pb-20 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
-          Settings
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Manage your account preferences and application configuration.
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto space-y-8">
+      <PageHeader
+        title="Settings"
+        description="Manage your account preferences and application configuration."
+        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Settings' }]}
+      />
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Sidebar Navigation */}

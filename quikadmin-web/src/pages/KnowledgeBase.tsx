@@ -9,8 +9,10 @@ import { useNavigate } from 'react-router-dom';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
+import { StatCard } from '@/components/features/stat-card';
+import { ResponsiveGrid } from '@/components/layout/responsive-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -95,37 +97,6 @@ function StatusBadge({ status }: { status: string }) {
       {variant.icon}
       {variant.label}
     </span>
-  );
-}
-
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  description,
-  loading,
-}: {
-  title: string;
-  value: string | number;
-  icon: React.ElementType;
-  description?: string;
-  loading?: boolean;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-20" />
-        ) : (
-          <div className="text-2xl font-bold">{value}</div>
-        )}
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -245,7 +216,7 @@ export default function KnowledgeBase() {
   }, [processingIds, refreshSourcesBatch]);
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
         title="Knowledge Base"
@@ -282,13 +253,14 @@ export default function KnowledgeBase() {
       />
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <ResponsiveGrid preset="stats">
         <StatCard
           title="Total Documents"
           value={stats?.totalSources || 0}
           icon={FileText}
           description="Uploaded to knowledge base"
           loading={statsLoading}
+          data-testid="stat-card-knowledge-1"
         />
         <StatCard
           title="Total Chunks"
@@ -296,6 +268,7 @@ export default function KnowledgeBase() {
           icon={Database}
           description="Searchable text segments"
           loading={statsLoading}
+          data-testid="stat-card-knowledge-2"
         />
         <StatCard
           title="Completed"
@@ -303,6 +276,8 @@ export default function KnowledgeBase() {
           icon={CheckCircle}
           description="Ready for search"
           loading={statsLoading}
+          variant="success"
+          data-testid="stat-card-knowledge-3"
         />
         <StatCard
           title="Embedding Quota"
@@ -310,8 +285,9 @@ export default function KnowledgeBase() {
           icon={Sparkles}
           description="Remaining today"
           loading={statsLoading}
+          data-testid="stat-card-knowledge-4"
         />
-      </div>
+      </ResponsiveGrid>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

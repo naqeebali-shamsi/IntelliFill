@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/layout/page-header';
+import { ResponsiveGrid } from '@/components/layout/responsive-grid';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DocumentCard } from '@/components/features/document-card';
 import { DataTable, Column } from '@/components/features/data-table';
@@ -50,22 +51,7 @@ import { Document, DocumentStatus, getFriendlyFileType, formatFileSize } from '@
 import { format } from 'date-fns';
 import { useDebouncedValue } from '@/hooks/useDebounce';
 import { cn } from '@/lib/utils';
-
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0 },
-};
+import { staggerContainerFast, fadeInUpSubtle } from '@/lib/animations';
 
 export default function DocumentLibrary() {
   const navigate = useNavigate();
@@ -268,38 +254,38 @@ export default function DocumentLibrary() {
     },
   ];
 
+  // Header action buttons
+  const headerActions = (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleRefresh}
+        disabled={isLoading}
+        className="border-border/50 hover:bg-secondary/20"
+      >
+        <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
+        Refresh
+      </Button>
+      <Button
+        onClick={() => navigate('/upload')}
+        className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+      >
+        <Upload className="h-4 w-4 mr-2" />
+        Upload Documents
+      </Button>
+    </>
+  );
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
-            Document Library
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and organize your processed documents.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="border-border/50 hover:bg-secondary/20"
-          >
-            <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
-            Refresh
-          </Button>
-          <Button
-            onClick={() => navigate('/upload')}
-            className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Documents
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Document Library"
+        description="Manage and organize your processed documents."
+        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Documents' }]}
+        actions={headerActions}
+      />
 
       {/* Statistics Dashboard */}
       <DocumentStatistics statistics={statistics} loading={isLoading} />
@@ -430,60 +416,57 @@ export default function DocumentLibrary() {
           </motion.div>
         ) : viewMode === 'grid' ? (
           /* Grid View */
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          >
-            {isLoading
-              ? Array.from({ length: pageSize }).map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-64 bg-muted/40 rounded-xl" />
-                  </div>
-                ))
-              : documents.map((doc) => (
-                  <motion.div
-                    key={doc.id}
-                    variants={itemVariants}
-                    layoutId={doc.id}
-                    className="relative group"
-                  >
-                    {/* Selection Checkbox Overlay */}
-                    <div
-                      className={cn(
-                        'absolute top-3 left-3 z-20 transition-opacity duration-200',
-                        isSelected(doc.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected(doc.id)}
-                        onChange={() => handleDocumentSelect(doc.id)}
-                        className="h-5 w-5 rounded border-gray-300 cursor-pointer accent-primary"
-                        onClick={(e) => e.stopPropagation()}
-                      />
+          <motion.div variants={staggerContainerFast} initial="hidden" animate="show">
+            <ResponsiveGrid preset="cards">
+              {isLoading
+                ? Array.from({ length: pageSize }).map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-64 bg-muted/40 rounded-xl" />
                     </div>
+                  ))
+                : documents.map((doc) => (
+                    <motion.div
+                      key={doc.id}
+                      variants={fadeInUpSubtle}
+                      layoutId={doc.id}
+                      className="relative group"
+                    >
+                      {/* Selection Checkbox Overlay */}
+                      <div
+                        className={cn(
+                          'absolute top-3 left-3 z-20 transition-opacity duration-200',
+                          isSelected(doc.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected(doc.id)}
+                          onChange={() => handleDocumentSelect(doc.id)}
+                          className="h-5 w-5 rounded border-gray-300 cursor-pointer accent-primary"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
 
-                    <DocumentCard
-                      id={doc.id}
-                      name={doc.fileName}
-                      fileType={doc.fileType as any}
-                      status={doc.status}
-                      uploadDate={doc.createdAt}
-                      fileSize={doc.fileSize}
-                      pageCount={doc.pageCount || undefined}
-                      onView={() => handleDocumentClick(doc.id)}
-                      onDownload={() => handleDownload(doc)}
-                      onClick={() => handleDocumentClick(doc.id)}
-                    />
-                  </motion.div>
-                ))}
+                      <DocumentCard
+                        id={doc.id}
+                        name={doc.fileName}
+                        fileType={doc.fileType as any}
+                        status={doc.status}
+                        uploadDate={doc.createdAt}
+                        fileSize={doc.fileSize}
+                        pageCount={doc.pageCount || undefined}
+                        onView={() => handleDocumentClick(doc.id)}
+                        onDownload={() => handleDownload(doc)}
+                        onClick={() => handleDocumentClick(doc.id)}
+                      />
+                    </motion.div>
+                  ))}
+            </ResponsiveGrid>
           </motion.div>
         ) : (
           /* Table View */
           <motion.div
-            variants={containerVariants}
+            variants={staggerContainerFast}
             initial="hidden"
             animate="show"
             className="bg-card/30 backdrop-blur-sm border border-white/5 rounded-xl overflow-hidden"

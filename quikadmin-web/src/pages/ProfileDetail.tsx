@@ -225,7 +225,7 @@ export default function ProfileDetail() {
   const fieldCount = Object.keys(profile.profileData?.data || {}).length;
 
   return (
-    <div className="max-w-6xl mx-auto pb-20 space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
       {/* Breadcrumb / Back */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
         <Button

@@ -412,7 +412,7 @@ export default function SimpleFillForm() {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-20">
+    <div className="space-y-8 max-w-5xl mx-auto">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
           Intelligent Fill

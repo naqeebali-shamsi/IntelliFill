@@ -67,56 +67,10 @@ import {
 } from '@/services/formService';
 import type { MappingTemplate } from '@/types/formFilling';
 import { EmptyState } from '@/components/ui/empty-state';
-
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
-
-// Start of extracted components
-const StatCard = ({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  delay = 0,
-}: {
-  title: string;
-  value: string | number;
-  subtitle: string;
-  icon: any;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay }}
-    className="glass-panel p-6 rounded-xl relative overflow-hidden group"
-  >
-    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-      <Icon className="h-16 w-16 -rotate-12" />
-    </div>
-    <div className="relative z-10">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium text-muted-foreground">{title}</span>
-      </div>
-      <div className="text-3xl font-heading font-bold text-foreground mb-1">{value}</div>
-      <p className="text-xs text-muted-foreground/80">{subtitle}</p>
-    </div>
-  </motion.div>
-);
+import { staggerContainer, fadeInUp } from '@/lib/animations';
+import { StatCard } from '@/components/features/stat-card';
+import { ResponsiveGrid } from '@/components/layout/responsive-grid';
+import { PageHeader } from '@/components/layout/page-header';
 
 interface TemplateCardProps {
   template: MappingTemplate;
@@ -133,7 +87,7 @@ const TemplateCard = ({ template, onUse, onDelete, isPublic }: TemplateCardProps
       : 'Unknown';
 
   return (
-    <motion.div variants={itemVariants} layoutId={template.id} className="h-full">
+    <motion.div variants={fadeInUp} layoutId={template.id} className="h-full">
       <div className="group relative h-full flex flex-col justify-between p-5 rounded-xl border border-white/5 bg-card/40 backdrop-blur-sm transition-all hover:bg-card/60 hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5">
         {/* Header */}
         <div className="mb-4">
@@ -352,41 +306,41 @@ export default function Templates() {
   }, [templates]);
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-20">
+    <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-heading font-semibold tracking-tight text-foreground">
-          Template Library
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Manage your field mapping templates for automation.
-        </p>
-      </div>
+      <PageHeader
+        title="Template Library"
+        description="Manage your field mapping templates for automation."
+        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Templates' }]}
+      />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <ResponsiveGrid cols={3} gap="lg">
         <StatCard
           title="Total Templates"
           value={templates.length}
-          subtitle="Saved in your library"
+          description="Saved in your library"
           icon={LayoutTemplate}
-          delay={0}
+          animationDelay={0}
+          data-testid="stat-card-templates-1"
         />
         <StatCard
           title="Total Fields Mapped"
           value={totalFields}
-          subtitle="Across all templates"
+          description="Across all templates"
           icon={FileText}
-          delay={0.1}
+          animationDelay={0.1}
+          data-testid="stat-card-templates-2"
         />
         <StatCard
           title="Last Activity"
           value={mostRecent}
-          subtitle="Most recent template"
+          description="Most recent template"
           icon={Clock}
-          delay={0.2}
+          animationDelay={0.2}
+          data-testid="stat-card-templates-3"
         />
-      </div>
+      </ResponsiveGrid>
 
       {/* Main Content */}
       <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-6">
@@ -511,21 +465,18 @@ export default function Templates() {
               />
             </motion.div>
           ) : (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            >
-              {filteredTemplates.map((template) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  onUse={handleUseTemplate}
-                  onDelete={activeTab === 'my-templates' ? handleDeleteTemplate : undefined}
-                  isPublic={activeTab === 'marketplace'}
-                />
-              ))}
+            <motion.div variants={staggerContainer} initial="hidden" animate="show">
+              <ResponsiveGrid preset="cards">
+                {filteredTemplates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    onUse={handleUseTemplate}
+                    onDelete={activeTab === 'my-templates' ? handleDeleteTemplate : undefined}
+                    isPublic={activeTab === 'marketplace'}
+                  />
+                ))}
+              </ResponsiveGrid>
             </motion.div>
           )}
         </AnimatePresence>

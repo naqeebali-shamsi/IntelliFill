@@ -258,7 +258,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content with Transitions */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 relative">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-20 relative">
           {/* Subtle background glow effect using CSS or absolute div */}
           <div className="absolute top-0 left-0 w-full h-96 bg-primary/5 blur-3xl -z-10 pointer-events-none rounded-full translate-y-[-50%]" />
 

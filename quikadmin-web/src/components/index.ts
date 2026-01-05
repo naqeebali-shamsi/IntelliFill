@@ -146,6 +146,10 @@ export type { SectionProps, SectionDividerProps, SectionGridProps } from './layo
 // Feature Components
 // ============================================================================
 
+// Statistics
+export { StatCard } from './features/stat-card';
+export type { StatCardProps } from './features/stat-card';
+
 // Status Indicators
 export { StatusBadge, StatusDot, statusBadgeVariants } from './features/status-badge';
 export type { StatusBadgeProps, StatusDotProps } from './features/status-badge';
