@@ -30,6 +30,7 @@ import { StatusBadge } from '@/components/features/status-badge';
 import { staggerContainer, fadeInUp } from '@/lib/animations';
 import { StatCard } from '@/components/features/stat-card';
 import { ResponsiveGrid } from '@/components/layout/responsive-grid';
+import { SleekIconButton, SleekBadge, AccentLine } from '@/components';
 
 export default function ConnectedDashboard() {
   const navigate = useNavigate();
@@ -219,14 +220,15 @@ export default function ConnectedDashboard() {
                           <span>{formatDate(job.createdAt)}</span>
                         </div>
                       </div>
-                      <Button
+                      <SleekIconButton
                         variant="ghost"
-                        size="icon"
+                        size="sm"
+                        aria-label={`View job ${job.id}`}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => navigate(`/job/${job.id}`)}
                       >
                         <Eye className="h-4 w-4" />
-                      </Button>
+                      </SleekIconButton>
                     </div>
                   ))}
                 </div>
@@ -239,9 +241,15 @@ export default function ConnectedDashboard() {
             {/* Processing Queue Widget */}
             <div className="glass-card p-6 rounded-xl border border-white/10 relative overflow-hidden">
               <div className="relative z-10">
-                <h3 className="font-medium flex items-center gap-2 mb-4">
-                  <Activity className="h-4 w-4 text-primary" /> Processing Queue
-                </h3>
+                <div className="flex items-center gap-3 mb-4">
+                  <AccentLine variant="active" size="sm" animate delay={0.2} />
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" /> Processing Queue
+                  </h3>
+                  <SleekBadge variant="subtle" size="sm" showDot dotPulse dotVariant="active">
+                    Live
+                  </SleekBadge>
+                </div>
 
                 {queueLoading ? (
                   <div className="h-20 bg-muted/20 animate-pulse rounded" />

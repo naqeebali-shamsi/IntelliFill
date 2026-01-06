@@ -42,6 +42,23 @@ export {
   SelectValue,
 } from './ui/select';
 
+// Sleek Design System Components
+export {
+  SleekIconButton,
+  sleekIconButtonVariants,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+} from './ui/sleek-icon-button';
+export type { SleekIconButtonProps } from './ui/sleek-icon-button';
+
+export { AccentLine, accentLineVariants, ProgressLine, SeparatorLine } from './ui/accent-line';
+export type { AccentLineProps, ProgressLineProps, SeparatorLineProps } from './ui/accent-line';
+
+export { SleekBadge, sleekBadgeVariants, AnimatedSleekBadge, SleekLabel } from './ui/sleek-badge';
+export type { SleekBadgeProps, AnimatedSleekBadgeProps, SleekLabelProps } from './ui/sleek-badge';
+
 // Feedback Components
 export { Alert, AlertTitle, AlertDescription } from './ui/alert';
 export {

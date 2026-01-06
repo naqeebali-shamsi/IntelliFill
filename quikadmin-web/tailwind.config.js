@@ -144,6 +144,19 @@ export default {
           "primary-muted": "var(--color-brand-primary-muted)",
           black: "var(--color-brand-black)",
         },
+
+        // Sleek design tokens - refined UI elements with opacity
+        sleek: {
+          "line-subtle": "var(--sleek-line-subtle)",
+          "line-default": "var(--sleek-line-default)",
+          "line-emphasis": "var(--sleek-line-emphasis)",
+          "line-hover": "var(--sleek-line-hover)",
+          "text-muted": "var(--sleek-text-muted)",
+          "text-default": "var(--sleek-text-default)",
+          "text-emphasis": "var(--sleek-text-emphasis)",
+          dot: "var(--sleek-dot)",
+          "dot-active": "var(--sleek-dot-active)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

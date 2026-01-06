@@ -296,6 +296,27 @@
     /* Colored shadows for elevation */
     --shadow-primary: 0 4px 14px oklch(72.87% 0.156 166.11 / 0.25);
     --shadow-primary-lg: 0 10px 25px oklch(72.87% 0.156 166.11 / 0.30);
+
+
+    /* ========================================
+       SLEEK DESIGN TOKENS - For refined UI elements
+       Inspired by testimonial carousel design
+       ======================================== */
+
+    /* Line/Border variants with opacity */
+    --sleek-line-subtle: oklch(25% 0.015 240 / 0.15);
+    --sleek-line-default: oklch(25% 0.015 240 / 0.25);
+    --sleek-line-emphasis: oklch(25% 0.015 240 / 0.5);
+    --sleek-line-hover: oklch(25% 0.015 240 / 0.6);
+
+    /* Text variants with opacity */
+    --sleek-text-muted: oklch(25% 0.015 240 / 0.5);
+    --sleek-text-default: oklch(25% 0.015 240 / 0.7);
+    --sleek-text-emphasis: oklch(25% 0.015 240 / 0.9);
+
+    /* Status dot */
+    --sleek-dot: oklch(25% 0.015 240 / 0.6);
+    --sleek-dot-active: oklch(72.87% 0.156 166.11);
   }
 
 
@@ -543,6 +564,26 @@
 
     --shadow-primary: 0 4px 14px oklch(72.87% 0.156 166.11 / 0.20);
     --shadow-primary-lg: 0 10px 25px oklch(72.87% 0.156 166.11 / 0.25);
+
+
+    /* ========================================
+       SLEEK DESIGN TOKENS (Dark)
+       ======================================== */
+
+    /* Line/Border variants - light colors on dark bg */
+    --sleek-line-subtle: oklch(100% 0 0 / 0.15);
+    --sleek-line-default: oklch(100% 0 0 / 0.25);
+    --sleek-line-emphasis: oklch(100% 0 0 / 0.5);
+    --sleek-line-hover: oklch(100% 0 0 / 0.6);
+
+    /* Text variants */
+    --sleek-text-muted: oklch(100% 0 0 / 0.5);
+    --sleek-text-default: oklch(100% 0 0 / 0.7);
+    --sleek-text-emphasis: oklch(100% 0 0 / 0.9);
+
+    /* Status dot */
+    --sleek-dot: oklch(100% 0 0 / 0.7);
+    --sleek-dot-active: oklch(72.87% 0.156 166.11);
   }
 }
 
