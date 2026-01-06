@@ -103,7 +103,7 @@ export default function Login() {
         {/* Content */}
         <div className="relative z-30">
           <div className="flex items-center gap-3 mb-6">
-            <img src="/logo.svg" alt="IntelliFill" className="h-10 w-auto" />
+            <img src="/logo-light.svg" alt="IntelliFill" className="h-10 w-auto" />
             <h1 className="text-2xl font-bold text-white">IntelliFill</h1>
           </div>
 
@@ -160,7 +160,7 @@ export default function Login() {
         <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <img src="/logo.svg" alt="IntelliFill" className="h-10 w-auto" />
+            <img src="/logo-dark.svg" alt="IntelliFill" className="h-10 w-auto" />
             <h1 className="text-2xl font-bold">IntelliFill</h1>
           </div>
 
