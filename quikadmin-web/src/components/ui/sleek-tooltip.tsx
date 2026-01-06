@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 const springConfig = {
   duration: 0.3,
-  ease: 'easeInOut',
+  ease: 'easeInOut' as const,
 };
 
 const sleekTooltipVariants = cva(

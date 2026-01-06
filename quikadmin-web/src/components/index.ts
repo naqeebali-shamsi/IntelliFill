@@ -59,6 +59,22 @@ export type { AccentLineProps, ProgressLineProps, SeparatorLineProps } from './u
 export { SleekBadge, sleekBadgeVariants, AnimatedSleekBadge, SleekLabel } from './ui/sleek-badge';
 export type { SleekBadgeProps, AnimatedSleekBadgeProps, SleekLabelProps } from './ui/sleek-badge';
 
+export {
+  SleekTooltip,
+  SleekTooltipContent,
+  SleekTooltipTrigger,
+  SleekIconBar,
+  sleekTooltipVariants,
+  useSleekTooltip,
+} from './ui/sleek-tooltip';
+export type {
+  SleekTooltipProps,
+  SleekTooltipTriggerProps,
+  SleekTooltipCompleteProps,
+  SleekIconBarProps,
+  SleekIconBarItem,
+} from './ui/sleek-tooltip';
+
 // Feedback Components
 export { Alert, AlertTitle, AlertDescription } from './ui/alert';
 export {
