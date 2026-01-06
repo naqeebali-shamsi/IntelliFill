@@ -29,8 +29,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { ErrorCode } from '@/constants/errorCodes';
-import { DemoLoginButton } from '@/components/features/demo-login-button';
-import { Separator } from '@/components/ui/separator';
 import { Boxes } from '@/components/ui/background-boxes';
 
 interface PasswordStrength {
@@ -227,15 +225,6 @@ export default function Register() {
               <span>Your data stays in the UAE region</span>
             </div>
           </div>
-
-          {/* Demo CTA */}
-          <DemoLoginButton
-            variant="secondary"
-            size="lg"
-            className="bg-white text-primary hover:bg-white/90"
-          >
-            Try Free Demo - No Signup Required
-          </DemoLoginButton>
         </div>
 
         {/* Bottom quote */}
@@ -437,20 +426,6 @@ export default function Register() {
                     </>
                   )}
                 </Button>
-
-                {/* Demo Login - Always visible */}
-                <div className="relative w-full">
-                  <div className="absolute inset-0 flex items-center">
-                    <Separator className="w-full" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">or try demo</span>
-                  </div>
-                </div>
-
-                <DemoLoginButton variant="outline" className="w-full" disabled={isLoading}>
-                  Try Demo - No Account Needed
-                </DemoLoginButton>
 
                 <p className="text-center text-sm text-muted-foreground">
                   Already have an account?{' '}

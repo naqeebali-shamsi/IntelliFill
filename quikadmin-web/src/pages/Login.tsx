@@ -14,10 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 import { Loader2, LogIn, Eye, EyeOff, AlertCircle, Zap, Shield, Clock } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
-import { DemoLoginButton } from '@/components/features/demo-login-button';
 import { ErrorCode } from '@/constants/errorCodes';
 import { Testimonial } from '@/components/ui/design-testimonial';
 import { Boxes } from '@/components/ui/background-boxes';
@@ -138,15 +136,6 @@ export default function Login() {
               <span>Bank-grade encryption for all client data</span>
             </div>
           </div>
-
-          {/* Demo CTA */}
-          <DemoLoginButton
-            variant="secondary"
-            size="lg"
-            className="bg-white text-primary hover:bg-white/90"
-          >
-            Try Free Demo - No Signup Required
-          </DemoLoginButton>
         </div>
 
         {/* Animated Testimonial Carousel */}
@@ -304,20 +293,6 @@ export default function Login() {
                     </>
                   )}
                 </Button>
-
-                {/* Demo Login - Always visible for demo showcase */}
-                <div className="relative w-full">
-                  <div className="absolute inset-0 flex items-center">
-                    <Separator className="w-full" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">or try demo</span>
-                  </div>
-                </div>
-
-                <DemoLoginButton variant="outline" className="w-full" disabled={isLoading}>
-                  Try Demo - No Account Needed
-                </DemoLoginButton>
 
                 <p className="text-center text-sm text-muted-foreground">
                   Don't have an account?{' '}
