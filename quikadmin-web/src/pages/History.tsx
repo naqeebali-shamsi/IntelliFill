@@ -93,31 +93,31 @@ export default function History() {
       case 'completed':
         return {
           icon: CheckCircle,
-          color: 'text-emerald-500',
-          bg: 'bg-emerald-500/10',
-          border: 'border-emerald-500/20',
+          color: 'text-status-success',
+          bg: 'bg-success-light',
+          border: 'border-success-border',
         };
       case 'failed':
         return {
           icon: XCircle,
-          color: 'text-red-500',
-          bg: 'bg-red-500/10',
-          border: 'border-red-500/20',
+          color: 'text-status-error',
+          bg: 'bg-error-light',
+          border: 'border-error-border',
         };
       case 'processing':
         return {
           icon: RefreshCw,
-          color: 'text-blue-500',
-          bg: 'bg-blue-500/10',
-          border: 'border-blue-500/20',
+          color: 'text-status-pending',
+          bg: 'bg-info-light',
+          border: 'border-info-border',
           animate: true,
         };
       case 'pending':
         return {
           icon: Clock,
-          color: 'text-amber-500',
-          bg: 'bg-amber-500/10',
-          border: 'border-amber-500/20',
+          color: 'text-status-warning',
+          bg: 'bg-warning-light',
+          border: 'border-warning-border',
         };
       default:
         return {

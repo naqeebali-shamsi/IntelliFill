@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/theme.css";
 @config "../tailwind.config.js";
 
 @theme {
@@ -143,96 +144,105 @@
 
 @layer base {
   :root {
-    /* IntelliFill Brand Theme - Light Mode (2026-01-05) */
+    /* IntelliFill Brand Theme - Light Mode (2026-01-06) */
     /* Brand Colors: Primary Teal #02C39A, Logo Black #222823 */
-    --background: 210 40% 98%; /* slate-50 */
-    --foreground: 222 47% 11%; /* slate-900 */
+    /* Full color system in ./styles/theme.css */
+    /* OKLCH Migration: Converted from HSL for perceptual uniformity */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    /* Hero Section - Deep Space Blue (hero-only, not used elsewhere) */
+    --hero-bg: oklch(24.09% 0.050 232.82);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --background: oklch(98.5% 0.003 240); /* slate-50 equivalent */
+    --foreground: oklch(15% 0.015 240); /* slate-900 equivalent */
 
-    --primary: 163 98% 39%; /* Brand Teal #02C39A */
-    --primary-foreground: 135 5% 14%; /* Brand Black #222823 for contrast */
+    --card: oklch(100% 0 0); /* pure white */
+    --card-foreground: oklch(15% 0.015 240);
 
-    --secondary: 210 40% 96%; /* Muted slate for secondary */
-    --secondary-foreground: 222 47% 11%;
+    --popover: oklch(100% 0 0);
+    --popover-foreground: oklch(15% 0.015 240);
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --primary: oklch(72.87% 0.156 166.11); /* Brand Teal #02C39A */
+    --primary-foreground: oklch(19.42% 0.012 145.28); /* Brand Black #222823 for contrast */
 
-    --accent: 160 80% 96%; /* Teal-50 for subtle accents */
-    --accent-foreground: 163 98% 23%; /* Teal-700 for text on accent */
+    --secondary: oklch(96% 0.005 240); /* Muted slate for secondary */
+    --secondary-foreground: oklch(15% 0.015 240);
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --muted: oklch(96.5% 0.005 240);
+    --muted-foreground: oklch(50% 0.015 240);
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 163 98% 39%; /* Match primary for focus rings */
+    --accent: oklch(96% 0.025 166.11); /* Teal-50 for subtle accents */
+    --accent-foreground: oklch(40% 0.10 166.11); /* Teal-700 for text on accent */
+
+    --destructive: oklch(55% 0.180 15); /* Rose-red for UAE context */
+    --destructive-foreground: oklch(98.5% 0.003 240);
+
+    --border: oklch(88% 0.008 240);
+    --input: oklch(85% 0.008 240);
+    --ring: oklch(72.87% 0.156 166.11); /* Match primary for focus rings */
 
     --radius: 0.75rem; /* 12px - Friendlier */
 
     /* Status Colors - Light Theme (distinct from brand) */
-    --status-pending: 217 91% 50%; /* Blue - Info/Processing */
-    --status-pending-foreground: 0 0% 100%;
+    /* Using OKLCH for perceptual uniformity */
+    --status-pending: oklch(55% 0.180 250); /* Blue - Info/Processing */
+    --status-pending-foreground: oklch(98% 0.005 240);
 
-    --status-success: 142 76% 30%; /* Green - Success/Complete */
-    --status-success-foreground: 0 0% 100%;
+    --status-success: oklch(55% 0.155 145); /* Emerald - Success/Complete */
+    --status-success-foreground: oklch(98% 0.005 240);
 
-    --status-warning: 38 92% 50%; /* Amber - Warning/Caution */
-    --status-warning-foreground: 28 50% 15%;
+    --status-warning: oklch(75% 0.160 75); /* Amber - Warning/Caution */
+    --status-warning-foreground: oklch(35% 0.090 75);
 
-    --status-error: 0 84% 50%; /* Red - Error/Failed */
-    --status-error-foreground: 0 0% 100%;
+    --status-error: oklch(55% 0.180 15); /* Rose - Error/Failed */
+    --status-error-foreground: oklch(98% 0.005 240);
   }
 
   .dark {
-    /* IntelliFill Brand Theme - Dark Mode (2026-01-05) */
+    /* IntelliFill Brand Theme - Dark Mode (2026-01-06) */
     /* Same Brand Teal #02C39A - AAA compliant at 6.8:1 on dark backgrounds */
-    --background: 222 47% 4%; /* slate-950 */
-    --foreground: 210 40% 98%; /* slate-50 */
+    /* OKLCH Migration: Converted from HSL for perceptual uniformity */
+    --background: oklch(12% 0.015 240); /* slate-950 equivalent */
+    --foreground: oklch(98% 0.005 240); /* slate-50 equivalent */
 
     /* Glass Panels */
-    --card: 222 47% 7%; /* slate-900 */
-    --card-foreground: 210 40% 98%;
+    --card: oklch(18% 0.018 240); /* slate-900 equivalent */
+    --card-foreground: oklch(98% 0.005 240);
 
-    --popover: 222 47% 7%;
-    --popover-foreground: 210 40% 98%;
+    --popover: oklch(18% 0.018 240);
+    --popover-foreground: oklch(98% 0.005 240);
 
-    --primary: 163 98% 39%; /* Same Brand Teal - AAA compliant */
-    --primary-foreground: 0 0% 100%; /* White text on teal in dark mode */
+    --primary: oklch(72.87% 0.156 166.11); /* Same Brand Teal - AAA compliant */
+    --primary-foreground: oklch(100% 0 0); /* White text on teal in dark mode */
 
-    --secondary: 217 33% 17%; /* slate-800 */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: oklch(25% 0.015 240); /* slate-800 equivalent */
+    --secondary-foreground: oklch(98% 0.005 240);
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: oklch(25% 0.015 240);
+    --muted-foreground: oklch(65% 0.010 240);
 
-    --accent: 163 98% 15%; /* Teal-900 for dark mode accent */
-    --accent-foreground: 160 85% 81%; /* Teal-200 for text on accent */
+    --accent: oklch(20% 0.04 166.11); /* Teal-900 for dark mode accent */
+    --accent-foreground: oklch(80% 0.10 166.11); /* Teal-200 for text on accent */
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: oklch(45% 0.160 15); /* Darker rose for dark mode */
+    --destructive-foreground: oklch(98% 0.005 240);
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 163 98% 39%; /* Same teal for focus rings */
+    --border: oklch(28% 0.012 240);
+    --input: oklch(30% 0.012 240);
+    --ring: oklch(72.87% 0.156 166.11); /* Same teal for focus rings */
 
     /* Status Colors - Dark Theme (brighter for visibility) */
-    --status-pending: 217 91% 70%;
-    --status-pending-foreground: 217 91% 10%;
+    /* Using OKLCH for perceptual uniformity */
+    --status-pending: oklch(65% 0.180 250); /* Brighter blue */
+    --status-pending-foreground: oklch(20% 0.04 250);
 
-    --status-success: 142 70% 45%;
-    --status-success-foreground: 142 70% 10%;
+    --status-success: oklch(65% 0.155 145); /* Brighter emerald */
+    --status-success-foreground: oklch(20% 0.045 145);
 
-    --status-warning: 38 92% 60%;
-    --status-warning-foreground: 38 92% 10%;
+    --status-warning: oklch(80% 0.160 75); /* Brighter amber */
+    --status-warning-foreground: oklch(25% 0.040 75);
 
-    --status-error: 0 84% 70%;
-    --status-error-foreground: 0 84% 10%;
+    --status-error: oklch(65% 0.180 15); /* Brighter rose */
+    --status-error-foreground: oklch(20% 0.035 15);
   }
 }
 
@@ -240,7 +250,7 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20 selection:text-primary;
   }
@@ -266,7 +276,7 @@
   .text-gradient {
     @apply bg-gradient-to-r from-primary via-primary/70 to-accent-foreground bg-clip-text text-transparent;
   }
-  
+
   .animate-in-stagger {
     @apply animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards;
   }

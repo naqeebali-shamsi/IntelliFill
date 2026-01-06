@@ -72,8 +72,8 @@ const TypeIcon = ({ profile }: { profile: Profile }) => (
     className={cn(
       'flex h-8 w-8 items-center justify-center rounded-lg ring-1 ring-inset',
       profile.type === 'BUSINESS'
-        ? 'bg-blue-500/10 text-blue-600 ring-blue-500/20'
-        : 'bg-emerald-500/10 text-emerald-600 ring-emerald-500/20'
+        ? 'bg-info-light text-info ring-info/20'
+        : 'bg-success-light text-success ring-success/20'
     )}
   >
     {profile.type === 'BUSINESS' ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}

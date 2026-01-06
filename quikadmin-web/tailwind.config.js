@@ -15,54 +15,134 @@ export default {
     },
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        // Core UI colors - OKLCH variables (no HSL wrapper needed)
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
         },
+
+        // Status colors from index.css
         "status-pending": {
-          DEFAULT: "hsl(var(--status-pending))",
-          foreground: "hsl(var(--status-pending-foreground))",
+          DEFAULT: "var(--status-pending)",
+          foreground: "var(--status-pending-foreground)",
         },
         "status-success": {
-          DEFAULT: "hsl(var(--status-success))",
-          foreground: "hsl(var(--status-success-foreground))",
+          DEFAULT: "var(--status-success)",
+          foreground: "var(--status-success-foreground)",
         },
         "status-warning": {
-          DEFAULT: "hsl(var(--status-warning))",
-          foreground: "hsl(var(--status-warning-foreground))",
+          DEFAULT: "var(--status-warning)",
+          foreground: "var(--status-warning-foreground)",
         },
         "status-error": {
-          DEFAULT: "hsl(var(--status-error))",
-          foreground: "hsl(var(--status-error-foreground))",
+          DEFAULT: "var(--status-error)",
+          foreground: "var(--status-error-foreground)",
+        },
+
+        // Semantic feedback colors from theme.css
+        success: {
+          DEFAULT: "var(--feedback-success)",
+          foreground: "var(--feedback-success-text)",
+          light: "var(--feedback-success-light)",
+          dark: "var(--feedback-success-dark)",
+          border: "var(--feedback-success-border)",
+        },
+        warning: {
+          DEFAULT: "var(--feedback-warning)",
+          foreground: "var(--feedback-warning-text)",
+          light: "var(--feedback-warning-light)",
+          dark: "var(--feedback-warning-dark)",
+          border: "var(--feedback-warning-border)",
+        },
+        error: {
+          DEFAULT: "var(--feedback-error)",
+          foreground: "var(--feedback-error-text)",
+          light: "var(--feedback-error-light)",
+          dark: "var(--feedback-error-dark)",
+          border: "var(--feedback-error-border)",
+        },
+        info: {
+          DEFAULT: "var(--feedback-info)",
+          foreground: "var(--feedback-info-text)",
+          light: "var(--feedback-info-light)",
+          dark: "var(--feedback-info-dark)",
+          border: "var(--feedback-info-border)",
+        },
+
+        // Surface hierarchy tokens from theme.css
+        surface: {
+          1: "var(--surface-1)",
+          "1-hover": "var(--surface-1-hover)",
+          2: "var(--surface-2)",
+          3: "var(--surface-3)",
+          muted: "var(--surface-muted)",
+          "muted-hover": "var(--surface-muted-hover)",
+          accent: "var(--surface-accent)",
+          "accent-hover": "var(--surface-accent-hover)",
+          background: "var(--surface-background)",
+        },
+
+        // Text hierarchy tokens from theme.css
+        text: {
+          heading: "var(--text-heading)",
+          body: "var(--text-body)",
+          muted: "var(--text-muted)",
+          placeholder: "var(--text-placeholder)",
+          link: "var(--text-link)",
+          "link-hover": "var(--text-link-hover)",
+          inverted: "var(--text-inverted)",
+          "inverted-muted": "var(--text-inverted-muted)",
+        },
+
+        // Border tokens from theme.css
+        "border-custom": {
+          DEFAULT: "var(--border-default)",
+          subtle: "var(--border-subtle)",
+          strong: "var(--border-strong)",
+          focus: "var(--border-focus)",
+          "focus-ring": "var(--border-focus-ring)",
+          divider: "var(--border-divider)",
+          input: "var(--border-input)",
+          "input-hover": "var(--border-input-hover)",
+          "input-focus": "var(--border-input-focus)",
+        },
+
+        // Brand colors from theme.css
+        brand: {
+          primary: "var(--color-brand-primary)",
+          "primary-hover": "var(--color-brand-primary-hover)",
+          "primary-active": "var(--color-brand-primary-active)",
+          "primary-muted": "var(--color-brand-primary-muted)",
+          black: "var(--color-brand-black)",
         },
       },
       borderRadius: {

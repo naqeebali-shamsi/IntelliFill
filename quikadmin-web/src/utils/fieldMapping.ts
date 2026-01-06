@@ -57,10 +57,7 @@ function normalizeFieldName(name: string): string {
  * Calculate confidence score for a field mapping
  * Returns 0-100 based on string similarity
  */
-export function calculateConfidence(
-  formFieldName: string,
-  documentFieldName: string
-): number {
+export function calculateConfidence(formFieldName: string, documentFieldName: string): number {
   const norm1 = normalizeFieldName(formFieldName);
   const norm2 = normalizeFieldName(documentFieldName);
 
@@ -151,12 +148,12 @@ export function validateMappings(
 
 /**
  * Get confidence color for UI display
- * Returns Tailwind color class based on confidence score
+ * Returns semantic token class based on confidence score
  */
 export function getConfidenceColor(confidence: number): string {
-  if (confidence >= 90) return 'text-green-600 dark:text-green-400';
-  if (confidence >= 70) return 'text-yellow-600 dark:text-yellow-400';
-  return 'text-red-600 dark:text-red-400';
+  if (confidence >= 90) return 'text-[var(--feedback-success-text)]';
+  if (confidence >= 70) return 'text-[var(--feedback-warning-text)]';
+  return 'text-[var(--feedback-error-text)]';
 }
 
 /**

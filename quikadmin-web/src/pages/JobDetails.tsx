@@ -76,13 +76,13 @@ export default function JobDetails() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
+        return <CheckCircle className="h-5 w-5 text-status-success" />;
       case 'failed':
-        return <XCircle className="h-5 w-5 text-red-600" />;
+        return <XCircle className="h-5 w-5 text-status-error" />;
       case 'processing':
-        return <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />;
+        return <RefreshCw className="h-5 w-5 text-status-pending animate-spin" />;
       default:
-        return <Clock className="h-5 w-5 text-yellow-600" />;
+        return <Clock className="h-5 w-5 text-status-warning" />;
     }
   };
 
@@ -90,25 +90,23 @@ export default function JobDetails() {
     switch (status) {
       case 'completed':
         return (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+          <Badge className="bg-success-light text-success-foreground border-success-border">
             Completed
           </Badge>
         );
       case 'failed':
         return (
-          <Badge className="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
-            Failed
-          </Badge>
+          <Badge className="bg-error-light text-error-foreground border-error-border">Failed</Badge>
         );
       case 'processing':
         return (
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+          <Badge className="bg-info-light text-info-foreground border-info-border">
             Processing
           </Badge>
         );
       default:
         return (
-          <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400">
+          <Badge className="bg-warning-light text-warning-foreground border-warning-border">
             Pending
           </Badge>
         );
@@ -397,9 +395,9 @@ export default function JobDetails() {
                     <div key={item.id || index} className="flex items-center gap-4">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
                         {item.status === 'completed' ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <CheckCircle className="h-5 w-5 text-status-success" />
                         ) : item.status === 'failed' ? (
-                          <XCircle className="h-5 w-5 text-red-600" />
+                          <XCircle className="h-5 w-5 text-status-error" />
                         ) : (
                           <Clock className="h-5 w-5 text-muted-foreground" />
                         )}
@@ -411,7 +409,9 @@ export default function JobDetails() {
                             {formatRelativeDate(item.createdAt)}
                           </span>
                         </div>
-                        {item.error && <p className="text-sm text-red-600 mt-1">{item.error}</p>}
+                        {item.error && (
+                          <p className="text-sm text-status-error mt-1">{item.error}</p>
+                        )}
                         {index < job.processingHistory!.length - 1 && (
                           <div className="ml-5 mt-2 h-8 w-px bg-border" />
                         )}

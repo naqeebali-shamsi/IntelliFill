@@ -208,7 +208,7 @@ export default function ProfileDetail() {
   if (error || !profile) {
     return (
       <div className="flex flex-col items-center justify-center py-20 max-w-lg mx-auto text-center">
-        <div className="bg-red-500/10 p-4 rounded-full text-red-500 mb-4">
+        <div className="bg-error-light p-4 rounded-full text-error mb-4">
           <AlertTriangle className="h-10 w-10" />
         </div>
         <h2 className="text-2xl font-bold mb-2">Profile Not Found</h2>
@@ -256,8 +256,8 @@ export default function ProfileDetail() {
               className={cn(
                 'h-20 w-20 rounded-2xl flex items-center justify-center shadow-inner',
                 profile.type === 'BUSINESS'
-                  ? 'bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20'
-                  : 'bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20'
+                  ? 'bg-info-light text-info ring-1 ring-info/20'
+                  : 'bg-success-light text-success ring-1 ring-success/20'
               )}
             >
               {profile.type === 'BUSINESS' ? (
@@ -273,7 +273,7 @@ export default function ProfileDetail() {
                 {profile.status === 'ARCHIVED' && (
                   <Badge
                     variant="outline"
-                    className="bg-amber-500/10 text-amber-500 border-amber-500/20"
+                    className="bg-warning-light text-warning border-warning/20"
                   >
                     Archived
                   </Badge>

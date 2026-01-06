@@ -454,7 +454,7 @@ export default function SimpleFillForm() {
               {/* Data Status */}
               <div className="mt-4">
                 {effectiveData.fieldCount > 0 ? (
-                  <div className="flex items-center gap-2 text-sm text-emerald-500 bg-emerald-500/10 px-3 py-2 rounded-lg w-fit">
+                  <div className="flex items-center gap-2 text-sm text-success bg-success-light px-3 py-2 rounded-lg w-fit">
                     <CheckCircle className="h-4 w-4" />
                     <span>
                       Ready: {effectiveData.fieldCount} fields available from{' '}
@@ -462,7 +462,7 @@ export default function SimpleFillForm() {
                     </span>
                   </div>
                 ) : selectedProfile ? (
-                  <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-500/10 px-3 py-2 rounded-lg w-fit">
+                  <div className="flex items-center gap-2 text-sm text-warning bg-warning-light px-3 py-2 rounded-lg w-fit">
                     <Info className="h-4 w-4" />
                     <span>Profile has no data. Add data or upload documents to continue.</span>
                   </div>
@@ -584,7 +584,7 @@ export default function SimpleFillForm() {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-green-500/5"
+              className="w-20 h-20 bg-success-light text-success rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-success/5"
             >
               <CheckCircle className="h-10 w-10" />
             </motion.div>

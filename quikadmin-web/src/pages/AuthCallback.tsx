@@ -81,18 +81,14 @@ export default function AuthCallback() {
             <div
               className={`rounded-full p-3 ${
                 status === 'success'
-                  ? 'bg-green-100 dark:bg-green-900/30'
+                  ? 'bg-success-light'
                   : status === 'error'
-                    ? 'bg-red-100 dark:bg-red-900/30'
+                    ? 'bg-error-light'
                     : 'bg-primary/10'
               }`}
             >
-              {status === 'success' && (
-                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
-              )}
-              {status === 'error' && (
-                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-              )}
+              {status === 'success' && <CheckCircle className="h-6 w-6 text-status-success" />}
+              {status === 'error' && <AlertCircle className="h-6 w-6 text-status-error" />}
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-center">

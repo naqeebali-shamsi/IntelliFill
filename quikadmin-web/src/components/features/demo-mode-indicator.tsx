@@ -8,12 +8,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -78,11 +73,7 @@ export function DemoModeIndicator({
           <TooltipTrigger asChild>
             <Badge
               variant="secondary"
-              className={cn(
-                'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-                'cursor-help',
-                className
-              )}
+              className={cn('bg-warning-light text-warning-foreground', 'cursor-help', className)}
             >
               <Play className="h-3 w-3 mr-1" />
               Demo
@@ -101,7 +92,7 @@ export function DemoModeIndicator({
       <div
         className={cn(
           'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs',
-          'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+          'bg-warning-light text-warning-foreground',
           className
         )}
       >
@@ -116,21 +107,19 @@ export function DemoModeIndicator({
     <div
       className={cn(
         'w-full px-4 py-2',
-        'bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20',
-        'border-b border-amber-200 dark:border-amber-800',
+        'bg-gradient-to-r from-warning-light/50 to-warning-light',
+        'border-b border-warning/20',
         className
       )}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-amber-200 dark:bg-amber-800/50">
-            <Sparkles className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-warning/20">
+            <Sparkles className="h-3.5 w-3.5 text-warning" />
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-            <span className="font-medium text-amber-900 dark:text-amber-300 text-sm">
-              Demo Mode
-            </span>
-            <span className="text-amber-700 dark:text-amber-400 text-xs sm:text-sm">
+            <span className="font-medium text-warning-foreground text-sm">Demo Mode</span>
+            <span className="text-warning-foreground/80 text-xs sm:text-sm">
               {demoInfo?.notice || 'This is a demo account. Data may be reset periodically.'}
             </span>
           </div>
@@ -142,7 +131,7 @@ export function DemoModeIndicator({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+                className="text-warning hover:text-warning-foreground"
               >
                 <Info className="h-4 w-4 mr-1" />
                 <span className="hidden sm:inline">Learn More</span>
@@ -151,7 +140,7 @@ export function DemoModeIndicator({
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-amber-500" />
+                  <Sparkles className="h-5 w-5 text-warning" />
                   Demo Mode
                 </DialogTitle>
                 <DialogDescription>
@@ -160,7 +149,8 @@ export function DemoModeIndicator({
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <p className="text-muted-foreground">
-                  {demoInfo?.notice || 'This is a demo account with pre-loaded sample data. Feel free to explore all features!'}
+                  {demoInfo?.notice ||
+                    'This is a demo account with pre-loaded sample data. Feel free to explore all features!'}
                 </p>
                 {demoInfo?.features && demoInfo.features.length > 0 && (
                   <div className="space-y-2">
@@ -186,7 +176,7 @@ export function DemoModeIndicator({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+              className="h-6 w-6 text-warning hover:text-warning-foreground"
               onClick={() => setDismissed(true)}
             >
               <X className="h-4 w-4" />

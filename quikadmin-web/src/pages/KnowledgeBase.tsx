@@ -67,22 +67,22 @@ import { format } from 'date-fns';
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
     PENDING: {
-      color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+      color: 'bg-warning-light text-warning-foreground',
       icon: <Clock className="h-3 w-3" />,
       label: 'Pending',
     },
     PROCESSING: {
-      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      color: 'bg-info-light text-info-foreground',
       icon: <Loader2 className="h-3 w-3 animate-spin" />,
       label: 'Processing',
     },
     COMPLETED: {
-      color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      color: 'bg-success-light text-success-foreground',
       icon: <CheckCircle className="h-3 w-3" />,
       label: 'Completed',
     },
     FAILED: {
-      color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      color: 'bg-error-light text-error-foreground',
       icon: <XCircle className="h-3 w-3" />,
       label: 'Failed',
     },

@@ -1,0 +1,675 @@
+/**
+ * IntelliFill Comprehensive Color System
+ * =======================================
+ *
+ * Brand Foundation:
+ * - Primary: Teal #02C39A (oklch(72.87% 0.156 166.11))
+ * - Hero BG: Deep Space Blue (oklch(24.09% 0.050 232.82))
+ * - Logo Black: #222823 (oklch(19.42% 0.012 145.28))
+ *
+ * Design Principles:
+ * - OKLCH for perceptual uniformity
+ * - AAA contrast compliance (7:1+ for text)
+ * - Distinct semantic colors that don't compete
+ * - UAE-friendly color considerations
+ *
+ * Last Updated: 2026-01-06
+ */
+
+@layer base {
+  :root {
+    /* ========================================
+       BRAND COLORS
+       ======================================== */
+
+    /* Primary Teal - The hero color */
+    --color-brand-primary: oklch(72.87% 0.156 166.11); /* #02C39A */
+    --color-brand-primary-hover: oklch(65.87% 0.156 166.11); /* Darker for hover */
+    --color-brand-primary-active: oklch(58.87% 0.156 166.11); /* Even darker for active */
+    --color-brand-primary-muted: oklch(72.87% 0.08 166.11); /* Desaturated variant */
+
+    /* Brand Black - For high contrast text */
+    --color-brand-black: oklch(19.42% 0.012 145.28); /* #222823 */
+
+    /* Hero Background */
+    --color-hero-bg: oklch(24.09% 0.050 232.82); /* Deep Space Blue */
+
+
+    /* ========================================
+       INTERACTIVE STATES - PRIMARY
+       ======================================== */
+
+    --interactive-primary-default: oklch(72.87% 0.156 166.11);
+    --interactive-primary-hover: oklch(65.87% 0.156 166.11);
+    --interactive-primary-active: oklch(58.87% 0.156 166.11);
+    --interactive-primary-focus: oklch(72.87% 0.156 166.11);
+    --interactive-primary-focus-ring: oklch(72.87% 0.156 166.11 / 0.4);
+    --interactive-primary-disabled: oklch(72.87% 0.06 166.11);
+    --interactive-primary-disabled-text: oklch(60% 0.02 166.11);
+
+
+    /* ========================================
+       INTERACTIVE STATES - SECONDARY
+       ======================================== */
+
+    --interactive-secondary-default: oklch(96% 0.005 240);
+    --interactive-secondary-hover: oklch(93% 0.008 240);
+    --interactive-secondary-active: oklch(90% 0.010 240);
+    --interactive-secondary-focus: oklch(96% 0.005 240);
+    --interactive-secondary-focus-ring: oklch(50% 0.02 240 / 0.3);
+    --interactive-secondary-disabled: oklch(96% 0.003 240);
+    --interactive-secondary-text: oklch(25% 0.02 240);
+    --interactive-secondary-text-disabled: oklch(65% 0.01 240);
+
+
+    /* ========================================
+       INTERACTIVE STATES - GHOST/OUTLINE
+       ======================================== */
+
+    --interactive-ghost-hover: oklch(95% 0.01 166.11);
+    --interactive-ghost-active: oklch(90% 0.02 166.11);
+    --interactive-outline-border: oklch(85% 0.01 240);
+    --interactive-outline-hover-bg: oklch(97% 0.005 240);
+
+
+    /* ========================================
+       SURFACE HIERARCHY - LIGHT MODE
+       ======================================== */
+
+    /* Background (Page level) - Subtle warm gray */
+    --surface-background: oklch(98.5% 0.003 240);
+
+    /* Surface 1 (Cards, Panels) - Clean white */
+    --surface-1: oklch(100% 0 0);
+    --surface-1-hover: oklch(98% 0.003 240);
+
+    /* Surface 2 (Elevated cards, Modals) - White with shadow implied */
+    --surface-2: oklch(100% 0 0);
+
+    /* Surface 3 (Dropdowns, Popovers) - Pure white, highest elevation */
+    --surface-3: oklch(100% 0 0);
+
+    /* Surface Muted - For subtle backgrounds */
+    --surface-muted: oklch(96.5% 0.005 240);
+    --surface-muted-hover: oklch(94% 0.008 240);
+
+    /* Surface Accent - Teal-tinted for highlighting */
+    --surface-accent: oklch(96% 0.025 166.11);
+    --surface-accent-hover: oklch(93% 0.035 166.11);
+
+
+    /* ========================================
+       TEXT HIERARCHY - LIGHT MODE
+       ======================================== */
+
+    /* Heading - Maximum contrast */
+    --text-heading: oklch(15% 0.015 240);
+
+    /* Body - High readability */
+    --text-body: oklch(25% 0.015 240);
+
+    /* Secondary/Muted - For supporting text */
+    --text-muted: oklch(50% 0.015 240);
+
+    /* Placeholder - Low emphasis */
+    --text-placeholder: oklch(62% 0.010 240);
+
+    /* Link - Primary brand */
+    --text-link: oklch(65% 0.156 166.11);
+    --text-link-hover: oklch(55% 0.156 166.11);
+    --text-link-visited: oklch(50% 0.10 280);
+
+    /* Inverted - For dark backgrounds */
+    --text-inverted: oklch(98% 0.005 240);
+    --text-inverted-muted: oklch(85% 0.010 240);
+
+
+    /* ========================================
+       BORDER SYSTEM - LIGHT MODE
+       ======================================== */
+
+    /* Default Border */
+    --border-default: oklch(88% 0.008 240);
+
+    /* Subtle Border - Very light */
+    --border-subtle: oklch(93% 0.005 240);
+
+    /* Strong Border - For emphasis */
+    --border-strong: oklch(75% 0.010 240);
+
+    /* Focus Ring */
+    --border-focus: oklch(72.87% 0.156 166.11);
+    --border-focus-ring: oklch(72.87% 0.156 166.11 / 0.35);
+
+    /* Divider */
+    --border-divider: oklch(92% 0.005 240);
+
+    /* Input borders */
+    --border-input: oklch(85% 0.008 240);
+    --border-input-hover: oklch(75% 0.012 240);
+    --border-input-focus: oklch(72.87% 0.156 166.11);
+
+
+    /* ========================================
+       FEEDBACK COLORS - LIGHT MODE
+       Success, Warning, Error, Info
+       ======================================== */
+
+    /* SUCCESS (Emerald - distinct from brand teal) */
+    /* Hue 145 vs Brand Teal hue 166 - 21 degree separation */
+    --feedback-success: oklch(55% 0.155 145);
+    --feedback-success-light: oklch(92% 0.045 145);
+    --feedback-success-dark: oklch(40% 0.130 145);
+    --feedback-success-text: oklch(30% 0.080 145);
+    --feedback-success-border: oklch(75% 0.100 145);
+
+    /* WARNING (Amber/Gold) */
+    --feedback-warning: oklch(75% 0.160 75);
+    --feedback-warning-light: oklch(94% 0.055 75);
+    --feedback-warning-dark: oklch(55% 0.140 75);
+    --feedback-warning-text: oklch(35% 0.090 75);
+    --feedback-warning-border: oklch(80% 0.120 75);
+
+    /* ERROR (Rose Red - carefully chosen for UAE context) */
+    /* Using rose-red rather than pure red for cultural sensitivity */
+    --feedback-error: oklch(55% 0.180 15);
+    --feedback-error-light: oklch(94% 0.035 15);
+    --feedback-error-dark: oklch(45% 0.160 15);
+    --feedback-error-text: oklch(35% 0.100 15);
+    --feedback-error-border: oklch(70% 0.120 15);
+
+    /* INFO (Blue) */
+    --feedback-info: oklch(55% 0.180 250);
+    --feedback-info-light: oklch(94% 0.035 250);
+    --feedback-info-dark: oklch(45% 0.160 250);
+    --feedback-info-text: oklch(30% 0.100 250);
+    --feedback-info-border: oklch(75% 0.100 250);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - DOCUMENT CARDS
+       ======================================== */
+
+    /* Document card backgrounds */
+    --doc-card-bg: oklch(100% 0 0);
+    --doc-card-bg-hover: oklch(98.5% 0.005 166.11);
+    --doc-card-border: oklch(90% 0.008 240);
+    --doc-card-border-hover: oklch(72.87% 0.08 166.11);
+    --doc-card-selected-bg: oklch(96% 0.030 166.11);
+    --doc-card-selected-border: oklch(72.87% 0.156 166.11);
+
+    /* Upload zone */
+    --upload-zone-bg: oklch(98% 0.008 166.11);
+    --upload-zone-border: oklch(85% 0.03 166.11);
+    --upload-zone-border-dashed: oklch(72.87% 0.10 166.11);
+    --upload-zone-active-bg: oklch(95% 0.04 166.11);
+    --upload-zone-active-border: oklch(72.87% 0.156 166.11);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - STATUS BADGES
+       ======================================== */
+
+    /* Pending/Queued (Blue) */
+    --status-pending-bg: oklch(92% 0.04 250);
+    --status-pending-text: oklch(40% 0.12 250);
+    --status-pending-border: oklch(80% 0.08 250);
+    --status-pending-dot: oklch(55% 0.18 250);
+
+    /* Processing/In-Progress (Brand Teal) */
+    --status-processing-bg: oklch(94% 0.04 166.11);
+    --status-processing-text: oklch(40% 0.10 166.11);
+    --status-processing-border: oklch(80% 0.08 166.11);
+    --status-processing-dot: oklch(72.87% 0.156 166.11);
+
+    /* Done/Complete (Green) */
+    --status-done-bg: oklch(92% 0.045 145);
+    --status-done-text: oklch(35% 0.10 145);
+    --status-done-border: oklch(75% 0.08 145);
+    --status-done-dot: oklch(55% 0.155 145);
+
+    /* Failed/Error (Rose) */
+    --status-failed-bg: oklch(94% 0.03 15);
+    --status-failed-text: oklch(40% 0.12 15);
+    --status-failed-border: oklch(80% 0.06 15);
+    --status-failed-dot: oklch(55% 0.18 15);
+
+    /* Cancelled (Gray) */
+    --status-cancelled-bg: oklch(94% 0.005 240);
+    --status-cancelled-text: oklch(45% 0.015 240);
+    --status-cancelled-border: oklch(85% 0.008 240);
+    --status-cancelled-dot: oklch(60% 0.01 240);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - PROGRESS BARS
+       ======================================== */
+
+    --progress-track: oklch(92% 0.005 240);
+    --progress-fill: oklch(72.87% 0.156 166.11);
+    --progress-fill-success: oklch(55% 0.155 145);
+    --progress-fill-warning: oklch(75% 0.160 75);
+    --progress-fill-error: oklch(55% 0.180 15);
+    --progress-indeterminate: linear-gradient(
+      90deg,
+      oklch(72.87% 0.156 166.11 / 0.2) 0%,
+      oklch(72.87% 0.156 166.11) 50%,
+      oklch(72.87% 0.156 166.11 / 0.2) 100%
+    );
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - TOAST/NOTIFICATIONS
+       ======================================== */
+
+    --toast-bg: oklch(100% 0 0);
+    --toast-border: oklch(88% 0.008 240);
+    --toast-shadow: oklch(20% 0.02 240 / 0.12);
+
+    --toast-success-accent: oklch(55% 0.155 145);
+    --toast-warning-accent: oklch(75% 0.160 75);
+    --toast-error-accent: oklch(55% 0.180 15);
+    --toast-info-accent: oklch(55% 0.180 250);
+
+
+    /* ========================================
+       DATA TABLE COLORS
+       ======================================== */
+
+    --table-header-bg: oklch(97% 0.005 240);
+    --table-row-hover: oklch(98% 0.008 166.11);
+    --table-row-selected: oklch(95% 0.025 166.11);
+    --table-row-stripe: oklch(98.5% 0.003 240);
+    --table-border: oklch(92% 0.005 240);
+
+
+    /* ========================================
+       SHADOWS
+       ======================================== */
+
+    --shadow-xs: 0 1px 2px oklch(20% 0.02 240 / 0.05);
+    --shadow-sm: 0 1px 3px oklch(20% 0.02 240 / 0.08), 0 1px 2px oklch(20% 0.02 240 / 0.04);
+    --shadow-md: 0 4px 6px oklch(20% 0.02 240 / 0.08), 0 2px 4px oklch(20% 0.02 240 / 0.04);
+    --shadow-lg: 0 10px 15px oklch(20% 0.02 240 / 0.08), 0 4px 6px oklch(20% 0.02 240 / 0.04);
+    --shadow-xl: 0 20px 25px oklch(20% 0.02 240 / 0.10), 0 8px 10px oklch(20% 0.02 240 / 0.04);
+
+    /* Colored shadows for elevation */
+    --shadow-primary: 0 4px 14px oklch(72.87% 0.156 166.11 / 0.25);
+    --shadow-primary-lg: 0 10px 25px oklch(72.87% 0.156 166.11 / 0.30);
+  }
+
+
+  /* ========================================
+     DARK MODE
+     ======================================== */
+
+  .dark {
+    /* ========================================
+       INTERACTIVE STATES - PRIMARY (Dark)
+       ======================================== */
+
+    --interactive-primary-default: oklch(72.87% 0.156 166.11);
+    --interactive-primary-hover: oklch(78% 0.156 166.11);
+    --interactive-primary-active: oklch(68% 0.156 166.11);
+    --interactive-primary-focus: oklch(72.87% 0.156 166.11);
+    --interactive-primary-focus-ring: oklch(72.87% 0.156 166.11 / 0.5);
+    --interactive-primary-disabled: oklch(50% 0.04 166.11);
+    --interactive-primary-disabled-text: oklch(55% 0.02 166.11);
+
+
+    /* ========================================
+       INTERACTIVE STATES - SECONDARY (Dark)
+       ======================================== */
+
+    --interactive-secondary-default: oklch(25% 0.015 240);
+    --interactive-secondary-hover: oklch(30% 0.018 240);
+    --interactive-secondary-active: oklch(22% 0.012 240);
+    --interactive-secondary-focus: oklch(25% 0.015 240);
+    --interactive-secondary-focus-ring: oklch(60% 0.02 240 / 0.3);
+    --interactive-secondary-disabled: oklch(22% 0.010 240);
+    --interactive-secondary-text: oklch(90% 0.01 240);
+    --interactive-secondary-text-disabled: oklch(50% 0.01 240);
+
+
+    /* ========================================
+       INTERACTIVE STATES - GHOST (Dark)
+       ======================================== */
+
+    --interactive-ghost-hover: oklch(25% 0.02 166.11);
+    --interactive-ghost-active: oklch(30% 0.03 166.11);
+    --interactive-outline-border: oklch(35% 0.015 240);
+    --interactive-outline-hover-bg: oklch(22% 0.010 240);
+
+
+    /* ========================================
+       SURFACE HIERARCHY - DARK MODE
+       ======================================== */
+
+    /* Background (Page level) - Deep space */
+    --surface-background: oklch(12% 0.015 240);
+
+    /* Surface 1 (Cards, Panels) */
+    --surface-1: oklch(18% 0.018 240);
+    --surface-1-hover: oklch(22% 0.020 240);
+
+    /* Surface 2 (Elevated cards, Modals) */
+    --surface-2: oklch(22% 0.020 240);
+
+    /* Surface 3 (Dropdowns, Popovers) */
+    --surface-3: oklch(25% 0.022 240);
+
+    /* Surface Muted */
+    --surface-muted: oklch(18% 0.015 240);
+    --surface-muted-hover: oklch(22% 0.018 240);
+
+    /* Surface Accent - Teal-tinted */
+    --surface-accent: oklch(20% 0.04 166.11);
+    --surface-accent-hover: oklch(25% 0.05 166.11);
+
+
+    /* ========================================
+       TEXT HIERARCHY - DARK MODE
+       ======================================== */
+
+    /* Heading */
+    --text-heading: oklch(98% 0.005 240);
+
+    /* Body */
+    --text-body: oklch(88% 0.008 240);
+
+    /* Muted */
+    --text-muted: oklch(65% 0.010 240);
+
+    /* Placeholder */
+    --text-placeholder: oklch(50% 0.008 240);
+
+    /* Link */
+    --text-link: oklch(75% 0.140 166.11);
+    --text-link-hover: oklch(82% 0.150 166.11);
+    --text-link-visited: oklch(70% 0.08 280);
+
+    /* Inverted */
+    --text-inverted: oklch(15% 0.015 240);
+    --text-inverted-muted: oklch(35% 0.010 240);
+
+
+    /* ========================================
+       BORDER SYSTEM - DARK MODE
+       ======================================== */
+
+    --border-default: oklch(28% 0.012 240);
+    --border-subtle: oklch(22% 0.008 240);
+    --border-strong: oklch(40% 0.015 240);
+    --border-focus: oklch(72.87% 0.156 166.11);
+    --border-focus-ring: oklch(72.87% 0.156 166.11 / 0.45);
+    --border-divider: oklch(25% 0.010 240);
+    --border-input: oklch(30% 0.012 240);
+    --border-input-hover: oklch(40% 0.015 240);
+    --border-input-focus: oklch(72.87% 0.156 166.11);
+
+
+    /* ========================================
+       FEEDBACK COLORS - DARK MODE
+       ======================================== */
+
+    /* SUCCESS */
+    --feedback-success: oklch(65% 0.155 145);
+    --feedback-success-light: oklch(25% 0.045 145);
+    --feedback-success-dark: oklch(75% 0.140 145);
+    --feedback-success-text: oklch(80% 0.100 145);
+    --feedback-success-border: oklch(45% 0.100 145);
+
+    /* WARNING */
+    --feedback-warning: oklch(80% 0.160 75);
+    --feedback-warning-light: oklch(25% 0.040 75);
+    --feedback-warning-dark: oklch(70% 0.140 75);
+    --feedback-warning-text: oklch(85% 0.100 75);
+    --feedback-warning-border: oklch(50% 0.100 75);
+
+    /* ERROR */
+    --feedback-error: oklch(65% 0.180 15);
+    --feedback-error-light: oklch(22% 0.035 15);
+    --feedback-error-dark: oklch(55% 0.160 15);
+    --feedback-error-text: oklch(85% 0.080 15);
+    --feedback-error-border: oklch(45% 0.120 15);
+
+    /* INFO */
+    --feedback-info: oklch(65% 0.180 250);
+    --feedback-info-light: oklch(22% 0.035 250);
+    --feedback-info-dark: oklch(55% 0.160 250);
+    --feedback-info-text: oklch(85% 0.080 250);
+    --feedback-info-border: oklch(45% 0.100 250);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - DOCUMENT CARDS (Dark)
+       ======================================== */
+
+    --doc-card-bg: oklch(18% 0.018 240);
+    --doc-card-bg-hover: oklch(22% 0.025 166.11);
+    --doc-card-border: oklch(28% 0.012 240);
+    --doc-card-border-hover: oklch(50% 0.08 166.11);
+    --doc-card-selected-bg: oklch(22% 0.04 166.11);
+    --doc-card-selected-border: oklch(72.87% 0.156 166.11);
+
+    /* Upload zone */
+    --upload-zone-bg: oklch(15% 0.02 166.11);
+    --upload-zone-border: oklch(30% 0.03 166.11);
+    --upload-zone-border-dashed: oklch(50% 0.08 166.11);
+    --upload-zone-active-bg: oklch(20% 0.05 166.11);
+    --upload-zone-active-border: oklch(72.87% 0.156 166.11);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - STATUS BADGES (Dark)
+       ======================================== */
+
+    /* Pending */
+    --status-pending-bg: oklch(22% 0.04 250);
+    --status-pending-text: oklch(80% 0.10 250);
+    --status-pending-border: oklch(35% 0.08 250);
+    --status-pending-dot: oklch(65% 0.18 250);
+
+    /* Processing */
+    --status-processing-bg: oklch(20% 0.04 166.11);
+    --status-processing-text: oklch(80% 0.10 166.11);
+    --status-processing-border: oklch(40% 0.08 166.11);
+    --status-processing-dot: oklch(72.87% 0.156 166.11);
+
+    /* Done */
+    --status-done-bg: oklch(22% 0.045 145);
+    --status-done-text: oklch(80% 0.10 145);
+    --status-done-border: oklch(40% 0.08 145);
+    --status-done-dot: oklch(65% 0.155 145);
+
+    /* Failed */
+    --status-failed-bg: oklch(20% 0.03 15);
+    --status-failed-text: oklch(85% 0.08 15);
+    --status-failed-border: oklch(35% 0.06 15);
+    --status-failed-dot: oklch(65% 0.18 15);
+
+    /* Cancelled */
+    --status-cancelled-bg: oklch(20% 0.005 240);
+    --status-cancelled-text: oklch(70% 0.010 240);
+    --status-cancelled-border: oklch(30% 0.008 240);
+    --status-cancelled-dot: oklch(50% 0.01 240);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - PROGRESS BARS (Dark)
+       ======================================== */
+
+    --progress-track: oklch(25% 0.010 240);
+    --progress-fill: oklch(72.87% 0.156 166.11);
+    --progress-fill-success: oklch(65% 0.155 145);
+    --progress-fill-warning: oklch(80% 0.160 75);
+    --progress-fill-error: oklch(65% 0.180 15);
+
+
+    /* ========================================
+       COMPONENT-SPECIFIC - TOAST (Dark)
+       ======================================== */
+
+    --toast-bg: oklch(22% 0.020 240);
+    --toast-border: oklch(30% 0.012 240);
+    --toast-shadow: oklch(0% 0 0 / 0.4);
+
+    --toast-success-accent: oklch(65% 0.155 145);
+    --toast-warning-accent: oklch(80% 0.160 75);
+    --toast-error-accent: oklch(65% 0.180 15);
+    --toast-info-accent: oklch(65% 0.180 250);
+
+
+    /* ========================================
+       DATA TABLE COLORS (Dark)
+       ======================================== */
+
+    --table-header-bg: oklch(18% 0.015 240);
+    --table-row-hover: oklch(22% 0.025 166.11);
+    --table-row-selected: oklch(22% 0.04 166.11);
+    --table-row-stripe: oklch(15% 0.012 240);
+    --table-border: oklch(25% 0.010 240);
+
+
+    /* ========================================
+       SHADOWS (Dark)
+       ======================================== */
+
+    --shadow-xs: 0 1px 2px oklch(0% 0 0 / 0.3);
+    --shadow-sm: 0 1px 3px oklch(0% 0 0 / 0.4), 0 1px 2px oklch(0% 0 0 / 0.2);
+    --shadow-md: 0 4px 6px oklch(0% 0 0 / 0.4), 0 2px 4px oklch(0% 0 0 / 0.2);
+    --shadow-lg: 0 10px 15px oklch(0% 0 0 / 0.4), 0 4px 6px oklch(0% 0 0 / 0.2);
+    --shadow-xl: 0 20px 25px oklch(0% 0 0 / 0.5), 0 8px 10px oklch(0% 0 0 / 0.2);
+
+    --shadow-primary: 0 4px 14px oklch(72.87% 0.156 166.11 / 0.20);
+    --shadow-primary-lg: 0 10px 25px oklch(72.87% 0.156 166.11 / 0.25);
+  }
+}
+
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+@layer utilities {
+  /* Interactive button variants */
+  .btn-primary {
+    background: var(--interactive-primary-default);
+    color: white;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--interactive-primary-hover);
+  }
+  .btn-primary:active:not(:disabled) {
+    background: var(--interactive-primary-active);
+  }
+  .btn-primary:focus-visible {
+    box-shadow: 0 0 0 3px var(--interactive-primary-focus-ring);
+  }
+  .btn-primary:disabled {
+    background: var(--interactive-primary-disabled);
+    color: var(--interactive-primary-disabled-text);
+  }
+
+  /* Status badge classes */
+  .badge-pending {
+    background: var(--status-pending-bg);
+    color: var(--status-pending-text);
+    border-color: var(--status-pending-border);
+  }
+
+  .badge-processing {
+    background: var(--status-processing-bg);
+    color: var(--status-processing-text);
+    border-color: var(--status-processing-border);
+  }
+
+  .badge-done {
+    background: var(--status-done-bg);
+    color: var(--status-done-text);
+    border-color: var(--status-done-border);
+  }
+
+  .badge-failed {
+    background: var(--status-failed-bg);
+    color: var(--status-failed-text);
+    border-color: var(--status-failed-border);
+  }
+
+  .badge-cancelled {
+    background: var(--status-cancelled-bg);
+    color: var(--status-cancelled-text);
+    border-color: var(--status-cancelled-border);
+  }
+
+  /* Document card classes */
+  .doc-card {
+    background: var(--doc-card-bg);
+    border-color: var(--doc-card-border);
+    transition: all 0.2s ease;
+  }
+  .doc-card:hover {
+    background: var(--doc-card-bg-hover);
+    border-color: var(--doc-card-border-hover);
+  }
+  .doc-card.selected {
+    background: var(--doc-card-selected-bg);
+    border-color: var(--doc-card-selected-border);
+  }
+
+  /* Upload zone classes */
+  .upload-zone {
+    background: var(--upload-zone-bg);
+    border-color: var(--upload-zone-border);
+    border-style: dashed;
+    border-width: 2px;
+    transition: all 0.2s ease;
+  }
+  .upload-zone:hover,
+  .upload-zone.active {
+    background: var(--upload-zone-active-bg);
+    border-color: var(--upload-zone-active-border);
+  }
+
+  /* Feedback alert classes */
+  .alert-success {
+    background: var(--feedback-success-light);
+    border-color: var(--feedback-success-border);
+    color: var(--feedback-success-text);
+  }
+  .alert-warning {
+    background: var(--feedback-warning-light);
+    border-color: var(--feedback-warning-border);
+    color: var(--feedback-warning-text);
+  }
+  .alert-error {
+    background: var(--feedback-error-light);
+    border-color: var(--feedback-error-border);
+    color: var(--feedback-error-text);
+  }
+  .alert-info {
+    background: var(--feedback-info-light);
+    border-color: var(--feedback-info-border);
+    color: var(--feedback-info-text);
+  }
+
+  /* Surface utilities */
+  .surface-1 { background: var(--surface-1); }
+  .surface-2 { background: var(--surface-2); }
+  .surface-3 { background: var(--surface-3); }
+  .surface-muted { background: var(--surface-muted); }
+  .surface-accent { background: var(--surface-accent); }
+
+  /* Text utilities */
+  .text-heading { color: var(--text-heading); }
+  .text-body { color: var(--text-body); }
+  .text-muted-custom { color: var(--text-muted); }
+  .text-placeholder { color: var(--text-placeholder); }
+
+  /* Progress bar */
+  .progress-track { background: var(--progress-track); }
+  .progress-fill { background: var(--progress-fill); }
+  .progress-fill-success { background: var(--progress-fill-success); }
+  .progress-fill-warning { background: var(--progress-fill-warning); }
+  .progress-fill-error { background: var(--progress-fill-error); }
+}

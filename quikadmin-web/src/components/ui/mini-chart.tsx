@@ -126,7 +126,7 @@ export function MiniChart({
           {showIndicator && (
             <div
               data-slot="mini-chart-indicator"
-              className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
+              className="w-2 h-2 rounded-full bg-success animate-pulse"
             />
           )}
           <span className="text-xs font-medium text-muted-foreground tracking-wide uppercase">

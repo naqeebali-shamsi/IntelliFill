@@ -54,6 +54,19 @@ export default tseslint.config(
       'no-debugger': 'warn',
       'prefer-const': 'error',
       'no-var': 'error',
+
+      // Design System - Prevent hardcoded colors
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: 'Literal[value=/\\b(gray|grey|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|100|200|300|400|500|600|700|800|900|950)\\b/]',
+          message: 'Avoid hardcoded Tailwind color classes. Use semantic tokens from theme.css instead (e.g., text-foreground, bg-primary, border-input).',
+        },
+        {
+          selector: 'Literal[value=/#[0-9a-fA-F]{3,6}\\b/]',
+          message: 'Avoid hardcoded hex colors. Use OKLCH-based semantic tokens from theme.css instead.',
+        },
+      ],
     },
   }
 );

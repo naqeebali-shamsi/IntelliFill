@@ -16,14 +16,21 @@ const statusBadgeVariants = cva(
   {
     variants: {
       status: {
-        pending: 'bg-status-pending text-status-pending-foreground border-border',
-        processing: 'bg-status-pending text-status-pending-foreground border-border',
-        completed: 'bg-status-success text-status-success-foreground border-border',
-        success: 'bg-status-success text-status-success-foreground border-border',
-        failed: 'bg-status-error text-status-error-foreground border-border',
-        error: 'bg-status-error text-status-error-foreground border-border',
-        warning: 'bg-status-warning text-status-warning-foreground border-border',
-        info: 'bg-status-pending text-status-pending-foreground border-border',
+        pending:
+          'bg-[var(--status-pending-bg)] text-[var(--status-pending-text)] border-[var(--status-pending-border)]',
+        processing:
+          'bg-[var(--status-processing-bg)] text-[var(--status-processing-text)] border-[var(--status-processing-border)]',
+        completed:
+          'bg-[var(--status-done-bg)] text-[var(--status-done-text)] border-[var(--status-done-border)]',
+        success:
+          'bg-[var(--status-done-bg)] text-[var(--status-done-text)] border-[var(--status-done-border)]',
+        failed:
+          'bg-[var(--status-failed-bg)] text-[var(--status-failed-text)] border-[var(--status-failed-border)]',
+        error:
+          'bg-[var(--status-failed-bg)] text-[var(--status-failed-text)] border-[var(--status-failed-border)]',
+        warning:
+          'bg-[var(--feedback-warning-light)] text-[var(--feedback-warning-text)] border-[var(--feedback-warning-border)]',
+        info: 'bg-[var(--feedback-info-light)] text-[var(--feedback-info-text)] border-[var(--feedback-info-border)]',
       },
       size: {
         sm: 'px-2 py-0.5 text-xs',
@@ -157,14 +164,14 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLDivElement> {
  */
 function StatusDot({ status, size = 'md', pulse = false, className, ...props }: StatusDotProps) {
   const colorMap = {
-    pending: 'bg-status-pending',
-    processing: 'bg-status-pending',
-    completed: 'bg-status-success',
-    success: 'bg-status-success',
-    failed: 'bg-status-error',
-    error: 'bg-status-error',
-    warning: 'bg-status-warning',
-    info: 'bg-status-pending',
+    pending: 'bg-[var(--status-pending-dot)]',
+    processing: 'bg-[var(--status-processing-dot)]',
+    completed: 'bg-[var(--status-done-dot)]',
+    success: 'bg-[var(--status-done-dot)]',
+    failed: 'bg-[var(--status-failed-dot)]',
+    error: 'bg-[var(--status-failed-dot)]',
+    warning: 'bg-[var(--feedback-warning)]',
+    info: 'bg-[var(--feedback-info)]',
   };
 
   const sizeMap = {
@@ -172,6 +179,8 @@ function StatusDot({ status, size = 'md', pulse = false, className, ...props }: 
     md: 'h-2.5 w-2.5',
     lg: 'h-3 w-3',
   };
+
+  const isProcessing = status === 'processing';
 
   return (
     <div
@@ -181,6 +190,7 @@ function StatusDot({ status, size = 'md', pulse = false, className, ...props }: 
         colorMap[status],
         sizeMap[size],
         pulse && 'animate-pulse',
+        isProcessing && !pulse && 'animate-pulse',
         className
       )}
       role="status"

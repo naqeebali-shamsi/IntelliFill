@@ -173,9 +173,9 @@ export default function VerifyEmail() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {success ? (
-              <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20">
-                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <AlertDescription className="text-green-800 dark:text-green-200">
+              <Alert className="border-success/20 bg-success-light">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <AlertDescription className="text-success-foreground">
                   Email verified successfully! Redirecting to login...
                 </AlertDescription>
               </Alert>

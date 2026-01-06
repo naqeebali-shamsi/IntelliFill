@@ -94,7 +94,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-background to-muted dark:from-background dark:to-background">
       {/* Hero Section - Left side */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-gradient-to-br from-primary/90 to-primary dark:from-primary/80 dark:to-primary/60 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-[var(--hero-bg)] p-12 flex-col justify-between relative overflow-hidden">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <div

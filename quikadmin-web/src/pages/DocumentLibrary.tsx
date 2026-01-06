@@ -443,7 +443,7 @@ export default function DocumentLibrary() {
                           type="checkbox"
                           checked={isSelected(doc.id)}
                           onChange={() => handleDocumentSelect(doc.id)}
-                          className="h-5 w-5 rounded border-gray-300 cursor-pointer accent-primary"
+                          className="h-5 w-5 rounded border-input cursor-pointer accent-primary"
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>

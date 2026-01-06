@@ -392,7 +392,7 @@ export default function Settings() {
                           <div className="flex items-center gap-2 font-medium">
                             <Smartphone className="h-4 w-4" /> Two-Factor Authentication
                           </div>
-                          <p className="text-xs text-amber-500/80">Not enabled</p>
+                          <p className="text-xs text-warning/80">Not enabled</p>
                         </div>
                         <Button
                           variant="outline"

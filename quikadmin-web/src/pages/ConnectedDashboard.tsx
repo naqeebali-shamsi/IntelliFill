@@ -267,7 +267,7 @@ export default function ConnectedDashboard() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-0.5">Success Rate</p>
-                        <p className="font-medium text-lg font-mono text-green-500">
+                        <p className="font-medium text-lg font-mono text-success">
                           {statistics?.successRate || '0'}%
                         </p>
                       </div>
@@ -281,7 +281,7 @@ export default function ConnectedDashboard() {
             {/* Quick Actions */}
             <div className="glass-panel p-6 rounded-xl border border-white/10">
               <h3 className="font-medium flex items-center gap-2 mb-4">
-                <Zap className="h-4 w-4 text-amber-500" /> Quick Actions
+                <Zap className="h-4 w-4 text-warning" /> Quick Actions
               </h3>
               <div className="grid gap-3">
                 <Button
@@ -305,7 +305,7 @@ export default function ConnectedDashboard() {
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
                   onClick={() => navigate('/templates')}
                 >
-                  <div className="h-8 w-8 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mr-3 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                  <div className="h-8 w-8 rounded-full bg-info-light text-info flex items-center justify-center mr-3 group-hover:bg-info group-hover:text-info-foreground transition-colors">
                     <FileText className="h-4 w-4" />
                   </div>
                   <div className="text-left">
