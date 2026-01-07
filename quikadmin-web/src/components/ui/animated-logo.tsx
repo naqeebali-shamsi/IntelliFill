@@ -146,7 +146,7 @@ export function AnimatedLogo({
       </motion.svg>
 
       {/* Full IntelliFill wordmark - progressive reveal with clipPaths */}
-      <svg
+      <motion.svg
         width={fullWidth}
         height={height}
         viewBox="0 0 3533 674"
@@ -154,6 +154,14 @@ export function AnimatedLogo({
         xmlns="http://www.w3.org/2000/svg"
         className="absolute inset-0"
         style={{ overflow: 'visible' }}
+        initial={false}
+        animate={{
+          opacity: isHovered ? 1 : 0,
+        }}
+        transition={{
+          duration: 0.15,
+          ease: 'easeOut',
+        }}
       >
         <defs>
           {/* Animated clipPath for "I" letter region (0-280) */}
@@ -298,7 +306,7 @@ export function AnimatedLogo({
             fill={baseColor}
           />
         </g>
-      </svg>
+      </motion.svg>
     </motion.div>
   );
 }
