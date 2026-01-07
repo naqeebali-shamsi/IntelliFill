@@ -174,13 +174,14 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-900">
-      {/* Animated background boxes - visible on all screens */}
-      <div className="absolute inset-0 w-full h-full bg-slate-900 z-0 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
-      <Boxes className="z-0" />
+    <div className="h-screen flex bg-slate-900 overflow-hidden relative">
+      {/* Animated background boxes - interactive layer */}
+      <div className="absolute inset-0 overflow-hidden z-0">
+        <Boxes />
+      </div>
 
       {/* Hero Section - Left side (Desktop only) */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 p-12 flex-col justify-between relative z-10">
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 p-12 flex-col justify-between relative z-10 overflow-y-auto pointer-events-none [&_*]:pointer-events-auto">
         {/* Content */}
         <div className="relative">
           <div className="mb-6">
@@ -233,7 +234,7 @@ export default function Register() {
       </div>
 
       {/* Registration Form - Right side */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative z-10">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative z-10 overflow-y-auto pointer-events-none [&_*]:pointer-events-auto">
         <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-8">
