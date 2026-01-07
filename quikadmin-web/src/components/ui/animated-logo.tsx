@@ -26,17 +26,21 @@ export function AnimatedLogo({
   const [isHovered, setIsHovered] = useState(false);
 
   // Colors based on variant
+  // Light variant = light colors for dark backgrounds
+  // Dark variant = dark colors for light backgrounds
   const baseColor = variant === 'light' ? '#CCDBDC' : '#222823';
   const tealColor = '#02C39A';
   const whiteColor = '#EFF9F9';
 
-  // Calculate dimensions - full logo aspect ratio is 3533:674
-  const fullWidth = (height * 3533) / 674;
+  // Calculate dimensions
+  // Default IF icon: 700x674 aspect ratio
+  // Full IntelliFill: 3533x674 aspect ratio
   const iconWidth = (height * 700) / 674;
+  const fullWidth = (height * 3533) / 674;
 
   return (
     <motion.div
-      className={cn('cursor-pointer overflow-hidden', className)}
+      className={cn('cursor-pointer relative', className)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
@@ -51,15 +55,84 @@ export function AnimatedLogo({
       }}
       style={{ height }}
     >
-      <svg
+      {/* Default IF Icon - shown when not hovered */}
+      <motion.svg
+        width={iconWidth}
+        height={height}
+        viewBox="0 0 700 674"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="absolute inset-0"
+        initial={false}
+        animate={{
+          opacity: isHovered ? 0 : 1,
+        }}
+        transition={{ duration: 0.2 }}
+      >
+        <g clipPath="url(#clip0_default)">
+          {/* Base IF letters */}
+          <path
+            d="M227.722 95.9091L143.205 605H4.99432L89.5114 95.9091H227.722ZM250.705 605L335.222 95.9091H693.177L674.285 207.273H454.54L440.62 294.773H638.489L619.597 406.136H421.728L388.915 605H250.705Z"
+            fill={baseColor}
+          />
+
+          {/* Teal accent on F bar */}
+          <path
+            d="M440.62 294.772H638.489L619.598 406.137H421.728L388.915 605H250.705L293.645 346.349L285 400L440.5 294.5H440.663L440.62 294.772Z"
+            fill={tealColor}
+          />
+
+          {/* White paper fold triangle with drop shadow */}
+          <g filter="url(#filter0_d_default)">
+            <path d="M440.5 294.5L423.5 400H285L440.5 294.5Z" fill={whiteColor} />
+          </g>
+        </g>
+
+        <defs>
+          <filter
+            id="filter0_d_default"
+            x="281"
+            y="294.5"
+            width="163.5"
+            height="113.5"
+            filterUnits="userSpaceOnUse"
+            colorInterpolationFilters="sRGB"
+          >
+            <feFlood floodOpacity="0" result="BackgroundImageFix" />
+            <feColorMatrix
+              in="SourceAlpha"
+              type="matrix"
+              values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+              result="hardAlpha"
+            />
+            <feOffset dy="4" />
+            <feGaussianBlur stdDeviation="2" />
+            <feComposite in2="hardAlpha" operator="out" />
+            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0" />
+            <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
+            <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
+          </filter>
+          <clipPath id="clip0_default">
+            <rect width="700" height="674" fill="white" />
+          </clipPath>
+        </defs>
+      </motion.svg>
+
+      {/* Full IntelliFill wordmark - shown on hover */}
+      <motion.svg
         width={fullWidth}
         height={height}
         viewBox="0 0 3533 674"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="h-full"
+        className="absolute inset-0"
+        initial={false}
+        animate={{
+          opacity: isHovered ? 1 : 0,
+        }}
+        transition={{ duration: 0.2 }}
       >
-        <g clipPath="url(#clip0_animated)">
+        <g clipPath="url(#clip0_full)">
           {/* Base letters - IntelliFill */}
           <path
             d="M247.722 112.909L163.205 622H24.9943L109.511 112.909H247.722ZM446.7 407.227L410.904 622H273.688L337.325 240.182H467.58L455.648 312.767H459.626C471.723 288.406 489.372 269.431 512.573 255.842C535.94 242.088 561.709 235.21 589.881 235.21C616.894 235.21 639.349 241.342 657.246 253.605C675.144 265.868 687.822 282.772 695.279 304.315C702.737 325.859 704.062 350.551 699.256 378.392L658.489 622H521.273L557.069 407.227C560.218 388.335 557.897 373.503 550.109 362.732C542.486 351.96 529.891 346.574 512.325 346.574C501.221 346.574 491.03 349.06 481.749 354.031C472.635 358.837 465.012 365.797 458.88 374.912C452.914 383.861 448.854 394.633 446.7 407.227ZM1058.57 240.182L1041.66 339.614H790.102L807.006 240.182H1058.57ZM870.642 148.705H1007.86L949.69 499.202C948.862 504.505 949.027 508.979 950.188 512.625C951.348 516.105 953.668 518.757 957.148 520.58C960.794 522.237 965.599 523.065 971.565 523.065C975.543 523.065 980.431 522.568 986.232 521.574C992.032 520.414 996.423 519.585 999.406 519.088L1003.38 615.537C996.423 617.526 987.06 619.763 975.294 622.249C963.694 624.9 950.188 626.64 934.776 627.469C902.626 628.96 876.442 625.563 856.224 617.277C836.172 608.991 822.252 596.065 814.463 578.499C806.84 560.767 805.514 538.643 810.486 512.128L870.642 148.705ZM1270.78 628.96C1230.02 628.96 1196.21 621.171 1169.36 605.594C1142.52 589.85 1123.62 567.312 1112.69 537.98C1101.75 508.482 1099.76 473.184 1106.72 432.085C1113.35 392.644 1127.02 358.174 1147.74 328.676C1168.62 299.178 1194.88 276.226 1226.54 259.82C1258.35 243.413 1293.98 235.21 1333.43 235.21C1362.26 235.21 1387.53 239.685 1409.24 248.634C1431.12 257.582 1448.93 270.591 1462.69 287.661C1476.44 304.73 1485.72 325.362 1490.53 349.557C1495.5 373.586 1495.5 400.764 1490.53 431.091L1485.56 462.909H1144.5L1156.44 387.341H1371.21C1372.87 376.403 1371.79 366.792 1367.98 358.506C1364.33 350.054 1358.45 343.508 1350.33 338.868C1342.37 334.062 1332.76 331.659 1321.49 331.659C1310.22 331.659 1299.62 334.062 1289.68 338.868C1279.9 343.674 1271.53 350.385 1264.57 359.003C1257.77 367.62 1253.22 377.729 1250.9 389.33L1235.98 468.875C1233.99 481.138 1234.74 492.076 1238.22 501.688C1241.7 511.299 1247.75 518.839 1256.37 524.308C1264.98 529.777 1276.09 532.511 1289.68 532.511C1298.96 532.511 1307.74 531.268 1316.02 528.783C1324.48 526.131 1331.93 522.32 1338.4 517.348C1345.03 512.211 1350.33 505.996 1354.31 498.705H1479.59C1470.64 525.22 1456.47 548.255 1437.08 567.81C1417.86 587.199 1394.16 602.279 1365.99 613.051C1337.98 623.657 1306.25 628.96 1270.78 628.96ZM1778.43 112.909L1693.92 622H1556.7L1641.22 112.909H1778.43ZM2027.56 112.909L1943.05 622H1805.83L1890.35 112.909H2027.56ZM2054.96 622L2118.6 240.182H2255.81L2192.18 622H2054.96ZM2193.17 200.409C2174.61 200.409 2159.61 194.277 2148.18 182.014C2136.74 169.585 2132.52 154.836 2135.5 137.767C2138.48 120.366 2147.6 105.617 2162.84 93.5199C2178.09 81.2566 2194.99 75.125 2213.55 75.125C2232.28 75.125 2247.19 81.2566 2258.3 93.5199C2269.4 105.617 2273.54 120.366 2270.73 137.767C2268.08 154.836 2259.13 169.585 2243.88 182.014C2228.8 194.277 2211.9 200.409 2193.17 200.409ZM2302.1 622L2386.62 112.909H2744.57L2725.68 224.273H2505.94L2492.01 311.773H2689.88L2670.99 423.136H2473.12L2440.31 622H2302.1ZM2754.88 622L2818.51 240.182H2955.73L2892.09 622H2754.88ZM2893.09 200.409C2874.53 200.409 2859.53 194.277 2848.09 182.014C2836.66 169.585 2832.43 154.836 2835.42 137.767C2838.4 120.366 2847.51 105.617 2862.76 93.5199C2878.01 81.2566 2894.91 75.125 2913.47 75.125C2932.2 75.125 2947.11 81.2566 2958.22 93.5199C2969.32 105.617 2973.46 120.366 2970.64 137.767C2967.99 154.836 2959.04 169.585 2943.8 182.014C2928.72 194.277 2911.81 200.409 2893.09 200.409ZM3225.74 112.909L3141.22 622H3004.01L3088.52 112.909H3225.74ZM3474.87 112.909L3390.35 622H3253.14L3337.65 112.909H3474.87Z"
@@ -88,14 +161,14 @@ export function AnimatedLogo({
           />
 
           {/* White paper fold triangle with drop shadow */}
-          <g filter="url(#filter0_d_animated)">
+          <g filter="url(#filter0_d_full)">
             <path d="M2491.5 311.5L2474.5 417H2336L2491.5 311.5Z" fill={whiteColor} />
           </g>
         </g>
 
         <defs>
           <filter
-            id="filter0_d_animated"
+            id="filter0_d_full"
             x="2332"
             y="311.5"
             width="163.5"
@@ -117,11 +190,11 @@ export function AnimatedLogo({
             <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow" />
             <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape" />
           </filter>
-          <clipPath id="clip0_animated">
+          <clipPath id="clip0_full">
             <rect width="3533" height="674" fill="white" />
           </clipPath>
         </defs>
-      </svg>
+      </motion.svg>
     </motion.div>
   );
 }
