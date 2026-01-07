@@ -2,14 +2,6 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToggle } from 'usehooks-ts';
 import { toast } from 'sonner';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +22,8 @@ import {
 import { useAuthStore } from '@/stores/auth';
 import { ErrorCode } from '@/constants/errorCodes';
 import { Boxes } from '@/components/ui/background-boxes';
+import { SleekIconButton, AccentLine, AnimatedLogo } from '@/components';
+import { cn } from '@/lib/utils';
 
 interface PasswordStrength {
   score: number;
@@ -180,278 +174,349 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-background to-muted dark:from-background dark:to-background">
-      {/* Hero Section - Left side */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 bg-slate-900 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Animated background boxes */}
-        <div className="absolute inset-0 w-full h-full bg-slate-900 z-20 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
-        <Boxes />
+    <div className="min-h-screen flex bg-slate-900">
+      {/* Animated background boxes - visible on all screens */}
+      <div className="absolute inset-0 w-full h-full bg-slate-900 z-0 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
+      <Boxes className="z-0" />
 
+      {/* Hero Section - Left side (Desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 p-12 flex-col justify-between relative z-10">
         {/* Content */}
-        <div className="relative z-30">
-          <div className="flex items-center gap-3 mb-6">
-            <img src="/logo-light.svg" alt="IntelliFill" className="h-10 w-auto" />
-            <h1 className="text-2xl font-bold text-white">IntelliFill</h1>
+        <div className="relative">
+          <div className="mb-6">
+            <AnimatedLogo variant="light" height={40} />
           </div>
 
-          <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6">
+          <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6 font-heading tracking-tight">
             Start automating
             <span className="block mt-2 text-white/90">your document workflow.</span>
           </h2>
 
-          <p className="text-xl text-white/80 max-w-lg mb-8">
+          <p className="text-xl text-white/70 max-w-lg mb-8 leading-relaxed">
             Join UAE PRO agencies already saving hours every day with AI-powered document
             processing. Free trial, no credit card required.
           </p>
 
           {/* Feature highlights */}
           <div className="space-y-4 mb-8">
-            <div className="flex items-center gap-3 text-white/90">
-              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="flex items-center gap-3 text-white/80">
+              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
                 <Zap className="h-4 w-4" />
               </div>
-              <span>Set up in under 5 minutes</span>
+              <span className="text-[15px]">Set up in under 5 minutes</span>
             </div>
-            <div className="flex items-center gap-3 text-white/90">
-              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="flex items-center gap-3 text-white/80">
+              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
                 <Clock className="h-4 w-4" />
               </div>
-              <span>14-day free trial with full features</span>
+              <span className="text-[15px]">14-day free trial with full features</span>
             </div>
-            <div className="flex items-center gap-3 text-white/90">
-              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+            <div className="flex items-center gap-3 text-white/80">
+              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
                 <Shield className="h-4 w-4" />
               </div>
-              <span>Your data stays in the UAE region</span>
+              <span className="text-[15px]">Your data stays in the UAE region</span>
             </div>
           </div>
         </div>
 
         {/* Bottom quote */}
-        <div className="relative z-30 mt-auto">
-          <blockquote className="text-white/80 italic text-lg">
+        <div className="relative mt-auto">
+          <blockquote className="text-white/70 italic text-lg leading-relaxed">
             "IntelliFill cut our visa processing time by 70%. We went from 15 minutes per
             application to under 5."
           </blockquote>
-          <p className="text-white/60 mt-2">— Mohammed Al-Rashid, Al Futtaim PRO Services</p>
+          <p className="text-white/50 mt-3 text-sm">
+            — Mohammed Al-Rashid, Al Futtaim PRO Services
+          </p>
         </div>
       </div>
 
       {/* Registration Form - Right side */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative z-10">
         <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <img src="/logo-dark.svg" alt="IntelliFill" className="h-10 w-auto" />
-            <h1 className="text-2xl font-bold">IntelliFill</h1>
+          <div className="lg:hidden flex justify-center mb-8">
+            <AnimatedLogo variant="light" height={36} />
           </div>
 
-          <Card>
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
-              <CardDescription className="text-center">
-                Enter your information to get started
-              </CardDescription>
-            </CardHeader>
+          {/* Sleek Card */}
+          <div
+            className={cn(
+              'rounded-2xl p-8',
+              'bg-surface-2/80 backdrop-blur-xl',
+              'border border-sleek-line-default',
+              'shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_50px_-12px_rgba(0,0,0,0.5)]'
+            )}
+          >
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <AccentLine variant="active" size="sm" />
+                <h2 className="text-2xl font-semibold text-white font-heading tracking-tight">
+                  Create an account
+                </h2>
+                <AccentLine variant="active" size="sm" />
+              </div>
+              <p className="text-sm text-white/60">Enter your information to get started</p>
+            </div>
 
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error.message}</AlertDescription>
-                  </Alert>
-                )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <Alert variant="destructive" className="bg-error/10 border-error/30">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    disabled={isLoading}
-                    autoComplete="name"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="name@example.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    disabled={isLoading}
-                    autoComplete="email"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Create a strong password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required
-                      disabled={isLoading}
-                      autoComplete="new-password"
-                      className="w-full pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={toggleShowPassword}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-
-                  {formData.password && (
-                    <div className="space-y-2 mt-2">
-                      <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1 flex-1 rounded-full ${
-                              i < passwordStrength.score ? getPasswordStrengthColor() : 'bg-muted'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-2 gap-1">
-                        <RequirementItem
-                          met={passwordStrength.requirements.length}
-                          text="8+ characters"
-                        />
-                        <RequirementItem
-                          met={passwordStrength.requirements.uppercase}
-                          text="Uppercase"
-                        />
-                        <RequirementItem
-                          met={passwordStrength.requirements.lowercase}
-                          text="Lowercase"
-                        />
-                        <RequirementItem met={passwordStrength.requirements.number} text="Number" />
-                        <RequirementItem
-                          met={passwordStrength.requirements.special}
-                          text="Special char"
-                        />
-                      </div>
-                    </div>
+              {/* Name field */}
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium text-white/80">
+                  Full Name
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  autoComplete="name"
+                  className={cn(
+                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
+                    'placeholder:text-white/30 text-white',
+                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
+                    'transition-colors'
                   )}
-                </div>
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+              {/* Email field */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium text-white/80">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  autoComplete="email"
+                  className={cn(
+                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
+                    'placeholder:text-white/30 text-white',
+                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
+                    'transition-colors'
+                  )}
+                />
+              </div>
+
+              {/* Password field */}
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium text-white/80">
+                  Password
+                </Label>
+                <div className="relative">
                   <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
+                    id="password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Confirm your password"
-                    value={formData.confirmPassword}
+                    placeholder="Create a strong password"
+                    value={formData.password}
                     onChange={handleChange}
                     required
                     disabled={isLoading}
                     autoComplete="new-password"
-                    className="w-full"
+                    className={cn(
+                      'w-full h-11 bg-surface-1/50 border-sleek-line-default pr-11',
+                      'placeholder:text-white/30 text-white',
+                      'focus:border-primary focus:ring-1 focus:ring-primary/30',
+                      'transition-colors'
+                    )}
                   />
-                </div>
-
-                <div className="flex items-start space-x-2">
-                  <Checkbox
-                    id="terms"
-                    checked={agreedToTerms}
-                    onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-                    disabled={isLoading}
-                    className="mt-0.5"
-                  />
-                  <label htmlFor="terms" className="text-sm text-muted-foreground cursor-pointer">
-                    I agree to the{' '}
-                    <Link to="/terms" className="text-primary hover:underline">
-                      Terms and Conditions
-                    </Link>{' '}
-                    and{' '}
-                    <Link to="/privacy" className="text-primary hover:underline">
-                      Privacy Policy
-                    </Link>
-                  </label>
-                </div>
-
-                <div className="flex items-start space-x-2">
-                  <Checkbox
-                    id="marketing"
-                    checked={marketingConsent}
-                    onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
-                    disabled={isLoading}
-                    className="mt-0.5"
-                  />
-                  <label
-                    htmlFor="marketing"
-                    className="text-sm text-muted-foreground cursor-pointer"
+                  <SleekIconButton
+                    variant="ghost"
+                    size="sm"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={toggleShowPassword}
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
                   >
-                    I'd like to receive product updates and tips
-                  </label>
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-white/50" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-white/50" />
+                    )}
+                  </SleekIconButton>
                 </div>
-              </CardContent>
 
-              <CardFooter className="flex flex-col space-y-4">
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isLoading || !agreedToTerms || passwordStrength.score < 4}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Create account
-                    </>
+                {formData.password && (
+                  <div className="space-y-2 mt-2">
+                    <div className="flex gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <div
+                          key={i}
+                          className={`h-1 flex-1 rounded-full ${
+                            i < passwordStrength.score ? getPasswordStrengthColor() : 'bg-white/10'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      <RequirementItem
+                        met={passwordStrength.requirements.length}
+                        text="8+ characters"
+                      />
+                      <RequirementItem
+                        met={passwordStrength.requirements.uppercase}
+                        text="Uppercase"
+                      />
+                      <RequirementItem
+                        met={passwordStrength.requirements.lowercase}
+                        text="Lowercase"
+                      />
+                      <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+                      <RequirementItem
+                        met={passwordStrength.requirements.special}
+                        text="Special char"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Confirm Password field */}
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-sm font-medium text-white/80">
+                  Confirm Password
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  className={cn(
+                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
+                    'placeholder:text-white/30 text-white',
+                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
+                    'transition-colors'
                   )}
-                </Button>
+                />
+              </div>
 
-                <p className="text-center text-sm text-muted-foreground">
-                  Already have an account?{' '}
-                  <Link to="/login" className="font-medium text-primary hover:underline">
-                    Sign in
+              {/* Terms checkbox */}
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id="terms"
+                  checked={agreedToTerms}
+                  onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                  disabled={isLoading}
+                  className="mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <label htmlFor="terms" className="text-sm text-white/60 cursor-pointer">
+                  I agree to the{' '}
+                  <Link
+                    to="/terms"
+                    className="text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Terms and Conditions
+                  </Link>{' '}
+                  and{' '}
+                  <Link
+                    to="/privacy"
+                    className="text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Privacy Policy
                   </Link>
-                </p>
-              </CardFooter>
-            </form>
-          </Card>
+                </label>
+              </div>
 
-          {/* Mobile demo features */}
-          <div className="lg:hidden mt-6 p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <h3 className="font-semibold text-sm mb-3 text-center">Why IntelliFill?</h3>
+              {/* Marketing checkbox */}
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id="marketing"
+                  checked={marketingConsent}
+                  onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
+                  disabled={isLoading}
+                  className="mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <label
+                  htmlFor="marketing"
+                  className="text-sm text-white/60 cursor-pointer hover:text-white/80 transition-colors"
+                >
+                  I'd like to receive product updates and tips
+                </label>
+              </div>
+
+              {/* Submit button */}
+              <Button
+                type="submit"
+                className="w-full h-11 text-[15px] font-medium mt-2"
+                disabled={isLoading || !agreedToTerms || passwordStrength.score < 4}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Create account
+                  </>
+                )}
+              </Button>
+
+              {/* Sign in link */}
+              <p className="text-center text-sm text-white/50 pt-2">
+                Already have an account?{' '}
+                <Link
+                  to="/login"
+                  className="font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </form>
+          </div>
+
+          {/* Mobile features banner */}
+          <div
+            className={cn(
+              'lg:hidden p-4 rounded-xl',
+              'bg-surface-2/60 backdrop-blur-md',
+              'border border-sleek-line-subtle'
+            )}
+          >
+            <h3 className="font-medium text-sm mb-3 text-center text-white/80">Why IntelliFill?</h3>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="flex flex-col items-center gap-1">
-                <Zap className="h-5 w-5 text-primary" />
-                <span className="text-xs text-muted-foreground">5 min setup</span>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
+                  <Zap className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-xs text-white/60">5 min setup</span>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Clock className="h-5 w-5 text-primary" />
-                <span className="text-xs text-muted-foreground">14-day trial</span>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-xs text-white/60">14-day trial</span>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <Shield className="h-5 w-5 text-primary" />
-                <span className="text-xs text-muted-foreground">UAE hosted</span>
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
+                  <Shield className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-xs text-white/60">UAE hosted</span>
               </div>
             </div>
           </div>

@@ -75,6 +75,9 @@ export type {
   SleekIconBarItem,
 } from './ui/sleek-tooltip';
 
+export { AnimatedLogo } from './ui/animated-logo';
+export type { AnimatedLogoProps } from './ui/animated-logo';
+
 // Feedback Components
 export { Alert, AlertTitle, AlertDescription } from './ui/alert';
 export {

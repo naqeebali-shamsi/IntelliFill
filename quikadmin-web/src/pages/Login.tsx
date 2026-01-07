@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth';
 import { ErrorCode } from '@/constants/errorCodes';
 import { Testimonial } from '@/components/ui/design-testimonial';
 import { Boxes } from '@/components/ui/background-boxes';
-import { SleekIconButton, AccentLine } from '@/components';
+import { SleekIconButton, AccentLine, AnimatedLogo } from '@/components';
 import { cn } from '@/lib/utils';
 
 export default function Login() {
@@ -94,9 +94,8 @@ export default function Login() {
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 p-12 flex-col justify-between relative z-10">
         {/* Content */}
         <div className="relative">
-          <div className="flex items-center gap-3 mb-6">
-            <img src="/logo-light.svg" alt="IntelliFill" className="h-10 w-auto" />
-            <h1 className="text-2xl font-bold text-white font-heading">IntelliFill</h1>
+          <div className="mb-6">
+            <AnimatedLogo variant="light" height={40} />
           </div>
 
           <h2 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6 font-heading tracking-tight">
@@ -142,9 +141,8 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 relative z-10">
         <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
-            <img src="/logo-light.svg" alt="IntelliFill" className="h-10 w-auto" />
-            <h1 className="text-2xl font-bold text-white font-heading">IntelliFill</h1>
+          <div className="lg:hidden flex justify-center mb-8">
+            <AnimatedLogo variant="light" height={36} />
           </div>
 
           {/* Sleek Card */}
