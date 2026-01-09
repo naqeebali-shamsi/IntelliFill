@@ -6,18 +6,9 @@
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-// Task 296: Helper to conditionally apply devtools only in development mode
-const applyDevtools = <T>(middleware: T) => {
-  if (import.meta.env.DEV) {
-    return devtools(middleware as any, {
-      name: 'IntelliFill Template Store',
-    }) as T;
-  }
-  return middleware;
-};
+import { applyDevtools } from './utils/index.js';
 import type { MappingTemplate } from '@/types/formFilling';
 import * as formService from '@/services/formService';
 
@@ -101,7 +92,7 @@ const initialState: TemplateState = {
 
 export const useTemplateStore = create<TemplateStore>()(
   applyDevtools(
-    immer((set, get) => ({
+    immer((set) => ({
       ...initialState,
 
       loadTemplates: async () => {
@@ -253,6 +244,7 @@ export const useTemplateStore = create<TemplateStore>()(
           state.error = null;
         });
       },
-    }))
+    })),
+    'IntelliFill Template Store'
   )
 );

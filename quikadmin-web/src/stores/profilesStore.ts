@@ -6,25 +6,16 @@
  */
 
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 
-// Task 296: Helper to conditionally apply devtools only in development mode
-const applyDevtools = <T>(middleware: T) => {
-  if (import.meta.env.DEV) {
-    return devtools(middleware as any, {
-      name: 'IntelliFill Profiles Store',
-    }) as T;
-  }
-  return middleware;
-};
-import type {
-  Profile,
-  ProfileFilter,
-  ProfileSort,
-  ProfileType,
-  ProfileStatus,
-} from '@/types/profile';
+import {
+  applyDevtools,
+  createSelectionSlice,
+  createPaginationSlice,
+  type PaginationActions,
+} from './utils/index.js';
+import type { ProfileFilter, ProfileSort, ProfileType, ProfileStatus } from '@/types/profile';
 
 // View modes
 export type ProfileViewMode = 'grid' | 'table';
@@ -52,15 +43,22 @@ interface ProfilesState {
   searchQuery: string;
 }
 
-interface ProfilesActions {
-  // Selection
+/**
+ * Profile-specific selection actions (aliased from SelectionActions)
+ */
+interface ProfileSelectionActions {
   selectProfile: (id: string) => void;
   deselectProfile: (id: string) => void;
   toggleProfile: (id: string) => void;
   selectAll: (ids: string[]) => void;
   clearSelection: () => void;
   isSelected: (id: string) => boolean;
+}
 
+/**
+ * Profile-specific actions beyond selection and pagination
+ */
+interface ProfileSpecificActions {
   // View mode
   setViewMode: (mode: ProfileViewMode) => void;
   toggleViewMode: () => void;
@@ -78,14 +76,11 @@ interface ProfilesActions {
   setSort: (sort: ProfileSort) => void;
   toggleSortOrder: () => void;
 
-  // Pagination
-  setPage: (page: number) => void;
-  setPageSize: (size: number) => void;
-  resetPage: () => void;
-
   // Reset
   reset: () => void;
 }
+
+type ProfilesActions = ProfileSelectionActions & PaginationActions & ProfileSpecificActions;
 
 type ProfilesStore = ProfilesState & ProfilesActions;
 
@@ -106,153 +101,112 @@ const initialState: ProfilesState = {
 export const useProfilesStore = create<ProfilesStore>()(
   applyDevtools(
     persist(
-      immer((set, get) => ({
-        ...initialState,
+      immer((set, get) => {
+        // Create shared slices
+        const selectionSlice = createSelectionSlice<ProfilesState>(set, get);
+        const paginationSlice = createPaginationSlice<ProfilesState>(set, {
+          // Profiles store doesn't clear selection on page change (based on original impl)
+          clearSelectionOnPageChange: false,
+        });
 
-        // =================== SELECTION ===================
+        return {
+          ...initialState,
 
-        selectProfile: (id: string) => {
-          set((state) => {
-            state.selectedIds.add(id);
-          });
-        },
+          // =================== SELECTION (aliased from utility) ===================
+          selectProfile: selectionSlice.selectItem,
+          deselectProfile: selectionSlice.deselectItem,
+          toggleProfile: selectionSlice.toggleItem,
+          selectAll: selectionSlice.selectAll,
+          clearSelection: selectionSlice.clearSelection,
+          isSelected: selectionSlice.isSelected,
 
-        deselectProfile: (id: string) => {
-          set((state) => {
-            state.selectedIds.delete(id);
-          });
-        },
+          // =================== PAGINATION (from utility) ===================
+          ...paginationSlice,
 
-        toggleProfile: (id: string) => {
-          set((state) => {
-            if (state.selectedIds.has(id)) {
-              state.selectedIds.delete(id);
-            } else {
-              state.selectedIds.add(id);
-            }
-          });
-        },
+          // =================== VIEW MODE ===================
 
-        selectAll: (ids: string[]) => {
-          set((state) => {
-            state.selectedIds = new Set(ids);
-          });
-        },
+          setViewMode: (mode: ProfileViewMode) => {
+            set((state) => {
+              state.viewMode = mode;
+            });
+          },
 
-        clearSelection: () => {
-          set((state) => {
-            state.selectedIds = new Set();
-          });
-        },
+          toggleViewMode: () => {
+            set((state) => {
+              state.viewMode = state.viewMode === 'grid' ? 'table' : 'grid';
+            });
+          },
 
-        isSelected: (id: string) => {
-          return get().selectedIds.has(id);
-        },
+          // =================== FILTERS ===================
 
-        // =================== VIEW MODE ===================
+          setFilter: (filter: Partial<ProfileFilter>) => {
+            set((state) => {
+              state.filter = { ...state.filter, ...filter };
+              state.page = 1;
+            });
+          },
 
-        setViewMode: (mode: ProfileViewMode) => {
-          set((state) => {
-            state.viewMode = mode;
-          });
-        },
+          clearFilter: () => {
+            set((state) => {
+              state.filter = {};
+              state.searchQuery = '';
+              state.page = 1;
+            });
+          },
 
-        toggleViewMode: () => {
-          set((state) => {
-            state.viewMode = state.viewMode === 'grid' ? 'table' : 'grid';
-          });
-        },
+          setTypeFilter: (type: ProfileType | undefined) => {
+            set((state) => {
+              if (type) {
+                state.filter.type = type;
+              } else {
+                delete state.filter.type;
+              }
+              state.page = 1;
+            });
+          },
 
-        // =================== FILTERS ===================
+          setStatusFilter: (status: ProfileStatus | undefined) => {
+            set((state) => {
+              if (status) {
+                state.filter.status = status;
+              } else {
+                delete state.filter.status;
+              }
+              state.page = 1;
+            });
+          },
 
-        setFilter: (filter: Partial<ProfileFilter>) => {
-          set((state) => {
-            state.filter = { ...state.filter, ...filter };
-            state.page = 1; // Reset to first page on filter change
-          });
-        },
+          // =================== SEARCH ===================
 
-        clearFilter: () => {
-          set((state) => {
-            state.filter = {};
-            state.searchQuery = '';
-            state.page = 1;
-          });
-        },
+          setSearchQuery: (query: string) => {
+            set((state) => {
+              state.searchQuery = query;
+              state.filter.search = query || undefined;
+              state.page = 1;
+            });
+          },
 
-        setTypeFilter: (type: ProfileType | undefined) => {
-          set((state) => {
-            if (type) {
-              state.filter.type = type;
-            } else {
-              delete state.filter.type;
-            }
-            state.page = 1;
-          });
-        },
+          // =================== SORT ===================
 
-        setStatusFilter: (status: ProfileStatus | undefined) => {
-          set((state) => {
-            if (status) {
-              state.filter.status = status;
-            } else {
-              delete state.filter.status;
-            }
-            state.page = 1;
-          });
-        },
+          setSort: (sort: ProfileSort) => {
+            set((state) => {
+              state.sort = sort;
+            });
+          },
 
-        // =================== SEARCH ===================
+          toggleSortOrder: () => {
+            set((state) => {
+              state.sort.order = state.sort.order === 'asc' ? 'desc' : 'asc';
+            });
+          },
 
-        setSearchQuery: (query: string) => {
-          set((state) => {
-            state.searchQuery = query;
-            state.filter.search = query || undefined;
-            state.page = 1;
-          });
-        },
+          // =================== RESET ===================
 
-        // =================== SORT ===================
-
-        setSort: (sort: ProfileSort) => {
-          set((state) => {
-            state.sort = sort;
-          });
-        },
-
-        toggleSortOrder: () => {
-          set((state) => {
-            state.sort.order = state.sort.order === 'asc' ? 'desc' : 'asc';
-          });
-        },
-
-        // =================== PAGINATION ===================
-
-        setPage: (page: number) => {
-          set((state) => {
-            state.page = page;
-          });
-        },
-
-        setPageSize: (size: number) => {
-          set((state) => {
-            state.pageSize = size;
-            state.page = 1; // Reset to first page on page size change
-          });
-        },
-
-        resetPage: () => {
-          set((state) => {
-            state.page = 1;
-          });
-        },
-
-        // =================== RESET ===================
-
-        reset: () => {
-          set(initialState);
-        },
-      })),
+          reset: () => {
+            set(initialState);
+          },
+        };
+      }),
       {
         name: 'profiles-store',
         partialize: (state) => ({
@@ -261,7 +215,8 @@ export const useProfilesStore = create<ProfilesStore>()(
           sort: state.sort,
         }),
       }
-    )
+    ),
+    'IntelliFill Profiles Store'
   )
 );
 

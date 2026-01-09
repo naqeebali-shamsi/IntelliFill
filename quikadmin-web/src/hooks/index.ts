@@ -15,6 +15,7 @@ export * from './useDebounce';
 
 // API & Data hooks
 export * from './useApiData';
+export * from './useApiResource';
 export * from './useDocuments';
 export * from './useDocumentActions';
 export * from './useDocumentDetail';

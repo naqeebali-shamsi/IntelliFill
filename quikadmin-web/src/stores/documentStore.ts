@@ -6,22 +6,23 @@
  */
 
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { DocumentFilter, DocumentSort, DocumentViewMode, DateRangePreset } from '@/types/document';
-
-// Import React for useMemo
 import * as React from 'react';
 
-// Task 296: Helper to conditionally apply devtools only in development mode
-const applyDevtools = <T>(middleware: T) => {
-  if (import.meta.env.DEV) {
-    return devtools(middleware as any, {
-      name: 'IntelliFill Document Store',
-    }) as T;
-  }
-  return middleware;
-};
+import {
+  applyDevtools,
+  createSelectionSlice,
+  createPaginationSlice,
+  type SelectionActions,
+  type PaginationActions,
+} from './utils/index.js';
+import type {
+  DocumentFilter,
+  DocumentSort,
+  DocumentViewMode,
+  DateRangePreset,
+} from '@/types/document';
 
 // =================== STORE INTERFACES ===================
 
@@ -67,134 +68,44 @@ interface DocumentState {
   debouncedSearch: string;
 }
 
-interface DocumentActions {
-  // =================== SELECTION ===================
-
-  /**
-   * Select a document
-   */
+/**
+ * Document-specific selection actions (aliased from SelectionActions)
+ */
+interface DocumentSelectionActions {
   selectDocument: (id: string) => void;
-
-  /**
-   * Deselect a document
-   */
   deselectDocument: (id: string) => void;
-
-  /**
-   * Toggle document selection
-   */
   toggleDocument: (id: string) => void;
-
-  /**
-   * Select all documents (pass visible document IDs)
-   */
   selectAll: (ids: string[]) => void;
-
-  /**
-   * Clear all selections
-   */
   clearSelection: () => void;
-
-  /**
-   * Check if document is selected
-   */
   isSelected: (id: string) => boolean;
-
-  /**
-   * Get selection count
-   */
   getSelectionCount: () => number;
+}
 
-  // =================== VIEW MODE ===================
-
-  /**
-   * Set view mode (grid or table)
-   */
+/**
+ * Document-specific actions beyond selection and pagination
+ */
+interface DocumentSpecificActions {
+  // View mode
   setViewMode: (mode: DocumentViewMode) => void;
-
-  /**
-   * Toggle view mode
-   */
   toggleViewMode: () => void;
 
-  // =================== FILTERS ===================
-
-  /**
-   * Update filter (partial update)
-   */
+  // Filters
   setFilter: (filter: Partial<DocumentFilter>) => void;
-
-  /**
-   * Clear all filters
-   */
   clearFilter: () => void;
-
-  /**
-   * Set search query
-   */
   setSearchQuery: (query: string) => void;
-
-  /**
-   * Set date range preset
-   */
   setDateRangePreset: (preset: DateRangePreset) => void;
-
-  /**
-   * Apply date range preset to filter
-   */
   applyDateRangePreset: (preset: DateRangePreset) => void;
-
-  /**
-   * Check if any filters are active
-   */
   hasActiveFilters: () => boolean;
 
-  // =================== SORTING ===================
-
-  /**
-   * Set sort configuration
-   */
+  // Sorting
   setSort: (sort: DocumentSort) => void;
-
-  /**
-   * Toggle sort direction
-   */
   toggleSortDirection: () => void;
 
-  // =================== PAGINATION ===================
-
-  /**
-   * Set current page
-   */
-  setPage: (page: number) => void;
-
-  /**
-   * Next page
-   */
-  nextPage: () => void;
-
-  /**
-   * Previous page
-   */
-  previousPage: () => void;
-
-  /**
-   * Set page size
-   */
-  setPageSize: (size: number) => void;
-
-  /**
-   * Reset to first page
-   */
-  resetPage: () => void;
-
-  // =================== RESET ===================
-
-  /**
-   * Reset all state to defaults
-   */
+  // Reset
   reset: () => void;
 }
+
+type DocumentActions = DocumentSelectionActions & PaginationActions & DocumentSpecificActions;
 
 type DocumentStore = DocumentState & DocumentActions;
 
@@ -264,177 +175,114 @@ function getDateRangeFromPreset(preset: DateRangePreset): { start: Date | null; 
 export const useDocumentStore = create<DocumentStore>()(
   applyDevtools(
     persist(
-      immer((set, get) => ({
-        ...initialState,
+      immer((set, get) => {
+        // Create shared slices
+        const selectionSlice = createSelectionSlice<DocumentState>(set, get);
+        const paginationSlice = createPaginationSlice<DocumentState>(set, {
+          clearSelectionOnPageChange: true,
+        });
 
-        // =================== SELECTION ===================
+        return {
+          ...initialState,
 
-        selectDocument: (id: string) => {
-          set((state) => {
-            state.selectedIds.add(id);
-          });
-        },
+          // =================== SELECTION (aliased from utility) ===================
+          selectDocument: selectionSlice.selectItem,
+          deselectDocument: selectionSlice.deselectItem,
+          toggleDocument: selectionSlice.toggleItem,
+          selectAll: selectionSlice.selectAll,
+          clearSelection: selectionSlice.clearSelection,
+          isSelected: selectionSlice.isSelected,
+          getSelectionCount: selectionSlice.getSelectionCount,
 
-        deselectDocument: (id: string) => {
-          set((state) => {
-            state.selectedIds.delete(id);
-          });
-        },
+          // =================== PAGINATION (from utility) ===================
+          ...paginationSlice,
 
-        toggleDocument: (id: string) => {
-          set((state) => {
-            if (state.selectedIds.has(id)) {
-              state.selectedIds.delete(id);
-            } else {
-              state.selectedIds.add(id);
-            }
-          });
-        },
+          // =================== VIEW MODE ===================
 
-        selectAll: (ids: string[]) => {
-          set((state) => {
-            state.selectedIds = new Set(ids);
-          });
-        },
+          setViewMode: (mode: DocumentViewMode) => {
+            set((state) => {
+              state.viewMode = mode;
+            });
+          },
 
-        clearSelection: () => {
-          set((state) => {
-            state.selectedIds.clear();
-          });
-        },
+          toggleViewMode: () => {
+            set((state) => {
+              state.viewMode = state.viewMode === 'grid' ? 'table' : 'grid';
+            });
+          },
 
-        isSelected: (id: string) => {
-          return get().selectedIds.has(id);
-        },
+          // =================== FILTERS ===================
 
-        getSelectionCount: () => {
-          return get().selectedIds.size;
-        },
+          setFilter: (filter: Partial<DocumentFilter>) => {
+            set((state) => {
+              state.filter = { ...state.filter, ...filter };
+              state.page = 1;
+            });
+          },
 
-        // =================== VIEW MODE ===================
+          clearFilter: () => {
+            set((state) => {
+              state.filter = initialState.filter;
+              state.dateRangePreset = 'all';
+              state.page = 1;
+            });
+          },
 
-        setViewMode: (mode: DocumentViewMode) => {
-          set((state) => {
-            state.viewMode = mode;
-          });
-        },
+          setSearchQuery: (query: string) => {
+            set((state) => {
+              state.filter.searchQuery = query;
+              state.page = 1;
+            });
+          },
 
-        toggleViewMode: () => {
-          set((state) => {
-            state.viewMode = state.viewMode === 'grid' ? 'table' : 'grid';
-          });
-        },
+          setDateRangePreset: (preset: DateRangePreset) => {
+            set((state) => {
+              state.dateRangePreset = preset;
+            });
+          },
 
-        // =================== FILTERS ===================
+          applyDateRangePreset: (preset: DateRangePreset) => {
+            set((state) => {
+              state.dateRangePreset = preset;
+              const dateRange = getDateRangeFromPreset(preset);
+              state.filter.dateRange = dateRange;
+              state.page = 1;
+            });
+          },
 
-        setFilter: (filter: Partial<DocumentFilter>) => {
-          set((state) => {
-            state.filter = { ...state.filter, ...filter };
-            // Reset to first page when filter changes
-            state.page = 1;
-          });
-        },
+          hasActiveFilters: () => {
+            const { filter, dateRangePreset } = get();
+            return !!(
+              filter.status?.length ||
+              filter.fileType?.length ||
+              filter.searchQuery ||
+              filter.tags?.length ||
+              filter.minConfidence ||
+              dateRangePreset !== 'all'
+            );
+          },
 
-        clearFilter: () => {
-          set((state) => {
-            state.filter = initialState.filter;
-            state.dateRangePreset = 'all';
-            state.page = 1;
-          });
-        },
+          // =================== SORTING ===================
 
-        setSearchQuery: (query: string) => {
-          set((state) => {
-            state.filter.searchQuery = query;
-            state.page = 1; // Reset to first page on search
-          });
-        },
+          setSort: (sort: DocumentSort) => {
+            set((state) => {
+              state.sort = sort;
+            });
+          },
 
-        setDateRangePreset: (preset: DateRangePreset) => {
-          set((state) => {
-            state.dateRangePreset = preset;
-          });
-        },
+          toggleSortDirection: () => {
+            set((state) => {
+              state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
+            });
+          },
 
-        applyDateRangePreset: (preset: DateRangePreset) => {
-          set((state) => {
-            state.dateRangePreset = preset;
-            const dateRange = getDateRangeFromPreset(preset);
-            state.filter.dateRange = dateRange;
-            state.page = 1;
-          });
-        },
+          // =================== RESET ===================
 
-        hasActiveFilters: () => {
-          const { filter, dateRangePreset } = get();
-          return !!(
-            filter.status?.length ||
-            filter.fileType?.length ||
-            filter.searchQuery ||
-            filter.tags?.length ||
-            filter.minConfidence ||
-            dateRangePreset !== 'all'
-          );
-        },
-
-        // =================== SORTING ===================
-
-        setSort: (sort: DocumentSort) => {
-          set((state) => {
-            state.sort = sort;
-          });
-        },
-
-        toggleSortDirection: () => {
-          set((state) => {
-            state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
-          });
-        },
-
-        // =================== PAGINATION ===================
-
-        setPage: (page: number) => {
-          set((state) => {
-            state.page = Math.max(1, page);
-            // Clear selection when changing page
-            state.selectedIds.clear();
-          });
-        },
-
-        nextPage: () => {
-          set((state) => {
-            state.page += 1;
-            state.selectedIds.clear();
-          });
-        },
-
-        previousPage: () => {
-          set((state) => {
-            state.page = Math.max(1, state.page - 1);
-            state.selectedIds.clear();
-          });
-        },
-
-        setPageSize: (size: number) => {
-          set((state) => {
-            state.pageSize = Math.max(10, Math.min(100, size));
-            state.page = 1; // Reset to first page when page size changes
-            state.selectedIds.clear();
-          });
-        },
-
-        resetPage: () => {
-          set((state) => {
-            state.page = 1;
-          });
-        },
-
-        // =================== RESET ===================
-
-        reset: () => {
-          set(initialState);
-        },
-      })),
+          reset: () => {
+            set(initialState);
+          },
+        };
+      }),
       {
         name: 'document-library-storage',
         // Only persist view mode and page size (user preferences)
@@ -443,7 +291,8 @@ export const useDocumentStore = create<DocumentStore>()(
           pageSize: state.pageSize,
         }),
       }
-    )
+    ),
+    'IntelliFill Document Store'
   )
 );
 

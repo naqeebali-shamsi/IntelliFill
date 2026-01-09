@@ -6,19 +6,16 @@
  */
 
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import * as React from 'react';
 
-// Helper to conditionally apply devtools only in development mode
-const applyDevtools = <T>(middleware: T) => {
-  if (import.meta.env.DEV) {
-    return devtools(middleware as any, {
-      name: 'IntelliFill Filled Forms Store',
-    }) as T;
-  }
-  return middleware;
-};
+import {
+  applyDevtools,
+  createSelectionSlice,
+  createPaginationSlice,
+  type PaginationActions,
+} from './utils/index.js';
 
 // =================== TYPES ===================
 
@@ -62,7 +59,23 @@ interface FilledFormsState {
   viewMode: 'table' | 'grid';
 }
 
-interface FilledFormsActions {
+/**
+ * Filled forms selection actions (aliased from SelectionActions)
+ */
+interface FilledFormsSelectionActions {
+  selectForm: (id: string) => void;
+  deselectForm: (id: string) => void;
+  toggleForm: (id: string) => void;
+  selectAll: (ids: string[]) => void;
+  clearSelection: () => void;
+  isSelected: (id: string) => boolean;
+  getSelectionCount: () => number;
+}
+
+/**
+ * Filled forms specific actions beyond selection and pagination
+ */
+interface FilledFormsSpecificActions {
   // Filter actions
   setFilter: (filter: Partial<FilledFormFilter>) => void;
   clearFilter: () => void;
@@ -77,28 +90,16 @@ interface FilledFormsActions {
   setSort: (sort: FilledFormSort) => void;
   toggleSortDirection: () => void;
 
-  // Pagination actions
-  setPage: (page: number) => void;
-  setPageSize: (size: number) => void;
-  nextPage: () => void;
-  previousPage: () => void;
-  resetPage: () => void;
-
-  // Selection actions
-  selectForm: (id: string) => void;
-  deselectForm: (id: string) => void;
-  toggleForm: (id: string) => void;
-  selectAll: (ids: string[]) => void;
-  clearSelection: () => void;
-  isSelected: (id: string) => boolean;
-  getSelectionCount: () => number;
-
   // View mode
   setViewMode: (mode: 'table' | 'grid') => void;
 
   // Reset
   reset: () => void;
 }
+
+type FilledFormsActions = FilledFormsSelectionActions &
+  PaginationActions &
+  FilledFormsSpecificActions;
 
 type FilledFormsStore = FilledFormsState & FilledFormsActions;
 
@@ -127,181 +128,120 @@ const initialState: FilledFormsState = {
 export const useFilledFormsStore = create<FilledFormsStore>()(
   applyDevtools(
     persist(
-      immer((set, get) => ({
-        ...initialState,
+      immer((set, get) => {
+        // Create shared slices
+        const selectionSlice = createSelectionSlice<FilledFormsState>(set, get);
+        const paginationSlice = createPaginationSlice<FilledFormsState>(set, {
+          clearSelectionOnPageChange: true,
+        });
 
-        // =================== FILTER ACTIONS ===================
+        return {
+          ...initialState,
 
-        setFilter: (filter: Partial<FilledFormFilter>) => {
-          set((state) => {
-            state.filter = { ...state.filter, ...filter };
-            state.page = 1; // Reset to first page when filter changes
-          });
-        },
+          // =================== SELECTION (aliased from utility) ===================
+          selectForm: selectionSlice.selectItem,
+          deselectForm: selectionSlice.deselectItem,
+          toggleForm: selectionSlice.toggleItem,
+          selectAll: selectionSlice.selectAll,
+          clearSelection: selectionSlice.clearSelection,
+          isSelected: selectionSlice.isSelected,
+          getSelectionCount: selectionSlice.getSelectionCount,
 
-        clearFilter: () => {
-          set((state) => {
-            state.filter = initialState.filter;
-            state.page = 1;
-          });
-        },
+          // =================== PAGINATION (from utility) ===================
+          ...paginationSlice,
 
-        setSearchQuery: (query: string) => {
-          set((state) => {
-            state.filter.searchQuery = query;
-            state.page = 1;
-          });
-        },
+          // =================== FILTER ACTIONS ===================
 
-        setStatusFilter: (status: FilledFormStatus) => {
-          set((state) => {
-            state.filter.status = status;
-            state.page = 1;
-          });
-        },
+          setFilter: (filter: Partial<FilledFormFilter>) => {
+            set((state) => {
+              state.filter = { ...state.filter, ...filter };
+              state.page = 1;
+            });
+          },
 
-        setTemplateFilter: (templateId: string | null) => {
-          set((state) => {
-            state.filter.templateId = templateId;
-            state.page = 1;
-          });
-        },
+          clearFilter: () => {
+            set((state) => {
+              state.filter = initialState.filter;
+              state.page = 1;
+            });
+          },
 
-        setClientFilter: (clientId: string | null) => {
-          set((state) => {
-            state.filter.clientId = clientId;
-            state.page = 1;
-          });
-        },
+          setSearchQuery: (query: string) => {
+            set((state) => {
+              state.filter.searchQuery = query;
+              state.page = 1;
+            });
+          },
 
-        setDateRange: (start: Date | null, end: Date | null) => {
-          set((state) => {
-            state.filter.dateRange = { start, end };
-            state.page = 1;
-          });
-        },
+          setStatusFilter: (status: FilledFormStatus) => {
+            set((state) => {
+              state.filter.status = status;
+              state.page = 1;
+            });
+          },
 
-        hasActiveFilters: () => {
-          const { filter } = get();
-          return !!(
-            filter.status !== 'all' ||
-            filter.templateId ||
-            filter.clientId ||
-            filter.searchQuery ||
-            filter.dateRange.start ||
-            filter.dateRange.end
-          );
-        },
+          setTemplateFilter: (templateId: string | null) => {
+            set((state) => {
+              state.filter.templateId = templateId;
+              state.page = 1;
+            });
+          },
 
-        // =================== SORT ACTIONS ===================
+          setClientFilter: (clientId: string | null) => {
+            set((state) => {
+              state.filter.clientId = clientId;
+              state.page = 1;
+            });
+          },
 
-        setSort: (sort: FilledFormSort) => {
-          set((state) => {
-            state.sort = sort;
-          });
-        },
+          setDateRange: (start: Date | null, end: Date | null) => {
+            set((state) => {
+              state.filter.dateRange = { start, end };
+              state.page = 1;
+            });
+          },
 
-        toggleSortDirection: () => {
-          set((state) => {
-            state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
-          });
-        },
+          hasActiveFilters: () => {
+            const { filter } = get();
+            return !!(
+              filter.status !== 'all' ||
+              filter.templateId ||
+              filter.clientId ||
+              filter.searchQuery ||
+              filter.dateRange.start ||
+              filter.dateRange.end
+            );
+          },
 
-        // =================== PAGINATION ACTIONS ===================
+          // =================== SORT ACTIONS ===================
 
-        setPage: (page: number) => {
-          set((state) => {
-            state.page = Math.max(1, page);
-            state.selectedIds.clear();
-          });
-        },
+          setSort: (sort: FilledFormSort) => {
+            set((state) => {
+              state.sort = sort;
+            });
+          },
 
-        setPageSize: (size: number) => {
-          set((state) => {
-            state.pageSize = Math.max(10, Math.min(100, size));
-            state.page = 1;
-            state.selectedIds.clear();
-          });
-        },
+          toggleSortDirection: () => {
+            set((state) => {
+              state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
+            });
+          },
 
-        nextPage: () => {
-          set((state) => {
-            state.page += 1;
-            state.selectedIds.clear();
-          });
-        },
+          // =================== VIEW MODE ===================
 
-        previousPage: () => {
-          set((state) => {
-            state.page = Math.max(1, state.page - 1);
-            state.selectedIds.clear();
-          });
-        },
+          setViewMode: (mode: 'table' | 'grid') => {
+            set((state) => {
+              state.viewMode = mode;
+            });
+          },
 
-        resetPage: () => {
-          set((state) => {
-            state.page = 1;
-          });
-        },
+          // =================== RESET ===================
 
-        // =================== SELECTION ACTIONS ===================
-
-        selectForm: (id: string) => {
-          set((state) => {
-            state.selectedIds.add(id);
-          });
-        },
-
-        deselectForm: (id: string) => {
-          set((state) => {
-            state.selectedIds.delete(id);
-          });
-        },
-
-        toggleForm: (id: string) => {
-          set((state) => {
-            if (state.selectedIds.has(id)) {
-              state.selectedIds.delete(id);
-            } else {
-              state.selectedIds.add(id);
-            }
-          });
-        },
-
-        selectAll: (ids: string[]) => {
-          set((state) => {
-            state.selectedIds = new Set(ids);
-          });
-        },
-
-        clearSelection: () => {
-          set((state) => {
-            state.selectedIds.clear();
-          });
-        },
-
-        isSelected: (id: string) => {
-          return get().selectedIds.has(id);
-        },
-
-        getSelectionCount: () => {
-          return get().selectedIds.size;
-        },
-
-        // =================== VIEW MODE ===================
-
-        setViewMode: (mode: 'table' | 'grid') => {
-          set((state) => {
-            state.viewMode = mode;
-          });
-        },
-
-        // =================== RESET ===================
-
-        reset: () => {
-          set(initialState);
-        },
-      })),
+          reset: () => {
+            set(initialState);
+          },
+        };
+      }),
       {
         name: 'filled-forms-storage',
         // Only persist view mode and page size (user preferences)
@@ -310,7 +250,8 @@ export const useFilledFormsStore = create<FilledFormsStore>()(
           pageSize: state.pageSize,
         }),
       }
-    )
+    ),
+    'IntelliFill Filled Forms Store'
   )
 );
 

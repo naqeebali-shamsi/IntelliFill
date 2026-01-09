@@ -6,19 +6,10 @@
 
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { UploadFile, UploadStatus, UploadResult, UploadStats } from '@/types/upload';
 
-// Task 296: Helper to conditionally apply devtools only in development mode
-const applyDevtools = <T>(middleware: T) => {
-  if (import.meta.env.DEV) {
-    return devtools(middleware as any, {
-      name: 'IntelliFill Upload Store',
-    }) as T;
-  }
-  return middleware;
-};
+import { applyDevtools } from './utils/index.js';
+import type { UploadFile, UploadStatus, UploadResult, UploadStats } from '@/types/upload';
 
 // =================== STORE INTERFACES ===================
 
@@ -443,7 +434,8 @@ export const useUploadStore = create<UploadStore>()(
           state.autoStart = autoStart;
         });
       },
-    }))
+    })),
+    'IntelliFill Upload Store'
   )
 );
 
