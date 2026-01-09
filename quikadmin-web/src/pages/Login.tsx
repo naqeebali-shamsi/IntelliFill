@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -6,19 +6,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, LogIn, Eye, EyeOff, AlertCircle, Zap, Shield, Clock } from 'lucide-react';
+import { Loader2, LogIn, AlertCircle, Zap, Shield, Clock } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { ErrorCode } from '@/constants/errorCodes';
 import { Testimonial } from '@/components/ui/design-testimonial';
 import { Boxes } from '@/components/ui/background-boxes';
-import { SleekIconButton, AccentLine, AnimatedLogo } from '@/components';
+import { AccentLine, AnimatedLogo, PasswordVisibilityToggle, AttemptsWarning } from '@/components';
 import { cn } from '@/lib/utils';
+import { useBoolean } from '@/hooks';
+import { useLockoutCountdown } from '@/hooks';
 
-export default function Login() {
+// Shared input styling for auth forms
+const authInputClassName = cn(
+  'w-full h-11 bg-surface-1/50 border-sleek-line-default',
+  'placeholder:text-white/30 text-white',
+  'focus:border-primary focus:ring-1 focus:ring-primary/30',
+  'transition-colors'
+);
+
+export default function Login(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [showPassword, setShowPassword] = useState(false);
+  const { value: showPassword, toggle: togglePassword } = useBoolean(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -26,49 +36,37 @@ export default function Login() {
     rememberMe: false,
   });
 
-  // Get auth store state and actions
-  const { login, clearError } = useAuthStore();
+  // Auth store state and actions
+  const { login, demoLogin, clearError } = useAuthStore();
+  const isDemoEnabled = import.meta.env.VITE_ENABLE_DEMO === 'true';
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
   const isLocked = useAuthStore((state) => state.isLocked);
   const loginAttempts = useAuthStore((state) => state.loginAttempts);
   const lockExpiry = useAuthStore((state) => state.lockExpiry);
+  const serverLockout = useAuthStore((state) => state.serverLockout);
 
-  // Countdown timer for lockout display
-  const [lockCountdown, setLockCountdown] = useState<string | null>(null);
+  // Use server lockout info when available, fallback to client-side
+  const effectiveLockout = serverLockout?.isLocked || isLocked;
+  const effectiveLockExpiry = serverLockout?.lockoutExpiresAt?.getTime() || lockExpiry;
+  const effectiveAttemptsRemaining = serverLockout?.attemptsRemaining ?? 5 - loginAttempts;
 
-  useEffect(() => {
-    if (!isLocked || !lockExpiry) {
-      setLockCountdown(null);
-      return;
-    }
+  // Lockout countdown using custom hook
+  const lockCountdown = useLockoutCountdown({
+    isLocked: effectiveLockout,
+    lockExpiry: effectiveLockExpiry,
+  });
 
-    const updateCountdown = () => {
-      const remaining = lockExpiry - Date.now();
-      if (remaining <= 0) {
-        setLockCountdown(null);
-        return;
-      }
-      const minutes = Math.floor(remaining / 60000);
-      const seconds = Math.floor((remaining % 60000) / 1000);
-      setLockCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [isLocked, lockExpiry]);
-
-  // Check if coming from expired session
   const wasExpired = location.state?.expired;
+  const isFormDisabled = isLoading || effectiveLockout;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     clearError();
 
     // Check if account is locked
-    if (isLocked && lockExpiry && Date.now() < lockExpiry) {
-      const remainingTime = Math.ceil((lockExpiry - Date.now()) / 60000);
+    if (effectiveLockout && effectiveLockExpiry && Date.now() < effectiveLockExpiry) {
+      const remainingTime = Math.ceil((effectiveLockExpiry - Date.now()) / 60000);
       toast.error(`Account is locked. Try again in ${remainingTime} minutes.`);
       return;
     }
@@ -84,44 +82,53 @@ export default function Login() {
       toast.success('Login successful!');
 
       // Navigate to intended route or dashboard
-      // Priority: 1) redirect query param, 2) location state, 3) dashboard
       const redirectParam = searchParams.get('redirect');
       const redirectTo = redirectParam || location.state?.from?.pathname || '/dashboard';
       navigate(redirectTo, { replace: true });
-    } catch (err: any) {
-      console.error('Login error:', err);
-      // Error is already set in the store by the login action
-      // Show toast for better UX
-      if (err.code === ErrorCode.ACCOUNT_LOCKED) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+      console.error('Login error:', error);
+
+      if (error.code === ErrorCode.ACCOUNT_LOCKED) {
         toast.error('Account locked due to multiple failed attempts');
-      } else if (err.code === ErrorCode.INVALID_CREDENTIALS) {
+      } else if (error.code === ErrorCode.INVALID_CREDENTIALS) {
         toast.error('Invalid email or password');
       } else {
-        toast.error(err.message || 'Login failed. Please try again.');
+        toast.error(error.message || 'Login failed. Please try again.');
       }
     }
-  };
+  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
-    // Clear error when user starts typing
     if (error) clearError();
-  };
+  }
+
+  async function handleDemoLogin(): Promise<void> {
+    clearError();
+    try {
+      await demoLogin();
+      toast.success('Demo login successful!');
+      navigate('/dashboard', { replace: true });
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error.message || 'Demo login failed');
+    }
+  }
 
   return (
     <div className="h-screen flex bg-slate-900 overflow-hidden relative">
-      {/* Animated background boxes - interactive layer */}
+      {/* Animated background boxes */}
       <div className="absolute inset-0 overflow-hidden z-0">
         <Boxes />
       </div>
 
       {/* Hero Section - Left side (Desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 p-12 flex-col justify-between relative z-10 overflow-y-auto pointer-events-none [&_*]:pointer-events-auto">
-        {/* Content */}
         <div className="relative">
           <div className="mb-6">
             <AnimatedLogo variant="light" height={40} />
@@ -139,28 +146,13 @@ export default function Login() {
 
           {/* Feature highlights */}
           <div className="space-y-4 mb-8">
-            <div className="flex items-center gap-3 text-white/80">
-              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
-                <Zap className="h-4 w-4" />
-              </div>
-              <span className="text-[15px]">93% OCR accuracy with AI-powered extraction</span>
-            </div>
-            <div className="flex items-center gap-3 text-white/80">
-              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
-                <Clock className="h-4 w-4" />
-              </div>
-              <span className="text-[15px]">Process documents in under 2 seconds</span>
-            </div>
-            <div className="flex items-center gap-3 text-white/80">
-              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
-                <Shield className="h-4 w-4" />
-              </div>
-              <span className="text-[15px]">Bank-grade encryption for all client data</span>
-            </div>
+            <FeatureHighlight icon={Zap} text="93% OCR accuracy with AI-powered extraction" />
+            <FeatureHighlight icon={Clock} text="Process documents in under 2 seconds" />
+            <FeatureHighlight icon={Shield} text="Bank-grade encryption for all client data" />
           </div>
         </div>
 
-        {/* Animated Testimonial Carousel */}
+        {/* Testimonial Carousel */}
         <div className="relative mt-auto">
           <Testimonial />
         </div>
@@ -174,7 +166,7 @@ export default function Login() {
             <AnimatedLogo variant="light" height={36} />
           </div>
 
-          {/* Sleek Card */}
+          {/* Login Card */}
           <div
             className={cn(
               'rounded-2xl p-8',
@@ -195,8 +187,8 @@ export default function Login() {
               <p className="text-sm text-white/60">Enter your credentials to access your account</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Alerts */}
+            <form onSubmit={handleSubmit} className="space-y-5" data-testid="login-form">
+              {/* Session expired alert */}
               {wasExpired && (
                 <Alert className="bg-warning/10 border-warning/30 text-warning">
                   <AlertCircle className="h-4 w-4" />
@@ -206,33 +198,37 @@ export default function Login() {
                 </Alert>
               )}
 
-              {/* Prominent lockout alert with countdown */}
-              {isLocked && lockExpiry && (
-                <Alert variant="destructive" data-testid="lockout-alert">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Account Locked</AlertTitle>
+              {/* Lockout alert with countdown */}
+              {effectiveLockout && effectiveLockExpiry && (
+                <Alert
+                  variant="destructive"
+                  data-testid="lockout-alert"
+                  className="bg-destructive/20 border-destructive"
+                >
+                  <Shield className="h-4 w-4" />
+                  <AlertTitle className="font-semibold">Account Locked</AlertTitle>
                   <AlertDescription>
-                    Too many failed login attempts. Try again in {lockCountdown || 'a few minutes'}.
+                    Too many failed login attempts. Please try again in{' '}
+                    <span className="font-medium">{lockCountdown || 'a few minutes'}</span>.
+                    <br />
+                    <span className="text-xs opacity-75 mt-1 block">
+                      For security, your account has been temporarily locked.
+                    </span>
                   </AlertDescription>
                 </Alert>
               )}
 
-              {error && !isLocked && (
+              {/* Error alert */}
+              {error && !effectiveLockout && (
                 <Alert variant="destructive" className="bg-error/10 border-error/30">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {error.message}
-                  </AlertDescription>
+                  <AlertDescription>{error.message}</AlertDescription>
                 </Alert>
               )}
 
-              {loginAttempts > 0 && loginAttempts < 5 && !isLocked && (
-                <Alert variant="warning" data-testid="attempts-warning">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {5 - loginAttempts} login attempts remaining before account lockout.
-                  </AlertDescription>
-                </Alert>
+              {/* Attempts warning */}
+              {!effectiveLockout && (
+                <AttemptsWarning attemptsRemaining={effectiveAttemptsRemaining} />
               )}
 
               {/* Company field */}
@@ -247,13 +243,8 @@ export default function Login() {
                   placeholder="your-company-slug"
                   value={formData.companySlug}
                   onChange={handleChange}
-                  disabled={isLoading || isLocked}
-                  className={cn(
-                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
-                    'placeholder:text-white/30 text-white',
-                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                    'transition-colors'
-                  )}
+                  disabled={isFormDisabled}
+                  className={authInputClassName}
                 />
               </div>
 
@@ -270,14 +261,10 @@ export default function Login() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  disabled={isLoading || isLocked}
+                  disabled={isFormDisabled}
                   autoComplete="email"
-                  className={cn(
-                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
-                    'placeholder:text-white/30 text-white',
-                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                    'transition-colors'
-                  )}
+                  data-testid="login-email-input"
+                  className={authInputClassName}
                 />
               </div>
 
@@ -305,28 +292,17 @@ export default function Login() {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    disabled={isLoading || isLocked}
+                    disabled={isFormDisabled}
                     autoComplete="current-password"
-                    className={cn(
-                      'w-full h-11 bg-surface-1/50 border-sleek-line-default pr-11',
-                      'placeholder:text-white/30 text-white',
-                      'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                      'transition-colors'
-                    )}
+                    data-testid="login-password-input"
+                    className={cn(authInputClassName, 'pr-11')}
                   />
-                  <SleekIconButton
-                    variant="ghost"
-                    size="sm"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-white/50" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-white/50" />
-                    )}
-                  </SleekIconButton>
+                  <PasswordVisibilityToggle
+                    showPassword={showPassword}
+                    onToggle={togglePassword}
+                    disabled={isFormDisabled}
+                    testId="toggle-password-visibility"
+                  />
                 </div>
               </div>
 
@@ -339,8 +315,9 @@ export default function Login() {
                   onCheckedChange={(checked) => {
                     setFormData((prev) => ({ ...prev, rememberMe: checked as boolean }));
                   }}
-                  disabled={isLoading || isLocked}
+                  disabled={isFormDisabled}
                   className="border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  data-testid="remember-me-checkbox"
                 />
                 <label
                   htmlFor="rememberMe"
@@ -354,7 +331,8 @@ export default function Login() {
               <Button
                 type="submit"
                 className="w-full h-11 text-[15px] font-medium"
-                disabled={isLoading || isLocked}
+                disabled={isFormDisabled}
+                data-testid="login-submit-button"
               >
                 {isLoading ? (
                   <>
@@ -379,6 +357,31 @@ export default function Login() {
                   Sign up
                 </Link>
               </p>
+
+              {/* Demo login button */}
+              {isDemoEnabled && (
+                <>
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-sleek-line-subtle" />
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="bg-surface-2/80 px-2 text-white/40">or</span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleDemoLogin}
+                    disabled={isLoading}
+                    data-testid="demo-login-button"
+                  >
+                    <Zap className="mr-2 h-4 w-4" />
+                    Try Demo Account
+                  </Button>
+                </>
+              )}
             </form>
           </div>
 
@@ -392,28 +395,47 @@ export default function Login() {
           >
             <h3 className="font-medium text-sm mb-3 text-center text-white/80">Why IntelliFill?</h3>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-xs text-white/60">93% Accuracy</span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-xs text-white/60">&lt;2s Process</span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-xs text-white/60">Secure</span>
-              </div>
+              <MobileFeature icon={Zap} label="93% Accuracy" />
+              <MobileFeature icon={Clock} label="<2s Process" />
+              <MobileFeature icon={Shield} label="Secure" />
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Helper components to reduce repetition
+
+interface FeatureHighlightProps {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}
+
+function FeatureHighlight({ icon: Icon, text }: FeatureHighlightProps): JSX.Element {
+  return (
+    <div className="flex items-center gap-3 text-white/80">
+      <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
+        <Icon className="h-4 w-4" />
+      </div>
+      <span className="text-[15px]">{text}</span>
+    </div>
+  );
+}
+
+interface MobileFeatureProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}
+
+function MobileFeature({ icon: Icon, label }: MobileFeatureProps): JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <span className="text-xs text-white/60">{label}</span>
     </div>
   );
 }

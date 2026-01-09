@@ -27,8 +27,83 @@ export interface AuthenticatedRequest extends Request {
     firstName?: string;
     lastName?: string;
   };
-  supabaseUser?: User; // Raw Supabase user object
-  rlsContextSet?: boolean; // Tracks if RLS context was successfully set
+  supabaseUser?: User;
+  rlsContextSet?: boolean;
+}
+
+/** Database user selection fields */
+const USER_SELECT_FIELDS = {
+  id: true,
+  email: true,
+  role: true,
+  firstName: true,
+  lastName: true,
+  supabaseUserId: true,
+  isActive: true,
+} as const;
+
+type DbUser = {
+  id: string;
+  email: string;
+  role: string;
+  firstName: string | null;
+  lastName: string | null;
+  supabaseUserId: string | null;
+  isActive: boolean;
+};
+
+/**
+ * Extract and validate Bearer token from Authorization header
+ * Returns null if invalid or missing
+ */
+function extractBearerToken(authHeader: string | undefined): string | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+
+  if (!token || token.trim() === '' || token.length < 20 || token.length > 2048) {
+    return null;
+  }
+
+  return token;
+}
+
+/**
+ * Build user object for request from database user
+ */
+function buildRequestUser(dbUser: DbUser, supabaseUserId: string): AuthenticatedRequest['user'] {
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    role: dbUser.role,
+    supabaseUserId: dbUser.supabaseUserId || supabaseUserId,
+    firstName: dbUser.firstName || undefined,
+    lastName: dbUser.lastName || undefined,
+  };
+}
+
+/**
+ * Set RLS context for database-level security
+ * Returns true if successful, false otherwise
+ */
+async function setRLSContext(req: AuthenticatedRequest, userId: string): Promise<boolean> {
+  try {
+    await prisma.$executeRawUnsafe('SELECT set_user_context($1)', userId);
+    return true;
+  } catch (error) {
+    logger.error('SECURITY: Failed to set RLS context', {
+      userId,
+      requestId: req.headers['x-request-id'] || 'N/A',
+      path: req.path,
+      method: req.method,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    recordRLSFailure();
+    return false;
+  }
 }
 
 /**
@@ -36,10 +111,6 @@ export interface AuthenticatedRequest extends Request {
  *
  * Extracts JWT from Authorization header, verifies with Supabase,
  * loads user profile from Prisma database
- *
- * @param req - Express request
- * @param res - Express response
- * @param next - Express next function
  */
 export async function authenticateSupabase(
   req: AuthenticatedRequest,
@@ -47,10 +118,9 @@ export async function authenticateSupabase(
   next: NextFunction
 ): Promise<void> {
   try {
-    // Extract token from Authorization header
-    const authHeader = req.headers.authorization;
+    const token = extractBearerToken(req.headers.authorization);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       res.status(401).json({
         error: 'Unauthorized',
         message: 'Missing or invalid Authorization header',
@@ -58,27 +128,6 @@ export async function authenticateSupabase(
       return;
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-    // SECURITY: Basic token format validation
-    if (!token || token.trim() === '') {
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'No token provided',
-      });
-      return;
-    }
-
-    // SECURITY: Check for suspicious tokens (too short/long)
-    if (token.length < 20 || token.length > 2048) {
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Token length is invalid',
-      });
-      return;
-    }
-
-    // Verify token with Supabase (server-side validation)
     const supabaseUser = await verifySupabaseToken(token);
 
     if (!supabaseUser) {
@@ -89,23 +138,12 @@ export async function authenticateSupabase(
       return;
     }
 
-    // Load user profile from Prisma database
     const dbUser = await prisma.user.findUnique({
       where: { id: supabaseUser.id },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        firstName: true,
-        lastName: true,
-        supabaseUserId: true,
-        isActive: true,
-      },
+      select: USER_SELECT_FIELDS,
     });
 
     if (!dbUser) {
-      // User exists in Supabase but not in database
-      // This could happen during migration or if user was deleted from Prisma
       logger.error(`User ${supabaseUser.id} authenticated with Supabase but not found in database`);
       res.status(401).json({
         error: 'Unauthorized',
@@ -114,7 +152,6 @@ export async function authenticateSupabase(
       return;
     }
 
-    // SECURITY: Check if user account is active
     if (!dbUser.isActive) {
       logger.warn('Inactive user attempted access', { userId: dbUser.id });
       res.status(403).json({
@@ -125,41 +162,11 @@ export async function authenticateSupabase(
       return;
     }
 
-    // Attach user to request
-    req.user = {
-      id: dbUser.id,
-      email: dbUser.email,
-      role: dbUser.role,
-      supabaseUserId: dbUser.supabaseUserId || supabaseUser.id,
-      firstName: dbUser.firstName || undefined,
-      lastName: dbUser.lastName || undefined,
-    };
+    req.user = buildRequestUser(dbUser, supabaseUser.id);
+    req.supabaseUser = supabaseUser;
+    req.rlsContextSet = await setRLSContext(req, dbUser.id);
 
-    req.supabaseUser = supabaseUser; // Raw Supabase user for advanced use cases
-
-    // Set RLS user context for Row Level Security policies
-    // This enables database-level data isolation (defense in depth)
-    try {
-      await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
-      // Track successful RLS context setting
-      req.rlsContextSet = true;
-    } catch (rlsError) {
-      // Log at ERROR level - RLS failures are security-relevant
-      logger.error('SECURITY: Failed to set RLS context', {
-        userId: dbUser.id,
-        requestId: req.headers['x-request-id'] || 'N/A',
-        path: req.path,
-        method: req.method,
-        error: rlsError instanceof Error ? rlsError.message : String(rlsError),
-        stack: rlsError instanceof Error ? rlsError.stack : undefined,
-      });
-      req.rlsContextSet = false;
-
-      // Record RLS failure for health monitoring
-      recordRLSFailure();
-
-      // SECURITY: Fail closed by default (opt-out with RLS_FAIL_CLOSED=false)
-      // Default behavior is to reject requests when RLS context fails
+    if (!req.rlsContextSet) {
       const shouldFailClosed = process.env.RLS_FAIL_CLOSED !== 'false';
 
       if (shouldFailClosed) {
@@ -172,16 +179,10 @@ export async function authenticateSupabase(
         return;
       }
 
-      // Only continue if explicitly opted-out with RLS_FAIL_CLOSED=false
       logger.warn(
         'SECURITY: RLS context failed but RLS_FAIL_CLOSED=false - continuing with degraded security',
-        {
-          userId: dbUser.id,
-        }
+        { userId: dbUser.id }
       );
-      logger.warn('Continuing without RLS context - application-level filtering only', {
-        userId: dbUser.id,
-      });
     }
 
     next();
@@ -234,10 +235,6 @@ export function authorizeSupabase(allowedRoles: string[]) {
 /**
  * Optional authentication middleware
  * Attaches user if authenticated, but doesn't fail if not
- *
- * @param req - Express request
- * @param res - Express response
- * @param next - Express next function
  */
 export async function optionalAuthSupabase(
   req: AuthenticatedRequest,
@@ -245,88 +242,59 @@ export async function optionalAuthSupabase(
   next: NextFunction
 ): Promise<void> {
   try {
-    const authHeader = req.headers.authorization;
+    const token = extractBearerToken(req.headers.authorization);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      // No auth header, continue without user
-      next();
-      return;
-    }
-
-    const token = authHeader.substring(7);
-
-    // SECURITY: Basic validation even for optional auth
-    if (!token || token.trim() === '' || token.length < 20 || token.length > 2048) {
+    if (!token) {
       next();
       return;
     }
 
     const supabaseUser = await verifySupabaseToken(token);
 
-    if (supabaseUser) {
-      const dbUser = await prisma.user.findUnique({
-        where: { id: supabaseUser.id },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          firstName: true,
-          lastName: true,
-          supabaseUserId: true,
-          isActive: true,
-        },
-      });
-
-      if (dbUser && dbUser.isActive) {
-        req.user = {
-          id: dbUser.id,
-          email: dbUser.email,
-          role: dbUser.role,
-          supabaseUserId: dbUser.supabaseUserId || supabaseUser.id,
-          firstName: dbUser.firstName || undefined,
-          lastName: dbUser.lastName || undefined,
-        };
-        req.supabaseUser = supabaseUser;
-
-        // Set RLS user context for optional auth as well
-        try {
-          await prisma.$executeRawUnsafe('SELECT set_user_context($1)', dbUser.id);
-          req.rlsContextSet = true;
-        } catch (rlsError) {
-          // Log at ERROR level - RLS failures are security-relevant even for optional auth
-          logger.error('SECURITY: Failed to set RLS context in optional auth', {
-            userId: dbUser.id,
-            requestId: req.headers['x-request-id'] || 'N/A',
-            path: req.path,
-            method: req.method,
-            error: rlsError instanceof Error ? rlsError.message : String(rlsError),
-          });
-
-          // Record RLS failure for health monitoring
-          recordRLSFailure();
-
-          // SECURITY: Fail safe - do NOT attach user if RLS context failed
-          // This prevents authenticated access without proper RLS protection
-          // User continues as anonymous rather than with potentially insecure auth
-          req.rlsContextSet = false;
-          req.user = undefined;
-          req.supabaseUser = undefined;
-        }
-      }
+    if (!supabaseUser) {
+      next();
+      return;
     }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: supabaseUser.id },
+      select: USER_SELECT_FIELDS,
+    });
+
+    if (!dbUser || !dbUser.isActive) {
+      next();
+      return;
+    }
+
+    req.rlsContextSet = await setRLSContext(req, dbUser.id);
+
+    // SECURITY: Fail safe - do NOT attach user if RLS context failed
+    // User continues as anonymous rather than with potentially insecure auth
+    if (!req.rlsContextSet) {
+      next();
+      return;
+    }
+
+    req.user = buildRequestUser(dbUser, supabaseUser.id);
+    req.supabaseUser = supabaseUser;
 
     next();
   } catch (error) {
     // Silent failure - continue without user
-    // Log suspicious activity but don't block request
-    if (
-      error instanceof Error &&
-      (error.message.includes('algorithm') ||
-        error.message.includes('none') ||
-        error.message.includes('signature'))
-    ) {
-      logger.warn('Suspicious token in optional auth:', error.message);
+    if (isSuspiciousTokenError(error)) {
+      logger.warn('Suspicious token in optional auth:', (error as Error).message);
     }
     next();
   }
+}
+
+/**
+ * Check if error indicates a suspicious token manipulation attempt
+ */
+function isSuspiciousTokenError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message;
+  return message.includes('algorithm') || message.includes('none') || message.includes('signature');
 }

@@ -4,165 +4,100 @@ import { Request } from 'express';
 import { logger } from '../utils/logger';
 
 // ============================================================================
-// Rate Limit Key Generation (Task #171)
-// Consistent key generation with user/org/ip scopes
+// Environment Helpers
 // ============================================================================
 
-/**
- * Rate limit scope options
- */
+function isDev(): boolean {
+  return process.env.NODE_ENV === 'development';
+}
+
+function isDevOrTest(): boolean {
+  return process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+}
+
+// ============================================================================
+// Rate Limit Key Generation (Task #171)
+// ============================================================================
+
 export type RateLimitScope = 'ip' | 'user' | 'organization' | 'user-ip' | 'org-ip' | 'email-ip';
 
-/**
- * Options for generating rate limit keys
- */
 export interface RateLimitKeyOptions {
-  /** Primary scope for rate limiting */
   scope: RateLimitScope;
-  /** Fallback scope if primary is unavailable */
   fallbackScope?: RateLimitScope;
-  /** Optional prefix for the key (e.g., 'auth', 'upload') */
   prefix?: string;
 }
 
-/**
- * Sanitize a value for use in rate limit keys
- * - Removes special characters that could cause issues
- * - Limits length to prevent memory issues
- * - Handles undefined/null values
- */
 function sanitizeKeyComponent(value: string | undefined | null, maxLength = 64): string {
   if (!value) return 'unknown';
-
-  // Remove potentially problematic characters, keep alphanumeric, @, ., -, _
   const sanitized = value
     .toString()
     .toLowerCase()
     .replace(/[^a-z0-9@._-]/g, '')
     .slice(0, maxLength);
-
   return sanitized || 'unknown';
 }
 
-/**
- * Extract IP address from request with fallback handling
- */
 function extractIP(req: Request): string {
-  // Express trust proxy setting should handle x-forwarded-for
   const ip = req.ip || req.socket?.remoteAddress || 'unknown';
-  return sanitizeKeyComponent(ip, 45); // IPv6 max length is 45
+  return sanitizeKeyComponent(ip, 45);
 }
 
-/**
- * Extract user ID from authenticated request
- */
 function extractUserId(req: Request): string | null {
   const userId = (req as any).user?.id;
   return userId ? sanitizeKeyComponent(userId) : null;
 }
 
-/**
- * Extract organization ID from request
- */
 function extractOrganizationId(req: Request): string | null {
   const orgId = (req as any).organizationId || (req as any).user?.organizationId;
   return orgId ? sanitizeKeyComponent(orgId) : null;
 }
 
-/**
- * Extract email from request body (for auth endpoints)
- */
 function extractEmail(req: Request): string | null {
   const email = req.body?.email;
   return email ? sanitizeKeyComponent(email, 100) : null;
 }
 
-/**
- * Generate a rate limit key based on scope
- */
 function generateKeyForScope(req: Request, scope: RateLimitScope): string | null {
   const ip = extractIP(req);
-  const userId = extractUserId(req);
-  const orgId = extractOrganizationId(req);
-  const email = extractEmail(req);
 
   switch (scope) {
     case 'ip':
       return ip;
-
     case 'user':
-      return userId;
-
+      return extractUserId(req);
     case 'organization':
-      return orgId;
-
-    case 'user-ip':
+      return extractOrganizationId(req);
+    case 'user-ip': {
+      const userId = extractUserId(req);
       return userId ? `${userId}:${ip}` : null;
-
-    case 'org-ip':
+    }
+    case 'org-ip': {
+      const orgId = extractOrganizationId(req);
       return orgId ? `${orgId}:${ip}` : null;
-
-    case 'email-ip':
+    }
+    case 'email-ip': {
+      const email = extractEmail(req);
       return email ? `${email}:${ip}` : null;
-
+    }
     default:
       return null;
   }
 }
 
-/**
- * Generate a rate limit key with consistent formatting and fallback handling
- *
- * @param req - Express request object
- * @param options - Key generation options
- * @returns Formatted rate limit key
- *
- * @example
- * // Organization-scoped with IP fallback
- * generateRateLimitKey(req, { scope: 'organization', fallbackScope: 'ip', prefix: 'search' })
- * // Returns: "search:org123" or "search:192.168.1.1" if no org
- *
- * @example
- * // User-IP combo for auth
- * generateRateLimitKey(req, { scope: 'email-ip', fallbackScope: 'ip', prefix: 'auth' })
- * // Returns: "auth:user@example.com:192.168.1.1"
- */
 export function generateRateLimitKey(req: Request, options: RateLimitKeyOptions): string {
   const { scope, fallbackScope = 'ip', prefix } = options;
 
-  // Try primary scope
   let key = generateKeyForScope(req, scope);
-
-  // Try fallback if primary didn't produce a result
   if (!key && fallbackScope) {
     key = generateKeyForScope(req, fallbackScope);
   }
-
-  // Ultimate fallback to IP
   if (!key) {
     key = extractIP(req);
   }
 
-  // Apply prefix if provided
-  if (prefix) {
-    return `${prefix}:${key}`;
-  }
-
-  return key;
+  return prefix ? `${prefix}:${key}` : key;
 }
 
-/**
- * Create a key generator function for express-rate-limit
- *
- * @param options - Key generation options
- * @returns Key generator function compatible with express-rate-limit
- *
- * @example
- * const limiter = rateLimit({
- *   keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
- *   ...
- * });
- */
 export function createKeyGenerator(options: RateLimitKeyOptions): (req: Request) => string {
   return (req: Request) => generateRateLimitKey(req, options);
 }
@@ -360,55 +295,92 @@ class RedisStore {
 
 const store = new RedisStore(redisClient);
 
-// Standard API rate limiter
-// Production: 500 requests per 15 minutes (reasonable for SaaS)
-// Based on best practices: https://blog.appsignal.com/2024/04/03/how-to-implement-rate-limiting-in-express-for-nodejs.html
-export const standardLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 10000 : 500, // 500 req/15min production
+// ============================================================================
+// Limiter Factory
+// ============================================================================
+
+interface LimiterConfig {
+  windowMs: number;
+  max: number;
+  devMultiplier?: number;
+  prefix: string;
+  keyOptions: RateLimitKeyOptions;
+  message: string | object;
+  skipSuccessfulRequests?: boolean;
+  useDevOrTest?: boolean;
+}
+
+function createPrefixedStore(prefix: string) {
+  const storePrefix = prefix ? `${prefix}:` : '';
+  return {
+    increment: async (key: string) => store.increment(storePrefix + key),
+    decrement: async (key: string) => store.decrement(storePrefix + key),
+    resetKey: async (key: string) => store.resetKey(storePrefix + key),
+  } as any;
+}
+
+function createLimiter(config: LimiterConfig): ReturnType<typeof rateLimit> {
+  const {
+    windowMs,
+    max,
+    devMultiplier = 10,
+    prefix,
+    keyOptions,
+    message,
+    skipSuccessfulRequests,
+    useDevOrTest = false,
+  } = config;
+
+  const isRelaxed = useDevOrTest ? isDevOrTest() : isDev();
+  const effectiveMax = isRelaxed ? max * devMultiplier : max;
+
+  return rateLimit({
+    windowMs,
+    max: effectiveMax,
+    message,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests,
+    store: createPrefixedStore(prefix),
+    keyGenerator: createKeyGenerator(keyOptions),
+  });
+}
+
+// ============================================================================
+// Standard Limiters
+// ============================================================================
+
+// 500 requests per 15 minutes (10000 in dev/test)
+export const standardLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  devMultiplier: 20,
+  prefix: '',
+  keyOptions: { scope: 'ip' },
   message: 'Too many requests from this IP, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment(key),
-    decrement: async (key: string) => store.decrement(key),
-    resetKey: async (key: string) => store.resetKey(key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'ip' }),
+  useDevOrTest: true,
 });
 
-// Strict auth rate limiter for login attempts
-// Production: 20 failed attempts per 15 minutes (generous for legitimate users)
-// Only counts failed attempts due to skipSuccessfulRequests
-export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test' ? 1000 : 20, // 20 failed attempts/15min
+// 20 failed auth attempts per 15 minutes (1000 in dev/test)
+export const authLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  devMultiplier: 50,
+  prefix: 'auth',
+  keyOptions: { scope: 'email-ip', fallbackScope: 'ip' },
   message: 'Too many authentication attempts, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins
-  store: {
-    increment: async (key: string) => store.increment('auth:' + key),
-    decrement: async (key: string) => store.decrement('auth:' + key),
-    resetKey: async (key: string) => store.resetKey('auth:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'email-ip', fallbackScope: 'ip' }),
+  skipSuccessfulRequests: true,
+  useDevOrTest: true,
 });
 
-// Document upload rate limiter
-// Production: 50 uploads per hour (reasonable for document processing app)
-export const uploadLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.NODE_ENV === 'development' ? 500 : 50, // 50 uploads/hour production
+// 50 uploads per hour (500 in dev)
+export const uploadLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 50,
+  devMultiplier: 10,
+  prefix: 'upload',
+  keyOptions: { scope: 'user', fallbackScope: 'ip' },
   message: 'Upload limit reached, please try again later',
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('upload:' + key),
-    decrement: async (key: string) => store.decrement('upload:' + key),
-    resetKey: async (key: string) => store.resetKey('upload:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
 });
 
 // Cleanup on shutdown
@@ -420,250 +392,146 @@ process.on('SIGTERM', async () => {
 
 // ============================================================================
 // Knowledge Base Rate Limiters (Task #134)
-// Organization-scoped rate limiting for vector search endpoints
 // ============================================================================
 
-/**
- * Knowledge search rate limiter
- * 60 requests per minute per organization (reasonable for search-heavy usage)
- */
-export const knowledgeSearchLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'development' ? 200 : 60,
+const ORG_KEY_OPTIONS: RateLimitKeyOptions = { scope: 'organization', fallbackScope: 'user-ip' };
+
+// 60 searches per minute (200 in dev)
+export const knowledgeSearchLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  devMultiplier: 3.33,
+  prefix: 'knowledge:search',
+  keyOptions: ORG_KEY_OPTIONS,
   message: {
     error: 'Search rate limit exceeded',
     message: 'Too many search requests. Please wait before trying again.',
     retryAfter: 60,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('knowledge:search:' + key),
-    decrement: async (key: string) => store.decrement('knowledge:search:' + key),
-    resetKey: async (key: string) => store.resetKey('knowledge:search:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
 });
 
-/**
- * Knowledge suggest rate limiter
- * 120 requests per minute per organization (higher for autocomplete/typing)
- */
-export const knowledgeSuggestLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'development' ? 300 : 120,
+// 120 suggestions per minute (300 in dev)
+export const knowledgeSuggestLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 120,
+  devMultiplier: 2.5,
+  prefix: 'knowledge:suggest',
+  keyOptions: ORG_KEY_OPTIONS,
   message: {
     error: 'Suggestion rate limit exceeded',
     message: 'Too many suggestion requests. Please wait before trying again.',
     retryAfter: 60,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('knowledge:suggest:' + key),
-    decrement: async (key: string) => store.decrement('knowledge:suggest:' + key),
-    resetKey: async (key: string) => store.resetKey('knowledge:suggest:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
 });
 
-/**
- * Knowledge upload rate limiter
- * 30 uploads per minute per organization
- */
-export const knowledgeUploadLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'development' ? 100 : 30,
+// 30 knowledge uploads per minute (100 in dev)
+export const knowledgeUploadLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  devMultiplier: 3.33,
+  prefix: 'knowledge:upload',
+  keyOptions: ORG_KEY_OPTIONS,
   message: {
     error: 'Upload rate limit exceeded',
     message: 'Too many document uploads. Please wait before uploading more.',
     retryAfter: 60,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('knowledge:upload:' + key),
-    decrement: async (key: string) => store.decrement('knowledge:upload:' + key),
-    resetKey: async (key: string) => store.resetKey('knowledge:upload:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'organization', fallbackScope: 'user-ip' }),
 });
 
 // ============================================================================
-// SSE (Server-Sent Events) Rate Limiter
-// Limits connection attempts to prevent abuse of long-lived connections
+// SSE and CSP Rate Limiters
 // ============================================================================
 
-/**
- * SSE connection rate limiter
- * Production: 10 connection attempts per minute per user/IP
- * This prevents rapid reconnection attempts that could overwhelm the server
- * while still allowing legitimate reconnections after network issues
- */
-export const sseConnectionLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'development' ? 100 : 10, // 10 connection attempts/minute in production
+// 10 SSE connection attempts per minute (100 in dev)
+export const sseConnectionLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  devMultiplier: 10,
+  prefix: 'sse',
+  keyOptions: { scope: 'user', fallbackScope: 'ip' },
   message: {
     error: 'Too many connection attempts',
     message: 'Rate limit exceeded for realtime connections. Please wait before reconnecting.',
     retryAfter: 60,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('sse:' + key),
-    decrement: async (key: string) => store.decrement('sse:' + key),
-    resetKey: async (key: string) => store.resetKey('sse:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
 });
 
-// ============================================================================
-// CSP Report Rate Limiter (Task #274)
-// Limits CSP violation reports to prevent DoS via reporting abuse
-// ============================================================================
-
-/**
- * CSP violation report rate limiter
- * Production: 100 reports per minute per IP
- * This prevents malicious actors from flooding the server with fake CSP reports
- * while still allowing legitimate violations to be logged
- */
-export const cspReportLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: process.env.NODE_ENV === 'development' ? 500 : 100, // 100 reports/minute in production
-  message: {
-    error: 'Too many CSP reports',
-    message: 'CSP report rate limit exceeded.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('csp:' + key),
-    decrement: async (key: string) => store.decrement('csp:' + key),
-    resetKey: async (key: string) => store.resetKey('csp:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'ip' }), // IP-only since no auth on this endpoint
+// 100 CSP reports per minute (500 in dev)
+export const cspReportLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 100,
+  devMultiplier: 5,
+  prefix: 'csp',
+  keyOptions: { scope: 'ip' },
+  message: { error: 'Too many CSP reports', message: 'CSP report rate limit exceeded.' },
 });
 
 // ============================================================================
 // Sensitive Endpoint Rate Limiters (Task #284)
-// Extra-strict rate limits for security-sensitive endpoints
 // ============================================================================
 
-/**
- * Password reset request rate limiter
- * Production: 5 requests per hour per email/IP combination
- * This prevents email enumeration and password reset abuse
- */
-export const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.NODE_ENV === 'development' ? 100 : 5, // 5 reset requests/hour
+// 5 password reset requests per hour (100 in dev)
+export const passwordResetLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  devMultiplier: 20,
+  prefix: 'pwd-reset',
+  keyOptions: { scope: 'email-ip', fallbackScope: 'ip' },
   message: {
     error: 'Too many password reset requests',
     message: 'Please wait before requesting another password reset.',
     retryAfter: 3600,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('pwd-reset:' + key),
-    decrement: async (key: string) => store.decrement('pwd-reset:' + key),
-    resetKey: async (key: string) => store.resetKey('pwd-reset:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'email-ip', fallbackScope: 'ip' }),
 });
 
-/**
- * File download rate limiter
- * Production: 50 downloads per hour per user/IP
- * Prevents abuse of bandwidth and storage resources
- */
-export const downloadLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: process.env.NODE_ENV === 'development' ? 500 : 50, // 50 downloads/hour
+// 50 downloads per hour (500 in dev)
+export const downloadLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 50,
+  devMultiplier: 10,
+  prefix: 'download',
+  keyOptions: { scope: 'user', fallbackScope: 'ip' },
   message: {
     error: 'Download limit exceeded',
     message: 'Too many file downloads. Please wait before downloading more.',
     retryAfter: 3600,
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  store: {
-    increment: async (key: string) => store.increment('download:' + key),
-    decrement: async (key: string) => store.decrement('download:' + key),
-    resetKey: async (key: string) => store.resetKey('download:' + key),
-  } as any,
-  keyGenerator: createKeyGenerator({ scope: 'user', fallbackScope: 'ip' }),
 });
 
 // ============================================================================
 // Adaptive Rate Limiting (Task #284)
-// Dynamically reduce limits for IPs with suspicious activity
 // ============================================================================
 
-/**
- * Map to track suspicious IPs with reduced limits
- * Format: { [ip]: { reducedUntil: Date, factor: number } }
- */
-const suspiciousIpLimits: Map<string, { reducedUntil: Date; factor: number }> = new Map();
+const suspiciousIpLimits = new Map<string, { reducedUntil: Date; factor: number }>();
 
-/**
- * Check if an IP has reduced rate limits due to suspicious activity
- */
 export function isSuspiciousIp(ip: string): { suspicious: boolean; factor: number } {
   const entry = suspiciousIpLimits.get(ip);
   if (!entry) {
     return { suspicious: false, factor: 1 };
   }
-
-  // Check if the reduction period has expired
   if (entry.reducedUntil < new Date()) {
     suspiciousIpLimits.delete(ip);
     return { suspicious: false, factor: 1 };
   }
-
   return { suspicious: true, factor: entry.factor };
 }
 
-/**
- * Mark an IP as suspicious with reduced rate limits
- * @param ip - The IP address
- * @param durationMinutes - How long to apply reduced limits (default: 60 minutes)
- * @param reductionFactor - Factor to reduce limits by (default: 0.25 = 25% of normal)
- */
-export function markIpAsSuspicious(
-  ip: string,
-  durationMinutes: number = 60,
-  reductionFactor: number = 0.25
-): void {
-  const reducedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
-
+export function markIpAsSuspicious(ip: string, durationMinutes = 60, reductionFactor = 0.25): void {
   suspiciousIpLimits.set(ip, {
-    reducedUntil,
-    factor: Math.max(0.1, Math.min(1, reductionFactor)), // Clamp between 0.1 and 1
+    reducedUntil: new Date(Date.now() + durationMinutes * 60 * 1000),
+    factor: Math.max(0.1, Math.min(1, reductionFactor)),
   });
-
   logger.warn('[RateLimit] IP marked as suspicious with reduced limits', {
-    ip: ip.substring(0, 10) + '...', // Partial IP for privacy
+    ip: ip.substring(0, 10) + '...',
     durationMinutes,
     reductionFactor,
   });
 }
 
-/**
- * Clear suspicious status for an IP
- */
 export function clearSuspiciousIp(ip: string): void {
   suspiciousIpLimits.delete(ip);
 }
 
-/**
- * Create an adaptive rate limiter that reduces limits for suspicious IPs
- * @param baseMax - Base maximum requests
- * @param windowMs - Window in milliseconds
- * @param prefix - Key prefix for the store
- */
 export function createAdaptiveLimiter(
   baseMax: number,
   windowMs: number,
@@ -675,7 +543,6 @@ export function createAdaptiveLimiter(
     max: (req: Request) => {
       const ip = req.ip || 'unknown';
       const { suspicious, factor } = isSuspiciousIp(ip);
-
       if (suspicious) {
         const reducedMax = Math.max(1, Math.floor(baseMax * factor));
         logger.debug('[RateLimit] Applying reduced limit for suspicious IP', {
@@ -685,8 +552,7 @@ export function createAdaptiveLimiter(
         });
         return reducedMax;
       }
-
-      return process.env.NODE_ENV === 'development' ? baseMax * 10 : baseMax;
+      return isDev() ? baseMax * 10 : baseMax;
     },
     message: {
       error: 'Rate limit exceeded',
@@ -694,18 +560,12 @@ export function createAdaptiveLimiter(
     },
     standardHeaders: true,
     legacyHeaders: false,
-    store: {
-      increment: async (key: string) => store.increment(`${prefix}:${key}`),
-      decrement: async (key: string) => store.decrement(`${prefix}:${key}`),
-      resetKey: async (key: string) => store.resetKey(`${prefix}:${key}`),
-    } as any,
+    store: createPrefixedStore(prefix),
     ...options,
   });
 }
 
-/**
- * Adaptive auth limiter - reduces to 5 attempts for suspicious IPs
- */
+// Adaptive auth limiter - reduces to 5 attempts for suspicious IPs
 export const adaptiveAuthLimiter = createAdaptiveLimiter(20, 15 * 60 * 1000, 'adaptive-auth', {
   keyGenerator: createKeyGenerator({ scope: 'email-ip', fallbackScope: 'ip' }),
   skipSuccessfulRequests: true,

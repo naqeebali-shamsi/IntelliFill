@@ -239,6 +239,10 @@ export { ModeToggle } from './mode-toggle';
 
 // Auth
 export { ProtectedRoute } from './ProtectedRoute';
+export { PasswordVisibilityToggle } from './auth/PasswordVisibilityToggle';
+export type { PasswordVisibilityToggleProps } from './auth/PasswordVisibilityToggle';
+export { AttemptsWarning } from './auth/AttemptsWarning';
+export type { AttemptsWarningProps } from './auth/AttemptsWarning';
 
 // Error Boundary
 export type { ErrorBoundaryProps, ErrorBoundaryState } from './ErrorBoundary';

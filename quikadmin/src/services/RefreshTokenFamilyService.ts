@@ -86,8 +86,7 @@ export class RefreshTokenFamilyService {
   private isConnected = false;
   private connectionPromise: Promise<void> | null = null;
   private jwtRefreshSecret: string;
-  // Task 283: Old secret for zero-downtime rotation
-  private jwtRefreshSecretOld?: string;
+  private jwtRefreshSecretOld?: string; // Task 283: Old secret for zero-downtime rotation
 
   constructor(jwtRefreshSecret?: string, jwtRefreshSecretOld?: string) {
     this.jwtRefreshSecret = jwtRefreshSecret || config.jwt.refreshSecret;
@@ -149,53 +148,129 @@ export class RefreshTokenFamilyService {
   }
 
   // ==========================================================================
-  // Token Generation
+  // Private Helpers - JWT Operations
   // ==========================================================================
 
   /**
-   * Create a new token family for initial login
-   *
-   * @param userId - User ID
-   * @returns New refresh token with family info
+   * Sign a refresh token payload
    */
-  createNewFamily(userId: string): NewTokenResult {
-    const familyId = crypto.randomUUID();
-    const generation = 1;
+  private signRefreshToken(payload: TokenFamilyPayload): string {
+    return jwt.sign(payload, this.jwtRefreshSecret, { expiresIn: REFRESH_TOKEN_TTL });
+  }
 
-    const payload: TokenFamilyPayload = {
-      sub: userId,
-      fid: familyId,
-      gen: generation,
-      type: 'refresh',
-    };
+  /**
+   * Verify token with dual-key support for zero-downtime rotation
+   * Returns payload and whether old secret was used, or null if invalid
+   */
+  private verifyWithDualKey(
+    token: string
+  ): { payload: TokenFamilyPayload; usedOldSecret: boolean } | { error: string } {
+    try {
+      const payload = jwt.verify(token, this.jwtRefreshSecret) as TokenFamilyPayload;
+      return { payload, usedOldSecret: false };
+    } catch (primaryError) {
+      if (primaryError instanceof jwt.TokenExpiredError) {
+        return { error: 'Token expired' };
+      }
+      if (primaryError instanceof jwt.JsonWebTokenError && this.jwtRefreshSecretOld) {
+        try {
+          const payload = jwt.verify(token, this.jwtRefreshSecretOld) as TokenFamilyPayload;
+          return { payload, usedOldSecret: true };
+        } catch (fallbackError) {
+          if (fallbackError instanceof jwt.TokenExpiredError) {
+            return { error: 'Token expired' };
+          }
+        }
+      }
+      return { error: 'Invalid token signature' };
+    }
+  }
 
-    const refreshToken = jwt.sign(payload, this.jwtRefreshSecret, {
-      expiresIn: REFRESH_TOKEN_TTL,
-    });
-
-    logger.debug('[TokenFamily] New family created', {
-      userId,
-      familyId,
-      generation,
-    });
-
+  /**
+   * Build a NewTokenResult from a payload
+   */
+  private buildTokenResult(payload: TokenFamilyPayload): NewTokenResult {
     return {
-      refreshToken,
-      familyId,
-      generation,
+      refreshToken: this.signRefreshToken(payload),
+      familyId: payload.fid,
+      generation: payload.gen,
       expiresIn: REFRESH_TOKEN_TTL,
     };
   }
 
   /**
+   * Hash token for storage (never store actual tokens)
+   */
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex').substring(0, 32);
+  }
+
+  // ==========================================================================
+  // Private Helpers - Redis Operations
+  // ==========================================================================
+
+  /**
+   * Set a Redis key with TTL and JSON data
+   */
+  private async redisSet(prefix: string, key: string, data: object): Promise<boolean> {
+    if (!this.isReady()) return false;
+    try {
+      await this.client!.setEx(`${prefix}${key}`, USED_TOKEN_TTL, JSON.stringify(data));
+      return true;
+    } catch (error) {
+      logger.warn('[TokenFamily] Redis set failed', {
+        error: error instanceof Error ? error.message : 'Unknown',
+        prefix,
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Check if a Redis key exists
+   */
+  private async redisExists(prefix: string, key: string): Promise<boolean> {
+    if (!this.isReady()) return false;
+    try {
+      const result = await this.client!.get(`${prefix}${key}`);
+      return result !== null;
+    } catch (error) {
+      logger.warn('[TokenFamily] Redis get failed', {
+        error: error instanceof Error ? error.message : 'Unknown',
+        prefix,
+      });
+      return false;
+    }
+  }
+
+  // ==========================================================================
+  // Token Generation
+  // ==========================================================================
+
+  /**
+   * Create a new token family for initial login
+   */
+  createNewFamily(userId: string): NewTokenResult {
+    const payload: TokenFamilyPayload = {
+      sub: userId,
+      fid: crypto.randomUUID(),
+      gen: 1,
+      type: 'refresh',
+    };
+
+    logger.debug('[TokenFamily] New family created', {
+      userId,
+      familyId: payload.fid,
+      generation: payload.gen,
+    });
+
+    return this.buildTokenResult(payload);
+  }
+
+  /**
    * Rotate refresh token - create new token with incremented generation
-   *
-   * @param oldToken - Previous refresh token
-   * @param req - Express request for security logging
-   * @returns New refresh token or null if invalid/revoked
    */
   async rotateToken(oldToken: string, req?: Request): Promise<NewTokenResult | null> {
-    // Validate the old token
     const validation = await this.validateToken(oldToken, req);
 
     if (!validation.valid || !validation.payload) {
@@ -207,35 +282,23 @@ export class RefreshTokenFamilyService {
 
     const { sub: userId, fid: familyId, gen: generation } = validation.payload;
 
-    // Mark old token as used
     await this.markTokenAsUsed(oldToken, familyId, generation);
 
-    // Create new token with incremented generation
-    const newGeneration = generation + 1;
-    const payload: TokenFamilyPayload = {
+    const newPayload: TokenFamilyPayload = {
       sub: userId,
       fid: familyId,
-      gen: newGeneration,
+      gen: generation + 1,
       type: 'refresh',
     };
-
-    const newRefreshToken = jwt.sign(payload, this.jwtRefreshSecret, {
-      expiresIn: REFRESH_TOKEN_TTL,
-    });
 
     logger.debug('[TokenFamily] Token rotated', {
       userId,
       familyId,
       oldGeneration: generation,
-      newGeneration,
+      newGeneration: newPayload.gen,
     });
 
-    return {
-      refreshToken: newRefreshToken,
-      familyId,
-      generation: newGeneration,
-      expiresIn: REFRESH_TOKEN_TTL,
-    };
+    return this.buildTokenResult(newPayload);
   }
 
   // ==========================================================================
@@ -244,39 +307,21 @@ export class RefreshTokenFamilyService {
 
   /**
    * Validate a refresh token including family revocation check
-   *
-   * @param token - Refresh token to validate
-   * @param req - Express request for security logging
-   * @returns Validation result
    */
   async validateToken(token: string, req?: Request): Promise<TokenFamilyValidation> {
-    // Step 1: Verify JWT signature and expiration
-    // Task 283: Dual-key verification for zero-downtime rotation
-    let payload: TokenFamilyPayload;
-    let usedOldSecret = false;
+    // Step 1: Verify JWT signature and expiration (with dual-key support)
+    const verifyResult = this.verifyWithDualKey(token);
 
-    try {
-      payload = jwt.verify(token, this.jwtRefreshSecret) as TokenFamilyPayload;
-    } catch (primaryError) {
-      // If primary verification fails with signature error and old secret exists, try fallback
-      if (primaryError instanceof jwt.JsonWebTokenError && this.jwtRefreshSecretOld) {
-        try {
-          payload = jwt.verify(token, this.jwtRefreshSecretOld) as TokenFamilyPayload;
-          usedOldSecret = true;
-          logger.info('[TokenFamily] Token verified using old secret (rotation in progress)', {
-            userId: (payload as TokenFamilyPayload).sub,
-          });
-        } catch (fallbackError) {
-          if (fallbackError instanceof jwt.TokenExpiredError) {
-            return { valid: false, reason: 'Token expired' };
-          }
-          return { valid: false, reason: 'Invalid token signature' };
-        }
-      } else if (primaryError instanceof jwt.TokenExpiredError) {
-        return { valid: false, reason: 'Token expired' };
-      } else {
-        return { valid: false, reason: 'Invalid token signature' };
-      }
+    if ('error' in verifyResult) {
+      return { valid: false, reason: verifyResult.error };
+    }
+
+    const { payload, usedOldSecret } = verifyResult;
+
+    if (usedOldSecret) {
+      logger.info('[TokenFamily] Token verified using old secret (rotation in progress)', {
+        userId: payload.sub,
+      });
     }
 
     // Step 2: Validate payload structure
@@ -360,7 +405,7 @@ export class RefreshTokenFamilyService {
   }
 
   // ==========================================================================
-  // Redis Operations
+  // Token Usage Tracking
   // ==========================================================================
 
   /**
@@ -371,28 +416,15 @@ export class RefreshTokenFamilyService {
     familyId: string,
     generation: number
   ): Promise<void> {
-    if (!this.isReady()) return;
+    const tokenHash = this.hashToken(token);
+    const success = await this.redisSet(REDIS_KEY_PREFIX.USED_TOKEN, tokenHash, {
+      familyId,
+      generation,
+      usedAt: new Date().toISOString(),
+    });
 
-    try {
-      // Use token hash as key to avoid storing actual token
-      const tokenHash = this.hashToken(token);
-      const key = `${REDIS_KEY_PREFIX.USED_TOKEN}${tokenHash}`;
-
-      await this.client!.setEx(
-        key,
-        USED_TOKEN_TTL,
-        JSON.stringify({
-          familyId,
-          generation,
-          usedAt: new Date().toISOString(),
-        })
-      );
-
+    if (success) {
       logger.debug('[TokenFamily] Token marked as used', { familyId, generation });
-    } catch (error) {
-      logger.warn('[TokenFamily] Failed to mark token as used', {
-        error: error instanceof Error ? error.message : 'Unknown',
-      });
     }
   }
 
@@ -400,20 +432,12 @@ export class RefreshTokenFamilyService {
    * Check if a token has been used before
    */
   private async isTokenUsed(token: string): Promise<boolean> {
-    if (!this.isReady()) return false; // Fail open if Redis unavailable
-
-    try {
-      const tokenHash = this.hashToken(token);
-      const key = `${REDIS_KEY_PREFIX.USED_TOKEN}${tokenHash}`;
-      const result = await this.client!.get(key);
-      return result !== null;
-    } catch (error) {
-      logger.warn('[TokenFamily] Failed to check token usage', {
-        error: error instanceof Error ? error.message : 'Unknown',
-      });
-      return false;
-    }
+    return this.redisExists(REDIS_KEY_PREFIX.USED_TOKEN, this.hashToken(token));
   }
+
+  // ==========================================================================
+  // Family Revocation
+  // ==========================================================================
 
   /**
    * Revoke an entire token family
@@ -429,43 +453,26 @@ export class RefreshTokenFamilyService {
       return;
     }
 
-    try {
-      const key = `${REDIS_KEY_PREFIX.REVOKED_FAMILY}${familyId}`;
+    const success = await this.redisSet(REDIS_KEY_PREFIX.REVOKED_FAMILY, familyId, {
+      userId,
+      reason,
+      revokedAt: new Date().toISOString(),
+    });
 
-      await this.client!.setEx(
-        key,
-        USED_TOKEN_TTL, // Keep revocation record for TTL period
-        JSON.stringify({
-          userId,
-          reason,
-          revokedAt: new Date().toISOString(),
-        })
-      );
+    if (!success) {
+      logger.error('[TokenFamily] Failed to revoke family', { familyId });
+      return;
+    }
 
-      logger.warn('[TokenFamily] Family revoked', {
-        familyId,
+    logger.warn('[TokenFamily] Family revoked', { familyId, userId, reason });
+
+    if (req) {
+      await SecurityEventService.logEvent({
+        type: SecurityEventType.TOKEN_REVOKED,
+        severity: SecuritySeverity.HIGH,
+        req,
         userId,
-        reason,
-      });
-
-      // Log security event
-      if (req) {
-        await SecurityEventService.logEvent({
-          type: SecurityEventType.TOKEN_REVOKED,
-          severity: SecuritySeverity.HIGH,
-          req,
-          userId,
-          details: {
-            familyId,
-            reason,
-            action: 'Token family revoked',
-          },
-        });
-      }
-    } catch (error) {
-      logger.error('[TokenFamily] Failed to revoke family', {
-        error: error instanceof Error ? error.message : 'Unknown',
-        familyId,
+        details: { familyId, reason, action: 'Token family revoked' },
       });
     }
   }
@@ -474,25 +481,7 @@ export class RefreshTokenFamilyService {
    * Check if a family is revoked
    */
   private async isFamilyRevoked(familyId: string): Promise<boolean> {
-    if (!this.isReady()) return false; // Fail open if Redis unavailable
-
-    try {
-      const key = `${REDIS_KEY_PREFIX.REVOKED_FAMILY}${familyId}`;
-      const result = await this.client!.get(key);
-      return result !== null;
-    } catch (error) {
-      logger.warn('[TokenFamily] Failed to check family revocation', {
-        error: error instanceof Error ? error.message : 'Unknown',
-      });
-      return false;
-    }
-  }
-
-  /**
-   * Hash token for storage (never store actual tokens)
-   */
-  private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex').substring(0, 32);
+    return this.redisExists(REDIS_KEY_PREFIX.REVOKED_FAMILY, familyId);
   }
 
   /**
@@ -502,8 +491,6 @@ export class RefreshTokenFamilyService {
     // This would require scanning all family keys, which is expensive
     // In practice, we'd track active families per user in a separate set
     logger.info('[TokenFamily] Revoking all families for user', { userId, reason });
-
-    // For now, log the intention - in production, implement user->families mapping
   }
 }
 

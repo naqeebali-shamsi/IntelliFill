@@ -2,18 +2,7 @@
  * Token Cache Service
  *
  * Redis-backed token caching with in-memory fallback to reduce Supabase auth calls.
- *
- * Features:
- * - Redis primary cache with 5-minute TTL
- * - In-memory LRU fallback when Redis unavailable
- * - SHA-256 token hashing for security (never store raw tokens)
- * - Cache statistics for monitoring
- * - Graceful degradation
- *
- * Security:
- * - Tokens are hashed before storage (SHA-256)
- * - Only user metadata is cached, not the token itself
- * - Short TTL (5 min) limits exposure window
+ * Tokens are SHA-256 hashed before storage. Short TTL (5 min) limits exposure.
  *
  * @module services/tokenCache.service
  */
@@ -25,14 +14,14 @@ import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { config } from '../config';
 
 // ============================================================================
-// Types & Interfaces
+// Types & Constants
 // ============================================================================
 
 export interface TokenCacheConfig {
   redisUrl: string;
   ttlSeconds: number;
   keyPrefix: string;
-  maxMemoryCacheSize: number; // Max entries for in-memory fallback
+  maxMemoryCacheSize: number;
   enableMemoryFallback: boolean;
 }
 
@@ -54,11 +43,7 @@ export interface CachedUserData {
   expiresAt: string;
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
-
-const DEFAULT_TTL_SECONDS = 5 * 60; // 5 minutes
+const DEFAULT_TTL_SECONDS = 5 * 60;
 const DEFAULT_KEY_PREFIX = 'auth:token:';
 const DEFAULT_MAX_MEMORY_CACHE = 1000;
 
@@ -71,44 +56,35 @@ const DEFAULT_CONFIG: TokenCacheConfig = {
 };
 
 // ============================================================================
-// In-Memory LRU Cache (Fallback)
+// In-Memory LRU Cache
 // ============================================================================
 
 class MemoryLRUCache<T> {
-  private cache: Map<string, { value: T; expiresAt: number }> = new Map();
-  private maxSize: number;
+  private cache = new Map<string, { value: T; expiresAt: number }>();
 
-  constructor(maxSize: number) {
-    this.maxSize = maxSize;
-  }
+  constructor(private maxSize: number) {}
 
   get(key: string): T | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
 
-    // Check expiration
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return null;
     }
 
-    // Move to end (LRU)
+    // Move to end for LRU ordering
     this.cache.delete(key);
     this.cache.set(key, entry);
     return entry.value;
   }
 
   set(key: string, value: T, ttlMs: number): void {
-    // Evict oldest if at capacity
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
       if (firstKey) this.cache.delete(firstKey);
     }
-
-    this.cache.set(key, {
-      value,
-      expiresAt: Date.now() + ttlMs,
-    });
+    this.cache.set(key, { value, expiresAt: Date.now() + ttlMs });
   }
 
   delete(key: string): boolean {
@@ -123,7 +99,6 @@ class MemoryLRUCache<T> {
     return this.cache.size;
   }
 
-  // Cleanup expired entries
   prune(): number {
     const now = Date.now();
     let pruned = 0;
@@ -153,14 +128,7 @@ export class TokenCacheService {
   constructor(cacheConfig: Partial<TokenCacheConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...cacheConfig };
     this.memoryCache = new MemoryLRUCache<CachedUserData>(this.config.maxMemoryCacheSize);
-    this.stats = {
-      hits: 0,
-      misses: 0,
-      hitRate: 0,
-      redisHits: 0,
-      memoryHits: 0,
-      lastReset: new Date(),
-    };
+    this.resetStats();
   }
 
   // ==========================================================================
@@ -172,7 +140,6 @@ export class TokenCacheService {
     if (this.connectionPromise) return this.connectionPromise;
 
     this.connectionPromise = this.doConnect();
-
     try {
       await this.connectionPromise;
     } finally {
@@ -202,9 +169,6 @@ export class TokenCacheService {
       await this.client.connect();
       this.isConnected = true;
 
-      // Start memory cache pruning (every minute)
-      this.startPruning();
-
       logger.info('[TokenCache] Initialized', {
         ttlSeconds: this.config.ttlSeconds,
         memoryFallback: this.config.enableMemoryFallback,
@@ -215,15 +179,13 @@ export class TokenCacheService {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       this.isConnected = false;
-
-      // Start pruning even without Redis
-      this.startPruning();
     }
+
+    this.startPruning();
   }
 
   async disconnect(): Promise<void> {
     this.stopPruning();
-
     if (this.client && this.isConnected) {
       await this.client.quit();
       this.isConnected = false;
@@ -243,7 +205,7 @@ export class TokenCacheService {
       if (pruned > 0) {
         logger.debug('[TokenCache] Pruned expired memory entries', { count: pruned });
       }
-    }, 60000); // Every minute
+    }, 60000);
 
     if (this.pruneInterval.unref) {
       this.pruneInterval.unref();
@@ -258,77 +220,86 @@ export class TokenCacheService {
   }
 
   // ==========================================================================
-  // Key Generation
+  // Redis Helpers
   // ==========================================================================
 
-  /**
-   * Generate cache key from token using SHA-256
-   * NEVER stores the actual token - only a hash
-   */
+  private async tryRedis<T>(operation: () => Promise<T>, operationName: string): Promise<T | null> {
+    if (!this.isReady()) return null;
+
+    try {
+      return await operation();
+    } catch (error) {
+      logger.warn(`[TokenCache] Redis ${operationName} failed`, {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      return null;
+    }
+  }
+
   generateKey(token: string): string {
     const hash = crypto.createHash('sha256').update(token).digest('hex');
     return `${this.config.keyPrefix}${hash}`;
   }
 
   // ==========================================================================
+  // Stats Helpers
+  // ==========================================================================
+
+  private recordHit(source: 'redis' | 'memory'): void {
+    this.stats.hits++;
+    if (source === 'redis') {
+      this.stats.redisHits++;
+    } else {
+      this.stats.memoryHits++;
+    }
+    this.updateHitRate();
+  }
+
+  private recordMiss(): void {
+    this.stats.misses++;
+    this.updateHitRate();
+  }
+
+  private updateHitRate(): void {
+    const total = this.stats.hits + this.stats.misses;
+    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;
+  }
+
+  // ==========================================================================
   // Cache Operations
   // ==========================================================================
 
-  /**
-   * Get cached user data for a token
-   *
-   * @param token - JWT token
-   * @returns Cached user data or null if not found/expired
-   */
   async get(token: string): Promise<CachedUserData | null> {
     const key = this.generateKey(token);
 
     // Try Redis first
-    if (this.isReady()) {
-      try {
-        const data = await this.client!.get(key);
-        if (data) {
-          const cached: CachedUserData = JSON.parse(data);
-          this.stats.hits++;
-          this.stats.redisHits++;
-          this.updateHitRate();
-          logger.debug('[TokenCache] Redis hit', { userId: cached.id });
-          return cached;
-        }
-      } catch (error) {
-        logger.warn('[TokenCache] Redis get failed', {
-          error: error instanceof Error ? error.message : 'Unknown',
-        });
-      }
+    const redisData = await this.tryRedis(() => this.client!.get(key), 'get');
+
+    if (redisData) {
+      const cached: CachedUserData = JSON.parse(redisData);
+      this.recordHit('redis');
+      logger.debug('[TokenCache] Redis hit', { userId: cached.id });
+      return cached;
     }
 
     // Try memory cache fallback
     if (this.config.enableMemoryFallback) {
       const cached = this.memoryCache.get(key);
       if (cached) {
-        this.stats.hits++;
-        this.stats.memoryHits++;
-        this.updateHitRate();
+        this.recordHit('memory');
         logger.debug('[TokenCache] Memory hit', { userId: cached.id });
         return cached;
       }
     }
 
-    this.stats.misses++;
-    this.updateHitRate();
+    this.recordMiss();
     return null;
   }
 
-  /**
-   * Cache user data for a token
-   *
-   * @param token - JWT token
-   * @param user - Supabase user object
-   */
   async set(token: string, user: User): Promise<void> {
     const key = this.generateKey(token);
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + this.config.ttlSeconds * 1000);
+    const ttlMs = this.config.ttlSeconds * 1000;
 
     const cached: CachedUserData = {
       id: user.id,
@@ -336,60 +307,34 @@ export class TokenCacheService {
       role: user.role,
       aud: user.aud,
       cachedAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
+      expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
     };
 
-    // Store in Redis
+    const serialized = JSON.stringify(cached);
+
+    await this.tryRedis(() => this.client!.setEx(key, this.config.ttlSeconds, serialized), 'set');
+
     if (this.isReady()) {
-      try {
-        await this.client!.setEx(key, this.config.ttlSeconds, JSON.stringify(cached));
-        logger.debug('[TokenCache] Cached in Redis', { userId: user.id });
-      } catch (error) {
-        logger.warn('[TokenCache] Redis set failed', {
-          error: error instanceof Error ? error.message : 'Unknown',
-        });
-      }
+      logger.debug('[TokenCache] Cached in Redis', { userId: user.id });
     }
 
-    // Also store in memory cache (for fallback and faster access)
     if (this.config.enableMemoryFallback) {
-      this.memoryCache.set(key, cached, this.config.ttlSeconds * 1000);
+      this.memoryCache.set(key, cached, ttlMs);
     }
   }
 
-  /**
-   * Invalidate cached token (e.g., on logout)
-   *
-   * @param token - JWT token to invalidate
-   */
   async invalidate(token: string): Promise<void> {
     const key = this.generateKey(token);
 
-    // Remove from Redis
-    if (this.isReady()) {
-      try {
-        await this.client!.del(key);
-      } catch (error) {
-        logger.warn('[TokenCache] Redis delete failed', {
-          error: error instanceof Error ? error.message : 'Unknown',
-        });
-      }
-    }
-
-    // Remove from memory cache
+    await this.tryRedis(() => this.client!.del(key), 'delete');
     this.memoryCache.delete(key);
 
     logger.debug('[TokenCache] Token invalidated');
   }
 
-  /**
-   * Clear all cached tokens
-   * Use with caution - invalidates all sessions
-   */
   async clear(): Promise<number> {
     let deletedCount = 0;
 
-    // Clear Redis
     if (this.isReady()) {
       try {
         const pattern = `${this.config.keyPrefix}*`;
@@ -413,12 +358,10 @@ export class TokenCacheService {
       }
     }
 
-    // Clear memory cache
-    const memorySize = this.memoryCache.size();
+    deletedCount += this.memoryCache.size();
     this.memoryCache.clear();
-    deletedCount += memorySize;
-
     this.resetStats();
+
     logger.info('[TokenCache] Cache cleared', { deletedCount });
     return deletedCount;
   }
@@ -440,11 +383,6 @@ export class TokenCacheService {
       memoryHits: 0,
       lastReset: new Date(),
     };
-  }
-
-  private updateHitRate(): void {
-    const total = this.stats.hits + this.stats.misses;
-    this.stats.hitRate = total > 0 ? this.stats.hits / total : 0;
   }
 
   getMemoryCacheSize(): number {

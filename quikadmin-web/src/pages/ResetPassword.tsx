@@ -14,10 +14,60 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Lock, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
+import {
+  AuthPageLayout,
+  PasswordRequirements,
+  PasswordVisibilityToggle,
+  SuccessState,
+} from '@/components/auth';
+import { validatePassword, validatePasswordsMatch } from '@/lib/validations/password';
 
-export default function ResetPassword() {
+function InvalidTokenView({ error }: { error: string | null }): React.ReactElement {
+  return (
+    <AuthPageLayout>
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-center text-destructive">
+          Invalid Reset Link
+        </CardTitle>
+        <CardDescription className="text-center">
+          {error || 'This password reset link is invalid or has expired.'}
+        </CardDescription>
+      </CardHeader>
+      <CardFooter className="flex flex-col space-y-3">
+        <Link to="/forgot-password" className="w-full">
+          <Button variant="default" className="w-full">
+            Request new reset link
+          </Button>
+        </Link>
+        <Link to="/login" className="w-full">
+          <Button variant="ghost" className="w-full">
+            Back to login
+          </Button>
+        </Link>
+      </CardFooter>
+    </AuthPageLayout>
+  );
+}
+
+function SuccessView(): React.ReactElement {
+  return (
+    <AuthPageLayout>
+      <CardContent className="pt-6">
+        <SuccessState
+          title="Password Reset Successful!"
+          message="Your password has been successfully reset."
+          submessage="Redirecting to login page..."
+          linkTo="/login"
+          linkText="Continue to login"
+        />
+      </CardContent>
+    </AuthPageLayout>
+  );
+}
+
+export default function ResetPassword(): React.ReactElement {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
@@ -36,7 +86,7 @@ export default function ResetPassword() {
   const [resetSuccess, , setResetSuccess] = useToggle(false);
 
   const { resetPassword, verifyResetToken } = useAuthStore();
-  // Redirect to login after reset success (auto-cleanup on unmount)
+
   useTimeout(
     () => {
       navigate('/login', {
@@ -46,9 +96,8 @@ export default function ResetPassword() {
     resetSuccess ? 3000 : null
   );
 
-  // Validate token on mount
   useEffect(() => {
-    const validateToken = async () => {
+    async function validateToken(): Promise<void> {
       if (!token) {
         setIsTokenValid(false);
         setError('Invalid or missing reset token');
@@ -58,63 +107,38 @@ export default function ResetPassword() {
       try {
         await verifyResetToken(token);
         setIsTokenValid(true);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setIsTokenValid(false);
-        setError(err.message || 'Invalid or expired reset link');
+        const message = err instanceof Error ? err.message : 'Invalid or expired reset link';
+        setError(message);
       }
-    };
+    }
 
     validateToken();
   }, [token, verifyResetToken]);
 
-  // Password strength validation
-  const validatePassword = (password: string): string[] => {
-    const errors: string[] = [];
-
-    if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
-    if (!/[A-Z]/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/[a-z]/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/[0-9]/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
-    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
-      errors.push('Password must contain at least one special character');
-    }
-
-    return errors;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError(null);
 
-    // Real-time password validation
     if (name === 'password') {
-      const errors = validatePassword(value);
-      setValidationErrors(errors);
+      const result = validatePassword(value);
+      setValidationErrors(result.errors);
     }
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setError(null);
 
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
+    if (!validatePasswordsMatch(formData.password, formData.confirmPassword)) {
       setError('Passwords do not match');
       return;
     }
 
-    // Validate password strength
-    const errors = validatePassword(formData.password);
-    if (errors.length > 0) {
+    const validation = validatePassword(formData.password);
+    if (!validation.isValid) {
       setError('Password does not meet requirements');
       return;
     }
@@ -130,203 +154,133 @@ export default function ResetPassword() {
       await resetPassword(token, formData.password);
       setResetSuccess(true);
       toast.success('Password reset successful!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password reset error:', err);
-      setError(err.message || 'Failed to reset password. Please try again.');
-      toast.error(err.message || 'Password reset failed');
+      const message =
+        err instanceof Error ? err.message : 'Failed to reset password. Please try again.';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  // Show error if token is invalid
   if (!isTokenValid) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-background dark:to-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center text-destructive">
-              Invalid Reset Link
-            </CardTitle>
-            <CardDescription className="text-center">
-              {error || 'This password reset link is invalid or has expired.'}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="flex flex-col space-y-3">
-            <Link to="/forgot-password" className="w-full">
-              <Button variant="default" className="w-full">
-                Request new reset link
-              </Button>
-            </Link>
-            <Link to="/login" className="w-full">
-              <Button variant="ghost" className="w-full">
-                Back to login
-              </Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      </div>
-    );
+    return <InvalidTokenView error={error} />;
   }
 
-  // Show success message
   if (resetSuccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-background dark:to-background p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <div className="rounded-full bg-success-light p-3">
-                <CheckCircle2 className="h-12 w-12 text-status-success" />
-              </div>
-
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold">Password Reset Successful!</h2>
-                <p className="text-sm text-muted-foreground">
-                  Your password has been successfully reset.
-                </p>
-                <p className="text-sm text-muted-foreground">Redirecting to login page...</p>
-              </div>
-
-              <Link to="/login" className="w-full pt-4">
-                <Button className="w-full">Continue to login</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <SuccessView />;
   }
+
+  const passwordsMatch = validatePasswordsMatch(formData.password, formData.confirmPassword);
+  const isSubmitDisabled = isLoading || validationErrors.length > 0 || !passwordsMatch;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted dark:from-background dark:to-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Reset your password</CardTitle>
-          <CardDescription>
-            {email ? `Resetting password for ${email}` : 'Enter your new password below'}
-          </CardDescription>
-        </CardHeader>
+    <AuthPageLayout>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-2xl font-bold">Reset your password</CardTitle>
+        <CardDescription>
+          {email ? `Resetting password for ${email}` : 'Enter your new password below'}
+        </CardDescription>
+      </CardHeader>
 
-        <form onSubmit={handleSubmit} data-testid="reset-password-form">
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+      <form onSubmit={handleSubmit} data-testid="reset-password-form">
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="password">New Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter new password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+                autoComplete="new-password"
+                className="w-full pr-10"
+                data-testid="reset-password-input"
+              />
+              <PasswordVisibilityToggle
+                showPassword={showPassword}
+                onToggle={toggleShowPassword}
+                testId="reset-toggle-password-visibility"
+              />
+            </div>
+
+            {formData.password && (
+              <PasswordRequirements
+                errors={validationErrors}
+                testId="password-strength-indicator"
+              />
             )}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter new password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  disabled={isLoading}
-                  autoComplete="new-password"
-                  className="w-full pr-10"
-                  data-testid="reset-password-input"
-                />
-                <button
-                  type="button"
-                  onClick={toggleShowPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-
-              {/* Password requirements */}
-              {formData.password && validationErrors.length > 0 && (
-                <div className="space-y-1 text-xs" data-testid="password-strength-indicator">
-                  <p className="text-muted-foreground font-medium">Password must contain:</p>
-                  <ul className="space-y-1">
-                    {validationErrors.map((err, idx) => (
-                      <li key={idx} className="text-destructive flex items-center gap-1">
-                        <span className="h-1 w-1 rounded-full bg-destructive" />
-                        {err}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Confirm new password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+                autoComplete="new-password"
+                className="w-full pr-10"
+                data-testid="reset-password-confirm-input"
+              />
+              <PasswordVisibilityToggle
+                showPassword={showConfirmPassword}
+                onToggle={toggleShowConfirmPassword}
+                testId="reset-toggle-confirm-password-visibility"
+              />
             </div>
+            {formData.confirmPassword && !passwordsMatch && (
+              <p className="text-xs text-destructive">Passwords do not match</p>
+            )}
+          </div>
+        </CardContent>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm new password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  disabled={isLoading}
-                  autoComplete="new-password"
-                  className="w-full pr-10"
-                  data-testid="reset-password-confirm-input"
-                />
-                <button
-                  type="button"
-                  onClick={toggleShowConfirmPassword}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  tabIndex={-1}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                <p className="text-xs text-destructive">Passwords do not match</p>
-              )}
-            </div>
-          </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isSubmitDisabled}
+            data-testid="reset-password-submit-button"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Resetting password...
+              </>
+            ) : (
+              <>
+                <Lock className="mr-2 h-4 w-4" />
+                Reset password
+              </>
+            )}
+          </Button>
 
-          <CardFooter className="flex flex-col space-y-4">
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={
-                isLoading ||
-                validationErrors.length > 0 ||
-                formData.password !== formData.confirmPassword
-              }
-              data-testid="reset-password-submit-button"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Resetting password...
-                </>
-              ) : (
-                <>
-                  <Lock className="mr-2 h-4 w-4" />
-                  Reset password
-                </>
-              )}
-            </Button>
-
-            <div className="text-center text-sm text-muted-foreground">
-              Remember your password?{' '}
-              <Link to="/login" className="font-medium text-primary hover:underline">
-                Back to login
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
+          <div className="text-center text-sm text-muted-foreground">
+            Remember your password?{' '}
+            <Link to="/login" className="font-medium text-primary hover:underline">
+              Back to login
+            </Link>
+          </div>
+        </CardFooter>
+      </form>
+    </AuthPageLayout>
   );
 }

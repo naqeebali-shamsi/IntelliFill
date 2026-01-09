@@ -59,6 +59,13 @@ interface DemoInfo {
   features: string[];
 }
 
+// Task 504: Server-side lockout status from API response
+interface ServerLockoutStatus {
+  isLocked: boolean;
+  attemptsRemaining: number;
+  lockoutExpiresAt: Date | null;
+}
+
 interface AuthState {
   user: AuthUser | null;
   tokens: AuthTokens | null;
@@ -73,6 +80,7 @@ interface AuthState {
   loginAttempts: number;
   isLocked: boolean;
   lockExpiry: number | null;
+  serverLockout: ServerLockoutStatus | null; // Task 504: Server-side lockout info
   lastActivity: number;
   rememberMe: boolean;
   isDemo: boolean; // Demo mode indicator
@@ -117,6 +125,7 @@ const initialState: AuthState = {
   loginAttempts: 0,
   isLocked: false,
   lockExpiry: null,
+  serverLockout: null, // Task 504: No server lockout initially
   lastActivity: Date.now(),
   rememberMe: false,
   isDemo: false,
@@ -189,14 +198,128 @@ function createAuthError(error: unknown): AppError {
 // =================== STORE IMPLEMENTATION ===================
 
 // Task 296: Helper to conditionally apply devtools only in development mode
-const applyDevtools = <T>(middleware: T) => {
+function applyDevtools<T>(middleware: T): T {
   if (import.meta.env.DEV) {
     return devtools(middleware as any, {
       name: 'IntelliFill Backend Auth Store',
     }) as T;
   }
   return middleware;
-};
+}
+
+// =================== ACTION HELPERS ===================
+
+type ImmerStateSetter = (fn: (state: AuthState) => void) => void;
+
+/** Sets loading state and clears error before an action */
+function startAction(set: ImmerStateSetter): void {
+  set((state) => {
+    state.isLoading = true;
+    state.error = null;
+  });
+}
+
+/** Clears loading state after action completes */
+function finishAction(set: ImmerStateSetter): void {
+  set((state) => {
+    state.isLoading = false;
+  });
+}
+
+/** Sets error and clears loading on failure */
+function handleActionError(set: ImmerStateSetter, error: unknown): AppError {
+  const authError = createAuthError(error);
+  set((state) => {
+    state.error = authError;
+    state.isLoading = false;
+  });
+  return authError;
+}
+
+interface AuthSuccessData {
+  user: AuthUser;
+  tokens: AuthTokens;
+  isDemo?: boolean;
+  demoInfo?: DemoInfo | null;
+  rememberMe?: boolean;
+}
+
+/** Updates state after successful authentication (login, register, demoLogin) */
+function setAuthenticatedState(set: ImmerStateSetter, data: AuthSuccessData): void {
+  const { user, tokens, isDemo = false, demoInfo = null, rememberMe = false } = data;
+
+  // Store access token in memory (Task 277: XSS mitigation)
+  tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
+
+  set((state) => {
+    state.user = user;
+    state.tokens = tokens;
+    state.tokenExpiresAt = tokens.expiresIn ? calculateTokenExpiresAt(tokens.expiresIn) : null;
+    state.isAuthenticated = true;
+    state.sessionIndicator = true;
+    state.isInitialized = true;
+    state.lastActivity = Date.now();
+    state.isDemo = isDemo;
+    state.demoInfo = demoInfo;
+    state.rememberMe = rememberMe;
+    state.loginAttempts = 0;
+    state.isLocked = false;
+    state.lockExpiry = null;
+    state.serverLockout = null;
+    state.isLoading = false;
+  });
+}
+
+/** Clears all session state */
+function clearSessionState(set: ImmerStateSetter): void {
+  tokenManager.clearToken();
+  set((state) => {
+    state.user = null;
+    state.tokens = null;
+    state.tokenExpiresAt = null;
+    state.isAuthenticated = false;
+    state.sessionIndicator = false;
+    state.isInitialized = true;
+    state.isLoading = false;
+    state.loadingStage = 'ready';
+  });
+}
+
+interface ServerLockoutInfo {
+  code?: string;
+  lockoutExpiresAt?: string;
+  attemptsRemaining?: number;
+}
+
+/** Updates lockout state from server error response */
+function handleLoginLockout(set: ImmerStateSetter, errorData: ServerLockoutInfo | undefined): void {
+  if (!errorData) return;
+
+  set((state) => {
+    state.loginAttempts += 1;
+
+    if (errorData.code === 'ACCOUNT_LOCKED') {
+      const expiresAt = errorData.lockoutExpiresAt ? new Date(errorData.lockoutExpiresAt) : null;
+      state.serverLockout = {
+        isLocked: true,
+        attemptsRemaining: 0,
+        lockoutExpiresAt: expiresAt,
+      };
+      state.isLocked = true;
+      state.lockExpiry = expiresAt ? expiresAt.getTime() : Date.now() + 15 * 60 * 1000;
+    } else if (errorData.attemptsRemaining !== undefined) {
+      state.serverLockout = {
+        isLocked: false,
+        attemptsRemaining: errorData.attemptsRemaining,
+        lockoutExpiresAt: null,
+      };
+    } else if (state.loginAttempts >= 5) {
+      // Fallback to client-side lockout if server doesn't provide info
+      state.isLocked = true;
+      state.lockExpiry = Date.now() + 15 * 60 * 1000;
+    }
+  });
+}
 
 export const useBackendAuthStore = create<AuthStore>()(
   applyDevtools(
@@ -207,10 +330,7 @@ export const useBackendAuthStore = create<AuthStore>()(
         // =================== AUTHENTICATION ===================
 
         login: async (credentials: LoginCredentials) => {
-          set((state) => {
-            state.isLoading = true;
-            state.error = null;
-          });
+          startAction(set);
 
           try {
             const response = await authService.login({
@@ -223,53 +343,26 @@ export const useBackendAuthStore = create<AuthStore>()(
             }
 
             const { user, tokens } = response.data;
-
             if (!tokens) {
               throw new Error('No tokens returned from login');
             }
 
-            // Store access token in memory (Task 277: XSS mitigation)
-            tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
-
-            set((state) => {
-              state.user = user;
-              state.tokens = tokens;
-              state.tokenExpiresAt = tokens.expiresIn
-                ? calculateTokenExpiresAt(tokens.expiresIn)
-                : null;
-              state.isAuthenticated = true;
-              state.sessionIndicator = true; // Task 292: Set session indicator
-              state.isInitialized = true; // Mark as initialized after successful login
-              state.lastActivity = Date.now();
-              state.rememberMe = credentials.rememberMe || false;
-              state.loginAttempts = 0;
-              state.isLocked = false;
-              state.lockExpiry = null;
-              state.isLoading = false;
+            setAuthenticatedState(set, {
+              user,
+              tokens,
+              rememberMe: credentials.rememberMe,
             });
           } catch (error: unknown) {
-            const authError = createAuthError(error);
-
-            set((state) => {
-              state.error = authError;
-              state.isLoading = false;
-              state.loginAttempts += 1;
-
-              if (state.loginAttempts >= 5) {
-                state.isLocked = true;
-                state.lockExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
-              }
-            });
-
+            const authError = handleActionError(set, error);
+            // Task 504: Handle server-side lockout
+            const errorData = (error as any).response?.data?.error;
+            handleLoginLockout(set, errorData);
             throw authError;
           }
         },
 
         register: async (data: RegisterData) => {
-          set((state) => {
-            state.isLoading = true;
-            state.error = null;
-          });
+          startAction(set);
 
           try {
             const response = await authService.register({
@@ -284,32 +377,19 @@ export const useBackendAuthStore = create<AuthStore>()(
 
             const { user, tokens } = response.data;
 
-            // Store access token in memory (Task 277: XSS mitigation)
-            if (tokens?.accessToken) {
-              tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
+            // Registration may not return tokens (email verification required)
+            if (tokens) {
+              setAuthenticatedState(set, { user, tokens });
+            } else {
+              set((state) => {
+                state.user = user;
+                state.isInitialized = true;
+                state.lastActivity = Date.now();
+                state.isLoading = false;
+              });
             }
-
-            set((state) => {
-              state.user = user;
-              state.tokens = tokens;
-              state.tokenExpiresAt = tokens?.expiresIn
-                ? calculateTokenExpiresAt(tokens.expiresIn)
-                : null;
-              state.isAuthenticated = !!tokens;
-              state.sessionIndicator = !!tokens; // Task 292: Set session indicator
-              state.isInitialized = true; // Mark as initialized after successful registration
-              state.lastActivity = Date.now();
-              state.isLoading = false;
-            });
           } catch (error: unknown) {
-            const authError = createAuthError(error);
-
-            set((state) => {
-              state.error = authError;
-              state.isLoading = false;
-            });
-
-            throw authError;
+            throw handleActionError(set, error);
           }
         },
 
@@ -320,18 +400,11 @@ export const useBackendAuthStore = create<AuthStore>()(
             console.warn('Logout request failed:', error);
           }
 
-          // Clear in-memory token (Task 277: XSS mitigation)
-          tokenManager.clearToken();
-
-          // Clear localStorage
+          // Clear localStorage before state to ensure clean slate
           localStorage.removeItem(AUTH_STORAGE_KEY);
 
+          clearSessionState(set);
           set((state) => {
-            state.user = null;
-            state.tokens = null;
-            state.tokenExpiresAt = null;
-            state.isAuthenticated = false;
-            state.sessionIndicator = false; // Task 292: Clear session indicator
             state.isDemo = false;
             state.demoInfo = null;
             state.error = null;
@@ -339,10 +412,7 @@ export const useBackendAuthStore = create<AuthStore>()(
         },
 
         demoLogin: async () => {
-          set((state) => {
-            state.isLoading = true;
-            state.error = null;
-          });
+          startAction(set);
 
           try {
             const response = await authService.demoLogin();
@@ -352,41 +422,18 @@ export const useBackendAuthStore = create<AuthStore>()(
             }
 
             const { user, tokens, demo } = response.data;
-
             if (!tokens) {
               throw new Error('No tokens returned from demo login');
             }
 
-            // Store access token in memory (Task 277: XSS mitigation)
-            tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
-
-            set((state) => {
-              state.user = user;
-              state.tokens = tokens;
-              state.tokenExpiresAt = tokens.expiresIn
-                ? calculateTokenExpiresAt(tokens.expiresIn)
-                : null;
-              state.isAuthenticated = true;
-              state.sessionIndicator = true; // Task 292: Set session indicator
-              state.isInitialized = true;
-              state.isDemo = true;
-              state.demoInfo = demo || null;
-              state.lastActivity = Date.now();
-              state.rememberMe = false;
-              state.loginAttempts = 0;
-              state.isLocked = false;
-              state.lockExpiry = null;
-              state.isLoading = false;
+            setAuthenticatedState(set, {
+              user,
+              tokens,
+              isDemo: true,
+              demoInfo: demo || null,
             });
           } catch (error: unknown) {
-            const authError = createAuthError(error);
-
-            set((state) => {
-              state.error = authError;
-              state.isLoading = false;
-            });
-
-            throw authError;
+            throw handleActionError(set, error);
           }
         },
 
@@ -490,36 +537,58 @@ export const useBackendAuthStore = create<AuthStore>()(
             state.loadingStage = 'rehydrating';
           });
 
+          /** Mark initialization complete without session */
+          const completeWithoutSession = (): void => {
+            set((state) => {
+              state.isInitialized = true;
+              state.isLoading = false;
+              state.loadingStage = 'ready';
+            });
+          };
+
+          /** Apply new tokens after successful refresh */
+          const applyRefreshedTokens = (newTokens: AuthTokens): void => {
+            tokenManager.setToken(newTokens.accessToken, newTokens.expiresIn);
+            set((state) => {
+              state.tokens = {
+                accessToken: newTokens.accessToken,
+                expiresIn: newTokens.expiresIn,
+                tokenType: newTokens.tokenType || 'Bearer',
+                refreshToken: newTokens.refreshToken || state.tokens?.refreshToken,
+              };
+              state.tokenExpiresAt = newTokens.expiresIn
+                ? calculateTokenExpiresAt(newTokens.expiresIn)
+                : null;
+              state.isAuthenticated = true;
+              state.isInitialized = true;
+              state.isLoading = false;
+              state.loadingStage = 'ready';
+              state.lastActivity = Date.now();
+            });
+          };
+
           try {
-            // Task 292: Use sessionIndicator instead of isAuthenticated for session detection
             const { sessionIndicator } = get();
             const hasInMemoryToken = tokenManager.hasToken();
 
             // Case 1: No session indicator - nothing to do
             if (!sessionIndicator) {
-              set((state) => {
-                state.isInitialized = true;
-                state.isLoading = false;
-                state.loadingStage = 'ready';
-              });
+              completeWithoutSession();
               return;
             }
 
             // Case 2: Session indicator exists but in-memory token is missing (page refresh)
             // Task 278: Attempt silent refresh using httpOnly refresh cookie
-            if (sessionIndicator && !hasInMemoryToken) {
-              // DEBUG: Log silent refresh attempt
+            if (!hasInMemoryToken) {
               console.log('[Auth DEBUG] Attempting silent refresh:', {
                 sessionIndicator,
                 hasInMemoryToken,
               });
-
               set((state) => {
                 state.loadingStage = 'validating';
               });
 
               try {
-                // Silent refresh - the httpOnly cookie is sent automatically
                 console.log('[Auth DEBUG] Calling authService.refreshToken()...');
                 const response = await authService.refreshToken();
                 console.log('[Auth DEBUG] refreshToken response:', {
@@ -529,27 +598,7 @@ export const useBackendAuthStore = create<AuthStore>()(
                 });
 
                 if (response.success && response.data?.tokens) {
-                  const newTokens = response.data.tokens;
-
-                  // Restore access token in memory (Task 277 + 278)
-                  tokenManager.setToken(newTokens.accessToken, newTokens.expiresIn);
-
-                  set((state) => {
-                    state.tokens = {
-                      accessToken: newTokens.accessToken,
-                      expiresIn: newTokens.expiresIn,
-                      tokenType: newTokens.tokenType || 'Bearer',
-                      refreshToken: newTokens.refreshToken || state.tokens?.refreshToken,
-                    };
-                    state.tokenExpiresAt = newTokens.expiresIn
-                      ? calculateTokenExpiresAt(newTokens.expiresIn)
-                      : null;
-                    state.isAuthenticated = true;
-                    state.isInitialized = true;
-                    state.isLoading = false;
-                    state.loadingStage = 'ready';
-                    state.lastActivity = Date.now();
-                  });
+                  applyRefreshedTokens(response.data.tokens);
 
                   // Fetch user data after successful refresh
                   try {
@@ -560,29 +609,16 @@ export const useBackendAuthStore = create<AuthStore>()(
                       });
                     }
                   } catch {
-                    // User data fetch failed but token is valid, continue
                     console.warn('[Auth] User data fetch failed after silent refresh');
                   }
-
                   return;
                 }
               } catch (refreshError) {
-                // Silent refresh failed - cookie expired or invalid
                 console.warn('[Auth] Silent refresh failed:', refreshError);
               }
 
-              // Silent refresh failed - clear session (Task 292: clear sessionIndicator)
-              tokenManager.clearToken();
-              set((state) => {
-                state.user = null;
-                state.tokens = null;
-                state.tokenExpiresAt = null;
-                state.isAuthenticated = false;
-                state.sessionIndicator = false; // Task 292: Clear session indicator
-                state.isInitialized = true;
-                state.isLoading = false;
-                state.loadingStage = 'ready';
-              });
+              // Silent refresh failed - clear session
+              clearSessionState(set);
               return;
             }
 
@@ -603,32 +639,11 @@ export const useBackendAuthStore = create<AuthStore>()(
                 state.loadingStage = 'ready';
               });
             } else {
-              // Token invalid, clear session (Task 292: clear sessionIndicator)
-              tokenManager.clearToken();
-              set((state) => {
-                state.user = null;
-                state.tokens = null;
-                state.tokenExpiresAt = null;
-                state.isAuthenticated = false;
-                state.sessionIndicator = false; // Task 292: Clear session indicator
-                state.isInitialized = true;
-                state.isLoading = false;
-                state.loadingStage = 'ready';
-              });
+              clearSessionState(set);
             }
           } catch (error) {
             console.error('Auth initialization error:', error);
-            tokenManager.clearToken();
-            set((state) => {
-              state.user = null;
-              state.tokens = null;
-              state.tokenExpiresAt = null;
-              state.isAuthenticated = false;
-              state.sessionIndicator = false; // Task 292: Clear session indicator
-              state.isInitialized = true;
-              state.isLoading = false;
-              state.loadingStage = 'ready';
-            });
+            clearSessionState(set);
           }
         },
 
@@ -677,44 +692,22 @@ export const useBackendAuthStore = create<AuthStore>()(
         // =================== PASSWORD RESET ===================
 
         requestPasswordReset: async (email: string) => {
-          set((state) => {
-            state.isLoading = true;
-            state.error = null;
-          });
-
+          startAction(set);
           try {
             await authService.requestPasswordReset(email);
-            set((state) => {
-              state.isLoading = false;
-            });
+            finishAction(set);
           } catch (error: unknown) {
-            const authError = createAuthError(error);
-            set((state) => {
-              state.error = authError;
-              state.isLoading = false;
-            });
-            throw authError;
+            throw handleActionError(set, error);
           }
         },
 
         resetPassword: async (token: string, password: string) => {
-          set((state) => {
-            state.isLoading = true;
-            state.error = null;
-          });
-
+          startAction(set);
           try {
             await authService.resetPassword(token, password);
-            set((state) => {
-              state.isLoading = false;
-            });
+            finishAction(set);
           } catch (error: unknown) {
-            const authError = createAuthError(error);
-            set((state) => {
-              state.error = authError;
-              state.isLoading = false;
-            });
-            throw authError;
+            throw handleActionError(set, error);
           }
         },
 
@@ -802,6 +795,7 @@ export const authSelectors = {
   loadingStage: (state: AuthStore) => state.loadingStage, // REQ-009
   error: (state: AuthStore) => state.error,
   isLocked: (state: AuthStore) => state.isLocked,
+  serverLockout: (state: AuthStore) => state.serverLockout, // Task 504
   isDemo: (state: AuthStore) => state.isDemo,
   demoInfo: (state: AuthStore) => state.demoInfo,
   canRetry: (state: AuthStore) =>

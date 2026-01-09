@@ -7,65 +7,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Loader2,
-  UserPlus,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  Check,
-  X,
-  Zap,
-  Shield,
-  Clock,
-} from 'lucide-react';
+import { Loader2, UserPlus, AlertCircle, Zap, Shield, Clock } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { ErrorCode } from '@/constants/errorCodes';
 import { Boxes } from '@/components/ui/background-boxes';
-import { SleekIconButton, AccentLine, AnimatedLogo } from '@/components';
+import { AccentLine, AnimatedLogo } from '@/components';
+import { PasswordVisibilityToggle, PasswordStrengthIndicator } from '@/components/auth';
+import { usePasswordValidation } from '@/hooks';
 import { cn } from '@/lib/utils';
 
-interface PasswordStrength {
-  score: number;
-  requirements: {
-    length: boolean;
-    uppercase: boolean;
-    lowercase: boolean;
-    number: boolean;
-    special: boolean;
-  };
-}
-
-const RequirementItem = ({
-  met,
-  text,
-  testId,
-}: {
-  met: boolean;
-  text: string;
-  testId?: string;
-}) => (
-  <div className="flex items-center gap-1 text-xs" data-testid={testId}>
-    {met ? (
-      <Check className="h-3 w-3 text-status-success" />
-    ) : (
-      <X className="h-3 w-3 text-muted-foreground/60" />
-    )}
-    <span className={met ? 'text-success-foreground' : 'text-muted-foreground'}>{text}</span>
-  </div>
+const INPUT_CLASS = cn(
+  'w-full h-11 bg-surface-1/50 border-sleek-line-default',
+  'placeholder:text-white/30 text-white',
+  'focus:border-primary focus:ring-1 focus:ring-primary/30',
+  'transition-colors'
 );
 
-export default function Register() {
+const CHECKBOX_CLASS =
+  'mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary';
+
+export default function Register(): React.ReactElement {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [showPassword, toggleShowPassword] = useToggle(false);
-  const [agreedToTerms, toggleAgreedToTerms, setAgreedToTerms] = useToggle(false);
-  const [marketingConsent, toggleMarketingConsent, setMarketingConsent] = useToggle(false);
+  const [agreedToTerms, , setAgreedToTerms] = useToggle(false);
+  const [marketingConsent, , setMarketingConsent] = useToggle(false);
 
-  // Get auth store state and actions
   const { register, clearError } = useAuthStore();
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -73,51 +44,35 @@ export default function Register() {
     confirmPassword: '',
   });
 
-  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>({
-    score: 0,
-    requirements: {
-      length: false,
-      uppercase: false,
-      lowercase: false,
-      number: false,
-      special: false,
-    },
-  });
+  const { strength, checkStrength, isValid, strengthColor } = usePasswordValidation();
 
-  const checkPasswordStrength = (password: string) => {
-    const requirements = {
-      length: password.length >= 8,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      number: /\d/.test(password),
-      special: /[@$!%*?&]/.test(password),
-    };
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
-    const score = Object.values(requirements).filter(Boolean).length;
+    if (name === 'password') {
+      checkStrength(value);
+    }
 
-    setPasswordStrength({
-      score,
-      requirements,
-    });
-  };
+    if (error) {
+      clearError();
+    }
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     clearError();
 
-    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
 
-    // Validate password strength
-    if (passwordStrength.score < 4) {
+    if (!isValid) {
       toast.error('Password does not meet all requirements');
       return;
     }
 
-    // Validate terms agreement
     if (!agreedToTerms) {
       toast.error('You must agree to the terms and conditions');
       return;
@@ -132,60 +87,32 @@ export default function Register() {
         marketingConsent,
       });
 
-      // Get the auth state to check if tokens are present
       const authState = useAuthStore.getState();
-
-      // Get redirect URL from query params (for invitation flow)
       const redirectParam = searchParams.get('redirect');
 
-      // Check if email verification is required (tokens will be null)
       if (!authState.tokens) {
-        // Email verification required - redirect to verify-email page
-        // Preserve redirect param through verification flow
         toast.success('Registration successful! Please check your email for verification code.');
         const verifyUrl = `/verify-email?email=${encodeURIComponent(formData.email)}${redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : ''}`;
         navigate(verifyUrl);
       } else {
-        // Development mode or verification disabled - direct login
         toast.success('Registration successful! Welcome aboard!');
         navigate(redirectParam || '/dashboard');
       }
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      // Error is already set in the store by the register action
-      // Show toast for better UX
-      if (err.code === ErrorCode.EMAIL_EXISTS) {
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+      console.error('Registration error:', error);
+
+      if (error.code === ErrorCode.EMAIL_EXISTS) {
         toast.error('An account with this email already exists');
-      } else if (err.code === ErrorCode.RATE_LIMIT) {
+      } else if (error.code === ErrorCode.RATE_LIMIT) {
         toast.error('Too many registration attempts. Please try again later.');
       } else {
-        toast.error(err.message || 'Registration failed. Please try again.');
+        toast.error(error.message || 'Registration failed. Please try again.');
       }
     }
-  };
+  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    // Check password strength when password changes
-    if (name === 'password') {
-      checkPasswordStrength(value);
-    }
-
-    // Clear error when user starts typing
-    if (error) clearError();
-  };
-
-  const getPasswordStrengthColor = () => {
-    if (passwordStrength.score <= 2) return 'bg-error';
-    if (passwordStrength.score <= 3) return 'bg-warning';
-    if (passwordStrength.score <= 4) return 'bg-success';
-    return 'bg-success';
-  };
+  const canSubmit = agreedToTerms && isValid && !isLoading;
 
   return (
     <div className="h-screen flex bg-slate-900 overflow-hidden relative">
@@ -196,7 +123,6 @@ export default function Register() {
 
       {/* Hero Section - Left side (Desktop only) */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 p-12 flex-col justify-between relative z-10 overflow-y-auto pointer-events-none [&_*]:pointer-events-auto">
-        {/* Content */}
         <div className="relative">
           <div className="mb-6">
             <AnimatedLogo variant="light" height={40} />
@@ -214,24 +140,9 @@ export default function Register() {
 
           {/* Feature highlights */}
           <div className="space-y-4 mb-8">
-            <div className="flex items-center gap-3 text-white/80">
-              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
-                <Zap className="h-4 w-4" />
-              </div>
-              <span className="text-[15px]">Set up in under 5 minutes</span>
-            </div>
-            <div className="flex items-center gap-3 text-white/80">
-              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
-                <Clock className="h-4 w-4" />
-              </div>
-              <span className="text-[15px]">14-day free trial with full features</span>
-            </div>
-            <div className="flex items-center gap-3 text-white/80">
-              <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
-                <Shield className="h-4 w-4" />
-              </div>
-              <span className="text-[15px]">Your data stays in the UAE region</span>
-            </div>
+            <FeatureHighlight icon={Zap} text="Set up in under 5 minutes" />
+            <FeatureHighlight icon={Clock} text="14-day free trial with full features" />
+            <FeatureHighlight icon={Shield} text="Your data stays in the UAE region" />
           </div>
         </div>
 
@@ -300,12 +211,7 @@ export default function Register() {
                   disabled={isLoading}
                   autoComplete="name"
                   data-testid="register-first-name-input"
-                  className={cn(
-                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
-                    'placeholder:text-white/30 text-white',
-                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                    'transition-colors'
-                  )}
+                  className={INPUT_CLASS}
                 />
               </div>
 
@@ -325,12 +231,7 @@ export default function Register() {
                   disabled={isLoading}
                   autoComplete="email"
                   data-testid="register-email-input"
-                  className={cn(
-                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
-                    'placeholder:text-white/30 text-white',
-                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                    'transition-colors'
-                  )}
+                  className={INPUT_CLASS}
                 />
               </div>
 
@@ -351,68 +252,22 @@ export default function Register() {
                     disabled={isLoading}
                     autoComplete="new-password"
                     data-testid="register-password-input"
-                    className={cn(
-                      'w-full h-11 bg-surface-1/50 border-sleek-line-default pr-11',
-                      'placeholder:text-white/30 text-white',
-                      'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                      'transition-colors'
-                    )}
+                    className={cn(INPUT_CLASS, 'pr-11')}
                   />
-                  <SleekIconButton
-                    variant="ghost"
-                    size="sm"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    onClick={toggleShowPassword}
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-white/50" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-white/50" />
-                    )}
-                  </SleekIconButton>
+                  <PasswordVisibilityToggle
+                    showPassword={showPassword}
+                    onToggle={toggleShowPassword}
+                    testId="register-toggle-password-visibility"
+                    disabled={isLoading}
+                  />
                 </div>
 
                 {formData.password && (
-                  <div className="space-y-2 mt-2" data-testid="password-requirements">
-                    <div className="flex gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`h-1 flex-1 rounded-full ${
-                            i < passwordStrength.score ? getPasswordStrengthColor() : 'bg-white/10'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
-                      <RequirementItem
-                        met={passwordStrength.requirements.length}
-                        text="8+ characters"
-                        testId="password-requirement-length"
-                      />
-                      <RequirementItem
-                        met={passwordStrength.requirements.uppercase}
-                        text="Uppercase"
-                        testId="password-requirement-uppercase"
-                      />
-                      <RequirementItem
-                        met={passwordStrength.requirements.lowercase}
-                        text="Lowercase"
-                        testId="password-requirement-lowercase"
-                      />
-                      <RequirementItem
-                        met={passwordStrength.requirements.number}
-                        text="Number"
-                        testId="password-requirement-number"
-                      />
-                      <RequirementItem
-                        met={passwordStrength.requirements.special}
-                        text="Special char"
-                        testId="password-requirement-special"
-                      />
-                    </div>
-                  </div>
+                  <PasswordStrengthIndicator
+                    score={strength.score}
+                    requirements={strength.requirements}
+                    strengthColor={strengthColor}
+                  />
                 )}
               </div>
 
@@ -432,12 +287,7 @@ export default function Register() {
                   disabled={isLoading}
                   autoComplete="new-password"
                   data-testid="register-confirm-password-input"
-                  className={cn(
-                    'w-full h-11 bg-surface-1/50 border-sleek-line-default',
-                    'placeholder:text-white/30 text-white',
-                    'focus:border-primary focus:ring-1 focus:ring-primary/30',
-                    'transition-colors'
-                  )}
+                  className={INPUT_CLASS}
                 />
               </div>
 
@@ -449,7 +299,7 @@ export default function Register() {
                   onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
                   disabled={isLoading}
                   data-testid="terms-checkbox"
-                  className="mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  className={CHECKBOX_CLASS}
                 />
                 <label htmlFor="terms" className="text-sm text-white/60 cursor-pointer">
                   I agree to the{' '}
@@ -477,7 +327,7 @@ export default function Register() {
                   onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
                   disabled={isLoading}
                   data-testid="marketing-checkbox"
-                  className="mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  className={CHECKBOX_CLASS}
                 />
                 <label
                   htmlFor="marketing"
@@ -491,7 +341,7 @@ export default function Register() {
               <Button
                 type="submit"
                 className="w-full h-11 text-[15px] font-medium mt-2"
-                disabled={isLoading || !agreedToTerms || passwordStrength.score < 4}
+                disabled={!canSubmit}
                 data-testid="register-submit-button"
               >
                 {isLoading ? (
@@ -531,28 +381,45 @@ export default function Register() {
           >
             <h3 className="font-medium text-sm mb-3 text-center text-white/80">Why IntelliFill?</h3>
             <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-xs text-white/60">5 min setup</span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-xs text-white/60">14-day trial</span>
-              </div>
-              <div className="flex flex-col items-center gap-1.5">
-                <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
-                  <Shield className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-xs text-white/60">UAE hosted</span>
-              </div>
+              <MobileFeature icon={Zap} text="5 min setup" />
+              <MobileFeature icon={Clock} text="14-day trial" />
+              <MobileFeature icon={Shield} text="UAE hosted" />
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+interface FeatureHighlightProps {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}
+
+function FeatureHighlight({ icon: Icon, text }: FeatureHighlightProps): React.ReactElement {
+  return (
+    <div className="flex items-center gap-3 text-white/80">
+      <div className="h-9 w-9 rounded-full border border-white/20 flex items-center justify-center">
+        <Icon className="h-4 w-4" />
+      </div>
+      <span className="text-[15px]">{text}</span>
+    </div>
+  );
+}
+
+interface MobileFeatureProps {
+  icon: React.ComponentType<{ className?: string }>;
+  text: string;
+}
+
+function MobileFeature({ icon: Icon, text }: MobileFeatureProps): React.ReactElement {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="h-8 w-8 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center">
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <span className="text-xs text-white/60">{text}</span>
     </div>
   );
 }

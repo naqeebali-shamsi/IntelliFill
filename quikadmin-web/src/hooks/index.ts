@@ -29,6 +29,10 @@ export * from './useVirtualTable';
 // Error handling hooks
 export * from './useGlobalErrorHandlers';
 
+// Auth hooks
+export * from './useLockoutCountdown';
+export * from './usePasswordValidation';
+
 // =============================================================================
 // FOUNDATION HOOKS (from usehooks-ts)
 // Re-exported for consistent import paths across codebase
