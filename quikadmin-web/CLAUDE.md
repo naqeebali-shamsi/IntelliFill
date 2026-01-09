@@ -72,7 +72,7 @@ quikadmin-web/
 │   ├── types/            # TypeScript type definitions
 │   ├── lib/              # Utilities and helpers
 │   └── styles/           # Global styles
-├── cypress/              # E2E tests
+├── e2e/                  # E2E tests (Playwright)
 ├── docs/                 # Frontend-specific docs
 └── public/               # Static assets
 ```
@@ -592,6 +592,140 @@ describe('exampleStore', () => {
 
 ---
 
+## E2E Testing Prerequisites
+
+Before running E2E tests, you must seed test users in the database:
+
+```bash
+# From project root or quikadmin directory
+cd quikadmin && npx tsx scripts/seed-e2e-users.ts
+```
+
+This script:
+
+- Creates test users in Supabase Auth
+- Syncs users to Prisma database
+- Generates proper bcrypt password hashes
+- Creates organization memberships
+- Verifies all data with bcrypt.compare validation
+
+**Required services running:**
+
+- Backend: `cd quikadmin && npm run dev` (port 3002)
+- Frontend: `cd quikadmin-web && bun run dev` (port 8080)
+- Database: PostgreSQL (cloud-hosted via Neon)
+- Redis: `docker run -d -p 6379:6379 redis:alpine`
+
+**Test user credentials** (defined in `e2e/data/test-users.json`):
+
+| Email                                   | Password                | Role   |
+| --------------------------------------- | ----------------------- | ------ |
+| `test-admin@intellifill.local`          | `TestAdmin123!`         | ADMIN  |
+| `test-owner@intellifill.local`          | `TestOwner123!`         | OWNER  |
+| `test-member@intellifill.local`         | `TestMember123!`        | MEMBER |
+| `test-viewer@intellifill.local`         | `TestViewer123!`        | VIEWER |
+| `test-password-reset@intellifill.local` | `TestPasswordReset123!` | MEMBER |
+
+**Troubleshooting:** See `docs/how-to/troubleshooting/e2e-auth.md` for authentication issues, password mismatches, or login failures.
+
+---
+
+## E2E Testing Architecture
+
+### Project Dependencies Pattern
+
+Tests use Playwright's project dependencies for reliable setup/teardown:
+
+```typescript
+// playwright.config.ts structure
+projects: [
+  { name: 'setup', testMatch: /global\.setup\.ts/, teardown: 'cleanup' },
+  { name: 'cleanup', testMatch: /global\.teardown\.ts/ },
+  { name: 'chromium-*', dependencies: ['setup'] },
+];
+```
+
+- **Setup project** runs first: API health check, user verification
+- **Browser projects** depend on setup completing
+- **Cleanup project** runs after all tests: logout, clear auth, database cleanup
+
+### Worker Isolation
+
+Each Playwright worker maintains isolated resources:
+
+```typescript
+// Per-worker resource tracking prevents race conditions
+workerResources: [
+  async ({}, use, workerInfo) => {
+    const resources = { organizations: [], documents: [], workerId: workerInfo.workerIndex };
+    await use(resources);
+    // Cleanup happens when worker completes
+  },
+  { scope: 'worker' },
+];
+```
+
+### Storage State Management
+
+Authentication uses mutex-protected storage states:
+
+1. **Check validity**: File age + JWT expiration
+2. **Acquire lock**: Atomic file creation prevents race
+3. **Double-check**: Verify after lock (another worker may have created)
+4. **Create/reuse**: Login or use existing valid state
+
+### Running E2E Tests
+
+```bash
+# Full automated suite (seeds users, runs tests)
+bun run test:e2e:auto
+
+# Specific viewport
+bun run test:e2e:auto -- --project=chromium-desktop
+
+# Interactive UI mode
+bun run test:e2e:ui
+
+# Debug mode
+bun run test:e2e:debug
+
+# CI mode (2 viewports for speed)
+CI=true bun run test:e2e
+
+# Full viewport matrix in CI
+FULL_VIEWPORT_MATRIX=true CI=true bun run test:e2e
+```
+
+### E2E Troubleshooting
+
+| Issue                | Solution                                                        |
+| -------------------- | --------------------------------------------------------------- |
+| Auth failures        | Check error message for specific user and troubleshooting hints |
+| Flaky parallel tests | Verify fixtures use `workerResources` not global arrays         |
+| Windows path errors  | `run-e2e-automated.js` uses platform-aware binary resolution    |
+| JWT token expired    | Storage state validation includes 2-minute expiry buffer        |
+| Orphaned test data   | Global cleanup runs after all tests via project dependency      |
+
+### E2E File Structure
+
+```
+e2e/
+├── global.setup.ts       # Runs first: health check, user verify
+├── global.teardown.ts    # Runs last: logout, cleanup
+├── fixtures/
+│   ├── auth.fixture.ts   # Auth with mutex + JWT validation
+│   └── org.fixture.ts    # Per-worker resource tracking
+├── helpers/
+│   ├── supabase.helper.ts # Password restoration
+│   └── api.helper.ts
+├── tests/
+│   └── auth/
+│       └── login.spec.ts # Uses afterEach password restore
+└── .auth/                # Cached storage states
+```
+
+---
+
 ## Environment Variables
 
 All frontend environment variables must be prefixed with `VITE_`:
@@ -664,4 +798,4 @@ const isProd = import.meta.env.PROD;
 
 ---
 
-**Last Updated**: 2025-11-25
+**Last Updated**: 2026-01-09

@@ -14,11 +14,12 @@ IntelliFill/
 
 ## Running Services
 
-| Service       | Port | Command                           |
-| ------------- | ---- | --------------------------------- |
-| Backend       | 3002 | `cd quikadmin && npm run dev`     |
-| Frontend      | 8080 | `cd quikadmin-web && bun run dev` |
-| Prisma Studio | 5555 | `npx prisma studio`               |
+| Service       | Port | Command                                   |
+| ------------- | ---- | ----------------------------------------- |
+| Backend       | 3002 | `cd quikadmin && npm run dev`             |
+| Frontend      | 8080 | `cd quikadmin-web && bun run dev`         |
+| Prisma Studio | 5555 | `npx prisma studio`                       |
+| Redis (opt.)  | 6379 | `docker run -d -p 6379:6379 redis:alpine` |
 
 ## Key API Endpoints
 
@@ -54,7 +55,48 @@ VITE_USE_BACKEND_AUTH=true
 VITE_API_URL=http://localhost:3002/api
 ```
 
+## E2E Testing Quick Reference
+
+**Before running E2E tests, seed test users:**
+
+```bash
+cd quikadmin && npx tsx scripts/seed-e2e-users.ts
+```
+
+**Test credentials:**
+
+| Email                                   | Password                | Role   |
+| --------------------------------------- | ----------------------- | ------ |
+| `test-admin@intellifill.local`          | `TestAdmin123!`         | ADMIN  |
+| `test-owner@intellifill.local`          | `TestOwner123!`         | OWNER  |
+| `test-member@intellifill.local`         | `TestMember123!`        | MEMBER |
+| `test-viewer@intellifill.local`         | `TestViewer123!`        | VIEWER |
+| `test-password-reset@intellifill.local` | `TestPasswordReset123!` | MEMBER |
+
+**Run tests:**
+
+```bash
+cd quikadmin-web && bun run test:e2e:auto   # Full automated suite
+cd quikadmin-web && bun run test:e2e:ui     # Interactive UI mode
+cd quikadmin-web && bun run test:e2e:debug  # Debug mode
+```
+
+**Troubleshooting:** `docs/how-to/troubleshooting/e2e-auth.md`
+
+---
+
 ## Known Issues
+
+- **pnpm Lockfile Sync (Vercel Deploy)**: After adding/removing dependencies in `quikadmin/package.json` or `quikadmin-web/package.json`, you MUST update the root lockfile:
+
+  ```bash
+  cd N:\IntelliFill && pnpm install
+  git add pnpm-lock.yaml && git commit -m "fix(deploy): sync pnpm lockfile"
+  ```
+
+  Vercel uses `--frozen-lockfile` by default. If lockfile is out of sync, deployment fails with `ERR_PNPM_OUTDATED_LOCKFILE`.
+
+- **No Local File Dependencies**: Never use `file:../path` dependencies in package.json - they break Vercel deployment. If integrating external code, copy it into the codebase (e.g., `src/multiagent/`) instead of referencing external directories.
 
 - **Redis**: Required for production. Rate limiting falls back to in-memory (dev only), but queues require Redis.
   - For production: Set up Upstash Redis (see `docs/how-to/deployment/upstash-redis-setup.md`)
@@ -96,4 +138,4 @@ There's a file modification bug in Claude Code. The workaround is: always use co
 with drive letters and backslashes for ALL file operations. Apply this rule going forward, not just for this
 file.
 
-Last Updated: 2026-01-02
+Last Updated: 2026-01-03
