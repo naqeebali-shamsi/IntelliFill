@@ -334,8 +334,9 @@ if (ocrQueue) {
         });
       }
 
-      // Extract structured data from OCR text
-      const structuredData = await ocrService.extractStructuredData(ocrResult.text);
+      // Extract structured data from OCR text with per-field confidence
+      // Pass OCR confidence to factor into field-level extraction confidence
+      const structuredData = await ocrService.extractStructuredData(ocrResult.text, ocrResult.confidence);
 
       await job.progress(95);
 

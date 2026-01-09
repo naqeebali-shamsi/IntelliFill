@@ -654,68 +654,92 @@ describe('OCRService', () => {
   });
 
   // ==========================================================================
-  // Structured Data Extraction Tests
+  // Structured Data Extraction Tests (Updated for Per-Field Confidence)
   // ==========================================================================
 
   describe('extractStructuredData', () => {
-    it('should extract email addresses', async () => {
+    it('should extract email addresses with confidence', async () => {
       const text = 'Contact us at support@example.com or sales@company.org';
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.email).toEqual(['support@example.com', 'sales@company.org']);
+      expect(result.email).toBeDefined();
+      expect(result.email).toHaveLength(2);
+      expect(result.email![0].value).toBe('support@example.com');
+      expect(result.email![0].confidence).toBeGreaterThan(0);
+      expect(result.email![0].source).toBe('pattern');
+      expect(result.email![1].value).toBe('sales@company.org');
     });
 
-    it('should extract phone numbers', async () => {
+    it('should extract phone numbers with confidence', async () => {
       const text = 'Call 555-1234 or (123) 456-7890';
 
       const result = await service.extractStructuredData(text);
 
       expect(result.phone).toBeDefined();
-      expect(result.phone.length).toBeGreaterThan(0);
+      expect(result.phone!.length).toBeGreaterThan(0);
+      expect(result.phone![0].confidence).toBeGreaterThan(0);
+      expect(result.phone![0].source).toBe('pattern');
     });
 
-    it('should extract dates', async () => {
+    it('should extract dates with confidence', async () => {
       const text = 'Meeting on 12/15/2025 and 2025-01-20';
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.date).toEqual(['12/15/2025', '2025-01-20']);
+      expect(result.date).toBeDefined();
+      expect(result.date).toHaveLength(2);
+      expect(result.date![0].value).toBe('12/15/2025');
+      expect(result.date![1].value).toBe('2025-01-20');
+      // ISO format should have higher confidence
+      expect(result.date![1].confidence).toBeGreaterThanOrEqual(result.date![0].confidence);
     });
 
-    it('should extract SSN', async () => {
+    it('should extract SSN with confidence', async () => {
       const text = 'SSN: 123-45-6789';
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.ssn).toEqual(['123-45-6789']);
+      expect(result.ssn).toBeDefined();
+      expect(result.ssn![0].value).toBe('123-45-6789');
+      // Base 92 + line-start boost (key-value pattern) = 97, clamped to valid range
+      expect(result.ssn![0].confidence).toBeGreaterThanOrEqual(85);
     });
 
-    it('should extract zip codes', async () => {
+    it('should extract zip codes with confidence', async () => {
       const text = 'Address: 12345 or 67890-1234';
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.zipCode).toEqual(['12345', '67890-1234']);
+      expect(result.zipCode).toBeDefined();
+      expect(result.zipCode).toHaveLength(2);
+      expect(result.zipCode![0].value).toBe('12345');
+      expect(result.zipCode![1].value).toBe('67890-1234');
     });
 
-    it('should extract currency amounts', async () => {
+    it('should extract currency amounts with confidence', async () => {
       const text = 'Total: $1,234.56 or €999.99';
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.currency).toEqual(['$1,234.56', '€999.99']);
+      expect(result.currency).toBeDefined();
+      expect(result.currency).toHaveLength(2);
+      expect(result.currency![0].value).toBe('$1,234.56');
+      expect(result.currency![1].value).toBe('€999.99');
     });
 
-    it('should extract percentages', async () => {
+    it('should extract percentages with confidence', async () => {
       const text = 'Interest rate: 3.5% or 10.25%';
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.percentage).toEqual(['3.5%', '10.25%']);
+      expect(result.percentage).toBeDefined();
+      expect(result.percentage).toHaveLength(2);
+      expect(result.percentage![0].value).toBe('3.5%');
+      expect(result.percentage![1].value).toBe('10.25%');
     });
 
-    it('should extract key-value pairs', async () => {
+    it('should extract key-value pairs with confidence', async () => {
       const text = `
         Name: John Doe
         Email: john@example.com
@@ -725,9 +749,12 @@ describe('OCRService', () => {
       const result = await service.extractStructuredData(text);
 
       expect(result.fields).toBeDefined();
-      expect(result.fields.name).toBe('John Doe');
-      expect(result.fields.email).toBe('john@example.com');
-      expect(result.fields.phone).toBe('555-1234');
+      expect(result.fields.name).toBeDefined();
+      expect(result.fields.name.value).toBe('John Doe');
+      expect(result.fields.name.confidence).toBeGreaterThan(0);
+      expect(result.fields.name.source).toBe('pattern');
+      expect(result.fields.email.value).toBe('john@example.com');
+      expect(result.fields.phone.value).toBe('555-1234');
     });
 
     it('should deduplicate extracted values', async () => {
@@ -735,13 +762,270 @@ describe('OCRService', () => {
 
       const result = await service.extractStructuredData(text);
 
-      expect(result.email).toEqual(['support@example.com']); // Only once
+      expect(result.email).toBeDefined();
+      expect(result.email).toHaveLength(1); // Only once
+      expect(result.email![0].value).toBe('support@example.com');
     });
 
     it('should handle empty text', async () => {
       const result = await service.extractStructuredData('');
 
       expect(result.fields).toEqual({});
+      expect(result.email).toBeUndefined();
+      expect(result.phone).toBeUndefined();
+    });
+
+    it('should extract passport numbers with confidence', async () => {
+      const text = 'Passport: AB1234567';
+
+      const result = await service.extractStructuredData(text);
+
+      expect(result.passport).toBeDefined();
+      expect(result.passport![0].value).toBe('AB1234567');
+      expect(result.passport![0].confidence).toBeGreaterThanOrEqual(90);
+    });
+
+    it('should extract Emirates ID with confidence', async () => {
+      const text = 'Emirates ID: 784-1990-1234567-1';
+
+      const result = await service.extractStructuredData(text);
+
+      expect(result.emiratesId).toBeDefined();
+      expect(result.emiratesId![0].value).toBe('784-1990-1234567-1');
+      // Base 95 + pattern-specific boost (complete format +3) = 98
+      expect(result.emiratesId![0].confidence).toBeGreaterThanOrEqual(90);
+    });
+
+    it('should apply OCR confidence multiplier', async () => {
+      const text = 'support@example.com';
+
+      // High OCR confidence
+      const highConfResult = await service.extractStructuredData(text, 100);
+      // Low OCR confidence
+      const lowConfResult = await service.extractStructuredData(text, 50);
+
+      expect(highConfResult.email![0].confidence).toBeGreaterThan(lowConfResult.email![0].confidence);
+    });
+  });
+
+  // ==========================================================================
+  // Per-Field Confidence Calculation Tests (Task 482)
+  // ==========================================================================
+
+  describe('calculateFieldConfidence', () => {
+    describe('Base Confidence Factors', () => {
+      it('should return base confidence of 95 for email patterns', () => {
+        const confidence = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 100);
+        // Base 95 + line-start boost (+5) + common domain (.com +3) = ~103 -> clamped to 100
+        expect(confidence).toBeGreaterThanOrEqual(95);
+        expect(confidence).toBeLessThanOrEqual(100);
+      });
+
+      it('should return base confidence of 80 for phone patterns', () => {
+        const confidence = service.calculateFieldConfidence('phone', '555-123-4567', 0, 'Call 555-123-4567', 100);
+        expect(confidence).toBeGreaterThanOrEqual(70);
+        expect(confidence).toBeLessThanOrEqual(90);
+      });
+
+      it('should return base confidence of 85 for date patterns', () => {
+        const confidence = service.calculateFieldConfidence('date', '12/25/2025', 0, 'Date: 12/25/2025', 100);
+        expect(confidence).toBeGreaterThanOrEqual(80);
+        expect(confidence).toBeLessThanOrEqual(95);
+      });
+
+      it('should return base confidence of 90-95 for passport patterns', () => {
+        const confidence = service.calculateFieldConfidence('passport', 'AB1234567', 0, 'Passport: AB1234567', 100);
+        expect(confidence).toBeGreaterThanOrEqual(90);
+        expect(confidence).toBeLessThanOrEqual(100);
+      });
+
+      it('should return base confidence of 95 for Emirates ID patterns', () => {
+        const confidence = service.calculateFieldConfidence('emiratesId', '784-1990-1234567-1', 0, 'ID: 784-1990-1234567-1', 100);
+        // Base 95 + complete format boost (+3) = 98
+        expect(confidence).toBeGreaterThanOrEqual(90);
+        expect(confidence).toBeLessThanOrEqual(100);
+      });
+
+      it('should return base confidence of 70-80 for key-value pairs', () => {
+        const confidence = service.calculateFieldConfidence('keyValue', 'John Doe', 0, 'Name: John Doe', 100);
+        expect(confidence).toBeGreaterThanOrEqual(70);
+        expect(confidence).toBeLessThanOrEqual(85);
+      });
+    });
+
+    describe('Line-Start Boost (+5)', () => {
+      it('should boost confidence for line-start matches', () => {
+        const lineStartText = 'support@example.com is the email';
+        const midLineText = 'Contact support@example.com for help';
+
+        const lineStartConf = service.calculateFieldConfidence('email', 'support@example.com', 0, lineStartText, 100);
+        const midLineConf = service.calculateFieldConfidence('email', 'support@example.com', 8, midLineText, 100);
+
+        // Line-start should be higher (up to +5)
+        expect(lineStartConf).toBeGreaterThanOrEqual(midLineConf);
+      });
+
+      it('should boost confidence for matches at newline start', () => {
+        const text = 'Header line\nsupport@example.com';
+
+        const confidence = service.calculateFieldConfidence('email', 'support@example.com', 12, text, 100);
+        // Should get line-start boost since it's after a newline
+        expect(confidence).toBeGreaterThanOrEqual(95);
+      });
+    });
+
+    describe('OCR Artifact Penalty (-5)', () => {
+      it('should penalize matches with ambiguous l1 pattern (OCR artifact)', () => {
+        const cleanEmail = 'test@example.com';
+        const artifactEmail = 'testl1@example.com'; // l followed by 1 is ambiguous
+
+        const cleanConf = service.calculateFieldConfidence('email', cleanEmail, 0, cleanEmail, 100);
+        const artifactConf = service.calculateFieldConfidence('email', artifactEmail, 0, artifactEmail, 100);
+
+        // Artifact-containing match should be penalized
+        expect(artifactConf).toBeLessThan(cleanConf);
+      });
+
+      it('should penalize matches with ambiguous lI pattern (OCR artifact)', () => {
+        const artifactEmail = 'testlI@example.com'; // lowercase l followed by uppercase I
+        const confidence = service.calculateFieldConfidence('email', artifactEmail, 0, artifactEmail, 100);
+        // Should be penalized for OCR artifact
+        expect(confidence).toBeLessThanOrEqual(98);
+      });
+
+      it('should penalize matches containing |l (pipe/l confusion)', () => {
+        const confidence = service.calculateFieldConfidence('phone', '555|l23-4567', 0, '555|l23-4567', 100);
+        // Should be penalized for OCR artifact pattern
+        expect(confidence).toBeLessThanOrEqual(80);
+      });
+
+      it('should penalize matches with O0 pattern (common OCR confusion)', () => {
+        const text = 'testO0@example.com'; // O followed by 0 is ambiguous
+        const confidence = service.calculateFieldConfidence('email', text, 0, text, 100);
+        // Should be penalized for OCR artifact
+        expect(confidence).toBeLessThan(100);
+      });
+
+      it('should NOT penalize normal text without ambiguous patterns', () => {
+        const text = '123-45-6789'; // Normal SSN with 1 and 0, but not ambiguous combos
+        const confidence = service.calculateFieldConfidence('ssn', text, 0, text, 100);
+        // Should have high confidence since there are no ambiguous patterns
+        expect(confidence).toBeGreaterThanOrEqual(90);
+      });
+    });
+
+    describe('OCR Confidence Multiplier', () => {
+      it('should apply full confidence when OCR confidence is 100%', () => {
+        const confidence = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 100);
+        expect(confidence).toBeGreaterThanOrEqual(95);
+      });
+
+      it('should reduce confidence when OCR confidence is 50%', () => {
+        const fullConf = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 100);
+        const halfConf = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 50);
+
+        // At 50% OCR confidence, field confidence should be roughly halved
+        expect(halfConf).toBeLessThan(fullConf);
+        expect(halfConf).toBeLessThanOrEqual(fullConf * 0.6); // Allow some tolerance
+      });
+
+      it('should drastically reduce confidence when OCR confidence is 10%', () => {
+        const confidence = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 10);
+        // Should be very low
+        expect(confidence).toBeLessThanOrEqual(15);
+      });
+
+      it('should handle 0% OCR confidence', () => {
+        const confidence = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 0);
+        // With 0% OCR confidence, the multiplier is 0, but then pattern-specific adjustments still apply
+        // Base 95 * 0 = 0, then +3 for .com, +5 for line-start = 8, clamped to 0-100 range
+        // Note: The multiplier is applied BEFORE pattern adjustments
+        expect(confidence).toBeLessThanOrEqual(10);
+      });
+    });
+
+    describe('Pattern-Specific Adjustments', () => {
+      describe('Email Adjustments', () => {
+        it('should boost confidence for common domains (.com, .org, .net)', () => {
+          // Use 80% OCR confidence to avoid clamping to 100, making comparison meaningful
+          const comConf = service.calculateFieldConfidence('email', 'test@example.com', 5, 'Call test@example.com', 80);
+          const orgConf = service.calculateFieldConfidence('email', 'test@example.org', 5, 'Call test@example.org', 80);
+          const netConf = service.calculateFieldConfidence('email', 'test@example.net', 5, 'Call test@example.net', 80);
+          const xyzConf = service.calculateFieldConfidence('email', 'test@example.xyz', 5, 'Call test@example.xyz', 80);
+
+          // Common domains should have higher confidence (+3 boost)
+          expect(comConf).toBeGreaterThan(xyzConf);
+          expect(orgConf).toBeGreaterThan(xyzConf);
+          expect(netConf).toBeGreaterThan(xyzConf);
+        });
+
+        it('should penalize very short local parts', () => {
+          const shortConf = service.calculateFieldConfidence('email', 'ab@example.com', 0, 'ab@example.com', 100);
+          const longConf = service.calculateFieldConfidence('email', 'john.doe@example.com', 0, 'john.doe@example.com', 100);
+
+          expect(shortConf).toBeLessThan(longConf);
+        });
+      });
+
+      describe('Phone Adjustments', () => {
+        it('should boost confidence for international format', () => {
+          const intlConf = service.calculateFieldConfidence('phone', '+1-555-123-4567', 0, '+1-555-123-4567', 100);
+          const localConf = service.calculateFieldConfidence('phone', '555-123-4567', 0, '555-123-4567', 100);
+
+          expect(intlConf).toBeGreaterThan(localConf);
+        });
+
+        it('should penalize very short phone numbers', () => {
+          const shortConf = service.calculateFieldConfidence('phone', '555-12', 0, '555-12', 100);
+          const normalConf = service.calculateFieldConfidence('phone', '555-123-4567', 0, '555-123-4567', 100);
+
+          expect(shortConf).toBeLessThan(normalConf);
+        });
+      });
+
+      describe('Date Adjustments', () => {
+        it('should boost confidence for ISO format dates', () => {
+          const isoConf = service.calculateFieldConfidence('date', '2025-12-25', 0, '2025-12-25', 100);
+          const usConf = service.calculateFieldConfidence('date', '12/25/2025', 0, '12/25/2025', 100);
+
+          expect(isoConf).toBeGreaterThanOrEqual(usConf);
+        });
+      });
+
+      describe('Passport Adjustments', () => {
+        it('should boost confidence for standard passport format', () => {
+          const standardConf = service.calculateFieldConfidence('passport', 'AB1234567', 0, 'AB1234567', 100);
+          expect(standardConf).toBeGreaterThanOrEqual(90);
+        });
+      });
+
+      describe('Emirates ID Adjustments', () => {
+        it('should boost confidence for complete Emirates ID format', () => {
+          const completeConf = service.calculateFieldConfidence('emiratesId', '784-1990-1234567-1', 0, '784-1990-1234567-1', 100);
+          expect(completeConf).toBeGreaterThanOrEqual(95);
+        });
+      });
+    });
+
+    describe('Confidence Clamping', () => {
+      it('should clamp confidence to maximum 100', () => {
+        // Email with all boosts: base 95 + line-start 5 + common domain 3 = 103 -> clamped to 100
+        const text = 'support@example.com';
+        const confidence = service.calculateFieldConfidence('email', text, 0, text, 100);
+        expect(confidence).toBeLessThanOrEqual(100);
+      });
+
+      it('should clamp confidence to minimum 0', () => {
+        const confidence = service.calculateFieldConfidence('email', 'test@example.com', 0, 'test@example.com', 0);
+        expect(confidence).toBeGreaterThanOrEqual(0);
+      });
+
+      it('should handle unknown pattern types with default confidence', () => {
+        const confidence = service.calculateFieldConfidence('unknownType', 'some value', 0, 'some value', 100);
+        // Default base confidence of 70
+        expect(confidence).toBeGreaterThanOrEqual(65);
+        expect(confidence).toBeLessThanOrEqual(80);
+      });
     });
   });
 

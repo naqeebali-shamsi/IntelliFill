@@ -24,6 +24,7 @@ import {
   LogOut,
   Search,
   Plus,
+  FileCheck,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Upload', href: '/upload', icon: UploadCloud },
   { name: 'Fill Form', href: '/fill-form', icon: FileSignature },
+  { name: 'Filled Forms', href: '/filled-forms', icon: FileCheck },
   { name: 'History', href: '/history', icon: History },
   { name: 'Profiles', href: '/profiles', icon: Users },
   { name: 'Documents', href: '/documents', icon: Files },
@@ -159,19 +161,19 @@ const SidebarContent = ({
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
           )}
-          {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={async () => {
-                await logout();
-                navigate('/login');
-              }}
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={async () => {
+              await logout();
+              navigate('/login');
+            }}
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            data-testid="logout-button"
+            aria-label="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

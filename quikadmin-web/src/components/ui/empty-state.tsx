@@ -56,6 +56,10 @@ export interface EmptyStateProps
     onClick: () => void
     variant?: "default" | "secondary" | "outline" | "ghost" | "link"
   }
+  /**
+   * Optional test ID for E2E testing
+   */
+  "data-testid"?: string
 }
 
 /**
@@ -108,6 +112,7 @@ function EmptyState({
   secondaryAction,
   size,
   className,
+  "data-testid": testId,
   ...props
 }: EmptyStateProps) {
   const ActionIcon = action?.icon
@@ -115,6 +120,7 @@ function EmptyState({
   return (
     <div
       data-slot="empty-state"
+      data-testid={testId}
       className={cn(emptyStateVariants({ size }), className)}
       role="status"
       aria-label={title}
@@ -208,6 +214,10 @@ export interface EmptyStateSimpleProps
    * Optional icon
    */
   icon?: LucideIcon
+  /**
+   * Optional test ID for E2E testing
+   */
+  "data-testid"?: string
 }
 
 /**
@@ -220,11 +230,13 @@ function EmptyStateSimple({
   message,
   icon: Icon,
   className,
+  "data-testid": testId,
   ...props
 }: EmptyStateSimpleProps) {
   return (
     <div
       data-slot="empty-state-simple"
+      data-testid={testId}
       className={cn(
         "flex flex-col items-center justify-center p-6 text-center",
         className

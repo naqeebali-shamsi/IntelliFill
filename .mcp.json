@@ -3,16 +3,18 @@
     "context7": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
     },
     "task-master-ai": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "task-master-ai"],
-      "env": {
-        "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}",
-        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}"
-      }
+      "args": [
+        "-y",
+        "task-master-ai"
+      ]
     }
   }
 }

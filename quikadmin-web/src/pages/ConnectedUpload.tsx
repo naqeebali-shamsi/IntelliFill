@@ -137,7 +137,7 @@ export default function ConnectedUpload() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8" data-testid="upload-page">
       {/* Page Header */}
       <PageHeader
         title="Upload Documents"
@@ -159,13 +159,14 @@ export default function ConnectedUpload() {
                 maxFiles={FILE_SIZE_LIMITS.MAX_FILES}
                 multiple
                 showFileList={false}
+                data-testid="upload-dropzone"
               />
             </div>
           </div>
 
           {/* Upload Queue */}
           {files.length > 0 && (
-            <div className="glass-panel rounded-xl overflow-hidden border border-white/10">
+            <div className="glass-panel rounded-xl overflow-hidden border border-white/10" data-testid="upload-queue">
               <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5">
                 <div>
                   <h3 className="font-medium text-foreground">Upload Queue</h3>
@@ -180,6 +181,7 @@ export default function ConnectedUpload() {
                       size="sm"
                       onClick={clearCompleted}
                       className="text-xs h-7"
+                      data-testid="upload-clear-completed"
                     >
                       Clear Completed
                     </Button>
@@ -191,6 +193,7 @@ export default function ConnectedUpload() {
                       onClick={clearAll}
                       disabled={hasActiveUploads}
                       className="text-xs h-7 text-status-error-foreground hover:text-status-error-foreground hover:bg-status-error/10"
+                      data-testid="upload-clear-all"
                     >
                       Clear All
                     </Button>
@@ -220,6 +223,7 @@ export default function ConnectedUpload() {
                             ? 'bg-primary/5 border-primary/20 shadow-[0_0_15px_-5px_rgba(99,102,241,0.2)]'
                             : 'bg-card/40 border-white/5 hover:bg-card/60'
                         )}
+                        data-testid="upload-queue-item"
                       >
                         <div className="mt-1 shrink-0">{getFileStatusIcon(uploadFile.status)}</div>
 
@@ -257,7 +261,7 @@ export default function ConnectedUpload() {
 
                           {/* Progress Bar */}
                           {['uploading', 'processing'].includes(uploadFile.status) && (
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5" data-testid="upload-progress">
                               <div className="flex justify-between text-[10px] text-muted-foreground">
                                 <span>
                                   {uploadFile.status === 'uploading'
@@ -351,7 +355,7 @@ export default function ConnectedUpload() {
         {/* Sidebar: Stats & Active Process */}
         <div className="space-y-6">
           {/* Stats Grid */}
-          <ResponsiveGrid cols={2} gap="md">
+          <ResponsiveGrid cols={2} gap="md" data-testid="upload-stats">
             <StatCard
               title="In Queue"
               value={stats.total}

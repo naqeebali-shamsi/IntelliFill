@@ -168,7 +168,7 @@ export function DocumentFilters({
             </div>
 
             {/* Status Filter */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="document-filter-status">
               <Label className="text-xs font-medium">Status</Label>
               <div className="space-y-2">
                 {STATUS_OPTIONS.map((option) => (

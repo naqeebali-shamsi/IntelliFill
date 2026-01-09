@@ -411,5 +411,61 @@ export function createTemplateRoutes(): Router {
     }
   });
 
+  /**
+   * POST /api/templates/:id/duplicate - Duplicate a template
+   */
+  router.post('/:id/duplicate', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id;
+      const templateId = req.params.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'User ID not found in request'
+        });
+      }
+
+      if (!templateId) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'Template ID is required'
+        });
+      }
+
+      logger.info(`Duplicating template ${templateId} for user: ${userId}`);
+
+      const duplicatedTemplate = await templateService.duplicateTemplate(templateId, userId);
+
+      // Get decrypted field mappings for response
+      const fieldMappings = await templateService.getTemplateFieldMappings(duplicatedTemplate.id, userId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Template duplicated successfully',
+        template: {
+          id: duplicatedTemplate.id,
+          name: duplicatedTemplate.name,
+          description: duplicatedTemplate.description,
+          formType: duplicatedTemplate.formType,
+          fieldMappings: fieldMappings,
+          isPublic: duplicatedTemplate.isPublic,
+          usageCount: duplicatedTemplate.usageCount,
+          createdAt: duplicatedTemplate.createdAt,
+          updatedAt: duplicatedTemplate.updatedAt
+        }
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('not found or access denied')) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'Template not found or access denied'
+        });
+      }
+      logger.error('Duplicate template error:', error);
+      next(error);
+    }
+  });
+
   return router;
 }

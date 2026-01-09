@@ -16,3 +16,9 @@ export * from './authSchemas';
 
 // Document-related schemas
 export * from './documentSchemas';
+
+// Organization-related schemas
+export * from './organizationSchemas';
+
+// Settings and profile schemas (Task 385)
+export * from './settingsSchemas';

@@ -6,7 +6,7 @@
  *
  * Architecture:
  * - Orchestrator: Coordinates agent execution flow
- * - Classifier: Document type identification (Phi-3 Mini)
+ * - Classifier: Document type identification (Gemini 1.5 Flash)
  * - Extractor: Field extraction (Llama 3.2 8B)
  * - Mapper: Schema mapping (Mistral 7B)
  * - QA: Quality validation (Llama 3.2 8B)
@@ -55,10 +55,20 @@ export {
   NODE_NAMES,
 } from './workflow';
 
+// Agents
+export {
+  classifyDocument,
+  classifyWithPatterns,
+  normalizeCategory,
+  VALID_CATEGORIES,
+  CATEGORY_ALIASES,
+  ClassificationResult,
+} from './agents/classifierAgent';
+
 // Version info
 export const PIPELINE_VERSION = '1.0.0';
 export const SUPPORTED_MODELS = {
-  classifier: ['phi3:mini', 'phi-3-mini'],
+  classifier: ['gemini-1.5-flash', 'gemini-1.5-pro'],
   extractor: ['llama3.2:8b', 'llama3:8b'],
   mapper: ['mistral:7b', 'mistral:7b-instruct'],
   qa: ['llama3.2:8b', 'llama3:8b'],

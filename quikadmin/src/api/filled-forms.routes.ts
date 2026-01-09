@@ -27,6 +27,17 @@ const generateFormSchema = z.object({
   overrideData: z.record(z.unknown()).optional(), // Optional data to override profile values
 });
 
+// Schema for saving ad-hoc form fills (from SimpleFillForm workflow)
+const saveAdhocFormSchema = z.object({
+  documentId: z.string().uuid('Invalid document ID'),
+  clientId: z.string().uuid('Invalid client ID'),
+  formName: z.string().min(1, 'Form name is required').max(255),
+  confidence: z.number().min(0).max(1),
+  filledFields: z.number().int().min(0),
+  totalFields: z.number().int().min(0),
+  dataSnapshot: z.record(z.unknown()).optional(),
+});
+
 const listFilledFormsSchema = z.object({
   clientId: z.string().uuid().optional(),
   templateId: z.string().uuid().optional(),
@@ -718,6 +729,125 @@ export function createFilledFormRoutes(): Router {
         });
       } catch (error) {
         logger.error('Error regenerating filled form:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * POST /api/filled-forms/save-adhoc - Save an ad-hoc filled form to history
+   *
+   * Task 490: Integrate Form Filling with Filled Forms API
+   *
+   * This endpoint saves form fills from the SimpleFillForm workflow (which uses
+   * ad-hoc form uploads rather than saved templates). It creates a minimal
+   * "ad-hoc template" record and links the filled form to it.
+   */
+  router.post(
+    '/save-adhoc',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Validate request body
+        const validation = saveAdhocFormSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        const { documentId, clientId, formName, confidence, filledFields, totalFields, dataSnapshot } =
+          validation.data;
+
+        // Verify the document exists and belongs to the user
+        const document = await prisma.document.findFirst({
+          where: { id: documentId, userId },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        // Verify the client exists and belongs to the user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+        });
+
+        if (!client) {
+          return res.status(404).json({ error: 'Client/Profile not found' });
+        }
+
+        // Create or find an "Ad-hoc Forms" template for this user
+        // This is a virtual template that groups all ad-hoc form fills
+        let adhocTemplate = await prisma.formTemplate.findFirst({
+          where: {
+            userId,
+            name: '__ADHOC_FORMS__',
+          },
+        });
+
+        if (!adhocTemplate) {
+          adhocTemplate = await prisma.formTemplate.create({
+            data: {
+              userId,
+              name: '__ADHOC_FORMS__',
+              description: 'System template for ad-hoc form fills',
+              fileUrl: '', // No actual file for ad-hoc template
+              fieldMappings: {},
+              detectedFields: [],
+              isActive: false, // Hidden from template list
+            },
+          });
+        }
+
+        // Create filled form record
+        const filledForm = await prisma.filledForm.create({
+          data: {
+            clientId,
+            templateId: adhocTemplate.id,
+            userId,
+            fileUrl: document.storageUrl,
+            dataSnapshot: {
+              formName,
+              confidence,
+              filledFields,
+              totalFields,
+              originalDocumentId: documentId,
+              ...(dataSnapshot || {}),
+            },
+          },
+        });
+
+        logger.info(`Saved ad-hoc filled form: ${filledForm.id}`, {
+          documentId,
+          clientId,
+          formName,
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Form saved to history',
+          data: {
+            id: filledForm.id,
+            clientId: filledForm.clientId,
+            clientName: client.name,
+            formName,
+            confidence,
+            filledFields,
+            totalFields,
+            downloadUrl: `/api/documents/${documentId}/download`,
+            createdAt: filledForm.createdAt.toISOString(),
+          },
+        });
+      } catch (error) {
+        logger.error('Error saving ad-hoc filled form:', error);
         next(error);
       }
     }

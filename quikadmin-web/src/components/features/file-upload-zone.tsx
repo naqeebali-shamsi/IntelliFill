@@ -138,7 +138,7 @@ function FileUploadZone({
   };
 
   return (
-    <div data-slot="file-upload-zone" className={cn('space-y-4', className)} {...props}>
+    <div data-slot="file-upload-zone" data-testid="file-upload-zone" className={cn('space-y-4', className)} {...props}>
       {/* Drop Zone */}
       <div
         {...getRootProps()}
@@ -158,7 +158,7 @@ function FileUploadZone({
         aria-label="File upload drop zone. Press Enter or Space to select files"
         tabIndex={disabled ? -1 : 0}
       >
-        <input {...getInputProps()} aria-label="File upload input" />
+        <input {...getInputProps()} aria-label="File upload input" data-testid="file-upload-input" />
 
         {children || (
           <>
@@ -332,7 +332,7 @@ function FileUploadButton({
         className="sr-only"
         aria-label="File input"
       />
-      <Button variant={variant} onClick={handleClick} disabled={disabled} aria-label={label}>
+      <Button variant={variant} onClick={handleClick} disabled={disabled} aria-label={label} data-testid="file-upload-browse-button">
         <Upload className="mr-2 h-4 w-4" />
         {label}
       </Button>

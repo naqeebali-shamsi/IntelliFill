@@ -16,7 +16,11 @@ datasource db {
 model Organization {
   id        String             @id @default(uuid())
   name      String
+  slug      String             @unique @db.VarChar(100)
   status    OrganizationStatus @default(ACTIVE)
+  logoUrl   String?            @map("logo_url")
+  website   String?            @db.VarChar(255)
+  settings  Json               @default("{}")
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
@@ -24,6 +28,8 @@ model Organization {
   users           User[]
   documentSources DocumentSource[]
   documentChunks  DocumentChunk[]
+  memberships     OrganizationMembership[]
+  invitations     OrganizationInvitation[]
 
   @@map("organizations")
 }
@@ -34,12 +40,37 @@ enum OrganizationStatus {
   SUSPENDED
 }
 
+enum OrgMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  LEFT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
 model User {
   id             String         @id @default(uuid())
   email          String         @unique
   password       String
   firstName      String?
   lastName       String?
+  avatarUrl      String?        @map("avatar_url")
+  phone          String?        @db.VarChar(30)
+  jobTitle       String?        @map("job_title") @db.VarChar(100)
+  bio            String?        @db.VarChar(500)
   role           UserRole       @default(USER)
   isActive       Boolean        @default(true)
   emailVerified  Boolean        @default(false)
@@ -61,9 +92,50 @@ model User {
   auditLogs      AuditLog[]
   clients        Client[]
   documentSources DocumentSource[]
+  memberships    OrganizationMembership[]
 
   @@index([organizationId])
   @@map("users")
+}
+
+model OrganizationMembership {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           OrgMemberRole    @default(MEMBER)
+  status         MembershipStatus @default(ACTIVE)
+  invitedBy      String?          @map("invited_by")
+  invitedAt      DateTime?        @map("invited_at")
+  joinedAt       DateTime?        @map("joined_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("organization_memberships")
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgMemberRole    @default(MEMBER)
+  invitedBy      String           @map("invited_by")
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@unique([organizationId, email])
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("organization_invitations")
 }
 
 model RefreshToken {
@@ -445,10 +517,15 @@ model UserSettings {
   defaultValidationRules Json?    @map("default_validation_rules")
   preferredLanguage      String   @default("en") @map("preferred_language") @db.VarChar(10)
   emailNotifications     Boolean  @default(true) @map("email_notifications")
+  notifyOnProcessComplete Boolean @default(true) @map("notify_on_process_complete")
+  notifyOnOrgInvite      Boolean  @default(true) @map("notify_on_org_invite")
+  digestFrequency        String   @default("never") @map("digest_frequency") @db.VarChar(20)
   webhookUrl             String?  @map("webhook_url")
   autoOcr                Boolean  @default(false) @map("auto_ocr")
   autoMlEnhancement      Boolean  @default(true) @map("auto_ml_enhancement")
   defaultOutputFormat    String   @default("pdf") @map("default_output_format") @db.VarChar(20)
+  theme                  String   @default("system") @db.VarChar(20)
+  compactMode            Boolean  @default(false) @map("compact_mode")
   timezone               String   @default("UTC") @db.VarChar(50)
   createdAt              DateTime @default(now()) @map("created_at")
   updatedAt              DateTime @updatedAt @map("updated_at")

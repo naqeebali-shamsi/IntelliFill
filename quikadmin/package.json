@@ -35,6 +35,7 @@
     "db:seed": "npx ts-node prisma/seed.ts",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
+    "db:backfill-memberships": "npx ts-node scripts/backfill-memberships.ts",
     "seed:e2e": "npx ts-node scripts/seed-e2e-users.ts"
   },
   "dependencies": {

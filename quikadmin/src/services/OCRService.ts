@@ -23,6 +23,60 @@ export interface OCRResult {
   };
 }
 
+/**
+ * Bounding box for extracted field location in document
+ */
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  page: number;
+}
+
+/**
+ * Result of extracting a single field from OCR text
+ * Includes confidence score and source information for transparency
+ */
+export interface ExtractedFieldResult {
+  /** Extracted value - can be string, number, boolean, or null if extraction failed */
+  value: string | number | boolean | null;
+  /** Confidence score from 0-100 indicating extraction reliability */
+  confidence: number;
+  /** Source of extraction: ocr (raw text match), pattern (regex), or llm (AI-assisted) */
+  source: 'ocr' | 'pattern' | 'llm';
+  /** Optional bounding box indicating where the field was found in the document */
+  boundingBox?: BoundingBox;
+  /** Optional raw text that was matched before normalization */
+  rawText?: string;
+}
+
+/**
+ * Structured data extraction result with per-field confidence scores
+ */
+export interface StructuredDataResult {
+  /** Extracted email addresses with confidence */
+  email?: ExtractedFieldResult[];
+  /** Extracted phone numbers with confidence */
+  phone?: ExtractedFieldResult[];
+  /** Extracted dates with confidence */
+  date?: ExtractedFieldResult[];
+  /** Extracted SSN values with confidence */
+  ssn?: ExtractedFieldResult[];
+  /** Extracted zip codes with confidence */
+  zipCode?: ExtractedFieldResult[];
+  /** Extracted currency amounts with confidence */
+  currency?: ExtractedFieldResult[];
+  /** Extracted percentages with confidence */
+  percentage?: ExtractedFieldResult[];
+  /** Extracted passport numbers with confidence */
+  passport?: ExtractedFieldResult[];
+  /** Extracted Emirates ID numbers with confidence */
+  emiratesId?: ExtractedFieldResult[];
+  /** Key-value pairs extracted from document */
+  fields: Record<string, ExtractedFieldResult>;
+}
+
 export interface OCRProgress {
   currentPage: number;
   totalPages: number;
@@ -696,10 +750,251 @@ export class OCRService {
     }
   }
 
-  async extractStructuredData(text: string): Promise<Record<string, any>> {
+  /**
+   * Base confidence scores for different pattern types
+   * These represent the inherent reliability of each pattern match
+   */
+  private static readonly PATTERN_BASE_CONFIDENCE: Record<string, number> = {
+    email: 95, // Email patterns are highly specific
+    phone: 80, // Phone patterns can have false positives
+    date: 85, // Date patterns are moderately specific
+    ssn: 92, // SSN pattern is very specific (xxx-xx-xxxx)
+    zipCode: 85, // Zip codes can match other 5-digit numbers
+    currency: 88, // Currency with symbol is fairly specific
+    percentage: 82, // Percentages can match other numbers with %
+    passport: 90, // Passport numbers have specific formats
+    emiratesId: 95, // Emirates ID has very specific format (784-YYYY-XXXXXXX-X)
+    keyValue: 75, // Key-value pairs have variable reliability
+  };
+
+  /**
+   * OCR artifact patterns that reduce confidence when present
+   * Only penalize when ambiguous character combinations occur
+   * e.g., |l (pipe confused with lowercase L), l1 (L confused with 1), O0 (O confused with zero)
+   */
+  private static readonly OCR_ARTIFACT_PATTERNS = /(\|l|\|I|l1|1l|O0|0O|lI|Il)/;
+
+  /**
+   * Calculate confidence score for an extracted field
+   *
+   * @param patternType - Type of pattern (email, phone, date, etc.)
+   * @param matchedText - The text that was matched
+   * @param matchIndex - Index in the original text where match occurred
+   * @param fullText - Full OCR text for context analysis
+   * @param ocrConfidence - Overall OCR confidence (0-100) to apply as multiplier
+   * @returns Calculated confidence score (0-100)
+   */
+  calculateFieldConfidence(
+    patternType: string,
+    matchedText: string,
+    matchIndex: number,
+    fullText: string,
+    ocrConfidence: number = 100
+  ): number {
+    // Get base confidence for this pattern type
+    let confidence = OCRService.PATTERN_BASE_CONFIDENCE[patternType] ?? 70;
+
+    // Boost for line-start matches (+5)
+    // Fields at the start of a line are more likely to be intentional/structured
+    const lineStartRegex = new RegExp(`(^|\\n)\\s*${this.escapeRegex(matchedText)}`, 'm');
+    if (lineStartRegex.test(fullText)) {
+      confidence += 5;
+      logger.debug(`Line-start boost applied for ${patternType}: +5`);
+    }
+
+    // Penalize for OCR artifact patterns (-5)
+    // Only penalize when ambiguous character combinations are present (e.g., |l, l1, O0)
+    if (OCRService.OCR_ARTIFACT_PATTERNS.test(matchedText)) {
+      confidence -= 5;
+      logger.debug(`OCR artifact penalty applied for ${patternType}: -5`);
+    }
+
+    // Apply OCR page confidence as multiplier
+    // If overall OCR confidence is low, field extraction confidence should be reduced
+    if (ocrConfidence < 100) {
+      const ocrMultiplier = ocrConfidence / 100;
+      confidence = Math.round(confidence * ocrMultiplier);
+      logger.debug(`OCR confidence multiplier applied: ${ocrMultiplier.toFixed(2)}`);
+    }
+
+    // Additional pattern-specific adjustments
+    confidence = this.applyPatternSpecificAdjustments(patternType, matchedText, confidence);
+
+    // Clamp confidence to valid range
+    return Math.max(0, Math.min(100, confidence));
+  }
+
+  /**
+   * Apply pattern-specific confidence adjustments
+   *
+   * @param patternType - Type of pattern
+   * @param matchedText - The matched text
+   * @param baseConfidence - Current confidence score
+   * @returns Adjusted confidence score
+   */
+  private applyPatternSpecificAdjustments(
+    patternType: string,
+    matchedText: string,
+    baseConfidence: number
+  ): number {
+    let confidence = baseConfidence;
+
+    switch (patternType) {
+      case 'email':
+        // Higher confidence for common domains
+        if (/\.(com|org|net|gov|edu)$/i.test(matchedText)) {
+          confidence += 3;
+        }
+        // Lower confidence for very short local parts
+        if (matchedText.split('@')[0].length < 3) {
+          confidence -= 5;
+        }
+        break;
+
+      case 'phone':
+        // Higher confidence for complete international format
+        if (/^\+\d{1,3}[-.\s]?\d/.test(matchedText)) {
+          confidence += 5;
+        }
+        // Lower confidence for very short phone numbers
+        if (matchedText.replace(/\D/g, '').length < 7) {
+          confidence -= 10;
+        }
+        break;
+
+      case 'date':
+        // Higher confidence for ISO format (YYYY-MM-DD)
+        if (/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(matchedText)) {
+          confidence += 5;
+        }
+        break;
+
+      case 'passport':
+        // Higher confidence for standard passport format (letter + digits)
+        if (/^[A-Z]{1,2}\d{6,9}$/i.test(matchedText)) {
+          confidence += 5;
+        }
+        break;
+
+      case 'emiratesId':
+        // Emirates ID format: 784-YYYY-XXXXXXX-X
+        // Higher confidence for complete format
+        if (/^784-\d{4}-\d{7}-\d$/.test(matchedText)) {
+          confidence += 3;
+        }
+        break;
+    }
+
+    return confidence;
+  }
+
+  /**
+   * Escape special regex characters in a string
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Extract structured data from OCR text with per-field confidence scores
+   *
+   * @param text - OCR extracted text
+   * @param ocrConfidence - Optional overall OCR confidence (0-100) to factor into field confidence
+   * @returns Structured data with confidence scores for each extracted field
+   */
+  async extractStructuredData(
+    text: string,
+    ocrConfidence: number = 100
+  ): Promise<StructuredDataResult> {
+    const structuredData: StructuredDataResult = {
+      fields: {},
+    };
+
+    // Pattern definitions with base confidence factors
+    const patterns: Record<string, RegExp> = {
+      email: /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi,
+      phone: /(\+?\d{1,3}[-.\s]?)?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g,
+      date: /(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})|(\d{4}[-/]\d{1,2}[-/]\d{1,2})/g,
+      ssn: /\d{3}-\d{2}-\d{4}/g,
+      zipCode: /\b\d{5}(-\d{4})?\b/g,
+      currency: /[$€£¥]\s?\d+(?:,\d{3})*(?:\.\d{2})?/g,
+      percentage: /\d+(?:\.\d+)?%/g,
+      passport: /\b[A-Z]{1,2}\d{6,9}\b/gi,
+      emiratesId: /\b784-\d{4}-\d{7}-\d\b/g,
+    };
+
+    // Extract matches for each pattern type
+    for (const [patternType, pattern] of Object.entries(patterns)) {
+      const matches: ExtractedFieldResult[] = [];
+      const seenValues = new Set<string>();
+      let match: RegExpExecArray | null;
+
+      // Reset regex state for each pattern
+      pattern.lastIndex = 0;
+
+      while ((match = pattern.exec(text)) !== null) {
+        const matchedText = match[0];
+
+        // Deduplicate matches
+        if (seenValues.has(matchedText)) {
+          continue;
+        }
+        seenValues.add(matchedText);
+
+        // Calculate confidence for this specific match
+        const confidence = this.calculateFieldConfidence(
+          patternType,
+          matchedText,
+          match.index,
+          text,
+          ocrConfidence
+        );
+
+        matches.push({
+          value: matchedText,
+          confidence,
+          source: 'pattern',
+          rawText: matchedText,
+        });
+      }
+
+      // Only add to result if matches were found
+      if (matches.length > 0) {
+        (structuredData as any)[patternType] = matches;
+      }
+    }
+
+    // Extract key-value pairs with confidence
+    const keyValuePattern = /([A-Za-z\s]+):\s*([^\n]+)/g;
+    let kvMatch: RegExpExecArray | null;
+
+    while ((kvMatch = keyValuePattern.exec(text)) !== null) {
+      const key = kvMatch[1].trim().toLowerCase().replace(/\s+/g, '_');
+      const value = kvMatch[2].trim();
+
+      // Calculate confidence for key-value extraction
+      const confidence = this.calculateFieldConfidence('keyValue', value, kvMatch.index, text, ocrConfidence);
+
+      structuredData.fields[key] = {
+        value,
+        confidence,
+        source: 'pattern',
+        rawText: kvMatch[0],
+      };
+    }
+
+    logger.debug(`Extracted structured data with ${Object.keys(structuredData.fields).length} fields`);
+
+    return structuredData;
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use extractStructuredData with ocrConfidence parameter instead
+   */
+  async extractStructuredDataLegacy(text: string): Promise<Record<string, any>> {
     const structuredData: Record<string, any> = {};
 
-    // Extract common patterns
     const patterns = {
       email: /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi,
       phone: /(\+?\d{1,3}[-.\s]?)?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g,
@@ -717,7 +1012,6 @@ export class OCRService {
       }
     }
 
-    // Extract key-value pairs
     const keyValuePattern = /([A-Za-z\s]+):\s*([^\n]+)/g;
     const keyValueMatches = [...text.matchAll(keyValuePattern)];
 

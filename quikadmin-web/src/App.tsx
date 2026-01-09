@@ -25,12 +25,14 @@ const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('@/pages/VerifyEmail'));
 const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
+const AcceptInvitePage = lazy(() => import('@/pages/AcceptInvitePage'));
 
 // Dashboard and main pages - lazy loaded
 const ConnectedDashboard = lazy(() => import('@/pages/ConnectedDashboard'));
 const ConnectedUpload = lazy(() => import('@/pages/ConnectedUpload'));
 const History = lazy(() => import('./pages/History'));
-const Templates = lazy(() => import('./pages/Templates'));
+const TemplateLibrary = lazy(() => import('./pages/TemplateLibrary'));
+const TemplateEditor = lazy(() => import('./pages/TemplateEditor'));
 const Settings = lazy(() => import('./pages/Settings'));
 const JobDetails = lazy(() => import('./pages/JobDetails'));
 const DocumentLibrary = lazy(() => import('./pages/DocumentLibrary'));
@@ -38,10 +40,15 @@ const DocumentLibrary = lazy(() => import('./pages/DocumentLibrary'));
 // Form fill pages - lazy loaded
 const SimpleFillForm = lazy(() => import('./pages/SimpleFillForm'));
 const FormFillDemo = lazy(() => import('./pages/FormFillDemo'));
+const FilledFormHistory = lazy(() => import('./pages/FilledFormHistory'));
 
 // Profile pages - lazy loaded
 const ProfileList = lazy(() => import('./pages/ProfileList'));
 const ProfileDetail = lazy(() => import('./pages/ProfileDetail'));
+
+// Error pages - lazy loaded
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const ForbiddenPage = lazy(() => import('./pages/ForbiddenPage'));
 
 // Loading spinner component for suspense fallback
 function PageLoadingSpinner() {
@@ -158,6 +165,8 @@ function App() {
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/accept-invite" element={<AcceptInvitePage />} />
+                <Route path="/forbidden" element={<ForbiddenPage />} />
 
                 {/* Protected routes - with layout */}
                 <Route path="/" element={<ProtectedLayout />}>
@@ -168,12 +177,18 @@ function App() {
                   <Route path="documents" element={<DocumentLibrary />} />
                   <Route path="fill-form" element={<SimpleFillForm />} />
                   <Route path="demo/autocomplete" element={<FormFillDemo />} />
+                  <Route path="filled-forms" element={<FilledFormHistory />} />
                   <Route path="profiles" element={<ProfileList />} />
                   <Route path="profiles/:id" element={<ProfileDetail />} />
-                  <Route path="templates" element={<Templates />} />
+                  <Route path="templates" element={<TemplateLibrary />} />
+                  <Route path="templates/new" element={<TemplateEditor />} />
+                  <Route path="templates/:id/edit" element={<TemplateEditor />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="job/:jobId" element={<JobDetails />} />
                 </Route>
+
+                {/* Catch-all route for 404 */}
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </Router>

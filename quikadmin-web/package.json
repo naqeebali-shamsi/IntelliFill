@@ -83,9 +83,13 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:auto": "node scripts/run-e2e-automated.js",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
+    "test:e2e:ci": "CI=true playwright test",
+    "test:e2e:tier1": "playwright test e2e/tests/auth e2e/tests/security e2e/tests/documents/upload-ocr.spec.ts e2e/tests/infrastructure/health-check.spec.ts",
+    "test:e2e:fast": "playwright test --project=chromium-xl-1280",
     "test:e2e:update-snapshots": "playwright test --update-snapshots",
     "playwright:install": "playwright install chromium",
     "lint": "eslint \"src/**/*.{ts,tsx}\""

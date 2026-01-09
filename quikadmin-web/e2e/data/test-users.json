@@ -1,0 +1,83 @@
+{
+  "testUsers": {
+    "admin": {
+      "email": "test-admin@intellifill.local",
+      "password": "TestAdmin123!",
+      "name": "Test Admin User",
+      "role": "ADMIN",
+      "organizationSlug": "e2e-test-org"
+    },
+    "owner": {
+      "email": "test-owner@intellifill.local",
+      "password": "TestOwner123!",
+      "name": "Test Owner User",
+      "role": "OWNER",
+      "organizationSlug": "e2e-test-org"
+    },
+    "member": {
+      "email": "test-member@intellifill.local",
+      "password": "TestMember123!",
+      "name": "Test Member User",
+      "role": "MEMBER",
+      "organizationSlug": "e2e-test-org"
+    },
+    "viewer": {
+      "email": "test-viewer@intellifill.local",
+      "password": "TestViewer123!",
+      "name": "Test Viewer User",
+      "role": "VIEWER",
+      "organizationSlug": "e2e-test-org"
+    },
+    "newUser": {
+      "email": "test-new-user@intellifill.local",
+      "password": "TestNewUser123!",
+      "name": "Test New User",
+      "role": "MEMBER",
+      "organizationSlug": "e2e-test-org"
+    },
+    "passwordReset": {
+      "email": "test-password-reset@intellifill.local",
+      "password": "TestPasswordReset123!",
+      "name": "Test Password Reset User",
+      "role": "MEMBER",
+      "organizationSlug": "e2e-test-org"
+    }
+  },
+  "invalidCredentials": {
+    "wrongPassword": {
+      "email": "test-member@intellifill.local",
+      "password": "WrongPassword123!"
+    },
+    "nonexistentUser": {
+      "email": "nonexistent-user@intellifill.local",
+      "password": "AnyPassword123!"
+    },
+    "malformedEmail": {
+      "email": "not-an-email",
+      "password": "TestPassword123!"
+    },
+    "weakPassword": {
+      "email": "test@intellifill.local",
+      "password": "123"
+    }
+  },
+  "securityTestPayloads": {
+    "sqlInjection": [
+      "' OR '1'='1",
+      "'; DROP TABLE users; --",
+      "1' AND '1'='1",
+      "admin'--"
+    ],
+    "xssPayloads": [
+      "<script>alert('XSS')</script>",
+      "<img src=x onerror=alert('XSS')>",
+      "javascript:alert('XSS')",
+      "<svg onload=alert('XSS')>"
+    ],
+    "pathTraversal": [
+      "../../../etc/passwd",
+      "..\\..\\..\\windows\\system32\\config\\sam",
+      "%2e%2e%2f%2e%2e%2f"
+    ]
+  }
+}

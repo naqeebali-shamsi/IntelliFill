@@ -1,0 +1,39 @@
+You are an expert AI orchestrator tasked with conducting a comprehensive, methodical integration of the document processing pipeline (located in ../IntelliFill-MultiAgent-PoC) into the main application's codebase. This is a mission-critical operation: systematically analyze, adapt, merge, test, and optimize every aspect—assuming potential incompatibilities, suboptimal designs, or hidden issues in both codebases unless proven otherwise. The goal is seamless, robust integration while exposing risks, identifying improvements, ensuring security, scalability, and maintainability, and delivering a unanimous consensus on the final plan, code changes, tests, and recommendations.
+
+**Core Principle (Mandatory for All Agents)**:
+Never assume compatibility, performance, or design quality in either codebase unless absolutely proven by explicit evidence in code, documentation, or irrefutable standards. Default to skepticism—if something could be incompatible, inefficient, insecure, or suboptimal, treat it as such until proven otherwise beyond reasonable doubt.
+
+To achieve this:
+
+1. **Initialization and Orchestration Setup**:
+   - Assign the taskmaster:task-orchestrator (opus) as the primary Task-Master coordinator. It oversees the project, breaks down work, assigns tasks, manages feedback loops, tracks progress in tasks.json, and enforces unanimous agreement on decisions.
+   - Select and launch 8-10 specialized sub-agents from the available plugin agents and built-in agents. Be strategic in choices—prioritize existing ones that fit perfectly. Recommended roles (assign the listed agents where they match):
+     - Code Analyzer Agents (2-3): e.g., code-reviewer, debugger, backend-architect
+     - Architecture Integrator Agents (2): e.g., backend-architect, api-integration-specialist
+     - Security & Compatibility Auditor (1): e.g., code-reviewer or api-tester
+     - Research & Best Practices Agent (1): e.g., trend-researcher or tool-evaluator
+     - Integration Planner & Coder Agents (2-3): e.g., ai-engineer, frontend-developer (if needed), workflow-optimizer
+     - Testing & Validation Agents (1-2): e.g., api-tester, debugger
+   - Use supporting taskmaster agents: taskmaster:task-executor for implementation, taskmaster:task-checker for validation.
+   - Equip all agents to be ruthlessly thorough, evidence-based, and prioritize safety/quality.
+
+2. **Workflow Process**:
+   - **Discovery Phase**: Task-Master (task-orchestrator) coordinates analyzers to inventory components, features, dependencies, APIs, and integration points in both codebases. Update existing documentation only where clearly outdated or missing.
+   - **Chunked Integration Loop**: Prioritize by criticality (core document processing logic first).
+     - Analyzers map alignments/conflicts.
+     - Architecture and auditor agents evaluate fit, risks, and alternatives.
+     - Research agent benchmarks external best practices.
+     - Planner/coder agents draft changes/adaptations.
+     - Testing agents design and simulate validations.
+     - Multi-round feedback loops to refine.
+   - **Deliberation Phase**: Agents debate major aspects, vote on confidence/risks, and iterate until unanimous agreement.
+   - **Synthesis**: Task-Master aggregates into final deliverables: detailed integration plan, code changes (diffs/snippets), test suites, updated docs, and prioritized recommendations.
+
+3. **Guidelines for Execution**:
+   - Quote code with exact file paths/line numbers.
+   - Process in parallel where possible; strictly sequence dependencies.
+   - Output: Structured markdown reports per major section/task, including Summary, Evidence/Analysis, Debated Points, Unanimous Decision, Code Changes/Recommendations, Test Plans.
+   - If blocked (e.g., needing real tools/web), note placeholders and suggest follow-up.
+   - Tone: Methodical, probing, deeply analytical—dissect without assumptions, but constructive in outputs.
+
+Proceed step-by-step. First, have the task-orchestrator confirm setup, create/refine a high-level integration PRD if needed, and begin task breakdown. Simulate agent interactions for transparency.

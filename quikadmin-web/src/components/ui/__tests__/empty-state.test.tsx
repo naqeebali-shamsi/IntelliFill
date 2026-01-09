@@ -7,7 +7,7 @@ import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { EmptyState } from '@/components/ui/empty-state'
+import { EmptyState, EmptyStateSimple } from '@/components/ui/empty-state'
 import { FileText } from 'lucide-react'
 
 describe('EmptyState Component', () => {
@@ -125,5 +125,48 @@ describe('EmptyState Component', () => {
       const button = screen.getByRole('button', { name: /add item/i })
       expect(button).toBeInTheDocument()
     })
+  })
+
+  describe('Test ID Support', () => {
+    it('applies data-testid to the root element', () => {
+      render(<EmptyState title="Empty" data-testid="my-empty-state" />)
+      const element = screen.getByTestId('my-empty-state')
+      expect(element).toBeInTheDocument()
+      expect(element).toHaveAttribute('data-slot', 'empty-state')
+    })
+
+    it('works without data-testid prop', () => {
+      render(<EmptyState title="Empty" />)
+      const container = screen.getByText(/empty/i).closest('[data-slot="empty-state"]')
+      expect(container).toBeInTheDocument()
+      expect(container).not.toHaveAttribute('data-testid')
+    })
+  })
+})
+
+describe('EmptyStateSimple Component', () => {
+  it('renders message', () => {
+    render(<EmptyStateSimple message="No items to display" />)
+    expect(screen.getByText(/no items to display/i)).toBeInTheDocument()
+  })
+
+  it('renders icon when provided', () => {
+    render(<EmptyStateSimple message="No items" icon={FileText} />)
+    const container = screen.getByText(/no items/i).closest('[data-slot="empty-state-simple"]')
+    expect(container?.querySelector('svg')).toBeInTheDocument()
+  })
+
+  it('applies data-testid to the root element', () => {
+    render(<EmptyStateSimple message="No items" data-testid="simple-empty-state" />)
+    const element = screen.getByTestId('simple-empty-state')
+    expect(element).toBeInTheDocument()
+    expect(element).toHaveAttribute('data-slot', 'empty-state-simple')
+  })
+
+  it('works without data-testid prop', () => {
+    render(<EmptyStateSimple message="No items" />)
+    const container = screen.getByText(/no items/i).closest('[data-slot="empty-state-simple"]')
+    expect(container).toBeInTheDocument()
+    expect(container).not.toHaveAttribute('data-testid')
   })
 })

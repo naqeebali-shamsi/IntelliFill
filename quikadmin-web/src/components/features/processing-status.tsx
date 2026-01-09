@@ -162,6 +162,7 @@ export function ProcessingStatus({
   return (
     <div
       data-slot="processing-status"
+      data-testid="processing-status"
       className={cn('space-y-3', className)}
       aria-busy={isProcessing || isPending}
       aria-live="polite"
@@ -192,6 +193,7 @@ export function ProcessingStatus({
                 status={status === 'cancelled' ? 'failed' : status}
                 showIcon={false}
                 size="sm"
+                data-testid="processing-status-badge"
               />
               {fileName && <span className="text-sm font-medium text-foreground">{fileName}</span>}
             </div>
@@ -204,13 +206,13 @@ export function ProcessingStatus({
         {/* Actions */}
         <div className="flex items-center gap-2">
           {isFailed && onRetry && (
-            <Button variant="outline" size="sm" onClick={onRetry} aria-label="Retry processing">
+            <Button variant="outline" size="sm" onClick={onRetry} aria-label="Retry processing" data-testid="processing-retry-button">
               <RotateCcw className="h-4 w-4 mr-1" />
               Retry
             </Button>
           )}
           {(isProcessing || isPending) && onCancel && (
-            <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel processing">
+            <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel processing" data-testid="processing-cancel-button">
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -225,6 +227,7 @@ export function ProcessingStatus({
           label={isProcessing ? 'Processing...' : 'Waiting...'}
           variant="default"
           indeterminate={isPending}
+          data-testid="processing-progress-bar"
         />
       )}
 

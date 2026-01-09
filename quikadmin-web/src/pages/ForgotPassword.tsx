@@ -80,7 +80,7 @@ export default function ForgotPassword() {
         </CardHeader>
 
         {!emailSent ? (
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} data-testid="forgot-password-form">
             <CardContent className="space-y-4">
               {error && (
                 <Alert variant="destructive">
@@ -102,12 +102,13 @@ export default function ForgotPassword() {
                   autoComplete="email"
                   autoFocus
                   className="w-full"
+                  data-testid="forgot-password-email-input"
                 />
               </div>
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full" disabled={isLoading || !email}>
+              <Button type="submit" className="w-full" disabled={isLoading || !email} data-testid="forgot-password-submit-button">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -123,7 +124,7 @@ export default function ForgotPassword() {
 
               <div className="text-center text-sm text-muted-foreground">
                 Remember your password?{' '}
-                <Link to="/login" className="font-medium text-primary hover:underline">
+                <Link to="/login" className="font-medium text-primary hover:underline" data-testid="forgot-password-back-link">
                   Back to login
                 </Link>
               </div>

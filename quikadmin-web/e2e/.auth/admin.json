@@ -1,0 +1,39 @@
+{
+  "cookies": [
+    {
+      "name": "refreshToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1MmJjNTc1OC04MzFhLTRlMjQtOTBiYy03ZjVkZGE0NDA2ZmQiLCJmaWQiOiI0YjAzNDQ4Zi1kOTEzLTRjODMtODE4MS01NGMzNzM0NjZiNzIiLCJnZW4iOjEsInR5cGUiOiJyZWZyZXNoIiwiaWF0IjoxNzY3OTQ4NzM0LCJleHAiOjE3Njg1NTM1MzR9.zKLTSxICQKMb4WQDhjHCNUnUjBqNNQ5broYGY0Y6wVU",
+      "domain": "localhost",
+      "path": "/api",
+      "expires": 1768553534.947995,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "csrf_token",
+      "value": "2a02ea63ec371e9d91bcfa4f34c7e0d220f473472eaa3bd43eda3f9f392076ac",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1767952334.947725,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:8080",
+      "localStorage": [
+        {
+          "name": "intellifill-backend-auth",
+          "value": "{\"state\":{\"user\":{\"id\":\"52bc5758-831a-4e24-90bc-7f5dda4406fd\",\"email\":\"test-admin@intellifill.local\",\"firstName\":\"Test Admin\",\"lastName\":\"User\",\"role\":\"admin\",\"emailVerified\":true,\"lastLogin\":\"2026-01-09T08:51:38.774Z\",\"createdAt\":\"2026-01-08T18:07:48.989Z\"},\"tokens\":{\"expiresIn\":3600,\"tokenType\":\"Bearer\"},\"tokenExpiresAt\":1767952334972,\"company\":null,\"sessionIndicator\":true,\"rememberMe\":false,\"isInitialized\":true,\"lastActivity\":1767948734972},\"version\":1}"
+        },
+        {
+          "name": "intellifill-storage-migration-v1",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

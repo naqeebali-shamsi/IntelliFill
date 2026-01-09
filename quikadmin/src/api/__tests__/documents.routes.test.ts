@@ -301,7 +301,7 @@ describe('Documents API Routes', () => {
   // ==========================================================================
 
   describe('GET /api/documents/:id', () => {
-    it('should return document details', async () => {
+    it('should return document details with confidence format', async () => {
       const mockDocument = {
         id: testDocumentId,
         fileName: 'test.pdf',
@@ -317,7 +317,13 @@ describe('Documents API Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.document.id).toBe(testDocumentId);
-      expect(response.body.document.extractedData).toEqual({ firstName: 'John' });
+      // New default behavior: includes confidence scores
+      expect(response.body.document.extractedData.firstName).toEqual({
+        value: 'John',
+        confidence: 0,
+        source: 'pattern',
+        rawText: 'John',
+      });
     });
 
     it('should return 404 for non-existent document', async () => {
@@ -347,7 +353,7 @@ describe('Documents API Routes', () => {
   // ==========================================================================
 
   describe('GET /api/documents/:id/data', () => {
-    it('should return extracted data only', async () => {
+    it('should return extracted data with confidence format by default', async () => {
       const mockDocument = {
         id: testDocumentId,
         fileName: 'test.pdf',
@@ -360,7 +366,19 @@ describe('Documents API Routes', () => {
       const response = await request(app).get(`/api/documents/${testDocumentId}/data`).expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toEqual({ firstName: 'John', lastName: 'Doe' });
+      // New default behavior: includes confidence scores
+      expect(response.body.data.firstName).toEqual({
+        value: 'John',
+        confidence: 0,
+        source: 'pattern',
+        rawText: 'John',
+      });
+      expect(response.body.data.lastName).toEqual({
+        value: 'Doe',
+        confidence: 0,
+        source: 'pattern',
+        rawText: 'Doe',
+      });
     });
 
     it('should return 404 for non-existent document', async () => {
@@ -610,6 +628,157 @@ describe('Documents API Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.document).toBeDefined();
       expect(response.body.history).toBeDefined();
+    });
+  });
+
+  // ==========================================================================
+  // GET /api/documents/:id?includeConfidence - Confidence Format Tests
+  // ==========================================================================
+
+  describe('GET /api/documents/:id - includeConfidence parameter', () => {
+    it('should return extractedData with confidence by default', async () => {
+      // Legacy format data (no confidence)
+      const mockDocument = {
+        id: testDocumentId,
+        fileName: 'test.pdf',
+        fileType: 'application/pdf',
+        status: 'COMPLETED',
+        extractedData: JSON.stringify({
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john@example.com',
+        }),
+        confidence: 0.95,
+      };
+
+      mockDocumentMethods.findFirst.mockResolvedValue(mockDocument);
+
+      const response = await request(app).get(`/api/documents/${testDocumentId}`).expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.document.extractedData).toBeDefined();
+
+      // Should be normalized to new format with confidence
+      const extractedData = response.body.document.extractedData;
+      expect(extractedData.firstName).toHaveProperty('value', 'John');
+      expect(extractedData.firstName).toHaveProperty('confidence', 0);
+      expect(extractedData.firstName).toHaveProperty('source', 'pattern');
+    });
+
+    it('should return extractedData with confidence when includeConfidence=true', async () => {
+      const mockDocument = {
+        id: testDocumentId,
+        extractedData: JSON.stringify({ email: 'test@example.com' }),
+      };
+
+      mockDocumentMethods.findFirst.mockResolvedValue(mockDocument);
+
+      const response = await request(app)
+        .get(`/api/documents/${testDocumentId}?includeConfidence=true`)
+        .expect(200);
+
+      expect(response.body.document.extractedData.email).toHaveProperty('value');
+      expect(response.body.document.extractedData.email).toHaveProperty('confidence');
+      expect(response.body.document.extractedData.email).toHaveProperty('source');
+    });
+
+    it('should return flattened extractedData when includeConfidence=false', async () => {
+      // Data in new format (with confidence)
+      const mockDocument = {
+        id: testDocumentId,
+        extractedData: JSON.stringify({
+          email: {
+            value: 'test@example.com',
+            confidence: 95,
+            source: 'pattern',
+          },
+          name: {
+            value: 'John Doe',
+            confidence: 85,
+            source: 'ocr',
+          },
+        }),
+      };
+
+      mockDocumentMethods.findFirst.mockResolvedValue(mockDocument);
+
+      const response = await request(app)
+        .get(`/api/documents/${testDocumentId}?includeConfidence=false`)
+        .expect(200);
+
+      // Should be flattened to simple key-value pairs
+      const extractedData = response.body.document.extractedData;
+      expect(extractedData).toEqual({
+        email: 'test@example.com',
+        name: 'John Doe',
+      });
+    });
+
+    it('should handle null extractedData gracefully', async () => {
+      const mockDocument = {
+        id: testDocumentId,
+        extractedData: null,
+      };
+
+      mockDocumentMethods.findFirst.mockResolvedValue(mockDocument);
+
+      const response = await request(app).get(`/api/documents/${testDocumentId}`).expect(200);
+
+      expect(response.body.document.extractedData).toBeNull();
+    });
+  });
+
+  // ==========================================================================
+  // GET /api/documents/:id/data?includeConfidence - Confidence Format Tests
+  // ==========================================================================
+
+  describe('GET /api/documents/:id/data - includeConfidence parameter', () => {
+    it('should return data with confidence by default', async () => {
+      const mockDocument = {
+        id: testDocumentId,
+        fileName: 'test.pdf',
+        status: 'COMPLETED',
+        extractedData: JSON.stringify({
+          email: 'test@example.com',
+          phone: '123-456-7890',
+        }),
+      };
+
+      mockDocumentMethods.findFirst.mockResolvedValue(mockDocument);
+
+      const response = await request(app).get(`/api/documents/${testDocumentId}/data`).expect(200);
+
+      expect(response.body.success).toBe(true);
+
+      // Should be normalized to new format
+      expect(response.body.data.email).toHaveProperty('value', 'test@example.com');
+      expect(response.body.data.email).toHaveProperty('confidence');
+      expect(response.body.data.email).toHaveProperty('source');
+    });
+
+    it('should return flattened data when includeConfidence=false', async () => {
+      const mockDocument = {
+        id: testDocumentId,
+        fileName: 'test.pdf',
+        status: 'COMPLETED',
+        extractedData: JSON.stringify({
+          email: {
+            value: 'test@example.com',
+            confidence: 90,
+            source: 'pattern',
+          },
+        }),
+      };
+
+      mockDocumentMethods.findFirst.mockResolvedValue(mockDocument);
+
+      const response = await request(app)
+        .get(`/api/documents/${testDocumentId}/data?includeConfidence=false`)
+        .expect(200);
+
+      expect(response.body.data).toEqual({
+        email: 'test@example.com',
+      });
     });
   });
 });

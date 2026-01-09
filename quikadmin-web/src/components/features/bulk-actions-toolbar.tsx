@@ -108,6 +108,7 @@ export function BulkActionsToolbar({
           "animate-in fade-in slide-in-from-bottom-2 duration-300",
           className
         )}
+        data-testid="bulk-actions-toolbar"
       >
         {/* Selection count */}
         <div className="flex items-center gap-2 px-3 py-1 bg-primary-foreground/10 rounded">
@@ -124,6 +125,7 @@ export function BulkActionsToolbar({
             onClick={handleDownload}
             disabled={isDownloading || isDeleting}
             className="h-8"
+            data-testid="bulk-download"
           >
             <Download className="h-4 w-4 mr-2" />
             Download
@@ -138,6 +140,7 @@ export function BulkActionsToolbar({
             onClick={() => setShowDeleteDialog(true)}
             disabled={isDownloading || isDeleting}
             className="h-8"
+            data-testid="bulk-delete"
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete

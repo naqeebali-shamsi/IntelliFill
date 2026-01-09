@@ -537,4 +537,43 @@ export class TemplateService {
       throw new Error(`Failed to get field mappings: ${error}`);
     }
   }
+
+  /**
+   * Duplicate a template
+   * Creates a new template with the same field mappings and settings
+   * New template name will be "{original name} (Copy)"
+   */
+  async duplicateTemplate(templateId: string, userId: string): Promise<Template> {
+    try {
+      logger.info(`Duplicating template ${templateId} for user ${userId}`);
+
+      // Get the original template
+      const original = await this.getTemplateById(templateId, userId);
+
+      if (!original) {
+        throw new Error('Template not found or access denied');
+      }
+
+      // Get decrypted field mappings from original
+      const fieldMappings = decryptJSON(original.fieldMappings);
+
+      // Create new name with (Copy) suffix
+      const newName = `${original.name} (Copy)`;
+
+      // Create the duplicate
+      const duplicatedTemplate = await this.createTemplate(userId, {
+        name: newName,
+        description: original.description || undefined,
+        formType: original.formType,
+        fieldMappings: fieldMappings,
+        isPublic: false, // Duplicates are always private initially
+      });
+
+      logger.info(`Template duplicated: ${original.id} -> ${duplicatedTemplate.id}`);
+      return duplicatedTemplate;
+    } catch (error) {
+      logger.error(`Failed to duplicate template ${templateId}:`, error);
+      throw error;
+    }
+  }
 }

@@ -1,5 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   User,
   Bell,
@@ -18,12 +22,16 @@ import {
   ChevronRight,
   Monitor,
   AlertCircle,
+  Loader2,
+  CheckCircle2,
+  Building2,
 } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -34,14 +42,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
+import { getProfile, updateProfile, type UpdateProfileData } from '@/services/accountService';
+import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
+import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
 
 // Sidebar Navigation Items
 const navItems = [
   { id: 'general', label: 'General', icon: Palette },
   { id: 'account', label: 'Account', icon: User },
+  { id: 'organization', label: 'Organization', icon: Building2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'advanced', label: 'Advanced', icon: Database },
@@ -85,30 +96,99 @@ const SettingsRow = ({
 export default function Settings() {
   const user = useBackendAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('general');
+  const queryClient = useQueryClient();
 
-  // Initialize form with user data if available, otherwise empty
-  const [accountForm, setAccountForm] = useState(() => ({
-    name: user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '',
-    email: user?.email || '',
-    phone: '',
-    company: '',
-  }));
+  // Fetch profile data on mount
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: getProfile,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  // Track the user ID we've synced from to detect user changes
-  const syncedUserIdRef = useRef<string | null>(user?.id ?? null);
+  // React Hook Form setup for profile editing
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isDirty, isSubmitting },
+  } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      phone: '',
+      jobTitle: '',
+      bio: '',
+    },
+  });
 
-  // Sync form when user changes (e.g., different user logs in)
-  // This is a legitimate use case for syncing external state to local state
+  // Sync form with fetched profile data
   useEffect(() => {
-    if (user && user.id !== syncedUserIdRef.current) {
-      syncedUserIdRef.current = user.id;
-      setAccountForm((prev) => ({
-        ...prev,
-        name: user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '',
-        email: user.email || '',
-      }));
+    if (profile) {
+      reset({
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        phone: profile.phone || '',
+        jobTitle: profile.jobTitle || '',
+        bio: profile.bio || '',
+      });
     }
-  }, [user]);
+  }, [profile, reset]);
+
+  // Profile update mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: UpdateProfileData) => updateProfile(data),
+    onSuccess: (updatedUser) => {
+      // Update the auth store with the new user data
+      useBackendAuthStore.setState((state) => ({
+        ...state,
+        user: state.user
+          ? {
+              ...state.user,
+              firstName: updatedUser.firstName || state.user.firstName,
+              lastName: updatedUser.lastName || state.user.lastName,
+            }
+          : null,
+      }));
+
+      // Invalidate any user-related queries
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+
+      toast.success('Profile Updated', {
+        description: 'Your profile information has been saved successfully.',
+        icon: <CheckCircle2 className="h-4 w-4" />,
+      });
+
+      // Reset form with updated values to clear dirty state
+      reset({
+        firstName: updatedUser.firstName || '',
+        lastName: updatedUser.lastName || '',
+        phone: updatedUser.phone || '',
+        jobTitle: updatedUser.jobTitle || '',
+        bio: updatedUser.bio || '',
+      });
+    },
+    onError: (error: Error) => {
+      toast.error('Update Failed', {
+        description: error.message || 'Failed to update profile. Please try again.',
+      });
+    },
+  });
+
+  // Form submit handler
+  const onSubmitProfile = (data: ProfileFormData) => {
+    // Convert empty strings to null for optional fields
+    const updateData: UpdateProfileData = {
+      firstName: data.firstName,
+      lastName: data.lastName || null,
+      phone: data.phone || null,
+      jobTitle: data.jobTitle || null,
+      bio: data.bio || null,
+    };
+
+    updateProfileMutation.mutate(updateData);
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -251,46 +331,167 @@ export default function Settings() {
                       title="Profile Information"
                       description="Update your personal details."
                     >
-                      <div className="grid gap-4 max-w-xl">
-                        <div className="grid gap-2">
-                          <Label htmlFor="name">Full Name</Label>
-                          <Input
-                            id="name"
-                            value={accountForm.name}
-                            onChange={(e) =>
-                              setAccountForm({ ...accountForm, name: e.target.value })
-                            }
-                          />
+                      {profileLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-muted-foreground">Loading profile...</span>
                         </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="email">Email Address</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={accountForm.email}
-                            onChange={(e) =>
-                              setAccountForm({ ...accountForm, email: e.target.value })
-                            }
-                          />
+                      ) : (
+                      <form onSubmit={handleSubmit(onSubmitProfile)} data-testid="profile-form">
+                        <div className="grid gap-4 max-w-xl">
+                          {/* First Name - Required */}
+                          <div className="grid gap-2">
+                            <Label htmlFor="firstName">
+                              First Name <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                              id="firstName"
+                              data-testid="profile-first-name-input"
+                              {...register('firstName')}
+                              aria-invalid={!!errors.firstName}
+                              placeholder="Enter your first name"
+                            />
+                            {errors.firstName && (
+                              <p className="text-sm text-destructive">{errors.firstName.message}</p>
+                            )}
+                          </div>
+
+                          {/* Last Name - Optional */}
+                          <div className="grid gap-2">
+                            <Label htmlFor="lastName">Last Name</Label>
+                            <Input
+                              id="lastName"
+                              data-testid="profile-last-name-input"
+                              {...register('lastName')}
+                              aria-invalid={!!errors.lastName}
+                              placeholder="Enter your last name"
+                            />
+                            {errors.lastName && (
+                              <p className="text-sm text-destructive">{errors.lastName.message}</p>
+                            )}
+                          </div>
+
+                          {/* Email - Read-only */}
+                          <div className="grid gap-2">
+                            <Label htmlFor="email">Email Address</Label>
+                            <div className="relative">
+                              <Input
+                                id="email"
+                                data-testid="profile-email-display"
+                                type="email"
+                                value={user?.email || ''}
+                                readOnly
+                                disabled
+                                className="pr-24 bg-muted/50 cursor-not-allowed"
+                              />
+                              {user?.emailVerified && (
+                                <Badge
+                                  variant="outline"
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-status-success/10 border-status-success/30 text-status-success text-xs"
+                                >
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Verified
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Email cannot be changed. Contact support if needed.
+                            </p>
+                          </div>
+
+                          {/* Phone - Optional */}
+                          <div className="grid gap-2">
+                            <Label htmlFor="phone">Phone Number</Label>
+                            <Input
+                              id="phone"
+                              data-testid="profile-phone-input"
+                              type="tel"
+                              {...register('phone')}
+                              aria-invalid={!!errors.phone}
+                              placeholder="+1 (555) 000-0000"
+                            />
+                            {errors.phone && (
+                              <p className="text-sm text-destructive">{errors.phone.message}</p>
+                            )}
+                          </div>
+
+                          {/* Job Title - Optional */}
+                          <div className="grid gap-2">
+                            <Label htmlFor="jobTitle">Job Title</Label>
+                            <Input
+                              id="jobTitle"
+                              data-testid="profile-job-title-input"
+                              {...register('jobTitle')}
+                              aria-invalid={!!errors.jobTitle}
+                              placeholder="e.g., Software Engineer"
+                            />
+                            {errors.jobTitle && (
+                              <p className="text-sm text-destructive">{errors.jobTitle.message}</p>
+                            )}
+                          </div>
+
+                          {/* Bio - Optional, Textarea */}
+                          <div className="grid gap-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="bio">Bio</Label>
+                              <span className="text-xs text-muted-foreground">Max 500 characters</span>
+                            </div>
+                            <Textarea
+                              id="bio"
+                              data-testid="profile-bio-input"
+                              {...register('bio')}
+                              aria-invalid={!!errors.bio}
+                              placeholder="Tell us a little about yourself..."
+                              className="min-h-[100px] resize-none"
+                              maxLength={500}
+                            />
+                            {errors.bio && (
+                              <p className="text-sm text-destructive">{errors.bio.message}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="grid gap-2">
-                          <Label htmlFor="phone">Phone Number</Label>
-                          <Input
-                            id="phone"
-                            type="tel"
-                            value={accountForm.phone}
-                            onChange={(e) =>
-                              setAccountForm({ ...accountForm, phone: e.target.value })
-                            }
-                            placeholder="+1 (555) 000-0000"
-                          />
+
+                        {/* Save Button */}
+                        <div className="flex gap-3 mt-6">
+                          <Button
+                            type="submit"
+                            data-testid="profile-save-button"
+                            disabled={!isDirty || isSubmitting || updateProfileMutation.isPending}
+                            className="w-fit shadow-lg shadow-primary/20"
+                          >
+                            {updateProfileMutation.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="mr-2 h-4 w-4" />
+                                Save Changes
+                              </>
+                            )}
+                          </Button>
+                          {isDirty && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              data-testid="profile-reset-button"
+                              onClick={() =>
+                                reset({
+                                  firstName: profile?.firstName || '',
+                                  lastName: profile?.lastName || '',
+                                  phone: profile?.phone || '',
+                                  jobTitle: profile?.jobTitle || '',
+                                  bio: profile?.bio || '',
+                                })
+                              }
+                            >
+                              Reset
+                            </Button>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex gap-3 mt-4">
-                        <Button className="w-fit shadow-lg shadow-primary/20">
-                          <Save className="mr-2 h-4 w-4" /> Save Changes
-                        </Button>
-                      </div>
+                      </form>
+                      )}
                     </SettingsSection>
 
                     <Separator className="bg-white/10" />
@@ -321,6 +522,8 @@ export default function Settings() {
                     </SettingsSection>
                   </>
                 )}
+
+                {activeTab === 'organization' && <OrganizationTabContent />}
 
                 {activeTab === 'notifications' && (
                   <>

@@ -208,7 +208,7 @@ export default function ResetPassword() {
           </CardDescription>
         </CardHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} data-testid="reset-password-form">
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
@@ -231,6 +231,7 @@ export default function ResetPassword() {
                   disabled={isLoading}
                   autoComplete="new-password"
                   className="w-full pr-10"
+                  data-testid="reset-password-input"
                 />
                 <button
                   type="button"
@@ -244,7 +245,7 @@ export default function ResetPassword() {
 
               {/* Password requirements */}
               {formData.password && validationErrors.length > 0 && (
-                <div className="space-y-1 text-xs">
+                <div className="space-y-1 text-xs" data-testid="password-strength-indicator">
                   <p className="text-muted-foreground font-medium">Password must contain:</p>
                   <ul className="space-y-1">
                     {validationErrors.map((err, idx) => (
@@ -272,6 +273,7 @@ export default function ResetPassword() {
                   disabled={isLoading}
                   autoComplete="new-password"
                   className="w-full pr-10"
+                  data-testid="reset-password-confirm-input"
                 />
                 <button
                   type="button"
@@ -301,6 +303,7 @@ export default function ResetPassword() {
                 validationErrors.length > 0 ||
                 formData.password !== formData.confirmPassword
               }
+              data-testid="reset-password-submit-button"
             >
               {isLoading ? (
                 <>

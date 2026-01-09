@@ -29,8 +29,10 @@ import {
   AgentName,
 } from './types/state';
 
+// Agent imports
+import { classifyDocument, ClassificationResult } from './agents/classifierAgent';
+
 // Node imports will be added as agents are implemented
-// import { classifyNode } from './nodes/classifier';
 // import { extractNode } from './nodes/extractor';
 // import { mapNode } from './nodes/mapper';
 // import { qaNode } from './nodes/qa';
@@ -54,10 +56,9 @@ export const NODE_NAMES = {
 const MAX_RETRIES = 3;
 
 /**
- * Placeholder node implementations
- * These will be replaced with actual agent implementations
+ * Classification node implementation
+ * Uses the Gemini-powered classifier agent with pattern-based fallback
  */
-
 async function classifyNode(
   state: DocumentState,
   config?: RunnableConfig
@@ -65,25 +66,59 @@ async function classifyNode(
   logger.info('Classification node executing', { documentId: state.documentId });
 
   const startTime = Date.now();
+  let classificationResult: ClassificationResult;
+  let status: 'completed' | 'failed' = 'completed';
+  let error: string | undefined;
 
-  // TODO: Implement actual classification with Phi-3
-  // For now, return a placeholder result
+  try {
+    // Use the classifier agent with text from OCR data if available
+    const text = state.ocrData?.rawText || '';
+
+    // Note: Image classification would require base64 image data
+    // For now, we classify based on text content
+    classificationResult = await classifyDocument(text);
+
+    logger.info('Classification successful', {
+      documentId: state.documentId,
+      documentType: classificationResult.documentType,
+      confidence: classificationResult.confidence,
+    });
+  } catch (err) {
+    status = 'failed';
+    error = err instanceof Error ? err.message : 'Unknown classification error';
+
+    logger.error('Classification failed', {
+      documentId: state.documentId,
+      error,
+    });
+
+    // Fallback to UNKNOWN on failure
+    classificationResult = {
+      documentType: 'UNKNOWN',
+      confidence: 0,
+      metadata: {},
+    };
+  }
 
   const execution = {
     agent: 'classifier' as AgentName,
     startTime: new Date(startTime),
     endTime: new Date(),
-    status: 'completed' as const,
-    model: 'phi3:mini',
+    status,
+    model: 'gemini-1.5-flash',
     tokenCount: 0,
     retryCount: 0,
+    error,
   };
 
   return {
     classification: {
-      category: 'UNKNOWN',
-      confidence: 0,
-      alternativeCategories: [],
+      category: classificationResult.documentType,
+      confidence: classificationResult.confidence,
+      alternativeCategories: classificationResult.alternativeTypes?.map((alt) => ({
+        category: alt.type,
+        confidence: alt.confidence,
+      })) || [],
       classifiedAt: new Date(),
     },
     agentHistory: [...state.agentHistory, execution],
@@ -94,6 +129,11 @@ async function classifyNode(
     },
   };
 }
+
+/**
+ * Placeholder node implementations
+ * These will be replaced with actual agent implementations
+ */
 
 async function extractNode(
   state: DocumentState,

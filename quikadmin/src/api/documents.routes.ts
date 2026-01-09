@@ -18,6 +18,10 @@ import { OCRService } from '../services/OCRService';
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
 import { uploadFile as uploadToStorage, isR2Configured } from '../services/storageHelper';
+import {
+  normalizeExtractedData,
+  flattenExtractedData,
+} from '../types/extractedData';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
@@ -247,8 +251,8 @@ export function createDocumentRoutes(): Router {
               // may have been deleted after upload to R2
               const extractedText = await detectionService.extractTextFromPDF(storageResult.url);
 
-              // Extract structured data from text
-              const structuredData = await ocrService.extractStructuredData(extractedText);
+              // Extract structured data from text (95% confidence for native PDF text)
+              const structuredData = await ocrService.extractStructuredData(extractedText, 95);
 
               // Encrypt and store extracted data
               const encryptedData = encryptExtractedData(structuredData);
@@ -391,6 +395,13 @@ export function createDocumentRoutes(): Router {
   /**
    * GET /api/documents/:id - Get single document details
    * Phase 6 Complete: Uses Supabase-only authentication
+   *
+   * Query params:
+   * - includeConfidence: boolean (default: true) - Include confidence scores in extractedData
+   *   When true (default), extractedData uses new format with per-field confidence:
+   *   { fieldName: { value, confidence, source, rawText? } }
+   *   When false, extractedData returns flattened format for backward compatibility:
+   *   { fieldName: value }
    */
   router.get(
     '/:id',
@@ -399,6 +410,7 @@ export function createDocumentRoutes(): Router {
       try {
         const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
+        const includeConfidence = req.query.includeConfidence !== 'false';
 
         const document = await prisma.document.findFirst({
           where: { id, userId },
@@ -411,7 +423,16 @@ export function createDocumentRoutes(): Router {
         // Decrypt extractedData if it exists
         let extractedData = null;
         if (document.extractedData) {
-          extractedData = decryptExtractedData(document.extractedData as string);
+          const decrypted = decryptExtractedData(document.extractedData as string);
+
+          if (includeConfidence) {
+            // Normalize to new format with confidence scores
+            // Legacy data gets default confidence: 0, source: 'pattern'
+            extractedData = normalizeExtractedData(decrypted, 0, 'pattern');
+          } else {
+            // Flatten to simple key-value pairs for backward compatibility
+            extractedData = flattenExtractedData(decrypted);
+          }
         }
 
         res.json({
@@ -430,6 +451,9 @@ export function createDocumentRoutes(): Router {
   /**
    * GET /api/documents/:id/data - Get extracted data only (for form filling)
    * Phase 6 Complete: Uses Supabase-only authentication
+   *
+   * Query params:
+   * - includeConfidence: boolean (default: true) - Include confidence scores
    */
   router.get(
     '/:id/data',
@@ -438,6 +462,7 @@ export function createDocumentRoutes(): Router {
       try {
         const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
+        const includeConfidence = req.query.includeConfidence !== 'false';
 
         const document = await prisma.document.findFirst({
           where: { id, userId },
@@ -452,9 +477,16 @@ export function createDocumentRoutes(): Router {
           return res.status(400).json({ error: 'Document processing not completed' });
         }
 
-        const extractedData = document.extractedData
-          ? decryptExtractedData(document.extractedData as string)
-          : null;
+        let extractedData = null;
+        if (document.extractedData) {
+          const decrypted = decryptExtractedData(document.extractedData as string);
+
+          if (includeConfidence) {
+            extractedData = normalizeExtractedData(decrypted, 0, 'pattern');
+          } else {
+            extractedData = flattenExtractedData(decrypted);
+          }
+        }
 
         res.json({
           success: true,

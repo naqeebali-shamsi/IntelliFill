@@ -1,0 +1,162 @@
+{
+  "templates": {
+    "uaeVisa": {
+      "id": "template-uae-visa",
+      "name": "UAE Visa Application",
+      "category": "visa",
+      "fields": [
+        {
+          "name": "passport_number",
+          "label": "Passport Number",
+          "type": "text",
+          "required": true,
+          "validation": "^[A-Z]{1,2}[0-9]{6,9}$"
+        },
+        {
+          "name": "full_name",
+          "label": "Full Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "date_of_birth",
+          "label": "Date of Birth",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "nationality",
+          "label": "Nationality",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "visa_type",
+          "label": "Visa Type",
+          "type": "select",
+          "options": ["Tourist", "Business", "Transit", "Work"],
+          "required": true
+        },
+        {
+          "name": "duration",
+          "label": "Duration (days)",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    "employmentContract": {
+      "id": "template-employment",
+      "name": "Employment Contract",
+      "category": "employment",
+      "fields": [
+        {
+          "name": "employee_name",
+          "label": "Employee Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "employee_id",
+          "label": "Employee ID",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "position",
+          "label": "Position",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "department",
+          "label": "Department",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "start_date",
+          "label": "Start Date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "salary",
+          "label": "Monthly Salary",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    "bankStatement": {
+      "id": "template-bank",
+      "name": "Bank Statement",
+      "category": "financial",
+      "fields": [
+        {
+          "name": "account_holder",
+          "label": "Account Holder Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "account_number",
+          "label": "Account Number",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "bank_name",
+          "label": "Bank Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "statement_period",
+          "label": "Statement Period",
+          "type": "text",
+          "required": true
+        },
+        {
+          "name": "opening_balance",
+          "label": "Opening Balance",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "closing_balance",
+          "label": "Closing Balance",
+          "type": "number",
+          "required": true
+        }
+      ]
+    },
+    "customTemplate": {
+      "id": "template-custom",
+      "name": "Custom Template",
+      "category": "custom",
+      "fields": [
+        {
+          "name": "custom_field_1",
+          "label": "Custom Field 1",
+          "type": "text",
+          "required": false
+        },
+        {
+          "name": "custom_field_2",
+          "label": "Custom Field 2",
+          "type": "text",
+          "required": false
+        }
+      ]
+    }
+  },
+  "expectedOcrMappings": {
+    "uaeVisa": {
+      "passport_number": "Passport No",
+      "full_name": "Full Name",
+      "date_of_birth": "Date of Birth",
+      "nationality": "Nationality"
+    }
+  }
+}

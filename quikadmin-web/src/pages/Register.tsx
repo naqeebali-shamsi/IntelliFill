@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToggle } from 'usehooks-ts';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -36,8 +36,16 @@ interface PasswordStrength {
   };
 }
 
-const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
-  <div className="flex items-center gap-1 text-xs">
+const RequirementItem = ({
+  met,
+  text,
+  testId,
+}: {
+  met: boolean;
+  text: string;
+  testId?: string;
+}) => (
+  <div className="flex items-center gap-1 text-xs" data-testid={testId}>
     {met ? (
       <Check className="h-3 w-3 text-status-success" />
     ) : (
@@ -49,6 +57,7 @@ const RequirementItem = ({ met, text }: { met: boolean; text: string }) => (
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showPassword, toggleShowPassword] = useToggle(false);
   const [agreedToTerms, toggleAgreedToTerms, setAgreedToTerms] = useToggle(false);
   const [marketingConsent, toggleMarketingConsent, setMarketingConsent] = useToggle(false);
@@ -126,15 +135,20 @@ export default function Register() {
       // Get the auth state to check if tokens are present
       const authState = useAuthStore.getState();
 
+      // Get redirect URL from query params (for invitation flow)
+      const redirectParam = searchParams.get('redirect');
+
       // Check if email verification is required (tokens will be null)
       if (!authState.tokens) {
         // Email verification required - redirect to verify-email page
+        // Preserve redirect param through verification flow
         toast.success('Registration successful! Please check your email for verification code.');
-        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+        const verifyUrl = `/verify-email?email=${encodeURIComponent(formData.email)}${redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : ''}`;
+        navigate(verifyUrl);
       } else {
         // Development mode or verification disabled - direct login
         toast.success('Registration successful! Welcome aboard!');
-        navigate('/dashboard');
+        navigate(redirectParam || '/dashboard');
       }
     } catch (err: any) {
       console.error('Registration error:', err);
@@ -262,7 +276,7 @@ export default function Register() {
               <p className="text-sm text-white/60">Enter your information to get started</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" data-testid="register-form">
               {error && (
                 <Alert variant="destructive" className="bg-error/10 border-error/30">
                   <AlertCircle className="h-4 w-4" />
@@ -285,6 +299,7 @@ export default function Register() {
                   required
                   disabled={isLoading}
                   autoComplete="name"
+                  data-testid="register-first-name-input"
                   className={cn(
                     'w-full h-11 bg-surface-1/50 border-sleek-line-default',
                     'placeholder:text-white/30 text-white',
@@ -309,6 +324,7 @@ export default function Register() {
                   required
                   disabled={isLoading}
                   autoComplete="email"
+                  data-testid="register-email-input"
                   className={cn(
                     'w-full h-11 bg-surface-1/50 border-sleek-line-default',
                     'placeholder:text-white/30 text-white',
@@ -334,6 +350,7 @@ export default function Register() {
                     required
                     disabled={isLoading}
                     autoComplete="new-password"
+                    data-testid="register-password-input"
                     className={cn(
                       'w-full h-11 bg-surface-1/50 border-sleek-line-default pr-11',
                       'placeholder:text-white/30 text-white',
@@ -357,7 +374,7 @@ export default function Register() {
                 </div>
 
                 {formData.password && (
-                  <div className="space-y-2 mt-2">
+                  <div className="space-y-2 mt-2" data-testid="password-requirements">
                     <div className="flex gap-1">
                       {[...Array(5)].map((_, i) => (
                         <div
@@ -372,19 +389,27 @@ export default function Register() {
                       <RequirementItem
                         met={passwordStrength.requirements.length}
                         text="8+ characters"
+                        testId="password-requirement-length"
                       />
                       <RequirementItem
                         met={passwordStrength.requirements.uppercase}
                         text="Uppercase"
+                        testId="password-requirement-uppercase"
                       />
                       <RequirementItem
                         met={passwordStrength.requirements.lowercase}
                         text="Lowercase"
+                        testId="password-requirement-lowercase"
                       />
-                      <RequirementItem met={passwordStrength.requirements.number} text="Number" />
+                      <RequirementItem
+                        met={passwordStrength.requirements.number}
+                        text="Number"
+                        testId="password-requirement-number"
+                      />
                       <RequirementItem
                         met={passwordStrength.requirements.special}
                         text="Special char"
+                        testId="password-requirement-special"
                       />
                     </div>
                   </div>
@@ -406,6 +431,7 @@ export default function Register() {
                   required
                   disabled={isLoading}
                   autoComplete="new-password"
+                  data-testid="register-confirm-password-input"
                   className={cn(
                     'w-full h-11 bg-surface-1/50 border-sleek-line-default',
                     'placeholder:text-white/30 text-white',
@@ -422,6 +448,7 @@ export default function Register() {
                   checked={agreedToTerms}
                   onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
                   disabled={isLoading}
+                  data-testid="terms-checkbox"
                   className="mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
                 <label htmlFor="terms" className="text-sm text-white/60 cursor-pointer">
@@ -449,6 +476,7 @@ export default function Register() {
                   checked={marketingConsent}
                   onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
                   disabled={isLoading}
+                  data-testid="marketing-checkbox"
                   className="mt-0.5 border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
                 <label
@@ -464,6 +492,7 @@ export default function Register() {
                 type="submit"
                 className="w-full h-11 text-[15px] font-medium mt-2"
                 disabled={isLoading || !agreedToTerms || passwordStrength.score < 4}
+                data-testid="register-submit-button"
               >
                 {isLoading ? (
                   <>
@@ -484,6 +513,7 @@ export default function Register() {
                 <Link
                   to="/login"
                   className="font-medium text-primary hover:text-primary/80 transition-colors"
+                  data-testid="login-link"
                 >
                   Sign in
                 </Link>

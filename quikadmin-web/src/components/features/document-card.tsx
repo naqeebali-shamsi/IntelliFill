@@ -168,6 +168,7 @@ function DocumentCard({
   return (
     <Card
       data-slot="document-card"
+      data-testid="document-card"
       className={cn('transition-shadow hover:shadow-md', onClick && 'cursor-pointer', className)}
       onClick={handleCardClick}
       {...props}
@@ -184,7 +185,7 @@ function DocumentCard({
 
           {/* Document Info */}
           <div className="flex-1 min-w-0">
-            <CardTitle className={cn('truncate', compact ? 'text-base' : 'text-lg')}>
+            <CardTitle className={cn('truncate', compact ? 'text-base' : 'text-lg')} data-testid="document-card-title">
               {name}
             </CardTitle>
             <CardDescription className={cn('flex items-center gap-2 mt-1', compact && 'text-xs')}>
@@ -213,7 +214,7 @@ function DocumentCard({
               confidence !== null &&
               confidence !== undefined &&
               confidence < 0.85 && <ConfidenceBadge confidence={confidence} />}
-            <StatusBadge status={status} showIcon size={compact ? 'sm' : 'md'} />
+            <StatusBadge status={status} showIcon size={compact ? 'sm' : 'md'} data-testid="document-card-status" />
           </div>
         </div>
 
@@ -239,7 +240,7 @@ function DocumentCard({
                   </DropdownMenuItem>
                 )}
                 {onDownload && (
-                  <DropdownMenuItem onClick={handleAction(() => onDownload(id))}>
+                  <DropdownMenuItem onClick={handleAction(() => onDownload(id))} data-testid="document-card-download">
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </DropdownMenuItem>
@@ -256,6 +257,7 @@ function DocumentCard({
                     <DropdownMenuItem
                       onClick={handleAction(() => onDelete(id))}
                       className="text-destructive focus:text-destructive"
+                      data-testid="document-card-delete"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       Delete

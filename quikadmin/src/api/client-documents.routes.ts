@@ -679,8 +679,8 @@ export function createClientDocumentRoutes(): Router {
               ocrResult = await ocrService.processImage(document.storageUrl);
             }
 
-            // Extract structured fields based on document category
-            const structuredData = await ocrService.extractStructuredData(ocrResult.text);
+            // Extract structured fields based on document category (pass OCR confidence)
+            const structuredData = await ocrService.extractStructuredData(ocrResult.text, ocrResult.confidence);
             const categoryFields = extractFieldsByCategory(structuredData, document.category);
 
             // Update extracted data

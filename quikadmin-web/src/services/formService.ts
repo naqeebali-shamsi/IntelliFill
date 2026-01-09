@@ -262,6 +262,33 @@ export async function useTemplate(templateId: string): Promise<void> {
   await api.post(`/templates/${templateId}/use`);
 }
 
+/**
+ * Duplicate a template
+ * Creates a new template with the same field mappings
+ * Returns the duplicated template with name "{original} (Copy)"
+ */
+export async function duplicateTemplate(templateId: string): Promise<MappingTemplate> {
+  const response = await api.post(`/templates/${templateId}/duplicate`);
+  const template = response.data.template;
+
+  return {
+    id: template.id,
+    name: template.name,
+    description: template.description,
+    formType: template.formType,
+    usageCount: template.usageCount || 0,
+    mappings: template.fieldMappings?.reduce((acc: Record<string, string>, mapping: any) => {
+      if (mapping.sourceField && mapping.targetField) {
+        acc[mapping.targetField] = mapping.sourceField;
+      }
+      return acc;
+    }, {}) || {},
+    fieldMappings: template.fieldMappings,
+    createdAt: template.createdAt,
+    updatedAt: template.updatedAt,
+  };
+}
+
 // Export everything for convenience
 export const formService = {
   validateForm,
@@ -274,6 +301,7 @@ export const formService = {
   createTemplate,
   updateTemplate,
   deleteTemplate,
+  duplicateTemplate,
   getPublicTemplates,
   detectFormType,
   matchTemplates,

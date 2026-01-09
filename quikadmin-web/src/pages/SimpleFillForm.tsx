@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileUp,
@@ -15,6 +16,8 @@ import {
   Upload,
   Sparkles,
   Settings2,
+  History,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import api, { validateForm } from '@/services/api';
+import { useFilledFormStore } from '@/stores/filledFormStore';
 
 import { FieldMappingTable } from '@/components/features/field-mapping-table';
 import { TemplateManager } from '@/components/features/template-manager';
@@ -41,6 +45,8 @@ interface FillResult {
   filledFields: number;
   totalFields: number;
   warnings?: string[];
+  savedToHistory?: boolean;
+  historyId?: string;
 }
 
 interface UserDataResponse {
@@ -156,6 +162,7 @@ const FormStepper = ({ currentStep }: { currentStep: 'upload' | 'map' | 'process
 };
 
 export default function SimpleFillForm() {
+  const navigate = useNavigate();
   const [blankForm, setBlankForm] = useState<File | null>(null);
   const [filling, setFilling] = useState(false);
   const [result, setResult] = useState<FillResult | null>(null);
@@ -165,6 +172,10 @@ export default function SimpleFillForm() {
   const [validatingForm, setValidatingForm] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [direction, setDirection] = useState(0); // For animation direction
+  const [savingToHistory, setSavingToHistory] = useState(false);
+
+  // Filled form store for saving to history
+  const { loadFilledForms } = useFilledFormStore();
 
   // Fetch ALL user's aggregated data
   const {
@@ -411,6 +422,55 @@ export default function SimpleFillForm() {
     }
   };
 
+  // Save the filled form to history (creates a record linked to the profile)
+  const handleSaveToHistory = async () => {
+    if (!result || !selectedProfile) {
+      toast.error('No form result or profile selected');
+      return;
+    }
+
+    try {
+      setSavingToHistory(true);
+
+      // Create a history record by linking the filled document to the profile
+      // This uses a lightweight API call to save form fill metadata
+      const response = await api.post('/filled-forms/save-adhoc', {
+        documentId: result.documentId,
+        clientId: selectedProfile.id,
+        formName: blankForm?.name || 'Filled Form',
+        confidence: result.confidence,
+        filledFields: result.filledFields,
+        totalFields: result.totalFields,
+        dataSnapshot: effectiveData.fields,
+      });
+
+      setResult({
+        ...result,
+        savedToHistory: true,
+        historyId: response.data.data?.id,
+      });
+
+      // Refresh the filled forms list in store
+      loadFilledForms();
+
+      toast.success('Saved to history!', {
+        description: 'You can view this form in your fill history.',
+        action: {
+          label: 'View History',
+          onClick: () => navigate('/history'),
+        },
+      });
+    } catch (error: unknown) {
+      console.error('Failed to save to history:', error);
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to save to history';
+      toast.error(message);
+    } finally {
+      setSavingToHistory(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       <div className="flex flex-col gap-2">
@@ -608,6 +668,53 @@ export default function SimpleFillForm() {
                 </div>
               </div>
             </div>
+
+            {/* Save to History Banner */}
+            {!result.savedToHistory && selectedProfile && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Clock className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Save to History</p>
+                    <p className="text-xs text-muted-foreground">
+                      Keep a record linked to "{selectedProfile.name}" profile
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveToHistory}
+                  disabled={savingToHistory}
+                  className="shrink-0"
+                >
+                  {savingToHistory ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <History className="h-4 w-4 mr-1" />
+                  )}
+                  {savingToHistory ? 'Saving...' : 'Save'}
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Saved confirmation */}
+            {result.savedToHistory && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-6 p-3 bg-status-success/10 border border-status-success/20 rounded-xl flex items-center justify-center gap-2 text-status-success-foreground"
+              >
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-sm font-medium">Saved to your fill history</span>
+              </motion.div>
+            )}
 
             <div className="flex gap-4 justify-center">
               <Button variant="outline" onClick={handleReset}>

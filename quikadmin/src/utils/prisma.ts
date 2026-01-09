@@ -11,9 +11,9 @@ import { PrismaClient } from '@prisma/client';
 
 // Global type declaration for PrismaClient
 declare global {
-  // eslint-disable-next-line no-var
+   
   var prisma: PrismaClient | undefined;
-  // eslint-disable-next-line no-var
+   
   var prismaKeepaliveInterval: NodeJS.Timeout | undefined;
 }
 

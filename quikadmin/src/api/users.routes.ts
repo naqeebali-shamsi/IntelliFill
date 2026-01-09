@@ -10,6 +10,8 @@ import { logger } from '../utils/logger';
 import { createProfileRoutes } from './profile.routes';
 import { ExtractedData } from '../extractors/DataExtractor';
 import { prisma } from '../utils/prisma';
+import { validate } from '../middleware/validation';
+import { updateProfileSchema, updateSettingsSchema } from '../validators/schemas';
 
 // Validation schema for fill-form endpoint
 const fillFormBodySchema = z.object({
@@ -198,6 +200,163 @@ export function createUserRoutes(): Router {
         });
       } catch (error) {
         logger.error('Error fetching user info:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * GET /api/users/me/profile - Get user profile
+   * Returns full profile data including phone, jobTitle, and bio.
+   */
+  router.get(
+    '/me/profile',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            phone: true,
+            jobTitle: true,
+            bio: true,
+            updatedAt: true,
+          },
+        });
+
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({
+          success: true,
+          data: { user },
+        });
+      } catch (error) {
+        logger.error('Error fetching user profile:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/users/me/profile - Update user profile
+   * Task 385: Update user profile fields (firstName, lastName, avatarUrl, phone, jobTitle, bio)
+   */
+  router.patch(
+    '/me/profile',
+    authenticateSupabase,
+    validate(updateProfileSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Update user profile
+        const user = await prisma.user.update({
+          where: { id: userId },
+          data: req.body,
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            phone: true,
+            jobTitle: true,
+            bio: true,
+            updatedAt: true,
+          },
+        });
+
+        res.json({
+          success: true,
+          data: { user },
+        });
+      } catch (error) {
+        logger.error('Error updating user profile:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * GET /api/users/me/settings - Get user settings
+   * Task 385: Retrieve current user settings
+   */
+  router.get(
+    '/me/settings',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const settings = await prisma.userSettings.findUnique({
+          where: { userId },
+        });
+
+        // Return empty object if no settings exist yet
+        res.json({
+          success: true,
+          data: { settings: settings || {} },
+        });
+      } catch (error) {
+        logger.error('Error fetching user settings:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * PATCH /api/users/me/settings - Update user settings
+   * Task 385: Update user settings with upsert (create if not exists)
+   */
+  router.patch(
+    '/me/settings',
+    authenticateSupabase,
+    validate(updateSettingsSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Upsert settings (create if not exists, update if exists)
+        const settings = await prisma.userSettings.upsert({
+          where: { userId },
+          update: req.body,
+          create: {
+            userId,
+            ...req.body,
+          },
+        });
+
+        res.json({
+          success: true,
+          data: { settings },
+        });
+      } catch (error) {
+        logger.error('Error updating user settings:', error);
         next(error);
       }
     }

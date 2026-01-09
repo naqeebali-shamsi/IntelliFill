@@ -1,0 +1,197 @@
+{
+	"meta": {
+		"generatedAt": "2026-01-09T05:01:53.291Z",
+		"tasksAnalyzed": 23,
+		"totalTasks": 308,
+		"analysisCount": 23,
+		"thresholdScore": 5,
+		"projectName": "Task Master",
+		"usedResearch": true
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 472,
+			"taskTitle": "Add API-Level User Verification in Global Setup",
+			"complexityScore": 3,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Break this into subtasks covering: (1) updating Playwright global.setup.ts to perform API login for a known test user with robust error handling and clear messaging; (2) configuration concerns (env vars, URL handling, test-mode flags) and keeping credentials out of source control; (3) tests and CI integration to ensure fast-fail behavior and stable diagnostics when auth or seeding is broken.",
+			"reasoning": "Small, localized change to existing Playwright global setup with straightforward HTTP call and assertions; main work is clean error handling and ensuring it behaves deterministically in all environments."
+		},
+		{
+			"taskId": 473,
+			"taskTitle": "Add Password Hash Validation to Seed Verification",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Split into subtasks for: (1) extending verifySeedData() to perform bcrypt.compare on all test users and membership checks with clear aggregated error reporting; (2) handling performance and idempotency concerns (reruns, partially bad data, and corrupt hashes); (3) adding/adjusting automated tests around the seed script, including intentional corruption scenarios.",
+			"reasoning": "Logic is simple but touches critical auth data and idempotent seed behavior; needs careful handling of failures, DB access, and test coverage to avoid masking real issues."
+		},
+		{
+			"taskId": 474,
+			"taskTitle": "Create Database Verification SQL Script",
+			"complexityScore": 3,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Decompose into: (1) designing and implementing the verification SQL to check org, users, bcrypt hash shape, and memberships with clear PASS/FAIL markers; (2) validating script on different environments and documenting how to run and interpret results within the troubleshooting docs.",
+			"reasoning": "Pure SQL with read-only checks against a known schema; low implementation risk, but requires attention to correctness and clarity of output for troubleshooting."
+		},
+		{
+			"taskId": 475,
+			"taskTitle": "Add Login Success E2E Test",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Create subtasks for: (1) implementing/expanding Playwright tests to cover login success for all seeded roles plus invalid password handling; (2) ensuring fixtures, test data, and selectors are stable and DRY; (3) making tests robust in CI (seeding dependency, auth state management, flakiness mitigation).",
+			"reasoning": "Standard Playwright E2E work but involves multiple user roles, UI assertions, and dependency on seed/auth flows, so care is needed to avoid brittle tests."
+		},
+		{
+			"taskId": 476,
+			"taskTitle": "Create E2E Troubleshooting Documentation",
+			"complexityScore": 3,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Define subtasks for: (1) drafting the troubleshooting guide structure and core flows (quick-fix checklist, seed/SQL usage, cache clearing); (2) validating all commands, paths, and messages against the actual system; (3) usability review with another developer and iteration based on their feedback.",
+			"reasoning": "Documentation-focused; technical accuracy and alignment with real scripts/endpoints is the main effort, with little implementation risk."
+		},
+		{
+			"taskId": 477,
+			"taskTitle": "Add Seed Script to CI/CD Pipeline",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break into subtasks: (1) update CI workflow to provision DB/Redis, run migrations, and execute the seed script with proper env; (2) integrate seed verification output into CI logs and failure conditions; (3) add basic retry/backoff or ordering to reduce flakiness; (4) validate across branches/PRs and possibly matrix builds.",
+			"reasoning": "Touches CI infrastructure, external services, and ordering of steps; moderate complexity due to environment variability and need for stable, non-flaky pipelines."
+		},
+		{
+			"taskId": 478,
+			"taskTitle": "Add Seed Health Check Endpoint",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Create subtasks for: (1) implementing the test-only /e2e/seed-status route with Prisma queries and detailed per-user/org checks; (2) gating exposure via environment flags and ensuring no leakage to production; (3) wiring into E2E tests or setup as a preflight check; (4) adding unit/integration tests for healthy/unhealthy/error scenarios.",
+			"reasoning": "Backend API addition with conditional exposure, DB access, and contract with tests; moderate complexity to ensure safety, correctness, and non-production exposure."
+		},
+		{
+			"taskId": 479,
+			"taskTitle": "Update CLAUDE.md with E2E Seed Requirements",
+			"complexityScore": 2,
+			"recommendedSubtasks": 2,
+			"expansionPrompt": "Split into: (1) updating CLAUDE-related docs with accurate E2E commands, test user references, and common-issue flows; (2) validating that AI agents and developers can follow the steps end-to-end without missing prerequisites.",
+			"reasoning": "Small documentation update with low technical risk; primary work is ensuring instructions are correct and concise for both humans and agents."
+		},
+		{
+			"taskId": 480,
+			"taskTitle": "Add Organization Context Verification to Auth Fixture",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Break down into: (1) extending the auth.fixture AuthenticatedContext type and post-login flow to fetch /api/users/me/profile with the correct auth headers; (2) aligning the profile response shape with fixture typing (org ID, memberships) and handling null/edge cases; (3) updating dependent tests to consume the richer context; (4) adding tests for fixture behavior and regression coverage.",
+			"reasoning": "Moderate complexity due to cross-layer dependency between frontend fixture, backend profile API, and existing tests; must be robust to API changes and network timing."
+		},
+		{
+			"taskId": 481,
+			"taskTitle": "Add Seed Script Retry Logic for Transient Failures",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Define subtasks for: (1) implementing generic withRetry() wrapper around seedE2EUsers with clear logging and retry conditions; (2) tuning retry parameters and error classification for CI/Docker vs local dev; (3) tests/simulations for DB unavailable vs available and ensuring failures still fail fast when non-transient.",
+			"reasoning": "Logic is conceptually simple but must avoid masking real errors or extending CI times unnecessarily; careful error classification and testing are needed."
+		},
+		{
+			"taskId": 482,
+			"taskTitle": "Enhance OCR Pattern Extraction with Per-Field Confidence",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Split into: (1) designing the ExtractedFieldResult shape and updating extractStructuredData signature; (2) implementing pattern-based extraction with confidence computation using OCR confidence and pattern specificity; (3) wiring OCR confidence from processPDF/processImage; (4) updating type contracts and callers (including multiagent state types); (5) adding comprehensive unit tests for patterns and confidence behavior.",
+			"reasoning": "Touches a core service with new data model and scoring logic; requires careful type propagation, backward compatibility, and non-trivial testing of heuristics."
+		},
+		{
+			"taskId": 483,
+			"taskTitle": "Update ExtractedData Storage and API Response with Per-Field Confidence",
+			"complexityScore": 7,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break into: (1) updating persistence layer to store enhanced field objects in ExtractedData.fields; (2) updating /api/users/me/data and related DTOs to return confidence/source plus fieldSources; (3) implementing mergeExtractedData and normalizeFieldData with backward compatibility; (4) updating frontend types and consumers; (5) adding unit/integration tests for merge behavior and legacy data handling.",
+			"reasoning": "Cross-cutting change from backend persistence to API shape and frontend types; must be backward compatible and preserve existing data while introducing richer semantics."
+		},
+		{
+			"taskId": 484,
+			"taskTitle": "Update FieldMappingTable to Display Real Extraction Confidence",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Create subtasks for: (1) adapting FieldMappingTable props and internal logic to consume EnhancedFieldData and fieldSources; (2) implementing getExtractionConfidence with backward compatibility; (3) adding confidence filter state and UI plus row highlighting; (4) ensuring UX and accessibility of badges/tooltips; (5) unit/component/E2E tests around filtering and visual states.",
+			"reasoning": "Moderate UI and state complexity; needs to reconcile multiple confidence sources, preserve backward compatibility, and ensure clear UX for filtering and highlighting."
+		},
+		{
+			"taskId": 485,
+			"taskTitle": "Create TemplateLibrary Page with Grid View",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Break into: (1) new /templates page with React Query data loading and client-side search/filter/sort/viewMode; (2) route wiring and navigation; (3) implementing grid/list container and responsive layout; (4) creating LoadingSkeleton and EmptyState components; (5) component tests and E2E coverage for navigation and interactions.",
+			"reasoning": "Feature page with multiple UI controls (search, filters, sort, view toggle), data fetching, and responsive layout; moderate front-end complexity but no deep backend changes."
+		},
+		{
+			"taskId": 486,
+			"taskTitle": "Create TemplateCard and TemplateEditor Components",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Split into: (1) building TemplateCard with grid/list variants and action menu (edit/duplicate/delete/preview hooks); (2) wiring TemplateEditor for create/edit flows with React Query, form state, and category handling; (3) integrating file upload and field detection via validateForm; (4) integrating FieldMappingTable for mapping configuration; (5) navigation and UX flows (success, cancel, errors); (6) component and E2E tests for create/edit/duplicate/delete flows.",
+			"reasoning": "Substantial UI feature with multiple components, async operations, and mapping logic; involves routing, state management, and integration with existing services."
+		},
+		{
+			"taskId": 487,
+			"taskTitle": "Add Template Duplication and Preview Features",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Create subtasks for: (1) implementing duplication via frontend mutation and/or backend duplicate endpoint; (2) building TemplatePreviewModal to show metadata and mappings; (3) integrating preview and duplicate actions into TemplateCard and TemplateLibrary; (4) permission and data-consistency checks (IDs, timestamps, usage counts); (5) tests for preview rendering and duplication correctness.",
+			"reasoning": "Moderate complexity around data cloning, modal UX, and integration with existing template list/editor; backend duplication path adds some extra care but not algorithmic difficulty."
+		},
+		{
+			"taskId": 488,
+			"taskTitle": "Create Filled Forms API Endpoints",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break into: (1) defining Prisma model usage and DTO shapes for filled forms (summary vs detail); (2) implementing list endpoint with filters, pagination, and authorization scoping to user; (3) implementing detail and download endpoints, including storage integration/presigned URLs; (4) implementing delete semantics and any storage cleanup policy; (5) wiring routes and frontend service layer; (6) unit/integration tests for filtering, auth boundaries, and error codes.",
+			"reasoning": "New backend surface with multiple endpoints, filtering/pagination, storage concerns, and security; plus a frontend service wrapper and tests across these paths."
+		},
+		{
+			"taskId": 489,
+			"taskTitle": "Create FilledFormHistory Page",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Define subtasks for: (1) building the /history page with filters (date, template) and pagination wired to getFilledForms; (2) table UI with action buttons for view/download/delete; (3) integrating FilledFormDetailModal and delete confirmation dialog; (4) handling loading/empty/error states cleanly; (5) component and E2E tests for filtering, pagination, and actions.",
+			"reasoning": "Front-end page with moderate state and interaction complexity, depending on the new history API; no deep algorithms but significant UI and data handling."
+		},
+		{
+			"taskId": 490,
+			"taskTitle": "Integrate Form Filling with FilledForm History",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break into: (1) extending /users/me/fill-form to create FilledForm records with a well-defined dataSnapshot including per-field confidence; (2) defining snapshot schema and ensuring it is versioned and queryable; (3) updating SimpleFillForm to send clientId/templateId and handle success responses with navigation/toast; (4) implementing FilledFormDetailModal rendering of snapshot and confidence badges; (5) integration tests bridging form filling to history; (6) data security review for what’s stored in snapshots.",
+			"reasoning": "Ties core form-filling flow into persistent audit/history; requires careful schema design, backwards compatibility, and coordinated backend–frontend changes with audit/privacy considerations."
+		},
+		{
+			"taskId": 491,
+			"taskTitle": "Complete E2E Tests for Template Autofill Flows",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Split into: (1) updating TemplatesPage page object to align with new /templates UI and selectors; (2) fixing FF-040 and related tests for manual field selection across multiple documents; (3) adding tests for per-field confidence indicators and styling; (4) adding tests for filled-form history integration; (5) stabilizing tests with mocks, timeouts, and CI-friendly configuration.",
+			"reasoning": "Primarily E2E test authoring and refactoring; complexity comes from coordinating multiple pages, mocks (OCR, storage), and new confidence/history features, not from algorithms."
+		},
+		{
+			"taskId": 492,
+			"taskTitle": "Implement Classifier Agent with Gemini",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Create subtasks for: (1) defining ClassificationResult types, prompts, and schemas for Gemini; (2) implementing classifyDocument with Gemini client, response parsing, and safety around malformed JSON; (3) wiring classifyNode into the multiagent workflow with fallbacks to rule-based classification; (4) implementing and tuning classifyByRules patterns; (5) configuration and secrets management for GEMINI_API_KEY plus local mocking; (6) unit/integration tests for classifier behavior under success, low-confidence, and failure paths.",
+			"reasoning": "LLM integration into pipeline with fallback logic and environment concerns; moderate algorithmic complexity and higher integration/testing complexity, especially around robustness and cost control."
+		},
+		{
+			"taskId": 493,
+			"taskTitle": "Implement Extractor Agent with Per-Field Confidence",
+			"complexityScore": 8,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break into: (1) defining EXTRACTION_PROMPTS and FIELD_SCHEMAS per document category; (2) integrating Gemini extraction call with JSON response parsing and error handling; (3) normalizing/validating extracted fields against schemas and adjusting confidence; (4) implementing extractByPatterns and merging with LLM output; (5) wiring extractNode into workflow state, including metrics (high/low confidence counts); (6) performance and token-usage considerations (text truncation, prompt tuning); (7) comprehensive tests with mocked Gemini and pattern-only fallbacks per category.",
+			"reasoning": "Central, high-impact node in the pipeline combining LLM outputs, schema validation, heuristics, and pattern fallbacks; non-trivial to design, tune, and test thoroughly."
+		},
+		{
+			"taskId": 494,
+			"taskTitle": "Implement Mapper and QA Agents for Field Validation",
+			"complexityScore": 8,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Split into: (1) implementing mapNode with alias tables and semantic similarity-based canonicalization; (2) defining QA rules per document category, including required fields and confidence thresholds; (3) implementing QA scoring, issue classification, and human-review flags; (4) implementing errorRecoverNode with retry strategies and MAX_RETRIES policy; (5) wiring mapper/QA/error-recovery into workflow control flow; (6) logging, observability, and metrics for mapping/QA outcomes; (7) unit and integration tests for aliasing, QA rules, and recovery behavior under various issue patterns.",
+			"reasoning": "Complex rule-based logic layered onto extracted data and classification; introduces non-trivial workflow control (branching, retries) and requires careful design of QA semantics and recovery behavior."
+		}
+	]
+}

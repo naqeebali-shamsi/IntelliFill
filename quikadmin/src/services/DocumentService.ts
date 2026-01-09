@@ -2,6 +2,12 @@ import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { enqueueDocumentForReprocessing } from '../queues/ocrQueue';
 import Bull from 'bull';
 import { prisma } from '../utils/prisma';
+import {
+  ExtractedDataWithConfidence,
+  normalizeExtractedData,
+  flattenExtractedData,
+  isExtractedDataWithConfidence,
+} from '../types/extractedData';
 
 export class DocumentService {
   /**
@@ -186,6 +192,87 @@ export class DocumentService {
       return document;
     } catch (error) {
       logger.error('Failed to get reprocessing history', { documentId, userId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get document with extracted data, optionally including confidence scores
+   *
+   * @param documentId - Document ID
+   * @param userId - User ID for authorization
+   * @param includeConfidence - Whether to include confidence scores (default: true)
+   * @returns Document with extracted data in the requested format
+   */
+  async getDocumentWithExtractedData(
+    documentId: string,
+    userId: string,
+    includeConfidence: boolean = true
+  ): Promise<{
+    document: any;
+    extractedData: ExtractedDataWithConfidence | Record<string, any> | null;
+  }> {
+    try {
+      const document = await prisma.document.findFirst({
+        where: {
+          id: documentId,
+          userId
+        }
+      });
+
+      if (!document) {
+        throw new Error('Document not found or access denied');
+      }
+
+      let extractedData = document.extractedData as any;
+
+      if (extractedData) {
+        if (includeConfidence) {
+          // Normalize to new format with confidence
+          // If data is in legacy format, add default confidence (0) and source ('pattern')
+          extractedData = normalizeExtractedData(extractedData, 0, 'pattern');
+        } else {
+          // Flatten to simple key-value pairs for backward compatibility
+          extractedData = flattenExtractedData(extractedData);
+        }
+      }
+
+      return {
+        document,
+        extractedData
+      };
+    } catch (error) {
+      logger.error('Failed to get document with extracted data', { documentId, userId, error });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if document has extracted data in the new confidence format
+   *
+   * @param documentId - Document ID
+   * @param userId - User ID for authorization
+   * @returns True if data is in the new format with confidence scores
+   */
+  async hasConfidenceFormat(documentId: string, userId: string): Promise<boolean> {
+    try {
+      const document = await prisma.document.findFirst({
+        where: {
+          id: documentId,
+          userId
+        },
+        select: {
+          extractedData: true
+        }
+      });
+
+      if (!document || !document.extractedData) {
+        return false;
+      }
+
+      return isExtractedDataWithConfidence(document.extractedData);
+    } catch (error) {
+      logger.error('Failed to check confidence format', { documentId, userId, error });
       throw error;
     }
   }

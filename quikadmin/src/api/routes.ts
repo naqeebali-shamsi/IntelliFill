@@ -14,6 +14,9 @@ import { createFilledFormRoutes } from './filled-forms.routes';
 import { createKnowledgeRoutes } from './knowledge.routes';
 import { createMultiagentRoutes } from './multiagent.routes';
 import securityDashboardRoutes from './security-dashboard.routes';
+import { createOrganizationRoutes } from './organization.routes';
+import { createInvitationRoutes } from './invitation.routes';
+import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
 import { DatabaseService } from '../database/DatabaseService';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
@@ -130,6 +133,25 @@ export function setupRoutes(
   // Setup security audit dashboard routes (Task 285)
   // Mounted at /api/admin/security for admin-only security monitoring
   app.use('/api/admin/security', securityDashboardRoutes);
+
+  // Setup organization routes (Task 382)
+  // Mounted at /api/organizations for organization CRUD operations
+  const organizationRoutes = createOrganizationRoutes();
+  app.use('/api/organizations', organizationRoutes);
+
+  // Setup invitation routes (Task 384)
+  // Mounted at /api/invites for public invitation validation and acceptance
+  const invitationRoutes = createInvitationRoutes();
+  app.use('/api/invites', invitationRoutes);
+
+  // Setup E2E test routes (Task 478)
+  // ONLY available when E2E_TEST_MODE=true or NODE_ENV=test
+  // Mounted at /api/e2e for test infrastructure endpoints
+  if (isE2ETestMode()) {
+    const e2eRoutes = createE2ERoutes();
+    app.use('/api/e2e', e2eRoutes);
+    logger.info('E2E test routes enabled at /api/e2e');
+  }
 
   // Health check
   router.get('/health', (_req: Request, res: Response) => {

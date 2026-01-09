@@ -168,3 +168,84 @@ export function getConfidenceBadgeVariant(
   if (confidence > 0) return 'outline';
   return 'destructive';
 }
+
+/**
+ * Confidence level thresholds and styling
+ * Used for per-field confidence display in FieldMappingTable
+ */
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+
+export interface ConfidenceLevelConfig {
+  level: ConfidenceLevel;
+  label: string;
+  /** Badge variant using semantic status colors */
+  badgeVariant: 'success' | 'warning' | 'error' | 'success-muted' | 'warning-muted' | 'error-muted';
+  /** Background class for row highlighting */
+  rowBgClass: string;
+  /** Whether this level requires user review */
+  requiresReview: boolean;
+}
+
+/**
+ * Get confidence level configuration based on score
+ * High: 80-100, Medium: 50-79, Low: 0-49
+ */
+export function getConfidenceLevel(confidence: number): ConfidenceLevelConfig {
+  if (confidence >= 80) {
+    return {
+      level: 'high',
+      label: 'High',
+      badgeVariant: 'success-muted',
+      rowBgClass: '',
+      requiresReview: false,
+    };
+  }
+  if (confidence >= 50) {
+    return {
+      level: 'medium',
+      label: 'Medium',
+      badgeVariant: 'warning-muted',
+      rowBgClass: 'bg-warning/5',
+      requiresReview: false,
+    };
+  }
+  return {
+    level: 'low',
+    label: 'Low',
+    badgeVariant: 'error-muted',
+    rowBgClass: 'bg-error/5',
+    requiresReview: true,
+  };
+}
+
+/**
+ * Get human-readable label for extraction source
+ */
+export function getSourceLabel(source: 'ocr' | 'pattern' | 'llm'): string {
+  switch (source) {
+    case 'ocr':
+      return 'OCR Extraction';
+    case 'pattern':
+      return 'Pattern Match';
+    case 'llm':
+      return 'AI Extraction';
+    default:
+      return 'Unknown';
+  }
+}
+
+/**
+ * Get icon/indicator for extraction source
+ */
+export function getSourceIcon(source: 'ocr' | 'pattern' | 'llm'): string {
+  switch (source) {
+    case 'ocr':
+      return 'scan'; // lucide icon name
+    case 'pattern':
+      return 'regex'; // lucide icon name
+    case 'llm':
+      return 'sparkles'; // lucide icon name
+    default:
+      return 'help-circle';
+  }
+}

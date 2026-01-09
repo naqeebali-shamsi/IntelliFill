@@ -423,7 +423,7 @@ describe('multiagentQueue', () => {
 
   describe('closeMultiagentWorker', () => {
     it('should close worker when running', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       const { initializeMultiagentQueue, startMultiagentWorker, closeMultiagentWorker } =
         require('../multiagentQueue');
 
@@ -441,7 +441,7 @@ describe('multiagentQueue', () => {
 
   describe('closeMultiagentQueue', () => {
     it('should close all resources on shutdown', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       const {
         initializeMultiagentQueue,
         startMultiagentWorker,

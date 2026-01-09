@@ -559,9 +559,10 @@ export function createSupabaseAuthRoutes(): Router {
       }
 
       // ===== Verify User in Prisma =====
+      // Note: Look up by supabaseUserId since Prisma id != Supabase user id
 
       const user = await prisma.user.findUnique({
-        where: { id: sessionData.user.id },
+        where: { supabaseUserId: sessionData.user.id },
         select: {
           id: true,
           email: true,

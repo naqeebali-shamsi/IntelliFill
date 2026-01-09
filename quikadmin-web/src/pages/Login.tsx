@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, LogIn, Eye, EyeOff, AlertCircle, Zap, Shield, Clock } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -32,6 +33,31 @@ export default function Login() {
   const isLocked = useAuthStore((state) => state.isLocked);
   const loginAttempts = useAuthStore((state) => state.loginAttempts);
   const lockExpiry = useAuthStore((state) => state.lockExpiry);
+
+  // Countdown timer for lockout display
+  const [lockCountdown, setLockCountdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLocked || !lockExpiry) {
+      setLockCountdown(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const remaining = lockExpiry - Date.now();
+      if (remaining <= 0) {
+        setLockCountdown(null);
+        return;
+      }
+      const minutes = Math.floor(remaining / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      setLockCountdown(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [isLocked, lockExpiry]);
 
   // Check if coming from expired session
   const wasExpired = location.state?.expired;
@@ -58,7 +84,9 @@ export default function Login() {
       toast.success('Login successful!');
 
       // Navigate to intended route or dashboard
-      const redirectTo = location.state?.from?.pathname || '/dashboard';
+      // Priority: 1) redirect query param, 2) location state, 3) dashboard
+      const redirectParam = searchParams.get('redirect');
+      const redirectTo = redirectParam || location.state?.from?.pathname || '/dashboard';
       navigate(redirectTo, { replace: true });
     } catch (err: any) {
       console.error('Login error:', err);
@@ -178,24 +206,32 @@ export default function Login() {
                 </Alert>
               )}
 
-              {error && (
-                <Alert variant="destructive" className="bg-error/10 border-error/30">
+              {/* Prominent lockout alert with countdown */}
+              {isLocked && lockExpiry && (
+                <Alert variant="destructive" data-testid="lockout-alert">
                   <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Account Locked</AlertTitle>
                   <AlertDescription>
-                    {error.message}
-                    {isLocked && lockExpiry && (
-                      <div className="mt-2 text-sm">
-                        Account locked until {new Date(lockExpiry).toLocaleTimeString()}
-                      </div>
-                    )}
+                    Too many failed login attempts. Try again in {lockCountdown || 'a few minutes'}.
                   </AlertDescription>
                 </Alert>
               )}
 
-              {loginAttempts > 0 && loginAttempts < 5 && (
-                <Alert className="bg-warning/10 border-warning/30 text-warning">
+              {error && !isLocked && (
+                <Alert variant="destructive" className="bg-error/10 border-error/30">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{5 - loginAttempts} login attempts remaining</AlertDescription>
+                  <AlertDescription>
+                    {error.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {loginAttempts > 0 && loginAttempts < 5 && !isLocked && (
+                <Alert variant="warning" data-testid="attempts-warning">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {5 - loginAttempts} login attempts remaining before account lockout.
+                  </AlertDescription>
                 </Alert>
               )}
 
@@ -211,7 +247,7 @@ export default function Login() {
                   placeholder="your-company-slug"
                   value={formData.companySlug}
                   onChange={handleChange}
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                   className={cn(
                     'w-full h-11 bg-surface-1/50 border-sleek-line-default',
                     'placeholder:text-white/30 text-white',
@@ -234,7 +270,7 @@ export default function Login() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                   autoComplete="email"
                   className={cn(
                     'w-full h-11 bg-surface-1/50 border-sleek-line-default',
@@ -255,6 +291,7 @@ export default function Login() {
                     to="/forgot-password"
                     className="text-sm text-primary hover:text-primary/80 transition-colors"
                     tabIndex={-1}
+                    data-testid="forgot-password-link"
                   >
                     Forgot password?
                   </Link>
@@ -268,7 +305,7 @@ export default function Login() {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    disabled={isLoading}
+                    disabled={isLoading || isLocked}
                     autoComplete="current-password"
                     className={cn(
                       'w-full h-11 bg-surface-1/50 border-sleek-line-default pr-11',
@@ -302,7 +339,7 @@ export default function Login() {
                   onCheckedChange={(checked) => {
                     setFormData((prev) => ({ ...prev, rememberMe: checked as boolean }));
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                   className="border-sleek-line-default data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 />
                 <label
@@ -317,7 +354,7 @@ export default function Login() {
               <Button
                 type="submit"
                 className="w-full h-11 text-[15px] font-medium"
-                disabled={isLoading}
+                disabled={isLoading || isLocked}
               >
                 {isLoading ? (
                   <>

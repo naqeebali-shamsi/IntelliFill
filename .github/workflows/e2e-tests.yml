@@ -1,94 +1,137 @@
 # GitHub Actions Workflow for E2E Tests
 #
 # Runs the complete E2E test suite on push and pull requests.
-# Uses Docker Compose to spin up isolated test environment.
+# Supports two modes:
+#   1. Docker Compose (default) - Isolated test environment
+#   2. Direct runner - Uses GitHub-hosted services for faster iteration
+#
+# The seed script is run before E2E tests to ensure test users exist.
 
 name: E2E Tests
 
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'quikadmin/**'
+      - 'quikadmin-web/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-tests.yml'
+      - 'docker-compose.e2e.yml'
   pull_request:
     branches: [main, develop]
-  workflow_dispatch: # Allow manual trigger
+    paths:
+      - 'quikadmin/**'
+      - 'quikadmin-web/**'
+      - 'e2e/**'
+      - '.github/workflows/e2e-tests.yml'
+      - 'docker-compose.e2e.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Test mode (docker or direct)'
+        required: false
+        default: 'docker'
+        type: choice
+        options:
+          - docker
+          - direct
 
 env:
-  # Use GitHub Container Registry for caching
+  NODE_VERSION: '18'
+  BUN_VERSION: '1.1'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  e2e-tests:
-    name: Playwright E2E Tests
+  # =============================================================================
+  # Docker-based E2E Tests (Default)
+  # Uses docker-compose.e2e.yml for fully isolated test environment
+  # =============================================================================
+  e2e-docker:
+    name: E2E Tests (Docker)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: ${{ github.event.inputs.mode != 'direct' }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Cache Docker layers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key: ${{ runner.os }}-buildx-e2e-${{ github.sha }}
           restore-keys: |
+            ${{ runner.os }}-buildx-e2e-
             ${{ runner.os }}-buildx-
+
+      - name: Create .env.docker file
+        run: |
+          cat > .env.docker << 'EOF'
+          E2E_POSTGRES_DB=intellifill_test
+          E2E_POSTGRES_USER=intellifill_test
+          E2E_POSTGRES_PASSWORD=${{ secrets.E2E_POSTGRES_PASSWORD || 'test_password_for_ci' }}
+          E2E_TEST_USER_EMAIL=test-member@intellifill.local
+          E2E_TEST_USER_PASSWORD=TestMember123!
+          E2E_TEST_ADMIN_EMAIL=test-admin@intellifill.local
+          E2E_TEST_ADMIN_PASSWORD=TestAdmin123!
+          EOF
 
       - name: Start test infrastructure
         run: |
-          docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from playwright
+          docker-compose -f docker-compose.e2e.yml --env-file .env.docker up --build --abort-on-container-exit --exit-code-from playwright
         env:
-          # Ensure CI mode is enabled
           CI: true
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-docker
           path: e2e/playwright-report/
           retention-days: 30
 
       - name: Upload screenshots
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: screenshots
+          name: screenshots-docker
           path: e2e/screenshots/
           retention-days: 7
 
       - name: Upload videos
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: videos
+          name: videos-docker
           path: e2e/videos/
           retention-days: 7
 
       - name: Upload test results JSON
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-docker
           path: e2e/test-results/
           retention-days: 30
 
       - name: Clean up Docker
         if: always()
         run: |
-          docker-compose -f docker-compose.e2e.yml down -v
+          docker-compose -f docker-compose.e2e.yml down -v --remove-orphans
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            let comment = '## E2E Test Results\n\n';
+            let comment = '## E2E Test Results (Docker)\n\n';
 
             try {
               const results = JSON.parse(fs.readFileSync('e2e/test-results/results.json', 'utf8'));
@@ -97,14 +140,14 @@ jobs:
               const total = passed + failed;
 
               if (failed === 0) {
-                comment += `✅ All ${total} tests passed!\n\n`;
+                comment += `All ${total} tests passed!\n\n`;
               } else {
-                comment += `❌ ${failed} out of ${total} tests failed.\n\n`;
+                comment += `${failed} out of ${total} tests failed.\n\n`;
               }
 
               comment += `[View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
             } catch (error) {
-              comment += '⚠️ Could not parse test results.\n';
+              comment += 'Could not parse test results.\n';
             }
 
             github.rest.issues.createComment({
@@ -114,11 +157,231 @@ jobs:
               body: comment
             });
 
-  # Optional: Run tests on multiple OS
+  # =============================================================================
+  # Direct Runner E2E Tests
+  # Uses GitHub-hosted PostgreSQL and Redis services for faster feedback
+  # Useful for development iteration and when Docker is not available
+  # =============================================================================
+  e2e-direct:
+    name: E2E Tests (Direct)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: ${{ github.event.inputs.mode == 'direct' }}
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: intellifill_e2e
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: quikadmin/package-lock.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install backend dependencies
+        working-directory: quikadmin
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: quikadmin-web
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        working-directory: quikadmin
+        run: npx prisma generate
+
+      - name: Push database schema
+        working-directory: quikadmin
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/intellifill_e2e
+        run: npx prisma db push --force-reset
+
+      # =============================================================================
+      # SEED E2E TEST USERS
+      # Task 477: Critical step - seeds test users before E2E tests
+      # =============================================================================
+      - name: Seed E2E test users
+        id: seed
+        working-directory: quikadmin
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/intellifill_e2e
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NODE_ENV: test
+          E2E_TEST_MODE: 'true'
+        run: |
+          echo "Running E2E seed script..."
+          npx tsx scripts/seed-e2e-users.ts
+          echo "seed_status=success" >> $GITHUB_OUTPUT
+
+      - name: Start backend server
+        working-directory: quikadmin
+        env:
+          NODE_ENV: test
+          E2E_TEST_MODE: 'true'
+          PORT: 3002
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/intellifill_e2e
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test_jwt_secret_for_e2e_testing_environment_must_be_at_least_64_characters_long_here
+          JWT_REFRESH_SECRET: test_jwt_refresh_secret_for_e2e_testing_environment_must_be_64_chars_minimum
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          npm run dev &
+          echo "Waiting for backend to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3002/health > /dev/null; then
+              echo "Backend is ready!"
+              break
+            fi
+            sleep 2
+          done
+
+      # =============================================================================
+      # SEED HEALTH CHECK
+      # Task 477: Verifies seed was successful via /api/e2e/seed-status endpoint
+      # =============================================================================
+      - name: Verify seed health
+        id: seed_health
+        run: |
+          echo "Checking E2E seed status..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" http://localhost:3002/api/e2e/seed-status)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Seed health check failed with status $HTTP_CODE"
+            echo "$BODY" | jq -r '.errors[]' 2>/dev/null || echo "$BODY"
+            exit 1
+          fi
+
+          HEALTHY=$(echo "$BODY" | jq -r '.healthy')
+          if [ "$HEALTHY" != "true" ]; then
+            echo "ERROR: Seed is not healthy"
+            echo "$BODY" | jq -r '.errors[]' 2>/dev/null || echo "$BODY"
+            exit 1
+          fi
+
+          echo "Seed health check passed!"
+          echo "seed_healthy=true" >> $GITHUB_OUTPUT
+
+      - name: Start frontend server
+        working-directory: quikadmin-web
+        env:
+          VITE_API_URL: http://localhost:3002/api
+          VITE_USE_BACKEND_AUTH: 'true'
+        run: |
+          bun run dev &
+          echo "Waiting for frontend to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8080 > /dev/null; then
+              echo "Frontend is ready!"
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Install Playwright browsers
+        working-directory: quikadmin-web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: quikadmin-web
+        env:
+          BASE_URL: http://localhost:8080
+          API_URL: http://localhost:3002/api
+          CI: true
+        run: bunx playwright test --reporter=list,html
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-direct
+          path: quikadmin-web/playwright-report/
+          retention-days: 30
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-direct
+          path: quikadmin-web/e2e/screenshots/
+          retention-days: 7
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## E2E Test Results (Direct)\n\n';
+
+            try {
+              const results = JSON.parse(fs.readFileSync('quikadmin-web/test-results/results.json', 'utf8'));
+              const passed = results.stats.expected || 0;
+              const failed = results.stats.unexpected || 0;
+              const total = passed + failed;
+
+              if (failed === 0) {
+                comment += `All ${total} tests passed!\n\n`;
+              } else {
+                comment += `${failed} out of ${total} tests failed.\n\n`;
+              }
+
+              comment += `[View full report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+            } catch (error) {
+              comment += 'Could not parse test results.\n';
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # =============================================================================
+  # Multi-OS E2E Tests (Manual trigger only)
+  # Tests on different operating systems for compatibility verification
+  # =============================================================================
   e2e-tests-matrix:
     name: E2E Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'workflow_dispatch' # Only on manual trigger
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'docker'
     timeout-minutes: 30
 
     strategy:
@@ -128,11 +391,11 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker (Linux/macOS)
         if: runner.os != 'Windows'
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Set up Docker (Windows)
         if: runner.os == 'Windows'
@@ -140,14 +403,27 @@ jobs:
           # Docker Desktop should be pre-installed on GitHub runners
           docker version
 
+      - name: Create .env.docker file
+        run: |
+          cat > .env.docker << 'EOF'
+          E2E_POSTGRES_DB=intellifill_test
+          E2E_POSTGRES_USER=intellifill_test
+          E2E_POSTGRES_PASSWORD=test_password_for_ci
+          E2E_TEST_USER_EMAIL=test-member@intellifill.local
+          E2E_TEST_USER_PASSWORD=TestMember123!
+          E2E_TEST_ADMIN_EMAIL=test-admin@intellifill.local
+          E2E_TEST_ADMIN_PASSWORD=TestAdmin123!
+          EOF
+        shell: bash
+
       - name: Run E2E tests
         run: |
-          docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from playwright
+          docker-compose -f docker-compose.e2e.yml --env-file .env.docker up --build --abort-on-container-exit --exit-code-from playwright
         shell: bash
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.os }}
           path: e2e/playwright-report/
@@ -155,5 +431,5 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: docker-compose -f docker-compose.e2e.yml down -v
+        run: docker-compose -f docker-compose.e2e.yml down -v --remove-orphans
         shell: bash

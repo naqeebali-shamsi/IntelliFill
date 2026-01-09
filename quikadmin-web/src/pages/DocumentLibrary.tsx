@@ -279,7 +279,7 @@ export default function DocumentLibrary() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="document-library">
       {/* Page Header */}
       <PageHeader
         title="Document Library"
@@ -299,6 +299,7 @@ export default function DocumentLibrary() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
             <Input
               id="document-search"
+              data-testid="document-search"
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -417,7 +418,7 @@ export default function DocumentLibrary() {
           </motion.div>
         ) : viewMode === 'grid' ? (
           /* Grid View */
-          <motion.div variants={staggerContainerFast} initial="hidden" animate="show">
+          <motion.div variants={staggerContainerFast} initial="hidden" animate="show" data-testid="document-grid">
             <ResponsiveGrid preset="cards">
               {isLoading
                 ? Array.from({ length: pageSize }).map((_, i) => (
@@ -471,6 +472,7 @@ export default function DocumentLibrary() {
             initial="hidden"
             animate="show"
             className="bg-card/30 backdrop-blur-sm border border-white/5 rounded-xl overflow-hidden"
+            data-testid="document-list"
           >
             <DataTable
               data={documents}

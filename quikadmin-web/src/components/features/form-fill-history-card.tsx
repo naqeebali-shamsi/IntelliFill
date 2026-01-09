@@ -1,6 +1,9 @@
 /**
  * FormFillHistoryCard - Component to display form fill history for a profile
  * B2C-focused: Shows history of forms filled using profile data
+ *
+ * Task 490: Updated to use real API data from filled-forms endpoint
+ *
  * @module components/features/form-fill-history-card
  */
 
@@ -18,6 +21,7 @@ import {
   User,
   Building2,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,6 +32,7 @@ import { EmptyStateSimple } from '@/components/ui/empty-state';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { cn } from '@/lib/utils';
+import { filledFormService, type FilledForm } from '@/services/filledFormService';
 
 // =================== TYPES ===================
 
@@ -74,54 +79,54 @@ export interface FormFillHistoryCardProps {
   className?: string;
 }
 
-// =================== MOCK DATA ===================
+// =================== HELPERS ===================
 
-// Note: In production, this would be fetched from the backend
-const mockHistoryEntries: FormFillHistoryEntry[] = [
-  {
-    id: '1',
-    formName: 'DS-160 Visa Application',
-    formFileName: 'ds160_filled.pdf',
-    profileId: 'profile-1',
-    profileName: 'Personal',
-    profileType: 'PERSONAL',
-    filledAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-    fieldsUsed: 45,
-    totalFields: 52,
-    confidence: 0.94,
-    status: 'completed',
-    downloadUrl: '#',
-  },
-  {
-    id: '2',
-    formName: 'I-94 Arrival Record',
-    formFileName: 'i94_filled.pdf',
-    profileId: 'profile-1',
-    profileName: 'Personal',
-    profileType: 'PERSONAL',
-    filledAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-    fieldsUsed: 18,
-    totalFields: 20,
-    confidence: 0.98,
-    status: 'completed',
-    downloadUrl: '#',
-  },
-  {
-    id: '3',
-    formName: 'Business License Application',
-    formFileName: 'business_license.pdf',
-    profileId: 'profile-2',
-    profileName: 'ACME Corp',
-    profileType: 'BUSINESS',
-    filledAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    fieldsUsed: 30,
-    totalFields: 35,
-    confidence: 0.87,
-    status: 'partial',
-    downloadUrl: '#',
-    warnings: ['Company EIN not found', 'Business address incomplete'],
-  },
-];
+/**
+ * Transform API FilledForm to FormFillHistoryEntry
+ */
+function transformFilledFormToHistoryEntry(form: FilledForm): FormFillHistoryEntry {
+  // Extract metadata from dataSnapshot for ad-hoc forms
+  const dataSnapshot = form.dataSnapshot as Record<string, unknown> | undefined;
+  const isAdhoc = form.templateName === '__ADHOC_FORMS__';
+
+  // Get form name - for ad-hoc forms, it's stored in dataSnapshot
+  const formName = isAdhoc
+    ? (dataSnapshot?.formName as string) || 'Filled Form'
+    : form.templateName;
+
+  // Get field counts from dataSnapshot (for ad-hoc) or estimate from template
+  const filledFields = (dataSnapshot?.filledFields as number) || 0;
+  const totalFields = (dataSnapshot?.totalFields as number) || 0;
+  const confidence = (dataSnapshot?.confidence as number) || 0.9;
+
+  // Determine status based on confidence
+  let status: 'completed' | 'failed' | 'partial' = 'completed';
+  if (confidence < 0.5) {
+    status = 'failed';
+  } else if (confidence < 0.8 || (totalFields > 0 && filledFields / totalFields < 0.8)) {
+    status = 'partial';
+  }
+
+  // Map client type to profile type
+  const profileType: 'PERSONAL' | 'BUSINESS' =
+    form.clientType === 'COMPANY' ? 'BUSINESS' : 'PERSONAL';
+
+  return {
+    id: form.id,
+    formName,
+    formFileName: formName.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf',
+    profileId: form.clientId,
+    profileName: form.clientName,
+    profileType,
+    filledAt: form.createdAt,
+    fieldsUsed: filledFields,
+    totalFields,
+    confidence,
+    status,
+    downloadUrl: form.downloadUrl,
+    warnings: (dataSnapshot?.warnings as string[]) || undefined,
+  };
+}
 
 // =================== HISTORY ENTRY ROW ===================
 
@@ -312,17 +317,50 @@ function HistorySkeleton({ compact = false }: { compact?: boolean }) {
 export function FormFillHistoryCard({
   profileId,
   limit = 5,
-  isLoading = false,
-  entries,
+  isLoading: externalLoading = false,
+  entries: externalEntries,
   compact = false,
   className,
 }: FormFillHistoryCardProps) {
-  // Filter entries by profileId if provided
+  // Fetch filled forms from API
+  const {
+    data: apiResponse,
+    isLoading: apiLoading,
+    error: apiError,
+    refetch,
+  } = useQuery({
+    queryKey: ['filled-forms-history', profileId, limit],
+    queryFn: async () => {
+      const response = await filledFormService.list({
+        clientId: profileId,
+        limit,
+        offset: 0,
+      });
+      return response;
+    },
+    staleTime: 30000, // 30 seconds
+    enabled: !externalEntries, // Only fetch if no external entries provided
+  });
+
+  // Transform API data to history entries
   const filteredEntries = React.useMemo(() => {
-    const data = entries || mockHistoryEntries;
-    const filtered = profileId ? data.filter((e) => e.profileId === profileId) : data;
-    return filtered.slice(0, limit);
-  }, [entries, profileId, limit]);
+    // If external entries provided, use those
+    if (externalEntries) {
+      const filtered = profileId
+        ? externalEntries.filter((e) => e.profileId === profileId)
+        : externalEntries;
+      return filtered.slice(0, limit);
+    }
+
+    // Otherwise use API data
+    if (apiResponse?.data?.filledForms) {
+      return apiResponse.data.filledForms.map(transformFilledFormToHistoryEntry);
+    }
+
+    return [];
+  }, [externalEntries, apiResponse, profileId, limit]);
+
+  const isLoading = externalLoading || apiLoading;
 
   // Loading state
   if (isLoading) {
@@ -342,16 +380,63 @@ export function FormFillHistoryCard({
     );
   }
 
+  // Handle error state
+  if (apiError && !externalEntries) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Form Fill History
+          </CardTitle>
+          <CardDescription className="text-status-error-foreground">
+            Failed to load history
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Form Fill History
-        </CardTitle>
-        <CardDescription>
-          {profileId ? "Forms filled using this profile's data" : 'Recent forms you have filled'}
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Form Fill History
+            </CardTitle>
+            <CardDescription>
+              {profileId ? "Forms filled using this profile's data" : 'Recent forms you have filled'}
+            </CardDescription>
+          </div>
+          {!externalEntries && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => refetch()}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {filteredEntries.length === 0 ? (
@@ -377,10 +462,15 @@ export function FormFillHistoryCard({
           </div>
         )}
 
-        {filteredEntries.length > 0 && filteredEntries.length >= limit && (
+        {filteredEntries.length > 0 && (apiResponse?.data?.pagination?.hasMore || filteredEntries.length >= limit) && (
           <div className="mt-4 pt-4 border-t">
             <Button variant="outline" className="w-full" size="sm">
               View All History
+              {apiResponse?.data?.pagination?.total && (
+                <Badge variant="secondary" className="ml-2">
+                  {apiResponse.data.pagination.total}
+                </Badge>
+              )}
             </Button>
           </div>
         )}

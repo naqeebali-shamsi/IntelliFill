@@ -108,7 +108,7 @@ export default function ConnectedDashboard() {
 
       <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-6">
         {/* Stats Grid */}
-        <ResponsiveGrid preset="stats">
+        <ResponsiveGrid preset="stats" data-testid="dashboard-stats-grid">
           <StatCard
             title="Total Documents"
             value={statistics?.trends?.documents?.value || 0}
@@ -120,7 +120,7 @@ export default function ConnectedDashboard() {
             variant="default"
             loading={statsLoading}
             animationDelay={0}
-            data-testid="stat-card-dashboard-1"
+            data-testid="stat-card-total-documents"
           />
           <StatCard
             title="Processed Today"
@@ -133,7 +133,7 @@ export default function ConnectedDashboard() {
             variant="success"
             loading={statsLoading}
             animationDelay={0.1}
-            data-testid="stat-card-dashboard-2"
+            data-testid="stat-card-processed-today"
           />
           <StatCard
             title="In Progress"
@@ -146,7 +146,7 @@ export default function ConnectedDashboard() {
             variant="warning"
             loading={statsLoading}
             animationDelay={0.2}
-            data-testid="stat-card-dashboard-3"
+            data-testid="stat-card-in-progress"
           />
           <StatCard
             title="Failed"
@@ -159,7 +159,7 @@ export default function ConnectedDashboard() {
             variant="error"
             loading={statsLoading}
             animationDelay={0.3}
-            data-testid="stat-card-dashboard-4"
+            data-testid="stat-card-failed"
           />
         </ResponsiveGrid>
 
@@ -169,6 +169,7 @@ export default function ConnectedDashboard() {
           <motion.div
             variants={fadeInUp}
             className="glass-panel rounded-xl overflow-hidden flex flex-col h-full border border-white/10"
+            data-testid="recent-documents-section"
           >
             <div className="p-6 border-b border-border/50 flex flex-row items-center justify-between">
               <div>
@@ -198,11 +199,12 @@ export default function ConnectedDashboard() {
                   <p>No recent documents</p>
                 </div>
               ) : (
-                <div className="flex flex-col">
+                <div className="flex flex-col" data-testid="recent-documents-list">
                   {jobs.map((job) => (
                     <div
                       key={job.id}
                       className="flex items-center gap-4 p-4 hover:bg-white/5 border-b border-white/5 last:border-0 transition-colors group"
+                      data-testid="recent-document-item"
                     >
                       <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-background border border-white/10 shrink-0">
                         <FileText className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -239,7 +241,7 @@ export default function ConnectedDashboard() {
           {/* Right Column: Processing & Quick Actions */}
           <motion.div variants={fadeInUp} className="space-y-6">
             {/* Processing Queue Widget */}
-            <div className="glass-card p-6 rounded-xl border border-white/10 relative overflow-hidden">
+            <div className="glass-card p-6 rounded-xl border border-white/10 relative overflow-hidden" data-testid="processing-queue-widget">
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-4">
                   <AccentLine variant="active" size="sm" animate delay={0.2} />
@@ -263,7 +265,7 @@ export default function ConnectedDashboard() {
                           {(queueMetrics?.waiting || 0) + (queueMetrics?.active || 0)}
                         </span>
                       </div>
-                      <Progress value={progress} className="h-2" />
+                      <Progress value={progress} className="h-2" data-testid="processing-queue-progress" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
@@ -287,7 +289,7 @@ export default function ConnectedDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="glass-panel p-6 rounded-xl border border-white/10">
+            <div className="glass-panel p-6 rounded-xl border border-white/10" data-testid="quick-actions-section">
               <h3 className="font-medium flex items-center gap-2 mb-4">
                 <Zap className="h-4 w-4 text-warning" /> Quick Actions
               </h3>
@@ -296,6 +298,7 @@ export default function ConnectedDashboard() {
                   variant="outline"
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
                   onClick={() => navigate('/upload')}
+                  data-testid="quick-action-upload"
                 >
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                     <Upload className="h-4 w-4" />
@@ -312,6 +315,7 @@ export default function ConnectedDashboard() {
                   variant="outline"
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
                   onClick={() => navigate('/templates')}
+                  data-testid="quick-action-templates"
                 >
                   <div className="h-8 w-8 rounded-full bg-info-light text-info flex items-center justify-center mr-3 group-hover:bg-info group-hover:text-info-foreground transition-colors">
                     <FileText className="h-4 w-4" />
@@ -328,6 +332,7 @@ export default function ConnectedDashboard() {
                   variant="outline"
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
                   onClick={() => navigate('/documents')}
+                  data-testid="quick-action-library"
                 >
                   <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-white transition-colors">
                     <FolderOpen className="h-4 w-4" />

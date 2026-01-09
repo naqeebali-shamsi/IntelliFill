@@ -443,6 +443,269 @@ export function validateOrganizationAccess(
 }
 
 // ============================================================================
+// Task 383: Member Authorization Middleware
+// ============================================================================
+
+/**
+ * Require organization member middleware
+ *
+ * Ensures the authenticated user is an ACTIVE member of the organization.
+ * Attaches membership role to request for downstream authorization checks.
+ *
+ * Usage: router.get('/:id/members', authenticateSupabase, requireOrgMember, handler)
+ */
+export async function requireOrgMember(
+  req: OrganizationRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    const orgId = req.params.id;
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      });
+      return;
+    }
+
+    if (!orgId) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Organization ID is required',
+        code: 'MISSING_ORG_ID',
+      });
+      return;
+    }
+
+    // Check membership
+    const membership = await prisma.organizationMembership.findFirst({
+      where: {
+        userId,
+        organizationId: orgId,
+        status: 'ACTIVE',
+      },
+      select: {
+        role: true,
+        organizationId: true,
+      },
+    });
+
+    if (!membership) {
+      logger.warn('[OrgContext] User is not a member of organization', { userId, orgId });
+      res.status(403).json({
+        error: 'Forbidden',
+        message: 'You are not a member of this organization',
+        code: 'NOT_ORG_MEMBER',
+      });
+      return;
+    }
+
+    // Attach membership context to request
+    req.organizationId = membership.organizationId;
+    req.organizationContext = {
+      id: membership.organizationId,
+      role: membership.role,
+    };
+
+    logger.debug('[OrgContext] Member context attached', {
+      userId,
+      orgId,
+      role: membership.role,
+    });
+
+    next();
+  } catch (error) {
+    logger.error('[OrgContext] Member check error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: req.user?.id,
+    });
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to validate organization membership',
+      code: 'ORG_MEMBER_CHECK_ERROR',
+    });
+  }
+}
+
+/**
+ * Require organization admin middleware
+ *
+ * Ensures the authenticated user is an ADMIN or OWNER of the organization.
+ * Returns 403 if user is not an admin.
+ *
+ * Usage: router.patch('/:id/members/:userId', authenticateSupabase, requireOrgAdmin, handler)
+ */
+export async function requireOrgAdmin(
+  req: OrganizationRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    const orgId = req.params.id;
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      });
+      return;
+    }
+
+    if (!orgId) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Organization ID is required',
+        code: 'MISSING_ORG_ID',
+      });
+      return;
+    }
+
+    // Check membership and role
+    const membership = await prisma.organizationMembership.findFirst({
+      where: {
+        userId,
+        organizationId: orgId,
+        status: 'ACTIVE',
+        role: {
+          in: ['OWNER', 'ADMIN'],
+        },
+      },
+      select: {
+        role: true,
+        organizationId: true,
+      },
+    });
+
+    if (!membership) {
+      logger.warn('[OrgContext] User is not an admin of organization', { userId, orgId });
+      res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an admin or owner to perform this action',
+        code: 'ADMIN_REQUIRED',
+      });
+      return;
+    }
+
+    // Attach membership context to request
+    req.organizationId = membership.organizationId;
+    req.organizationContext = {
+      id: membership.organizationId,
+      role: membership.role,
+    };
+
+    logger.debug('[OrgContext] Admin context attached', {
+      userId,
+      orgId,
+      role: membership.role,
+    });
+
+    next();
+  } catch (error) {
+    logger.error('[OrgContext] Admin check error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: req.user?.id,
+    });
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to validate admin permissions',
+      code: 'ORG_ADMIN_CHECK_ERROR',
+    });
+  }
+}
+
+/**
+ * Require organization owner middleware
+ *
+ * Ensures the authenticated user is an OWNER of the organization.
+ * Returns 403 if user is not an owner.
+ *
+ * Usage: router.delete('/:id', authenticateSupabase, requireOrgOwner, handler)
+ */
+export async function requireOrgOwner(
+  req: OrganizationRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    const orgId = req.params.id;
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      });
+      return;
+    }
+
+    if (!orgId) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Organization ID is required',
+        code: 'MISSING_ORG_ID',
+      });
+      return;
+    }
+
+    // Check membership and role
+    const membership = await prisma.organizationMembership.findFirst({
+      where: {
+        userId,
+        organizationId: orgId,
+        status: 'ACTIVE',
+        role: 'OWNER',
+      },
+      select: {
+        role: true,
+        organizationId: true,
+      },
+    });
+
+    if (!membership) {
+      logger.warn('[OrgContext] User is not an owner of organization', { userId, orgId });
+      res.status(403).json({
+        error: 'Forbidden',
+        message: 'You must be an owner to perform this action',
+        code: 'OWNER_REQUIRED',
+      });
+      return;
+    }
+
+    // Attach membership context to request
+    req.organizationId = membership.organizationId;
+    req.organizationContext = {
+      id: membership.organizationId,
+      role: membership.role,
+    };
+
+    logger.debug('[OrgContext] Owner context attached', {
+      userId,
+      orgId,
+      role: membership.role,
+    });
+
+    next();
+  } catch (error) {
+    logger.error('[OrgContext] Owner check error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: req.user?.id,
+    });
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to validate owner permissions',
+      code: 'ORG_OWNER_CHECK_ERROR',
+    });
+  }
+}
+
+// ============================================================================
 // Exports
 // ============================================================================
 
@@ -450,6 +713,9 @@ export default {
   requireOrganization,
   optionalOrganization,
   validateOrganizationAccess,
+  requireOrgMember,
+  requireOrgAdmin,
+  requireOrgOwner,
   invalidateOrganizationCache,
   clearOrganizationCache,
   getOrganizationCacheStats,

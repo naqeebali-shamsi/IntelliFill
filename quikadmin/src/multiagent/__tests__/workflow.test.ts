@@ -34,6 +34,17 @@ jest.mock('../../utils/piiSafeLogger', () => ({
   },
 }));
 
+// Mock the classifier agent to avoid Gemini API calls in tests
+jest.mock('../agents/classifierAgent', () => ({
+  classifyDocument: jest.fn().mockResolvedValue({
+    documentType: 'UNKNOWN',
+    confidence: 0,
+    alternativeTypes: [],
+    metadata: {},
+  }),
+  ClassificationResult: {},
+}));
+
 /**
  * Helper to create a test document state
  */
@@ -91,7 +102,7 @@ describe('MultiAgent Workflow', () => {
       expect(result.agentHistory?.length).toBe(1);
       expect(result.agentHistory?.[0].agent).toBe('classifier');
       expect(result.agentHistory?.[0].status).toBe('completed');
-      expect(result.agentHistory?.[0].model).toBe('phi3:mini');
+      expect(result.agentHistory?.[0].model).toBe('gemini-1.5-flash');
     });
 
     it('should advance to extract node', async () => {
