@@ -59,6 +59,7 @@
     "@types/multer": "^1.4.12",
     "@types/pdf-parse": "^1.1.5",
     "axios": "^1.6.2",
+    "resend": "^4.0.0",
     "bcrypt": "^6.0.0",
     "bull": "^4.11.5",
     "bullmq": "^5.0.0",

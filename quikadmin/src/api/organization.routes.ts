@@ -22,6 +22,7 @@ import {
 } from '../validators/schemas/organizationSchemas';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
+import { sendInvitationEmail } from '../services/emailService';
 import { OrganizationStatus, OrgMemberRole } from '@prisma/client';
 import crypto from 'crypto';
 
@@ -875,15 +876,30 @@ export function createOrganizationRoutes(): Router {
           },
         });
 
-        // TODO: Send invitation email
-        // For now, just log the invitation token
-        logger.info('[Organization] Invitation sent', {
+        const inviter = await prisma.user.findUnique({
+          where: { supabaseUserId: userId },
+          select: { firstName: true, lastName: true, email: true },
+        });
+        const inviterName = inviter?.firstName
+          ? [inviter.firstName, inviter.lastName].filter(Boolean).join(' ')
+          : inviter?.email || 'A team member';
+
+        sendInvitationEmail({
+          email: email.toLowerCase(),
+          organizationName: invitation.organization.name,
+          inviterName,
+          role,
+          invitationId: invitation.id,
+        }).catch((err) => {
+          logger.error('[Organization] Failed to send invitation email', { error: err });
+        });
+
+        logger.info('[Organization] Invitation created', {
           invitationId: invitation.id,
           organizationId,
           email: email.toLowerCase(),
           role,
           invitedBy: userId,
-          token: invitation.id, // The token is the invitation ID
         });
 
         res.status(201).json({
