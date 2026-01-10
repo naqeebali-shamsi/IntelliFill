@@ -39,6 +39,7 @@ export interface AuthUser {
   lastName: string;
   role: string;
   emailVerified: boolean;
+  mfaEnabled?: boolean;
   lastLogin?: string;
   createdAt?: string;
   isDemo?: boolean;
@@ -83,7 +84,7 @@ export async function logout(): Promise<{ success: boolean; message?: string }> 
   try {
     const response = await api.post('/auth/v2/logout');
     return response.data;
-  } catch (error) {
+  } catch {
     // Logout should always succeed client-side
     return { success: true, message: 'Logged out' };
   }

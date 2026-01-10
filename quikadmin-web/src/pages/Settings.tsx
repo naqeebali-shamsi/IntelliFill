@@ -5,26 +5,26 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  User,
+  AlertCircle,
   Bell,
-  Shield,
-  Palette,
-  Globe,
-  Key,
-  Smartphone,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
   CreditCard,
   Database,
-  Zap,
-  Mail,
-  Save,
   Download,
-  RefreshCw,
-  ChevronRight,
-  Monitor,
-  AlertCircle,
+  Globe,
+  Key,
   Loader2,
-  CheckCircle2,
-  Building2,
+  Mail,
+  Monitor,
+  Palette,
+  RefreshCw,
+  Save,
+  Shield,
+  Smartphone,
+  User,
+  Zap,
 } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -47,7 +47,11 @@ import { useBackendAuthStore } from '@/stores/backendAuthStore';
 import { getProfile, updateProfile, type UpdateProfileData } from '@/services/accountService';
 import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
 import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
-import { ChangePasswordModal, DeleteAccountModal } from '@/components/settings';
+import {
+  ChangePasswordModal,
+  DeleteAccountModal,
+  TwoFactorSetupModal,
+} from '@/components/settings';
 
 // Sidebar Navigation Items
 const navItems = [
@@ -99,6 +103,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('general');
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch profile data on mount
@@ -610,15 +615,28 @@ export default function Settings() {
                           <div className="flex items-center gap-2 font-medium">
                             <Smartphone className="h-4 w-4" /> Two-Factor Authentication
                           </div>
-                          <p className="text-xs text-warning/80">Not enabled</p>
+                          {user?.mfaEnabled ? (
+                            <p className="text-xs text-status-success flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3" /> Enabled
+                            </p>
+                          ) : (
+                            <p className="text-xs text-status-warning">Not enabled</p>
+                          )}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-primary hover:text-primary"
-                        >
-                          Enable 2FA
-                        </Button>
+                        {user?.mfaEnabled ? (
+                          <Button variant="outline" size="sm">
+                            Manage 2FA
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-primary hover:text-primary"
+                            onClick={() => setTwoFactorOpen(true)}
+                          >
+                            Enable 2FA
+                          </Button>
+                        )}
                       </SettingsRow>
                     </SettingsSection>
                   </>
@@ -687,6 +705,20 @@ export default function Settings() {
 
       <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
       <DeleteAccountModal open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />
+      <TwoFactorSetupModal
+        open={twoFactorOpen}
+        onOpenChange={setTwoFactorOpen}
+        onSuccess={() => {
+          // Update local user state to reflect MFA enabled
+          useBackendAuthStore.setState((state) => ({
+            ...state,
+            user: state.user ? { ...state.user, mfaEnabled: true } : null,
+          }));
+          // Refresh user data from server
+          queryClient.invalidateQueries({ queryKey: ['user'] });
+          queryClient.invalidateQueries({ queryKey: ['profile'] });
+        }}
+      />
     </div>
   );
 }
