@@ -27,6 +27,27 @@ export interface ProfileFieldResponse {
   field: ProfileFieldValue;
 }
 
+export interface AuditLogEntry {
+  id: string;
+  fieldName: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  oldValue: string[] | null;
+  newValue: string[] | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export interface AuditHistoryResponse {
+  success: boolean;
+  logs: AuditLogEntry[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
 /**
  * Get user's aggregated profile
  * Returns aggregated data from all user's documents
@@ -104,7 +125,7 @@ export const deleteProfileField = async (fieldKey: string): Promise<UserProfile>
 
     // Remove the field
     const updatedFields: Record<string, any> = {};
-    profile.fields.forEach(field => {
+    profile.fields.forEach((field) => {
       if (field.key !== fieldKey) {
         // Keep all fields except the one we want to delete
         updatedFields[field.key] = field.values;
@@ -122,13 +143,39 @@ export const deleteProfileField = async (fieldKey: string): Promise<UserProfile>
 /**
  * Add or update a single field in the profile
  */
-export const updateProfileField = async (fieldKey: string, values: string | string[]): Promise<UserProfile> => {
+export const updateProfileField = async (
+  fieldKey: string,
+  values: string | string[]
+): Promise<UserProfile> => {
   try {
     const normalizedValues = Array.isArray(values) ? values : [values];
     return await updateProfile({ [fieldKey]: normalizedValues });
   } catch (error: any) {
     logger.error(`Failed to update profile field ${fieldKey}:`, error);
     throw new Error(error.response?.data?.message || 'Failed to update profile field');
+  }
+};
+
+/**
+ * Get audit history for user's profile
+ * Returns paginated list of profile changes
+ */
+export const getAuditHistory = async (
+  options: { limit?: number; offset?: number } = {}
+): Promise<AuditHistoryResponse> => {
+  try {
+    const params = new URLSearchParams();
+    if (options.limit) params.set('limit', String(options.limit));
+    if (options.offset) params.set('offset', String(options.offset));
+
+    const queryString = params.toString();
+    const url = `/users/me/profile/audit${queryString ? `?${queryString}` : ''}`;
+
+    const response = await api.get<AuditHistoryResponse>(url);
+    return response.data;
+  } catch (error: any) {
+    logger.error('Failed to fetch audit history:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch audit history');
   }
 };
 
@@ -139,5 +186,6 @@ export default {
   deleteProfile,
   getProfileField,
   deleteProfileField,
-  updateProfileField
+  updateProfileField,
+  getAuditHistory,
 };

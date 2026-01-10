@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   User,
   Mail,
-  Phone,
   MapPin,
   RefreshCw,
   Plus,
@@ -14,8 +13,8 @@ import {
   CreditCard,
   AlertCircle,
   Loader2,
-  Download,
   Trash2,
+  History,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,8 +22,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -50,6 +47,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { ProfileFieldEditor } from '@/components/features/profile-field-editor';
+import { ProfileAuditHistory } from '@/components/features/profile-audit-history';
 import {
   getProfile,
   updateProfileField,
@@ -463,7 +461,7 @@ export default function ProfileSettings() {
 
       {/* Profile Fields - Categorized Tabs */}
       <Tabs defaultValue="personal" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="personal">
             <User className="mr-2 h-4 w-4" />
             Personal ({categorizedFields.personal.length})
@@ -479,6 +477,10 @@ export default function ProfileSettings() {
           <TabsTrigger value="custom">
             <CreditCard className="mr-2 h-4 w-4" />
             Custom ({categorizedFields.custom.length})
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            <History className="mr-2 h-4 w-4" />
+            History
           </TabsTrigger>
         </TabsList>
 
@@ -614,6 +616,21 @@ export default function ProfileSettings() {
                   />
                 ))
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Audit History */}
+        <TabsContent value="history">
+          <Card>
+            <CardHeader>
+              <CardTitle>Change History</CardTitle>
+              <CardDescription>
+                Track all changes made to your profile fields over time
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ProfileAuditHistory limit={20} />
             </CardContent>
           </Card>
         </TabsContent>

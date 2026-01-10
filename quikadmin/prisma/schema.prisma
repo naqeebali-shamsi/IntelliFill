@@ -375,16 +375,35 @@ model UserSettings {
 }
 
 model UserProfile {
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  profileData    Json     @map("profile_data")
-  lastAggregated DateTime @default(now()) @map("last_aggregated")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String            @id @default(uuid())
+  userId         String            @unique @map("user_id")
+  profileData    Json              @map("profile_data")
+  lastAggregated DateTime          @default(now()) @map("last_aggregated")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  auditLogs      ProfileAuditLog[]
 
   @@index([userId])
   @@map("user_profiles")
+}
+
+model ProfileAuditLog {
+  id        String      @id @default(uuid())
+  profileId String      @map("profile_id")
+  userId    String      @map("user_id")
+  fieldName String      @map("field_name") @db.VarChar(255)
+  oldValue  String?     @map("old_value")
+  newValue  String?     @map("new_value")
+  action    String      @db.VarChar(50) // CREATE, UPDATE, DELETE
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  createdAt DateTime    @default(now()) @map("created_at")
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([createdAt(sort: Desc)])
+  @@map("profile_audit_logs")
 }
 
 model ApiUsage {

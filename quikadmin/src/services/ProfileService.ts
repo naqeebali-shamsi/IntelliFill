@@ -2,6 +2,30 @@ import { encryptJSON, decryptJSON } from '../utils/encryption';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { prisma } from '../utils/prisma';
 
+/**
+ * Audit action types for profile changes
+ */
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
+
+/**
+ * Parameters for logging profile changes
+ */
+export interface LogProfileChangeParams {
+  profileId: string;
+  userId: string;
+  changes: { field: string; old: any; new: any }[];
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+/**
+ * Request context for audit logging
+ */
+export interface AuditContext {
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 export interface ProfileField {
   key: string;
   values: string[];
@@ -31,17 +55,17 @@ export class ProfileService {
         where: {
           userId,
           status: 'COMPLETED',
-          extractedData: { not: null }
+          extractedData: { not: null },
         },
         select: {
           id: true,
           extractedData: true,
           confidence: true,
-          processedAt: true
+          processedAt: true,
         },
         orderBy: {
-          processedAt: 'desc'
-        }
+          processedAt: 'desc',
+        },
       });
 
       logger.debug(`Found ${documents.length} documents for aggregation`);
@@ -78,7 +102,7 @@ export class ProfileService {
         userId,
         fields: aggregatedFields,
         lastAggregated: new Date(),
-        documentCount: documents.length
+        documentCount: documents.length,
       };
     } catch (error) {
       logger.error(`Failed to aggregate profile for user ${userId}:`, error);
@@ -113,7 +137,7 @@ export class ProfileService {
             values: [],
             sources: [],
             confidence: 0,
-            lastUpdated: processedAt
+            lastUpdated: processedAt,
           };
         }
 
@@ -147,20 +171,20 @@ export class ProfileService {
    */
   private extractValues(value: any): string[] {
     if (typeof value === 'string') {
-      return [value.trim()].filter(v => v.length > 0);
+      return [value.trim()].filter((v) => v.length > 0);
     } else if (Array.isArray(value)) {
       return value
-        .filter(v => typeof v === 'string')
-        .map(v => v.trim())
-        .filter(v => v.length > 0);
+        .filter((v) => typeof v === 'string')
+        .map((v) => v.trim())
+        .filter((v) => v.length > 0);
     } else if (typeof value === 'number' || typeof value === 'boolean') {
       return [String(value)];
     } else if (typeof value === 'object' && value !== null) {
       // Flatten nested objects
       return Object.values(value)
-        .filter(v => typeof v === 'string' || typeof v === 'number')
-        .map(v => String(v).trim())
-        .filter(v => v.length > 0);
+        .filter((v) => typeof v === 'string' || typeof v === 'number')
+        .map((v) => String(v).trim())
+        .filter((v) => v.length > 0);
     }
     return [];
   }
@@ -189,16 +213,20 @@ export class ProfileService {
         // Check for email duplicates (case-insensitive)
         if (field.key.includes('email')) {
           const lowerValue = value.toLowerCase();
-          if (!deduplicatedValues.some(v => v.toLowerCase() === lowerValue)) {
+          if (!deduplicatedValues.some((v) => v.toLowerCase() === lowerValue)) {
             deduplicatedValues.push(value);
           }
           continue;
         }
 
         // Check for phone number duplicates (normalize format)
-        if (field.key.includes('phone') || field.key.includes('tel') || field.key.includes('mobile')) {
+        if (
+          field.key.includes('phone') ||
+          field.key.includes('tel') ||
+          field.key.includes('mobile')
+        ) {
           const normalizedPhone = this.normalizePhoneNumber(value);
-          if (!deduplicatedValues.some(v => this.normalizePhoneNumber(v) === normalizedPhone)) {
+          if (!deduplicatedValues.some((v) => this.normalizePhoneNumber(v) === normalizedPhone)) {
             deduplicatedValues.push(value);
           }
           continue;
@@ -207,7 +235,7 @@ export class ProfileService {
         // Check for SSN/ID duplicates (remove formatting)
         if (field.key.includes('ssn') || field.key.includes('social') || field.key.includes('id')) {
           const normalizedId = value.replace(/[^0-9]/g, '');
-          if (!deduplicatedValues.some(v => v.replace(/[^0-9]/g, '') === normalizedId)) {
+          if (!deduplicatedValues.some((v) => v.replace(/[^0-9]/g, '') === normalizedId)) {
             deduplicatedValues.push(value);
           }
           continue;
@@ -239,26 +267,56 @@ export class ProfileService {
   }
 
   /**
-   * Save aggregated profile to database
+   * Save aggregated profile to database with audit logging
    */
-  async saveProfile(userId: string, aggregatedProfile: AggregatedProfile): Promise<void> {
+  async saveProfile(
+    userId: string,
+    aggregatedProfile: AggregatedProfile,
+    auditContext?: AuditContext
+  ): Promise<void> {
     try {
+      // Get existing profile for diff calculation
+      const existingProfile = await prisma.userProfile.findUnique({
+        where: { userId },
+      });
+
+      let oldFields: Record<string, ProfileField> | null = null;
+      if (existingProfile) {
+        try {
+          oldFields = decryptJSON(existingProfile.profileData as string);
+        } catch {
+          oldFields = null;
+        }
+      }
+
       // Encrypt profile data before saving
       const encryptedData = encryptJSON(aggregatedProfile.fields);
 
       // Upsert profile
-      await prisma.userProfile.upsert({
+      const savedProfile = await prisma.userProfile.upsert({
         where: { userId },
         create: {
           userId,
           profileData: encryptedData,
-          lastAggregated: aggregatedProfile.lastAggregated
+          lastAggregated: aggregatedProfile.lastAggregated,
         },
         update: {
           profileData: encryptedData,
-          lastAggregated: aggregatedProfile.lastAggregated
-        }
+          lastAggregated: aggregatedProfile.lastAggregated,
+        },
       });
+
+      // Log changes to audit trail
+      const changes = this.computeProfileDiff(oldFields, aggregatedProfile.fields);
+      if (changes.length > 0) {
+        await this.logProfileChange({
+          profileId: savedProfile.id,
+          userId,
+          changes,
+          ipAddress: auditContext?.ipAddress,
+          userAgent: auditContext?.userAgent,
+        });
+      }
 
       logger.info(`Profile saved for user: ${userId}`);
     } catch (error) {
@@ -273,7 +331,7 @@ export class ProfileService {
   async getProfile(userId: string): Promise<AggregatedProfile | null> {
     try {
       const profile = await prisma.userProfile.findUnique({
-        where: { userId }
+        where: { userId },
       });
 
       if (!profile) {
@@ -287,15 +345,15 @@ export class ProfileService {
       const documentCount = await prisma.document.count({
         where: {
           userId,
-          status: 'COMPLETED'
-        }
+          status: 'COMPLETED',
+        },
       });
 
       return {
         userId,
         fields,
         lastAggregated: profile.lastAggregated,
-        documentCount
+        documentCount,
       };
     } catch (error) {
       logger.error(`Failed to retrieve profile for user ${userId}:`, error);
@@ -304,9 +362,13 @@ export class ProfileService {
   }
 
   /**
-   * Update profile manually (merge with existing data)
+   * Update profile manually (merge with existing data) with audit logging
    */
-  async updateProfile(userId: string, updates: Record<string, any>): Promise<AggregatedProfile> {
+  async updateProfile(
+    userId: string,
+    updates: Record<string, any>,
+    auditContext?: AuditContext
+  ): Promise<AggregatedProfile> {
     try {
       // Get existing profile or create new one
       let profile = await this.getProfile(userId);
@@ -327,7 +389,7 @@ export class ProfileService {
         if (profile.fields[normalizedKey]) {
           // Merge with existing values
           const existingValues = profile.fields[normalizedKey].values;
-          const newValues = normalizedValues.filter(v => !existingValues.includes(v));
+          const newValues = normalizedValues.filter((v) => !existingValues.includes(v));
           profile.fields[normalizedKey].values.push(...newValues);
           profile.fields[normalizedKey].lastUpdated = new Date();
         } else {
@@ -337,7 +399,7 @@ export class ProfileService {
             values: normalizedValues,
             sources: ['manual_edit'],
             confidence: 100, // Manual edits have 100% confidence
-            lastUpdated: new Date()
+            lastUpdated: new Date(),
           };
         }
       }
@@ -345,9 +407,9 @@ export class ProfileService {
       // Deduplicate after updates
       this.deduplicateFields(profile.fields);
 
-      // Save updated profile
+      // Save updated profile (with audit logging)
       profile.lastAggregated = new Date();
-      await this.saveProfile(userId, profile);
+      await this.saveProfile(userId, profile, auditContext);
 
       return profile;
     } catch (error) {
@@ -357,12 +419,12 @@ export class ProfileService {
   }
 
   /**
-   * Refresh profile by re-aggregating from all documents
+   * Refresh profile by re-aggregating from all documents with audit logging
    */
-  async refreshProfile(userId: string): Promise<AggregatedProfile> {
+  async refreshProfile(userId: string, auditContext?: AuditContext): Promise<AggregatedProfile> {
     try {
       const profile = await this.aggregateUserProfile(userId);
-      await this.saveProfile(userId, profile);
+      await this.saveProfile(userId, profile, auditContext);
       return profile;
     } catch (error) {
       logger.error(`Failed to refresh profile for user ${userId}:`, error);
@@ -371,17 +433,185 @@ export class ProfileService {
   }
 
   /**
-   * Delete user profile
+   * Delete user profile with audit logging
    */
-  async deleteProfile(userId: string): Promise<void> {
+  async deleteProfile(userId: string, auditContext?: AuditContext): Promise<void> {
     try {
+      // Get existing profile for audit logging
+      const existingProfile = await prisma.userProfile.findUnique({
+        where: { userId },
+      });
+
+      if (!existingProfile) {
+        logger.warn(`Profile not found for deletion: ${userId}`);
+        return;
+      }
+
+      // Decrypt existing fields for audit log
+      let oldFields: Record<string, ProfileField> | null = null;
+      try {
+        oldFields = decryptJSON(existingProfile.profileData as string);
+      } catch {
+        oldFields = null;
+      }
+
+      // Log deletion of all fields
+      if (oldFields && Object.keys(oldFields).length > 0) {
+        const changes = Object.entries(oldFields).map(([key, field]) => ({
+          field: key,
+          old: field.values,
+          new: null,
+        }));
+
+        await this.logProfileChange({
+          profileId: existingProfile.id,
+          userId,
+          changes,
+          ipAddress: auditContext?.ipAddress,
+          userAgent: auditContext?.userAgent,
+        });
+      }
+
       await prisma.userProfile.delete({
-        where: { userId }
+        where: { userId },
       });
       logger.info(`Profile deleted for user: ${userId}`);
     } catch (error) {
       logger.error(`Failed to delete profile for user ${userId}:`, error);
       throw new Error(`Failed to delete profile: ${error}`);
     }
+  }
+
+  /**
+   * Log profile field changes to the audit trail
+   * Computes CREATE/UPDATE/DELETE action based on old/new values
+   */
+  async logProfileChange(params: LogProfileChangeParams): Promise<void> {
+    try {
+      if (params.changes.length === 0) {
+        return; // Nothing to log
+      }
+
+      const auditEntries = params.changes.map((change) => {
+        const hasOldValue = change.old != null;
+        const hasNewValue = change.new != null;
+
+        // Determine action type based on presence of old/new values
+        let action: AuditAction;
+        if (!hasOldValue) {
+          action = 'CREATE';
+        } else if (!hasNewValue) {
+          action = 'DELETE';
+        } else {
+          action = 'UPDATE';
+        }
+
+        return {
+          profileId: params.profileId,
+          userId: params.userId,
+          fieldName: change.field,
+          oldValue: hasOldValue ? JSON.stringify(change.old) : null,
+          newValue: hasNewValue ? JSON.stringify(change.new) : null,
+          action,
+          ipAddress: params.ipAddress || null,
+          userAgent: params.userAgent || null,
+        };
+      });
+
+      await prisma.profileAuditLog.createMany({
+        data: auditEntries,
+      });
+
+      logger.debug(`Logged ${auditEntries.length} profile changes for profile ${params.profileId}`);
+    } catch (error) {
+      // Log error but don't throw - audit logging should not break profile operations
+      logger.error('Failed to log profile change:', error);
+    }
+  }
+
+  /**
+   * Compute field-level changes between old and new profile data
+   * Returns an array of changes suitable for audit logging
+   */
+  computeProfileDiff(
+    oldFields: Record<string, ProfileField> | null,
+    newFields: Record<string, ProfileField>
+  ): { field: string; old: any; new: any }[] {
+    const changes: { field: string; old: any; new: any }[] = [];
+    const allKeys = new Set([...Object.keys(oldFields || {}), ...Object.keys(newFields)]);
+
+    for (const key of allKeys) {
+      const oldField = oldFields?.[key];
+      const newField = newFields[key];
+
+      // Field was deleted
+      if (!newField && oldField) {
+        changes.push({
+          field: key,
+          old: oldField.values,
+          new: null,
+        });
+        continue;
+      }
+
+      // Field was created
+      if (!oldField && newField) {
+        changes.push({
+          field: key,
+          old: null,
+          new: newField.values,
+        });
+        continue;
+      }
+
+      // Field was updated - compare values
+      if (oldField && newField) {
+        const oldValues = JSON.stringify(oldField.values.sort());
+        const newValues = JSON.stringify(newField.values.sort());
+        if (oldValues !== newValues) {
+          changes.push({
+            field: key,
+            old: oldField.values,
+            new: newField.values,
+          });
+        }
+      }
+    }
+
+    return changes;
+  }
+
+  /**
+   * Get audit history for a profile
+   * Returns paginated list of audit entries
+   */
+  async getAuditHistory(
+    profileId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<{
+    logs: any[];
+    total: number;
+    hasMore: boolean;
+  }> {
+    const limit = options.limit || 50;
+    const offset = options.offset || 0;
+
+    const [logs, total] = await Promise.all([
+      prisma.profileAuditLog.findMany({
+        where: { profileId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.profileAuditLog.count({
+        where: { profileId },
+      }),
+    ]);
+
+    return {
+      logs,
+      total,
+      hasMore: offset + logs.length < total,
+    };
   }
 }
