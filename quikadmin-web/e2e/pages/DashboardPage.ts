@@ -208,49 +208,51 @@ export class DashboardPage extends BasePage {
 
   // ========== Stats Interactions ==========
 
+  private readonly statValueSelector = '.text-2xl, .stat-value, h3';
+
   /**
    * Get stat card value by index
    */
   async getStatValue(index: number): Promise<string | null> {
     const card = this.statCards.nth(index);
-    const value = card.locator('.text-2xl, .stat-value, h3');
-    return await value.textContent();
+    return await card.locator(this.statValueSelector).textContent();
+  }
+
+  /**
+   * Get numeric value from a stat card by selector
+   */
+  private async getStatCardValue(selector: string): Promise<number> {
+    const card = this.page.locator(selector);
+    const value = await card.locator(this.statValueSelector).textContent();
+    return parseInt(value || '0', 10);
   }
 
   /**
    * Get total documents count
    */
   async getTotalDocuments(): Promise<number> {
-    const card = this.page.locator(this.selectors.totalDocuments);
-    const value = await card.locator('.text-2xl, .stat-value, h3').textContent();
-    return parseInt(value || '0', 10);
+    return this.getStatCardValue(this.selectors.totalDocuments);
   }
 
   /**
    * Get processed today count
    */
   async getProcessedToday(): Promise<number> {
-    const card = this.page.locator(this.selectors.processedToday);
-    const value = await card.locator('.text-2xl, .stat-value, h3').textContent();
-    return parseInt(value || '0', 10);
+    return this.getStatCardValue(this.selectors.processedToday);
   }
 
   /**
    * Get in progress count
    */
   async getInProgressCount(): Promise<number> {
-    const card = this.page.locator(this.selectors.inProgress);
-    const value = await card.locator('.text-2xl, .stat-value, h3').textContent();
-    return parseInt(value || '0', 10);
+    return this.getStatCardValue(this.selectors.inProgress);
   }
 
   /**
    * Get failed count
    */
   async getFailedCount(): Promise<number> {
-    const card = this.page.locator(this.selectors.failed);
-    const value = await card.locator('.text-2xl, .stat-value, h3').textContent();
-    return parseInt(value || '0', 10);
+    return this.getStatCardValue(this.selectors.failed);
   }
 
   // ========== Recent Documents ==========

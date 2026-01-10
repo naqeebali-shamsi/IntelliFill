@@ -136,6 +136,8 @@ export class SettingsPage extends BasePage {
 
   // ========== Navigation ==========
 
+  private static readonly TAB_TRANSITION_DELAY = 300;
+
   /**
    * Navigate to settings page
    */
@@ -144,35 +146,39 @@ export class SettingsPage extends BasePage {
   }
 
   /**
+   * Click a tab and wait for transition
+   */
+  private async clickTab(tab: Locator): Promise<void> {
+    await tab.click();
+    await this.page.waitForTimeout(SettingsPage.TAB_TRANSITION_DELAY);
+  }
+
+  /**
    * Navigate to profile tab
    */
   async goToProfileTab(): Promise<void> {
-    await this.profileTab.click();
-    await this.page.waitForTimeout(300);
+    await this.clickTab(this.profileTab);
   }
 
   /**
    * Navigate to account tab
    */
   async goToAccountTab(): Promise<void> {
-    await this.accountTab.click();
-    await this.page.waitForTimeout(300);
+    await this.clickTab(this.accountTab);
   }
 
   /**
    * Navigate to organization tab
    */
   async goToOrganizationTab(): Promise<void> {
-    await this.organizationTab.click();
-    await this.page.waitForTimeout(300);
+    await this.clickTab(this.organizationTab);
   }
 
   /**
    * Navigate to security tab
    */
   async goToSecurityTab(): Promise<void> {
-    await this.securityTab.click();
-    await this.page.waitForTimeout(300);
+    await this.clickTab(this.securityTab);
   }
 
   /**
@@ -181,8 +187,7 @@ export class SettingsPage extends BasePage {
   async goToBillingTab(): Promise<void> {
     const billingTab = this.page.locator(this.selectors.billingTab);
     if (await billingTab.isVisible()) {
-      await billingTab.click();
-      await this.page.waitForTimeout(300);
+      await this.clickTab(billingTab);
     }
   }
 

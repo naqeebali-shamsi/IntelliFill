@@ -178,21 +178,27 @@ test.describe('Dashboard Layout Tests', () => {
   });
 });
 
+/**
+ * Verify stat cards are visible for a given page prefix and count
+ */
+async function assertStatCardsVisible(
+  page: { locator: (selector: string) => import('@playwright/test').Locator },
+  prefix: string,
+  count: number
+): Promise<void> {
+  for (let i = 1; i <= count; i++) {
+    const card = page.locator(`[data-testid="stat-card-${prefix}-${i}"]`);
+    await expect(card).toBeVisible();
+  }
+}
+
 test.describe('StatCard Component Tests - Templates Page', () => {
   test('should display all template stat cards with correct testIds', async ({
     authenticatedPage,
   }) => {
     await authenticatedPage.goto('/templates');
     await authenticatedPage.waitForLoadState('domcontentloaded');
-
-    // Verify all 3 stat cards are visible
-    const statCard1 = authenticatedPage.locator('[data-testid="stat-card-templates-1"]');
-    const statCard2 = authenticatedPage.locator('[data-testid="stat-card-templates-2"]');
-    const statCard3 = authenticatedPage.locator('[data-testid="stat-card-templates-3"]');
-
-    await expect(statCard1).toBeVisible();
-    await expect(statCard2).toBeVisible();
-    await expect(statCard3).toBeVisible();
+    await assertStatCardsVisible(authenticatedPage, 'templates', 3);
   });
 
   test('should render template stats without layout shift', async ({
@@ -202,7 +208,6 @@ test.describe('StatCard Component Tests - Templates Page', () => {
     await authenticatedPage.goto('/templates');
     await authenticatedPage.waitForLoadState('networkidle');
 
-    // Verify no horizontal overflow
     const bodyWidth = await authenticatedPage.evaluate(() => document.body.scrollWidth);
     const viewportWidth = viewport?.width || 1280;
     expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 5);
@@ -215,17 +220,7 @@ test.describe('StatCard Component Tests - History Page', () => {
   }) => {
     await authenticatedPage.goto('/history');
     await authenticatedPage.waitForLoadState('domcontentloaded');
-
-    // Verify all 4 stat cards are visible
-    const statCard1 = authenticatedPage.locator('[data-testid="stat-card-history-1"]');
-    const statCard2 = authenticatedPage.locator('[data-testid="stat-card-history-2"]');
-    const statCard3 = authenticatedPage.locator('[data-testid="stat-card-history-3"]');
-    const statCard4 = authenticatedPage.locator('[data-testid="stat-card-history-4"]');
-
-    await expect(statCard1).toBeVisible();
-    await expect(statCard2).toBeVisible();
-    await expect(statCard3).toBeVisible();
-    await expect(statCard4).toBeVisible();
+    await assertStatCardsVisible(authenticatedPage, 'history', 4);
   });
 });
 
@@ -235,17 +230,7 @@ test.describe('StatCard Component Tests - Knowledge Base Page', () => {
   }) => {
     await authenticatedPage.goto('/knowledge-base');
     await authenticatedPage.waitForLoadState('domcontentloaded');
-
-    // Verify all 4 stat cards are visible
-    const statCard1 = authenticatedPage.locator('[data-testid="stat-card-knowledge-1"]');
-    const statCard2 = authenticatedPage.locator('[data-testid="stat-card-knowledge-2"]');
-    const statCard3 = authenticatedPage.locator('[data-testid="stat-card-knowledge-3"]');
-    const statCard4 = authenticatedPage.locator('[data-testid="stat-card-knowledge-4"]');
-
-    await expect(statCard1).toBeVisible();
-    await expect(statCard2).toBeVisible();
-    await expect(statCard3).toBeVisible();
-    await expect(statCard4).toBeVisible();
+    await assertStatCardsVisible(authenticatedPage, 'knowledge', 4);
   });
 });
 
@@ -255,17 +240,7 @@ test.describe('StatCard Component Tests - Upload Page', () => {
   }) => {
     await authenticatedPage.goto('/upload');
     await authenticatedPage.waitForLoadState('domcontentloaded');
-
-    // Verify all 4 stat cards are visible
-    const statCard1 = authenticatedPage.locator('[data-testid="stat-card-upload-1"]');
-    const statCard2 = authenticatedPage.locator('[data-testid="stat-card-upload-2"]');
-    const statCard3 = authenticatedPage.locator('[data-testid="stat-card-upload-3"]');
-    const statCard4 = authenticatedPage.locator('[data-testid="stat-card-upload-4"]');
-
-    await expect(statCard1).toBeVisible();
-    await expect(statCard2).toBeVisible();
-    await expect(statCard3).toBeVisible();
-    await expect(statCard4).toBeVisible();
+    await assertStatCardsVisible(authenticatedPage, 'upload', 4);
   });
 });
 
