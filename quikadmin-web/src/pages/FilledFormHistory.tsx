@@ -55,6 +55,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
 import { staggerContainer, fadeInUpSubtle } from '@/lib/animations';
@@ -62,6 +68,7 @@ import { staggerContainer, fadeInUpSubtle } from '@/lib/animations';
 import {
   filledFormsService,
   type FilledForm,
+  type ExportFormat,
 } from '@/services/filledFormsService';
 import {
   useFilledFormsStore,
@@ -86,7 +93,10 @@ const sortOptions = [
 ];
 
 // Status badge variant mapping
-const statusBadgeVariant: Record<string, 'default' | 'secondary' | 'outline' | 'info' | 'success' | 'warning'> = {
+const statusBadgeVariant: Record<
+  string,
+  'default' | 'secondary' | 'outline' | 'info' | 'success' | 'warning'
+> = {
   draft: 'secondary',
   completed: 'success',
   submitted: 'info',
@@ -94,6 +104,20 @@ const statusBadgeVariant: Record<string, 'default' | 'secondary' | 'outline' | '
 };
 
 // =================== HELPER FUNCTIONS ===================
+
+function downloadFile(blob: Blob, form: FilledForm, format: ExportFormat): void {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  const baseName = `${form.clientName}_${form.templateName}`.replace(/[^a-zA-Z0-9._-]/g, '_');
+  link.href = url;
+  link.download = `${baseName}.${format}`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -125,13 +149,18 @@ function getFormStatus(form: FilledForm): string {
 interface FilledFormRowProps {
   form: FilledForm;
   onView: (form: FilledForm) => void;
-  onDownload: (form: FilledForm) => void;
+  onDownload: (form: FilledForm, format: ExportFormat) => void;
   onDelete: (form: FilledForm) => void;
   isDeleting: boolean;
 }
 
 function FilledFormRow({ form, onView, onDownload, onDelete, isDeleting }: FilledFormRowProps) {
   const status = getFormStatus(form);
+  const exportFormats: { format: ExportFormat; label: string }[] = [
+    { format: 'pdf', label: 'PDF' },
+    { format: 'json', label: 'JSON' },
+    { format: 'csv', label: 'CSV' },
+  ];
 
   return (
     <motion.tr
@@ -178,16 +207,30 @@ function FilledFormRow({ form, onView, onDownload, onDelete, isDeleting }: Fille
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onDownload(form)}
-            title="Download PDF"
-            data-testid={`download-form-${form.id}`}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Export form"
+                data-testid={`download-form-${form.id}`}
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {exportFormats.map(({ format, label }) => (
+                <DropdownMenuItem
+                  key={format}
+                  onClick={() => onDownload(form, format)}
+                  data-testid={`export-${format}-${form.id}`}
+                >
+                  Download {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="ghost"
             size="icon"
@@ -322,28 +365,18 @@ export default function FilledFormHistory() {
     [handleSearch]
   );
 
-  const handleView = useCallback(
-    (form: FilledForm) => {
-      // Navigate to a detail view or open modal
-      // For now, we'll show a toast with form info
-      toast.info(`Viewing: ${form.templateName} for ${form.clientName}`);
-      // Future: navigate(`/filled-forms/${form.id}`);
-    },
-    []
-  );
+  const handleView = useCallback((form: FilledForm) => {
+    // Navigate to a detail view or open modal
+    // For now, we'll show a toast with form info
+    toast.info(`Viewing: ${form.templateName} for ${form.clientName}`);
+    // Future: navigate(`/filled-forms/${form.id}`);
+  }, []);
 
-  const handleDownload = useCallback(async (form: FilledForm) => {
+  const handleDownload = useCallback(async (form: FilledForm, format: ExportFormat = 'pdf') => {
     try {
-      const blob = await filledFormsService.downloadFilledForm(form.id);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${form.clientName}_${form.templateName}.pdf`.replace(/[^a-zA-Z0-9._-]/g, '_');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success('Download started');
+      const blob = await filledFormsService.exportFilledForm(form.id, format);
+      downloadFile(blob, form, format);
+      toast.success(`Download started (${format.toUpperCase()})`);
     } catch (error: any) {
       toast.error(error?.response?.data?.error || 'Failed to download form');
     }

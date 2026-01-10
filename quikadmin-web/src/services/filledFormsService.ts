@@ -9,6 +9,8 @@ import api from './api';
 
 // =================== TYPES ===================
 
+export type ExportFormat = 'pdf' | 'json' | 'csv';
+
 export interface FilledForm {
   id: string;
   clientId: string;
@@ -33,16 +35,18 @@ export interface FilledFormListParams {
   offset?: number;
 }
 
+interface Pagination {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export interface FilledFormListResponse {
   success: boolean;
   data: {
     filledForms: FilledForm[];
-    pagination: {
-      total: number;
-      limit: number;
-      offset: number;
-      hasMore: boolean;
-    };
+    pagination: Pagination;
   };
 }
 
@@ -59,23 +63,25 @@ export interface GenerateFormParams {
   overrideData?: Record<string, unknown>;
 }
 
+interface GeneratedFormData {
+  id: string;
+  clientId: string;
+  clientName: string;
+  templateId: string;
+  templateName: string;
+  fileUrl: string;
+  downloadUrl: string;
+  filledFieldsCount: number;
+  unmappedFieldsCount: number;
+  warnings: string[];
+  createdAt: string;
+}
+
 export interface GenerateFormResponse {
   success: boolean;
   message: string;
   data: {
-    filledForm: {
-      id: string;
-      clientId: string;
-      clientName: string;
-      templateId: string;
-      templateName: string;
-      fileUrl: string;
-      downloadUrl: string;
-      filledFieldsCount: number;
-      unmappedFieldsCount: number;
-      warnings: string[];
-      createdAt: string;
-    };
+    filledForm: GeneratedFormData;
   };
 }
 
@@ -99,10 +105,21 @@ export const filledFormsService = {
   },
 
   /**
-   * Download a filled form PDF
+   * Download a filled form PDF (legacy - use exportFilledForm for format options)
    */
   downloadFilledForm: async (id: string): Promise<Blob> => {
     const response = await api.get(`/filled-forms/${id}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  /**
+   * Export a filled form in various formats (pdf, json, csv)
+   */
+  exportFilledForm: async (id: string, format: ExportFormat = 'pdf'): Promise<Blob> => {
+    const response = await api.get(`/filled-forms/${id}/export`, {
+      params: { format },
       responseType: 'blob',
     });
     return response.data;

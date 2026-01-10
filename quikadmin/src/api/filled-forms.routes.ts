@@ -648,6 +648,136 @@ export function createFilledFormRoutes(): Router {
   );
 
   /**
+   * GET /api/filled-forms/:id/export - Export a filled form in various formats
+   *
+   * Task 550: Multi-Format Export for Filled Forms
+   *
+   * Query params:
+   * - format: 'pdf' (default), 'json', or 'csv'
+   */
+  router.get(
+    '/:id/export',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id } = req.params;
+        const format = (req.query.format as string)?.toLowerCase() || 'pdf';
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Validate format
+        const supportedFormats = ['pdf', 'json', 'csv'];
+        if (!supportedFormats.includes(format)) {
+          return res.status(400).json({
+            error: 'Invalid format',
+            message: `Supported formats: ${supportedFormats.join(', ')}`,
+          });
+        }
+
+        const filledForm = await prisma.filledForm.findFirst({
+          where: { id, userId },
+          include: {
+            client: { select: { name: true } },
+            template: { select: { name: true } },
+          },
+        });
+
+        if (!filledForm) {
+          return res.status(404).json({ error: 'Filled form not found' });
+        }
+
+        const baseName = `${filledForm.client.name}_${filledForm.template.name}`.replace(
+          /[^a-zA-Z0-9._-]/g,
+          '_'
+        );
+
+        if (format === 'pdf') {
+          await exportFormAsPdf(filledForm, baseName, res);
+        } else if (format === 'json') {
+          exportFormAsJson(filledForm, baseName, res);
+        } else if (format === 'csv') {
+          exportFormAsCsv(filledForm, baseName, res);
+        }
+
+        logger.info(`Exported filled form ${id} as ${format}`, { userId, format });
+      } catch (error) {
+        logger.error('Error exporting filled form:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * Export filled form as PDF
+   */
+  async function exportFormAsPdf(
+    filledForm: { fileUrl: string },
+    baseName: string,
+    res: Response
+  ): Promise<void> {
+    try {
+      await fs.access(filledForm.fileUrl);
+    } catch {
+      res.status(404).json({ error: 'PDF file not found on disk' });
+      return;
+    }
+    res.download(filledForm.fileUrl, `${baseName}.pdf`);
+  }
+
+  /**
+   * Export filled form as JSON
+   */
+  function exportFormAsJson(
+    filledForm: {
+      client: { name: string };
+      template: { name: string };
+      dataSnapshot: unknown;
+      createdAt: Date;
+    },
+    baseName: string,
+    res: Response
+  ): void {
+    const jsonData = {
+      formName: filledForm.template.name,
+      clientName: filledForm.client.name,
+      data: filledForm.dataSnapshot || {},
+      createdAt: filledForm.createdAt.toISOString(),
+      exportedAt: new Date().toISOString(),
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseName}.json"`);
+    res.json(jsonData);
+  }
+
+  /**
+   * Export filled form as CSV
+   */
+  function exportFormAsCsv(
+    filledForm: { client: { name: string }; dataSnapshot: unknown },
+    baseName: string,
+    res: Response
+  ): void {
+    const dataSnapshot = (filledForm.dataSnapshot || {}) as Record<string, unknown>;
+    const rows: string[] = ['Field,Value'];
+
+    for (const [field, value] of Object.entries(dataSnapshot)) {
+      const escapedValue = String(value ?? '')
+        .replace(/"/g, '""')
+        .replace(/\n/g, ' ');
+      rows.push(`"${field}","${escapedValue}"`);
+    }
+
+    const csvContent = rows.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseName}.csv"`);
+    res.send(csvContent);
+  }
+
+  /**
    * DELETE /api/filled-forms/:id - Delete a filled form
    */
   router.delete(
