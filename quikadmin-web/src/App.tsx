@@ -46,6 +46,9 @@ const FilledFormHistory = lazy(() => import('./pages/FilledFormHistory'));
 const ProfileList = lazy(() => import('./pages/ProfileList'));
 const ProfileDetail = lazy(() => import('./pages/ProfileDetail'));
 
+// Knowledge base - lazy loaded
+const KnowledgeBase = lazy(() => import('./pages/KnowledgeBase'));
+
 // Error pages - lazy loaded
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const ForbiddenPage = lazy(() => import('./pages/ForbiddenPage'));
@@ -175,6 +178,7 @@ function App() {
                   <Route path="upload" element={<ConnectedUpload />} />
                   <Route path="history" element={<History />} />
                   <Route path="documents" element={<DocumentLibrary />} />
+                  <Route path="knowledge" element={<KnowledgeBase />} />
                   <Route path="fill-form" element={<SimpleFillForm />} />
                   <Route path="demo/autocomplete" element={<FormFillDemo />} />
                   <Route path="filled-forms" element={<FilledFormHistory />} />

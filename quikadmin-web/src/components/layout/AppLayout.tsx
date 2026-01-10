@@ -25,6 +25,7 @@ import {
   Search,
   Plus,
   FileCheck,
+  BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -35,6 +36,7 @@ const navigation = [
   { name: 'Fill Form', href: '/fill-form', icon: FileSignature },
   { name: 'Filled Forms', href: '/filled-forms', icon: FileCheck },
   { name: 'History', href: '/history', icon: History },
+  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
   { name: 'Profiles', href: '/profiles', icon: Users },
   { name: 'Documents', href: '/documents', icon: Files },
   { name: 'Templates', href: '/templates', icon: LayoutTemplate },
