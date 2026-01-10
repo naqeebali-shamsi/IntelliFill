@@ -54,6 +54,7 @@ import {
   type UpdateSettingsData,
   type UserSettings,
 } from '@/services/accountService';
+import api from '@/services/api';
 import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
 import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
 import {
@@ -130,6 +131,53 @@ const SUPPORTED_LANGUAGES = [
   { value: 'fr', label: 'French' },
   { value: 'ar', label: 'Arabic' },
 ] as const;
+
+/** Export data button with download handler */
+function ExportDataRow(): React.ReactElement {
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function handleExport(): Promise<void> {
+    setIsExporting(true);
+    try {
+      const response = await api.get('/users/me/export');
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `intellifill-export-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Data exported successfully');
+    } catch {
+      toast.error('Failed to export data');
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  return (
+    <SettingsRow>
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-2 font-medium">
+          <Download className="h-4 w-4" /> Export Data
+        </div>
+        <p className="text-xs text-muted-foreground">Download all your profile data as JSON</p>
+      </div>
+      <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting}>
+        {isExporting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Exporting...
+          </>
+        ) : (
+          'Export All'
+        )}
+      </Button>
+    </SettingsRow>
+  );
+}
 
 /** Language preference row with localStorage + backend sync */
 interface LanguageRowProps {
@@ -836,19 +884,7 @@ export default function Settings() {
                       title="Data Management"
                       description="Export or delete your data."
                     >
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <Download className="h-4 w-4" /> Export Data
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Download all your profile data as JSON
-                          </p>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Export All
-                        </Button>
-                      </SettingsRow>
+                      <ExportDataRow />
                       <SettingsRow>
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2 font-medium">

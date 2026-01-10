@@ -751,6 +751,183 @@ export function createUserRoutes(): Router {
     }
   );
 
+  /**
+   * GET /api/users/me/export - Export all user data as JSON
+   * Task 526: Data export for GDPR compliance and user data portability
+   * Excludes: passwords, tokens, internal IDs, storage URLs
+   */
+  router.get(
+    '/me/export',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as any).user?.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        logger.info('Starting data export', { userId });
+
+        // Fetch user profile (exclude sensitive fields)
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            emailVerified: true,
+            mfaEnabled: true,
+            createdAt: true,
+            updatedAt: true,
+            lastLogin: true,
+            avatarUrl: true,
+            bio: true,
+            jobTitle: true,
+            phone: true,
+            // Exclude: password, mfaBackupCodes, supabaseUserId, organizationId
+          },
+        });
+
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Fetch user profile
+        const profile = await prisma.userProfile.findUnique({
+          where: { userId },
+          select: {
+            data: true,
+            fieldSources: true,
+            createdAt: true,
+            updatedAt: true,
+            // Exclude: id, userId
+          },
+        });
+
+        // Fetch user settings
+        const settings = await prisma.userSettings.findUnique({
+          where: { userId },
+          select: {
+            preferredLanguage: true,
+            timezone: true,
+            emailNotifications: true,
+            notifyOnProcessComplete: true,
+            notifyOnErrors: true,
+            digestFrequency: true,
+            defaultExtractionProfile: true,
+            autoOcr: true,
+            ocrLanguage: true,
+            retainOriginalFiles: true,
+            autoMlEnhancement: true,
+            createdAt: true,
+            updatedAt: true,
+            // Exclude: id, userId
+          },
+        });
+
+        // Fetch documents (sanitized)
+        const documents = await prisma.document.findMany({
+          where: { userId },
+          select: {
+            fileName: true,
+            fileType: true,
+            fileSize: true,
+            status: true,
+            extractedData: true,
+            confidence: true,
+            tags: true,
+            processedAt: true,
+            createdAt: true,
+            updatedAt: true,
+            // Exclude: id, userId, storageUrl, templateId, extractedText, reprocessingHistory
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Fetch clients with profiles
+        const clients = await prisma.client.findMany({
+          where: { userId },
+          select: {
+            name: true,
+            type: true,
+            status: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true,
+            profile: {
+              select: {
+                data: true,
+                fieldSources: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+            // Exclude: id, userId
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Fetch templates (sanitized)
+        const templates = await prisma.template.findMany({
+          where: { userId },
+          select: {
+            name: true,
+            description: true,
+            formType: true,
+            fieldMappings: true,
+            isActive: true,
+            isPublic: true,
+            usageCount: true,
+            createdAt: true,
+            updatedAt: true,
+            // Exclude: id, userId
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Assemble export data
+        const exportData = {
+          exportedAt: new Date().toISOString(),
+          exportVersion: '1.0',
+          user,
+          profile: profile || null,
+          settings: settings || null,
+          documents,
+          clients,
+          templates,
+          summary: {
+            totalDocuments: documents.length,
+            totalClients: clients.length,
+            totalTemplates: templates.length,
+          },
+        };
+
+        // Set headers for file download
+        const timestamp = Date.now();
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="intellifill-export-${timestamp}.json"`
+        );
+
+        logger.info('Data export completed', {
+          userId,
+          documentCount: documents.length,
+          clientCount: clients.length,
+          templateCount: templates.length,
+        });
+
+        return res.json(exportData);
+      } catch (error) {
+        logger.error('Data export error:', error);
+        next(error);
+      }
+    }
+  );
+
   return router;
 }
 
