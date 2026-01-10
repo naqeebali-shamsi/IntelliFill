@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import { StatusBadge } from './status-badge';
 import { ConfidenceBadge } from './ocr-confidence-alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -45,6 +46,27 @@ const fileTypeIconMap: Record<DocumentFileType, LucideIcon> = {
   image: ImageIcon,
   other: FileIcon,
 };
+
+/** Displays a list of tags with overflow indicator */
+function TagList({ tags, maxVisible }: { tags: string[]; maxVisible: number }): React.ReactElement {
+  const visibleTags = tags.slice(0, maxVisible);
+  const overflowCount = tags.length - maxVisible;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-2">
+      {visibleTags.map((tag) => (
+        <Badge key={tag} variant="outline" className="text-xs py-0 h-5">
+          {tag}
+        </Badge>
+      ))}
+      {overflowCount > 0 && (
+        <Badge variant="outline" className="text-xs py-0 h-5 text-muted-foreground">
+          +{overflowCount}
+        </Badge>
+      )}
+    </div>
+  );
+}
 
 export interface DocumentCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
   /**
@@ -83,6 +105,10 @@ export interface DocumentCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
    * OCR confidence score (0-1)
    */
   confidence?: number | null;
+  /**
+   * Document tags
+   */
+  tags?: string[];
   /**
    * Download handler
    */
@@ -140,6 +166,7 @@ function DocumentCard({
   pageCount,
   metadata,
   confidence,
+  tags,
   onDownload,
   onDelete,
   onView,
@@ -185,7 +212,10 @@ function DocumentCard({
 
           {/* Document Info */}
           <div className="flex-1 min-w-0">
-            <CardTitle className={cn('truncate', compact ? 'text-base' : 'text-lg')} data-testid="document-card-title">
+            <CardTitle
+              className={cn('truncate', compact ? 'text-base' : 'text-lg')}
+              data-testid="document-card-title"
+            >
               {name}
             </CardTitle>
             <CardDescription className={cn('flex items-center gap-2 mt-1', compact && 'text-xs')}>
@@ -205,6 +235,9 @@ function DocumentCard({
                 </>
               )}
             </CardDescription>
+
+            {/* Tags */}
+            {tags && tags.length > 0 && <TagList tags={tags} maxVisible={3} />}
           </div>
 
           {/* Status and Confidence Badges */}
@@ -214,7 +247,12 @@ function DocumentCard({
               confidence !== null &&
               confidence !== undefined &&
               confidence < 0.85 && <ConfidenceBadge confidence={confidence} />}
-            <StatusBadge status={status} showIcon size={compact ? 'sm' : 'md'} data-testid="document-card-status" />
+            <StatusBadge
+              status={status}
+              showIcon
+              size={compact ? 'sm' : 'md'}
+              data-testid="document-card-status"
+            />
           </div>
         </div>
 
@@ -240,7 +278,10 @@ function DocumentCard({
                   </DropdownMenuItem>
                 )}
                 {onDownload && (
-                  <DropdownMenuItem onClick={handleAction(() => onDownload(id))} data-testid="document-card-download">
+                  <DropdownMenuItem
+                    onClick={handleAction(() => onDownload(id))}
+                    data-testid="document-card-download"
+                  >
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </DropdownMenuItem>

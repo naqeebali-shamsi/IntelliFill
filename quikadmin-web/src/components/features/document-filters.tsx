@@ -4,81 +4,105 @@
  * @module components/features/document-filters
  */
 
-import * as React from "react"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Badge } from "@/components/ui/badge"
-import { Filter, X } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { DocumentFilter, DocumentStatus, DateRangePreset } from "@/types/document"
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { TagInput } from '@/components/features/tag-input';
+import { Filter, X, Tag } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { DocumentFilter, DocumentStatus, DateRangePreset } from '@/types/document';
 
 export interface DocumentFiltersProps {
   /**
    * Current filter state
    */
-  filter: DocumentFilter
+  filter: DocumentFilter;
 
   /**
    * Filter change callback
    */
-  onFilterChange: (filter: Partial<DocumentFilter>) => void
+  onFilterChange: (filter: Partial<DocumentFilter>) => void;
 
   /**
    * Clear all filters callback
    */
-  onClearFilter: () => void
+  onClearFilter: () => void;
 
   /**
    * Current date range preset
    */
-  dateRangePreset?: DateRangePreset
+  dateRangePreset?: DateRangePreset;
 
   /**
    * Date range preset change callback
    */
-  onDateRangePresetChange?: (preset: DateRangePreset) => void
+  onDateRangePresetChange?: (preset: DateRangePreset) => void;
+
+  /**
+   * Available tag suggestions for autocomplete
+   */
+  tagSuggestions?: string[];
 
   /**
    * Custom className
    */
-  className?: string
+  className?: string;
 }
 
 const STATUS_OPTIONS: Array<{ value: DocumentStatus; label: string }> = [
-  { value: "pending", label: "Pending" },
-  { value: "processing", label: "Processing" },
-  { value: "completed", label: "Completed" },
-  { value: "failed", label: "Failed" },
-]
+  { value: 'pending', label: 'Pending' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'failed', label: 'Failed' },
+];
 
 const FILE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "application/pdf", label: "PDF" },
-  { value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", label: "DOCX" },
-  { value: "text/csv", label: "CSV" },
-  { value: "image/jpeg", label: "JPG" },
-  { value: "image/png", label: "PNG" },
-]
+  { value: 'application/pdf', label: 'PDF' },
+  {
+    value: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    label: 'DOCX',
+  },
+  { value: 'text/csv', label: 'CSV' },
+  { value: 'image/jpeg', label: 'JPG' },
+  { value: 'image/png', label: 'PNG' },
+];
 
 const DATE_RANGE_PRESETS: Array<{ value: DateRangePreset; label: string }> = [
-  { value: "all", label: "All Time" },
-  { value: "today", label: "Today" },
-  { value: "week", label: "Last 7 Days" },
-  { value: "month", label: "Last 30 Days" },
-  { value: "year", label: "Last Year" },
-]
+  { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Last 7 Days' },
+  { value: 'month', label: 'Last 30 Days' },
+  { value: 'year', label: 'Last Year' },
+];
+
+/** Dismissible badge for active filter indicators */
+function FilterBadge({
+  label,
+  icon,
+  onClear,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  onClear: () => void;
+}): React.ReactElement {
+  return (
+    <Badge variant="secondary" className="gap-1">
+      {icon}
+      {label}
+      <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={onClear} />
+    </Badge>
+  );
+}
 
 /**
  * DocumentFilters component
@@ -98,47 +122,53 @@ export function DocumentFilters({
   filter,
   onFilterChange,
   onClearFilter,
-  dateRangePreset = "all",
+  dateRangePreset = 'all',
   onDateRangePresetChange,
+  tagSuggestions = [],
   className,
 }: DocumentFiltersProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(false);
 
   // Count active filters
-  const activeFilterCount = React.useMemo(() => {
-    let count = 0
-    if (filter.status && filter.status.length > 0) count++
-    if (filter.fileType && filter.fileType.length > 0) count++
-    if (dateRangePreset !== "all") count++
-    if (filter.minConfidence && filter.minConfidence > 0) count++
-    return count
-  }, [filter, dateRangePreset])
+  const hasStatusFilter = filter.status && filter.status.length > 0;
+  const hasFileTypeFilter = filter.fileType && filter.fileType.length > 0;
+  const hasDateRangeFilter = dateRangePreset !== 'all';
+  const hasConfidenceFilter = filter.minConfidence && filter.minConfidence > 0;
+  const hasTagsFilter = filter.tags && filter.tags.length > 0;
+
+  const activeFilterCount = [
+    hasStatusFilter,
+    hasFileTypeFilter,
+    hasDateRangeFilter,
+    hasConfidenceFilter,
+    hasTagsFilter,
+  ].filter(Boolean).length;
 
   const handleStatusToggle = (status: DocumentStatus) => {
-    const currentStatuses = filter.status || []
+    const currentStatuses = filter.status || [];
     const newStatuses = currentStatuses.includes(status)
       ? currentStatuses.filter((s) => s !== status)
-      : [...currentStatuses, status]
+      : [...currentStatuses, status];
 
-    onFilterChange({ status: newStatuses.length > 0 ? newStatuses : undefined })
-  }
+    onFilterChange({ status: newStatuses.length > 0 ? newStatuses : undefined });
+  };
 
   const handleFileTypeToggle = (fileType: string) => {
-    const currentTypes = filter.fileType || []
+    const currentTypes = filter.fileType || [];
     const newTypes = currentTypes.includes(fileType)
       ? currentTypes.filter((t) => t !== fileType)
-      : [...currentTypes, fileType]
+      : [...currentTypes, fileType];
 
-    onFilterChange({ fileType: newTypes.length > 0 ? newTypes : undefined })
-  }
+    onFilterChange({ fileType: newTypes.length > 0 ? newTypes : undefined });
+  };
 
   const handleClearAll = () => {
-    onClearFilter()
-    setOpen(false)
-  }
+    onClearFilter();
+    setOpen(false);
+  };
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn('flex items-center gap-2', className)}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-9">
@@ -231,40 +261,52 @@ export function DocumentFilters({
                 </Select>
               </div>
             )}
+
+            {/* Tags Filter */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Tags</Label>
+              <TagInput
+                tags={filter.tags || []}
+                onChange={(tags) => onFilterChange({ tags: tags.length > 0 ? tags : undefined })}
+                suggestions={tagSuggestions}
+                placeholder="Filter by tags..."
+              />
+            </div>
           </div>
         </PopoverContent>
       </Popover>
 
       {/* Active Filter Badges */}
-      {filter.status && filter.status.length > 0 && (
-        <Badge variant="secondary" className="gap-1">
-          Status: {filter.status.length}
-          <X
-            className="h-3 w-3 cursor-pointer hover:text-destructive"
-            onClick={() => onFilterChange({ status: undefined })}
-          />
-        </Badge>
+      {hasStatusFilter && (
+        <FilterBadge
+          label={`Status: ${filter.status!.length}`}
+          onClear={() => onFilterChange({ status: undefined })}
+        />
       )}
 
-      {filter.fileType && filter.fileType.length > 0 && (
-        <Badge variant="secondary" className="gap-1">
-          Type: {filter.fileType.length}
-          <X
-            className="h-3 w-3 cursor-pointer hover:text-destructive"
-            onClick={() => onFilterChange({ fileType: undefined })}
-          />
-        </Badge>
+      {hasFileTypeFilter && (
+        <FilterBadge
+          label={`Type: ${filter.fileType!.length}`}
+          onClear={() => onFilterChange({ fileType: undefined })}
+        />
       )}
 
-      {dateRangePreset !== "all" && (
-        <Badge variant="secondary" className="gap-1">
-          {DATE_RANGE_PRESETS.find((p) => p.value === dateRangePreset)?.label}
-          <X
-            className="h-3 w-3 cursor-pointer hover:text-destructive"
-            onClick={() => onDateRangePresetChange?.("all")}
-          />
-        </Badge>
+      {hasDateRangeFilter && (
+        <FilterBadge
+          label={
+            DATE_RANGE_PRESETS.find((p) => p.value === dateRangePreset)?.label ?? dateRangePreset
+          }
+          onClear={() => onDateRangePresetChange?.('all')}
+        />
+      )}
+
+      {hasTagsFilter && (
+        <FilterBadge
+          icon={<Tag className="h-3 w-3" />}
+          label={`Tags: ${filter.tags!.length}`}
+          onClear={() => onFilterChange({ tags: undefined })}
+        />
       )}
     </div>
-  )
+  );
 }
