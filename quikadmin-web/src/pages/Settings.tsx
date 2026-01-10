@@ -52,6 +52,7 @@ import {
   DeleteAccountModal,
   TwoFactorSetupModal,
 } from '@/components/settings';
+import { useTheme } from '@/components/theme-provider';
 
 // Sidebar Navigation Items
 const navItems = [
@@ -104,6 +105,7 @@ export default function Settings() {
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
 
   // Fetch profile data on mount
@@ -258,7 +260,10 @@ export default function Settings() {
                             Select your preferred color scheme
                           </p>
                         </div>
-                        <Select defaultValue="system">
+                        <Select
+                          value={theme}
+                          onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
+                        >
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Select theme" />
                           </SelectTrigger>
