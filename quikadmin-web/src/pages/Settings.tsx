@@ -900,6 +900,12 @@ export default function Settings() {
                         <Button
                           variant="outline"
                           className="border-primary/20 hover:bg-primary/10 hover:text-primary"
+                          onClick={() =>
+                            toast.info('Coming Soon', {
+                              description: 'Premium plans will be available soon. Stay tuned!',
+                              duration: 5000,
+                            })
+                          }
                         >
                           <CreditCard className="mr-2 h-4 w-4" /> Upgrade
                         </Button>
