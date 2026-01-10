@@ -368,6 +368,7 @@ model UserSettings {
   digestFrequency         String   @default("never") @map("digest_frequency") @db.VarChar(20)
   notifyOnOrgInvite       Boolean  @default(true) @map("notify_on_org_invite")
   notifyOnProcessComplete Boolean  @default(true) @map("notify_on_process_complete")
+  notifyOnErrors          Boolean  @default(true) @map("notify_on_errors")
   theme                   String   @default("system") @db.VarChar(20)
   user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

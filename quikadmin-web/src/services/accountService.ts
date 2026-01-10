@@ -40,6 +40,7 @@ export interface UserSettings {
   // Notification Preferences
   emailNotifications?: boolean;
   notifyOnProcessComplete?: boolean;
+  notifyOnErrors?: boolean;
   notifyOnOrgInvite?: boolean;
   digestFrequency?: 'daily' | 'weekly' | 'never';
 
@@ -76,6 +77,7 @@ export interface UpdateSettingsData {
   timezone?: string;
   emailNotifications?: boolean;
   notifyOnProcessComplete?: boolean;
+  notifyOnErrors?: boolean;
   notifyOnOrgInvite?: boolean;
   digestFrequency?: 'daily' | 'weekly' | 'never';
   theme?: 'light' | 'dark' | 'system';

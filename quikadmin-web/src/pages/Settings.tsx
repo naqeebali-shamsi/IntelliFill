@@ -51,6 +51,7 @@ import {
   updateSettings,
   type UpdateProfileData,
   type UpdateSettingsData,
+  type UserSettings,
 } from '@/services/accountService';
 import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
 import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
@@ -105,6 +106,129 @@ const SettingsRow = ({
     {children}
   </div>
 );
+
+// Browser notification helpers
+const isBrowserNotificationSupported = typeof Notification !== 'undefined';
+const isBrowserNotificationDenied =
+  isBrowserNotificationSupported && Notification.permission === 'denied';
+
+function getBrowserNotificationDescription(): string {
+  if (isBrowserNotificationDenied) {
+    return 'Notifications blocked - please enable in browser settings';
+  }
+  return 'Receive push notifications in your browser';
+}
+
+function isBrowserNotificationsEnabled(): boolean {
+  return typeof window !== 'undefined' && localStorage.getItem('browserNotifications') === 'true';
+}
+
+async function handleBrowserNotificationToggle(enabled: boolean): Promise<void> {
+  if (enabled) {
+    if (!isBrowserNotificationSupported) return;
+
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      localStorage.setItem('browserNotifications', 'true');
+      toast.success('Browser notifications enabled');
+    } else {
+      toast.error('Browser notification permission denied', {
+        description: 'Please enable notifications in your browser settings',
+      });
+    }
+  } else {
+    localStorage.setItem('browserNotifications', 'false');
+    toast.success('Browser notifications disabled');
+  }
+}
+
+// Notifications Tab Component
+interface NotificationsTabProps {
+  userSettings: UserSettings | undefined;
+  updateSettingsMutation: ReturnType<typeof useMutation<UserSettings, Error, UpdateSettingsData>>;
+}
+
+function NotificationsTab({
+  userSettings,
+  updateSettingsMutation,
+}: NotificationsTabProps): React.ReactNode {
+  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(
+    isBrowserNotificationsEnabled
+  );
+
+  async function handleBrowserToggle(checked: boolean): Promise<void> {
+    await handleBrowserNotificationToggle(checked);
+    setBrowserNotificationsEnabled(isBrowserNotificationsEnabled());
+  }
+
+  return (
+    <>
+      <SettingsSection title="Email Notifications" description="Manage when you receive emails.">
+        <SettingsRow>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 font-medium">
+              <Mail className="h-4 w-4" /> Processing Complete
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Email when a document finishes processing
+            </p>
+          </div>
+          <Switch
+            checked={userSettings?.notifyOnProcessComplete ?? true}
+            onCheckedChange={(checked) =>
+              updateSettingsMutation.mutate({ notifyOnProcessComplete: checked })
+            }
+            disabled={updateSettingsMutation.isPending}
+          />
+        </SettingsRow>
+        <SettingsRow>
+          <div className="space-y-0.5">
+            <div className="font-medium">Errors & Alerts</div>
+            <p className="text-xs text-muted-foreground">Email when processing fails</p>
+          </div>
+          <Switch
+            checked={userSettings?.notifyOnErrors ?? true}
+            onCheckedChange={(checked) =>
+              updateSettingsMutation.mutate({ notifyOnErrors: checked })
+            }
+            disabled={updateSettingsMutation.isPending}
+          />
+        </SettingsRow>
+        <SettingsRow>
+          <div className="space-y-0.5">
+            <div className="font-medium">Weekly Summary</div>
+            <p className="text-xs text-muted-foreground">Digest of weekly activity</p>
+          </div>
+          <Switch
+            checked={userSettings?.digestFrequency === 'weekly'}
+            onCheckedChange={(checked) =>
+              updateSettingsMutation.mutate({
+                digestFrequency: checked ? 'weekly' : 'never',
+              })
+            }
+            disabled={updateSettingsMutation.isPending}
+          />
+        </SettingsRow>
+      </SettingsSection>
+
+      <SettingsSection title="Push Notifications" description="Manage browser and mobile alerts.">
+        <SettingsRow>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 font-medium">
+              <Bell className="h-4 w-4" /> Browser Notifications
+            </div>
+            <p className="text-xs text-muted-foreground">{getBrowserNotificationDescription()}</p>
+          </div>
+          <Switch
+            checked={browserNotificationsEnabled}
+            onCheckedChange={handleBrowserToggle}
+            disabled={isBrowserNotificationDenied}
+          />
+        </SettingsRow>
+      </SettingsSection>
+    </>
+  );
+}
 
 export default function Settings() {
   const user = useBackendAuthStore((state) => state.user);
@@ -587,54 +711,10 @@ export default function Settings() {
                 {activeTab === 'organization' && <OrganizationTabContent />}
 
                 {activeTab === 'notifications' && (
-                  <>
-                    <SettingsSection
-                      title="Email Notifications"
-                      description="Manage when you receive emails."
-                    >
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <Mail className="h-4 w-4" /> Processing Complete
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Email when a document finishes processing
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </SettingsRow>
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="font-medium">Errors & Alerts</div>
-                          <p className="text-xs text-muted-foreground">
-                            Email when processing fails
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </SettingsRow>
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="font-medium">Weekly Summary</div>
-                          <p className="text-xs text-muted-foreground">Digest of weekly activity</p>
-                        </div>
-                        <Switch />
-                      </SettingsRow>
-                    </SettingsSection>
-
-                    <SettingsSection
-                      title="Push Notifications"
-                      description="Manage browser and mobile alerts."
-                    >
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <Bell className="h-4 w-4" /> Browser Notifications
-                          </div>
-                        </div>
-                        <Switch />
-                      </SettingsRow>
-                    </SettingsSection>
-                  </>
+                  <NotificationsTab
+                    userSettings={userSettings}
+                    updateSettingsMutation={updateSettingsMutation}
+                  />
                 )}
 
                 {activeTab === 'security' && (
