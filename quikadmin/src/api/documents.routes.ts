@@ -165,6 +165,7 @@ export function createDocumentRoutes(): Router {
           confidence: true,
           createdAt: true,
           processedAt: true,
+          tags: true,
         },
       });
 
@@ -694,6 +695,62 @@ export function createDocumentRoutes(): Router {
   );
 
   /**
+   * PATCH /api/documents/:id - Update document metadata (tags, etc.)
+   */
+  router.patch(
+    '/:id',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id } = req.params;
+        const { tags } = req.body;
+
+        // Verify document belongs to user
+        const document = await prisma.document.findFirst({
+          where: { id, userId },
+          select: { id: true },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        // Build update data
+        const updateData: { tags?: string[] } = {};
+        if (tags !== undefined) {
+          if (!Array.isArray(tags) || !tags.every((t) => typeof t === 'string')) {
+            return res.status(400).json({ error: 'Tags must be an array of strings' });
+          }
+          updateData.tags = tags;
+        }
+
+        // Update document
+        const updated = await prisma.document.update({
+          where: { id },
+          data: updateData,
+          select: {
+            id: true,
+            fileName: true,
+            fileType: true,
+            fileSize: true,
+            status: true,
+            confidence: true,
+            createdAt: true,
+            processedAt: true,
+            tags: true,
+          },
+        });
+
+        res.json({ success: true, document: updated });
+      } catch (error) {
+        logger.error('Update document error:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
    * DELETE /api/documents/:id - Delete document and file
    * Phase 6 Complete: Uses Supabase-only authentication
    */
@@ -702,7 +759,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         const document = await prisma.document.findFirst({
@@ -739,7 +796,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         const { DocumentService } = await import('../services/DocumentService');
@@ -769,7 +826,7 @@ export function createDocumentRoutes(): Router {
     authenticateSupabase,
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
         const { DocumentService } = await import('../services/DocumentService');

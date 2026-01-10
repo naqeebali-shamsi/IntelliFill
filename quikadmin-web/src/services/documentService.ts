@@ -1,4 +1,4 @@
-import {
+import api, {
   uploadFiles,
   getJobStatus,
   getJob,
@@ -10,6 +10,7 @@ import {
   reprocessDocument as apiReprocessDocument,
 } from './api';
 import type { UploadResult, JobStatus } from '@/types/upload';
+import type { Document } from '@/types/document';
 
 export interface DocumentUploadOptions {
   /**
@@ -166,6 +167,24 @@ export async function reprocessDocument(documentId: string): Promise<string> {
   return result.jobId;
 }
 
+/**
+ * Update document metadata (tags, etc.)
+ */
+export interface UpdateDocumentData {
+  tags?: string[];
+}
+
+export async function updateDocument(
+  documentId: string,
+  data: UpdateDocumentData
+): Promise<Document> {
+  const response = await api.patch<{ success: boolean; document: Document }>(
+    `/documents/${documentId}`,
+    data
+  );
+  return response.data.document;
+}
+
 const documentService = {
   uploadDocument,
   uploadDocuments,
@@ -177,6 +196,7 @@ const documentService = {
   downloadDocument,
   deleteDocument,
   reprocessDocument,
+  updateDocument,
 };
 
 export default documentService;

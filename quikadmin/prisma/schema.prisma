@@ -263,6 +263,7 @@ model Document {
   lastReprocessedAt   DateTime?      @map("last_reprocessed_at")
   reprocessingHistory Json?          @map("reprocessing_history")
   multiAgentResult    Json?          @map("multi_agent_result")
+  tags                String[]       @default([])
   template            Template?      @relation(fields: [templateId], references: [id])
   user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
