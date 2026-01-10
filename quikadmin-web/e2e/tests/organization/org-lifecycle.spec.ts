@@ -7,6 +7,8 @@
  * - Add member to organization
  * - Delete organization
  * - Verify cleanup and redirect
+ *
+ * Updated to use data-testid selectors from SettingsPage for reliability.
  */
 
 import { test, expect } from '../../fixtures';
@@ -33,7 +35,7 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.goToOrganizationTab();
 
     // Step 3: Check if there's a "Create Organization" button (if user has no org)
-    const createOrgButton = adminPage.locator('button:has-text("Create Organization"), button:has-text("New Organization")');
+    const createOrgButton = adminPage.locator(settingsPage.selectors.createOrgButton);
     const hasCreateButton = await createOrgButton.isVisible();
 
     let createdNewOrg = false;
@@ -43,12 +45,12 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
       await createOrgButton.click();
       await adminPage.waitForTimeout(500);
 
-      // Fill organization name
-      const orgNameInput = adminPage.locator('input[name="organizationName"], input[name="name"]').first();
+      // Fill organization name using data-testid selector
+      const orgNameInput = adminPage.locator(settingsPage.selectors.orgNameInput);
       await orgNameInput.fill(orgName);
 
-      // Submit
-      const submitButton = adminPage.locator('button:has-text("Create"), button[type="submit"]').first();
+      // Submit using data-testid selector
+      const submitButton = adminPage.locator(settingsPage.selectors.createOrgSubmit);
       await submitButton.click();
 
       // Wait for success
@@ -60,8 +62,8 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.navigate();
     await settingsPage.goToOrganizationTab();
 
-    // Get current org name
-    const orgNameInput = adminPage.locator('input[name="organizationName"], input[name="name"], input[name="orgName"]').first();
+    // Get current org name using data-testid selector
+    const orgNameInput = adminPage.locator(settingsPage.selectors.orgNameInput);
     await orgNameInput.waitFor({ state: 'visible', timeout: 5000 });
 
     // Update organization name
@@ -69,49 +71,58 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await orgNameInput.fill(updatedOrgName);
 
     // Step 5: Update organization address
-    const addressInput = adminPage.locator('input[name="address"], textarea[name="address"]').first();
+    const addressInput = adminPage.locator(settingsPage.selectors.orgAddressInput);
     if (await addressInput.isVisible()) {
       await addressInput.fill(orgAddress);
     }
 
-    // Step 6: Save changes
-    await settingsPage.saveButton.click();
+    // Step 6: Save changes using data-testid selector
+    const saveButton = adminPage.locator(settingsPage.selectors.orgSaveButton);
+    if (await saveButton.isVisible()) {
+      await saveButton.click();
+    } else {
+      // Fallback to general save button
+      await settingsPage.saveButton.click();
+    }
     await adminPage.waitForTimeout(1000);
 
     // Step 7: Verify changes persisted by refreshing
     await adminPage.reload();
     await settingsPage.goToOrganizationTab();
 
-    const currentOrgName = await orgNameInput.inputValue();
+    const refreshedOrgNameInput = adminPage.locator(settingsPage.selectors.orgNameInput);
+    const currentOrgName = await refreshedOrgNameInput.inputValue();
     expect(currentOrgName).toContain(updatedOrgName);
 
-    // Step 8: Add a member (if add member button exists)
-    const addMemberButton = adminPage.locator('button:has-text("Add Member"), button:has-text("Invite")').first();
-    const canAddMember = await addMemberButton.isVisible();
+    // Step 8: Add a member (if invite member button exists)
+    const inviteMemberButton = adminPage.locator(settingsPage.selectors.inviteMemberButton);
+    const canAddMember = await inviteMemberButton.isVisible();
 
     if (canAddMember) {
-      await addMemberButton.click();
+      await inviteMemberButton.click();
       await adminPage.waitForTimeout(500);
 
-      // Fill invite form
-      const emailInput = adminPage.locator('input[type="email"], input[name="email"]').first();
+      // Fill invite form using data-testid selectors
+      const emailInput = adminPage.locator(settingsPage.selectors.inviteEmailInput);
       if (await emailInput.isVisible()) {
         await emailInput.fill(`member-${Date.now()}@intellifill.local`);
 
-        // Select role if available
-        const roleSelect = adminPage.locator('select[name="role"]').first();
+        // Select role if available using data-testid selector
+        const roleSelect = adminPage.locator(settingsPage.selectors.inviteRoleSelect);
         if (await roleSelect.isVisible()) {
           await roleSelect.selectOption('MEMBER');
         }
 
-        // Submit invite
-        const inviteButton = adminPage.locator('button:has-text("Invite"), button:has-text("Send"), button[type="submit"]').first();
-        await inviteButton.click();
+        // Submit invite using data-testid selector
+        const inviteSubmitButton = adminPage.locator(settingsPage.selectors.inviteSubmitButton);
+        await inviteSubmitButton.click();
 
         await adminPage.waitForTimeout(1000);
 
         // Close modal if still open
-        const closeButton = adminPage.locator('button[aria-label="Close"], button:has-text("Close")').first();
+        const closeButton = adminPage
+          .locator('button[aria-label="Close"], button:has-text("Close")')
+          .first();
         if (await closeButton.isVisible()) {
           await closeButton.click();
         }
@@ -123,24 +134,27 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
       await settingsPage.navigate();
       await settingsPage.goToOrganizationTab();
 
-      const deleteOrgButton = adminPage.locator('button:has-text("Delete Organization"), button:has-text("Delete Org")').first();
+      const deleteOrgButton = adminPage.locator(settingsPage.selectors.deleteOrgButton);
 
       if (await deleteOrgButton.isVisible()) {
         await deleteOrgButton.click();
-        await adminPage.waitForTimeout(500);
 
-        // Confirm deletion
-        const confirmButton = adminPage.locator('button:has-text("Delete"), button:has-text("Confirm")').first();
-        if (await confirmButton.isVisible()) {
-          await confirmButton.click();
-        }
+        // Wait for confirmation dialog using data-testid selector
+        await expect(adminPage.locator(settingsPage.selectors.deleteOrgDialog)).toBeVisible({
+          timeout: 5000,
+        });
+
+        // Confirm deletion using data-testid selector
+        const confirmButton = adminPage.locator(settingsPage.selectors.deleteOrgConfirm);
+        await confirmButton.click();
 
         // Step 10: Should redirect to dashboard or org picker
-        await adminPage.waitForURL((url) =>
-          url.pathname === '/' ||
-          url.pathname.includes('/dashboard') ||
-          url.pathname.includes('/organizations') ||
-          url.pathname.includes('/org-picker'),
+        await adminPage.waitForURL(
+          (url) =>
+            url.pathname === '/' ||
+            url.pathname.includes('/dashboard') ||
+            url.pathname.includes('/organizations') ||
+            url.pathname.includes('/org-picker'),
           { timeout: 10000 }
         );
 
@@ -151,7 +165,8 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
 
         // Should either show "Create Organization" or error
         const noOrgMessage = adminPage.locator('text=/no organization|create.*organization/i');
-        const hasNoOrg = await createOrgButton.isVisible() || await noOrgMessage.isVisible();
+        const createButton = adminPage.locator(settingsPage.selectors.createOrgButton);
+        const hasNoOrg = (await createButton.isVisible()) || (await noOrgMessage.isVisible());
 
         expect(hasNoOrg).toBe(true);
       }
@@ -162,19 +177,25 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.navigate();
     await settingsPage.goToOrganizationTab();
 
-    const createOrgButton = adminPage.locator('button:has-text("Create Organization"), button:has-text("New Organization")').first();
+    const createOrgButton = adminPage.locator(settingsPage.selectors.createOrgButton);
 
     if (await createOrgButton.isVisible()) {
       await createOrgButton.click();
       await adminPage.waitForTimeout(500);
 
-      // Try to submit without filling name
-      const submitButton = adminPage.locator('button:has-text("Create"), button[type="submit"]').first();
+      // Try to submit without filling name using data-testid selector
+      const submitButton = adminPage.locator(settingsPage.selectors.createOrgSubmit);
       await submitButton.click();
 
-      // Should show validation error
-      const error = adminPage.locator('[role="alert"], .error-message, [aria-invalid="true"]');
-      await expect(error).toBeVisible({ timeout: 5000 });
+      // Should show validation error using data-testid selector
+      const orgNameError = adminPage.locator(settingsPage.selectors.orgNameError);
+      const genericError = adminPage.locator(
+        '[role="alert"], .error-message, [aria-invalid="true"]'
+      );
+
+      // Either specific org name error or generic error should be visible
+      const hasError = (await orgNameError.isVisible()) || (await genericError.isVisible());
+      expect(hasError).toBe(true);
     }
   });
 
@@ -184,16 +205,16 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.navigate();
     await settingsPage.goToOrganizationTab();
 
-    const createOrgButton = adminPage.locator('button:has-text("Create Organization"), button:has-text("New Organization")').first();
+    const createOrgButton = adminPage.locator(settingsPage.selectors.createOrgButton);
 
     if (await createOrgButton.isVisible()) {
       await createOrgButton.click();
       await adminPage.waitForTimeout(500);
 
-      const orgNameInput = adminPage.locator('input[name="organizationName"], input[name="name"]').first();
+      const orgNameInput = adminPage.locator(settingsPage.selectors.orgNameInput);
       await orgNameInput.fill(duplicateOrgName);
 
-      const submitButton = adminPage.locator('button:has-text("Create"), button[type="submit"]').first();
+      const submitButton = adminPage.locator(settingsPage.selectors.createOrgSubmit);
       await submitButton.click();
 
       await adminPage.waitForTimeout(1000);
@@ -213,16 +234,22 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.navigate();
     await settingsPage.goToOrganizationTab();
 
-    // Update org name
-    const orgNameInput = adminPage.locator('input[name="organizationName"], input[name="name"], input[name="orgName"]').first();
+    // Update org name using data-testid selector
+    const orgNameInput = adminPage.locator(settingsPage.selectors.orgNameInput);
     if (await orgNameInput.isVisible()) {
       await orgNameInput.clear();
       await orgNameInput.fill(testOrgName);
 
-      await settingsPage.saveButton.click();
+      // Save using data-testid selector or fallback
+      const orgSaveButton = adminPage.locator(settingsPage.selectors.orgSaveButton);
+      if (await orgSaveButton.isVisible()) {
+        await orgSaveButton.click();
+      } else {
+        await settingsPage.saveButton.click();
+      }
       await adminPage.waitForTimeout(1000);
 
-      // Simulate new session by clearing local storage and reloading
+      // Simulate new session by clearing session storage and reloading
       await adminPage.evaluate(() => {
         sessionStorage.clear();
       });
@@ -230,8 +257,9 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
       await adminPage.reload();
       await settingsPage.goToOrganizationTab();
 
-      // Verify org name persisted
-      const persistedName = await orgNameInput.inputValue();
+      // Verify org name persisted using data-testid selector
+      const refreshedOrgNameInput = adminPage.locator(settingsPage.selectors.orgNameInput);
+      const persistedName = await refreshedOrgNameInput.inputValue();
       expect(persistedName).toBe(testOrgName);
     }
   });
@@ -240,13 +268,14 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.navigate();
     await settingsPage.goToOrganizationTab();
 
-    // Look for members section
-    const membersSection = adminPage.locator('[data-testid="members-list"], .members-list, text=/members/i').first();
-    const hasMembersSection = await membersSection.isVisible();
+    // Look for members section using data-testid selector
+    const membersList = adminPage.locator(settingsPage.selectors.membersList);
+    const hasMembersList = await membersList.isVisible();
 
-    if (hasMembersSection) {
-      // Count members
-      const memberCount = await settingsPage.getMemberCount();
+    if (hasMembersList) {
+      // Count members using data-testid selector
+      const memberRows = adminPage.locator(settingsPage.selectors.memberRow);
+      const memberCount = await memberRows.count();
       expect(memberCount).toBeGreaterThanOrEqual(1); // At least the admin
     }
   });
@@ -255,18 +284,17 @@ test.describe('E2E-012: Organization Lifecycle (CRUD)', () => {
     await settingsPage.navigate();
     await settingsPage.goToOrganizationTab();
 
-    const deleteButton = adminPage.locator('button:has-text("Delete Organization"), button:has-text("Delete Org")').first();
+    const deleteButton = adminPage.locator(settingsPage.selectors.deleteOrgButton);
 
     if (await deleteButton.isVisible()) {
       await deleteButton.click();
-      await adminPage.waitForTimeout(500);
 
-      // Should show confirmation dialog
-      const confirmDialog = adminPage.locator('[role="dialog"], [role="alertdialog"], .modal');
+      // Should show confirmation dialog using data-testid selector
+      const confirmDialog = adminPage.locator(settingsPage.selectors.deleteOrgDialog);
       await expect(confirmDialog).toBeVisible({ timeout: 5000 });
 
-      // Cancel deletion
-      const cancelButton = adminPage.locator('button:has-text("Cancel"), button:has-text("No")').first();
+      // Cancel deletion using data-testid selector
+      const cancelButton = adminPage.locator(settingsPage.selectors.deleteOrgCancel);
       if (await cancelButton.isVisible()) {
         await cancelButton.click();
       }

@@ -2,20 +2,20 @@
   "cookies": [
     {
       "name": "refreshToken",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNDJkOGU5ZS0zMzU2LTQ3ZjEtOTMwMy1mMzc3NDAzMTZjZTUiLCJmaWQiOiJhY2Y0ZDNkYi03MjFiLTRlMTctOTNhYy03MmFmNjY4YzdhMmYiLCJnZW4iOjEsInR5cGUiOiJyZWZyZXNoIiwiaWF0IjoxNzY3OTQ4NzQxLCJleHAiOjE3Njg1NTM1NDF9.Qzw68ZgSfvJ2iqwA9EOa1l2QXYqMUKHA0E1TdsHzaYk",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNDJkOGU5ZS0zMzU2LTQ3ZjEtOTMwMy1mMzc3NDAzMTZjZTUiLCJmaWQiOiI3NTBhZDJmMi1iMThhLTQ5ODYtOTYwMC1jMWUyM2YyZWMyZWQiLCJnZW4iOjEsInR5cGUiOiJyZWZyZXNoIiwiaWF0IjoxNzY3OTgwNzU1LCJleHAiOjE3Njg1ODU1NTV9.Ok_VNMSBo-olK4S-YLiXp9cr2yOmvXXDI6O7jM_0asY",
       "domain": "localhost",
       "path": "/api",
-      "expires": 1768553541.646385,
+      "expires": 1768585555.427265,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "csrf_token",
-      "value": "660baf94d04aa90518f0b9c5dcdc7a5950d88627ebc9230267c3b46e5a3600d8",
+      "value": "47c36d8d2a18a07f130415ace59be582d3918f911c6833620e81039f7cf5172b",
       "domain": "localhost",
       "path": "/",
-      "expires": 1767952341.64619,
+      "expires": 1767984355.42709,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Strict"
@@ -27,7 +27,7 @@
       "localStorage": [
         {
           "name": "intellifill-backend-auth",
-          "value": "{\"state\":{\"user\":{\"id\":\"d42d8e9e-3356-47f1-9303-f37740316ce5\",\"email\":\"test-viewer@intellifill.local\",\"firstName\":\"Test Viewer\",\"lastName\":\"User\",\"role\":\"viewer\",\"emailVerified\":true,\"lastLogin\":\"2026-01-09T08:51:31.952Z\",\"createdAt\":\"2026-01-08T18:07:51.324Z\"},\"tokens\":{\"expiresIn\":3600,\"tokenType\":\"Bearer\"},\"tokenExpiresAt\":1767952341650,\"company\":null,\"sessionIndicator\":true,\"rememberMe\":false,\"isInitialized\":true,\"lastActivity\":1767948741650},\"version\":1}"
+          "value": "{\"state\":{\"user\":{\"id\":\"d42d8e9e-3356-47f1-9303-f37740316ce5\",\"email\":\"test-viewer@intellifill.local\",\"firstName\":\"Test Viewer\",\"lastName\":\"User\",\"role\":\"viewer\",\"emailVerified\":true,\"lastLogin\":\"2026-01-09T17:28:24.871Z\",\"createdAt\":\"2026-01-08T18:07:51.324Z\"},\"tokens\":{\"expiresIn\":3600,\"tokenType\":\"Bearer\"},\"tokenExpiresAt\":1767984355434,\"company\":null,\"sessionIndicator\":true,\"rememberMe\":false,\"isInitialized\":true,\"lastActivity\":1767980755434},\"version\":1}"
         },
         {
           "name": "intellifill-storage-migration-v1",

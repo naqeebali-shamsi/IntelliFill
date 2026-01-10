@@ -16,26 +16,28 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = !!process.env.CI;
 const runFullViewportMatrix = !!process.env.FULL_VIEWPORT_MATRIX;
 
-// All viewport sizes for comprehensive local testing
+// Default viewport sizes (mobile + desktop for faster runs)
+const defaultViewportSizes = [
+  { width: 375, height: 667, name: 'mobile' }, // Mobile viewport
+  { width: 1280, height: 720, name: 'desktop' }, // Desktop viewport
+];
+
+// Full viewport sizes for comprehensive testing (use FULL_VIEWPORT_MATRIX=true)
 const allViewportSizes = [
-  { width: 375, height: 667, name: 'mobile' },        // iPhone SE
-  { width: 640, height: 1136, name: 'phablet' },      // Large phone / small tablet
-  { width: 768, height: 1024, name: 'tablet' },       // iPad
-  { width: 1024, height: 768, name: 'laptop' },       // Small laptop
-  { width: 1280, height: 720, name: 'desktop' },      // Desktop monitor
+  { width: 375, height: 667, name: 'mobile' }, // iPhone SE
+  { width: 640, height: 1136, name: 'phablet' }, // Large phone / small tablet
+  { width: 768, height: 1024, name: 'tablet' }, // iPad
+  { width: 1024, height: 768, name: 'laptop' }, // Small laptop
+  { width: 1280, height: 720, name: 'desktop' }, // Desktop monitor
 ];
 
-// Reduced viewport sizes for CI efficiency (mobile + desktop)
-const ciViewportSizes = [
-  { width: 375, height: 667, name: 'mobile' },        // Mobile viewport
-  { width: 1280, height: 720, name: 'desktop' },      // Desktop viewport
-];
-
-// Select viewports based on environment
-const viewportSizes = (isCI && !runFullViewportMatrix) ? ciViewportSizes : allViewportSizes;
+// Select viewports: default to mobile+desktop, use all 5 only with FULL_VIEWPORT_MATRIX=true
+const viewportSizes = runFullViewportMatrix ? allViewportSizes : defaultViewportSizes;
 
 // Log viewport configuration
-console.log(`[Playwright Config] Using ${viewportSizes.length} viewport(s): ${viewportSizes.map(v => v.name).join(', ')}`);
+console.log(
+  `[Playwright Config] Using ${viewportSizes.length} viewport(s): ${viewportSizes.map((v) => v.name).join(', ')}`
+);
 console.log(`[Playwright Config] CI: ${isCI}, Full Matrix: ${runFullViewportMatrix}`);
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8080';
@@ -65,10 +67,7 @@ export default defineConfig({
         ['junit', { outputFile: 'playwright-results.xml' }],
         ['github'],
       ]
-    : [
-        ['html', { outputFolder: 'playwright-report' }],
-        ['list'],
-      ],
+    : [['html', { outputFolder: 'playwright-report' }], ['list']],
 
   // Note: Global setup/teardown now handled via project dependencies pattern
   // See 'setup' and 'cleanup' projects below
@@ -80,7 +79,7 @@ export default defineConfig({
 
     // Extra HTTP headers for API requests
     extraHTTPHeaders: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
     },
 
     // Action timeout (clicking, filling, etc.) - extended for slow OCR operations
@@ -231,10 +230,10 @@ export const testConfig = {
   apiURL,
   isCI,
   viewportCount: viewportSizes.length,
-  viewportNames: viewportSizes.map(v => v.name),
+  viewportNames: viewportSizes.map((v) => v.name),
   timeouts: {
-    ocrProcessing: 30 * 1000,  // Extended timeout for OCR operations
-    fileUpload: 20 * 1000,     // Timeout for file uploads
-    apiRequest: 10 * 1000,     // Timeout for API requests
+    ocrProcessing: 30 * 1000, // Extended timeout for OCR operations
+    fileUpload: 20 * 1000, // Timeout for file uploads
+    apiRequest: 10 * 1000, // Timeout for API requests
   },
 };

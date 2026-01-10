@@ -30,17 +30,20 @@ test.describe('Dashboard Layout Tests', () => {
     // Wait for the page to be fully loaded
     await authenticatedPage.waitForLoadState('networkidle');
 
-    // Check if the dashboard heading exists (greeting message)
-    const heading = authenticatedPage.locator('h1:has-text("Good")');
+    // Check if the dashboard heading exists (greeting message) using data-testid
+    const heading = authenticatedPage.locator('[data-testid="dashboard-greeting"]');
     await expect(heading).toBeVisible();
   });
 
-  test('should display dashboard stats grid without overflow', async ({ authenticatedPage, viewport }) => {
+  test('should display dashboard stats grid without overflow', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
-    // Verify stats grid is visible
-    const statsGrid = authenticatedPage.locator('.grid').first();
+    // Verify stats grid is visible using data-testid
+    const statsGrid = authenticatedPage.locator('[data-testid="dashboard-stats-grid"]');
     await expect(statsGrid).toBeVisible();
 
     // Verify no horizontal scroll
@@ -51,16 +54,19 @@ test.describe('Dashboard Layout Tests', () => {
     expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 5);
   });
 
-  test('should render stat cards in correct grid layout', async ({ authenticatedPage, viewport }) => {
+  test('should render stat cards in correct grid layout', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
-    // Find the stats grid container
-    const statsGrid = authenticatedPage.locator('.grid').first();
+    // Find the stats grid container using data-testid
+    const statsGrid = authenticatedPage.locator('[data-testid="dashboard-stats-grid"]');
     await expect(statsGrid).toBeVisible();
 
-    // Count stat card elements (should be 4: Total Documents, Processed Today, In Progress, Failed)
-    const statCards = authenticatedPage.locator('.grid').first().locator('> div');
+    // Count stat card elements using data-testid pattern (should be 4: Total Documents, Processed Today, In Progress, Failed)
+    const statCards = authenticatedPage.locator('[data-testid^="stat-card-dashboard-"]');
     const count = await statCards.count();
 
     // Should have 4 stat cards or be in loading state
@@ -68,15 +74,22 @@ test.describe('Dashboard Layout Tests', () => {
       expect(count).toBeGreaterThanOrEqual(4);
     }
 
-    // Verify grid layout classes based on viewport
-    const gridClasses = await statsGrid.getAttribute('class');
+    // Verify grid columns using computed styles (more reliable than class assertions)
+    const columnCount = await statsGrid.evaluate((el) => {
+      const styles = window.getComputedStyle(el);
+      const columns = styles.gridTemplateColumns;
+      return columns.split(' ').filter((col) => col !== 'none' && col !== '').length;
+    });
 
     if (viewport && viewport.width >= 1024) {
-      // Desktop: 4 columns
-      expect(gridClasses).toContain('lg:grid-cols-4');
-    } else if (viewport && viewport.width >= 768) {
-      // Tablet: 2 columns
-      expect(gridClasses).toContain('md:grid-cols-2');
+      // Desktop: 4 columns expected
+      expect(columnCount).toBe(4);
+    } else if (viewport && viewport.width >= 640) {
+      // sm/md breakpoints: 2 columns expected
+      expect(columnCount).toBe(2);
+    } else {
+      // Mobile: 1 column expected
+      expect(columnCount).toBe(1);
     }
   });
 
@@ -84,8 +97,8 @@ test.describe('Dashboard Layout Tests', () => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
-    // Check for Recent Documents section
-    const recentDocs = authenticatedPage.locator('text=Recent Documents');
+    // Check for Recent Documents section using data-testid
+    const recentDocs = authenticatedPage.locator('[data-testid="dashboard-recent-documents"]');
     await expect(recentDocs).toBeVisible();
   });
 
@@ -93,8 +106,8 @@ test.describe('Dashboard Layout Tests', () => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
-    // Check for Processing Queue widget
-    const processingQueue = authenticatedPage.locator('text=Processing Queue');
+    // Check for Processing Queue widget using data-testid
+    const processingQueue = authenticatedPage.locator('[data-testid="dashboard-processing-queue"]');
     await expect(processingQueue).toBeVisible();
   });
 
@@ -102,40 +115,45 @@ test.describe('Dashboard Layout Tests', () => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
-    // Check for Quick Actions section
-    const quickActions = authenticatedPage.locator('text=Quick Actions');
+    // Check for Quick Actions section using data-testid
+    const quickActions = authenticatedPage.locator('[data-testid="dashboard-quick-actions"]');
     await expect(quickActions).toBeVisible();
 
-    // Verify action buttons exist
-    const uploadButton = authenticatedPage.locator('text=Upload Document');
-    const templateButton = authenticatedPage.locator('text=Create Template');
-    const libraryButton = authenticatedPage.locator('text=Browse Library');
+    // Verify action buttons exist using data-testid
+    const uploadButton = authenticatedPage.locator('[data-testid="quick-action-upload"]');
+    const templateButton = authenticatedPage.locator('[data-testid="quick-action-template"]');
+    const libraryButton = authenticatedPage.locator('[data-testid="quick-action-library"]');
 
     await expect(uploadButton).toBeVisible();
     await expect(templateButton).toBeVisible();
     await expect(libraryButton).toBeVisible();
   });
 
-  test('should handle layout responsively across viewport changes', async ({ authenticatedPage, viewport }) => {
+  test('should handle layout responsively across viewport changes', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
     // Log current viewport for debugging
     console.log(`Testing dashboard layout at viewport: ${viewport?.width}x${viewport?.height}`);
 
-    // Verify main content is visible
-    const mainContent = authenticatedPage.locator('main, [role="main"], .max-w-7xl').first();
+    // Verify main content is visible using data-testid fallback selector
+    const mainContent = authenticatedPage
+      .locator('[data-testid="dashboard-content"], main, .max-w-7xl')
+      .first();
     await expect(mainContent).toBeVisible();
 
-    // Check responsive behavior
+    // Check responsive behavior using data-testid for header
     if (viewport && viewport.width < 768) {
       // Mobile: Header should stack vertically
-      const header = authenticatedPage.locator('h1:has-text("Good")').locator('..');
+      const header = authenticatedPage.locator('[data-testid="dashboard-header"]');
       await expect(header).toBeVisible();
     } else {
       // Desktop: Header elements should be in row
-      const headerContainer = authenticatedPage.locator('.flex.flex-col.md\\:flex-row').first();
-      if (await headerContainer.count() > 0) {
+      const headerContainer = authenticatedPage.locator('[data-testid="dashboard-header"]');
+      if ((await headerContainer.count()) > 0) {
         await expect(headerContainer).toBeVisible();
       }
     }
@@ -148,9 +166,9 @@ test.describe('Dashboard Layout Tests', () => {
     // Wait for stat cards to load (allow for loading state)
     await authenticatedPage.waitForTimeout(500);
 
-    // Check for stat card icons (lucide icons)
-    // Icons are rendered as SVGs, so we check for their presence
-    const statCardIcons = authenticatedPage.locator('.grid').first().locator('svg');
+    // Check for stat card icons (lucide icons) using data-testid
+    // Icons are rendered as SVGs, so we check for their presence within stat cards
+    const statCardIcons = authenticatedPage.locator('[data-testid="dashboard-stats-grid"] svg');
     const iconCount = await statCardIcons.count();
 
     // Should have at least 4 icons (one per stat card) if not in loading state
@@ -161,7 +179,9 @@ test.describe('Dashboard Layout Tests', () => {
 });
 
 test.describe('StatCard Component Tests - Templates Page', () => {
-  test('should display all template stat cards with correct testIds', async ({ authenticatedPage }) => {
+  test('should display all template stat cards with correct testIds', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.goto('/templates');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
@@ -175,7 +195,10 @@ test.describe('StatCard Component Tests - Templates Page', () => {
     await expect(statCard3).toBeVisible();
   });
 
-  test('should render template stats without layout shift', async ({ authenticatedPage, viewport }) => {
+  test('should render template stats without layout shift', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/templates');
     await authenticatedPage.waitForLoadState('networkidle');
 
@@ -187,7 +210,9 @@ test.describe('StatCard Component Tests - Templates Page', () => {
 });
 
 test.describe('StatCard Component Tests - History Page', () => {
-  test('should display all history stat cards with correct testIds', async ({ authenticatedPage }) => {
+  test('should display all history stat cards with correct testIds', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.goto('/history');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
@@ -205,7 +230,9 @@ test.describe('StatCard Component Tests - History Page', () => {
 });
 
 test.describe('StatCard Component Tests - Knowledge Base Page', () => {
-  test('should display all knowledge base stat cards with correct testIds', async ({ authenticatedPage }) => {
+  test('should display all knowledge base stat cards with correct testIds', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.goto('/knowledge-base');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
@@ -223,7 +250,9 @@ test.describe('StatCard Component Tests - Knowledge Base Page', () => {
 });
 
 test.describe('StatCard Component Tests - Upload Page', () => {
-  test('should display all upload stat cards with correct testIds', async ({ authenticatedPage }) => {
+  test('should display all upload stat cards with correct testIds', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.goto('/upload');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
@@ -241,24 +270,28 @@ test.describe('StatCard Component Tests - Upload Page', () => {
 });
 
 test.describe('Layout Stability Tests', () => {
-  test('should maintain consistent layout when switching viewports', async ({ authenticatedPage }) => {
+  test('should maintain consistent layout when switching viewports', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.goto('/dashboard');
 
     // Test viewport switching
     const viewports = [
-      { width: 375, height: 667 },   // mobile-375
-      { width: 768, height: 1024 },  // md-768
-      { width: 1280, height: 720 },  // xl-1280
-      { width: 640, height: 1136 },  // sm-640
-      { width: 1024, height: 768 },  // lg-1024
+      { width: 375, height: 667 }, // mobile-375
+      { width: 768, height: 1024 }, // md-768
+      { width: 1280, height: 720 }, // xl-1280
+      { width: 640, height: 1136 }, // sm-640
+      { width: 1024, height: 768 }, // lg-1024
     ];
 
     for (const vp of viewports) {
       await authenticatedPage.setViewportSize(vp);
       await authenticatedPage.waitForLoadState('domcontentloaded');
 
-      // Verify page is still functional after resize
-      const mainContent = authenticatedPage.locator('.max-w-7xl').first();
+      // Verify page is still functional after resize using data-testid fallback
+      const mainContent = authenticatedPage
+        .locator('[data-testid="dashboard-content"], .max-w-7xl')
+        .first();
       await expect(mainContent).toBeVisible();
 
       // Verify no horizontal overflow
@@ -269,14 +302,19 @@ test.describe('Layout Stability Tests', () => {
     }
   });
 
-  test('should render sidebar toggle on mobile viewports', async ({ authenticatedPage, viewport }) => {
+  test('should render sidebar toggle on mobile viewports', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
     if (viewport && viewport.width < 1024) {
       // Mobile/tablet viewports should have sidebar toggle button
       // Look for button with menu icon or hamburger
-      const menuButton = authenticatedPage.locator('button[aria-label*="menu" i], button[aria-expanded], button:has(svg)').first();
+      const menuButton = authenticatedPage
+        .locator('button[aria-label*="menu" i], button[aria-expanded], button:has(svg)')
+        .first();
 
       // Not all viewports may have a sidebar toggle (depends on layout implementation)
       // So we just check if it exists and is clickable if present
@@ -306,11 +344,15 @@ test.describe('Layout Stability Tests', () => {
 });
 
 test.describe('Grid Responsive Behavior', () => {
-  test('should display correct number of columns at each breakpoint', async ({ authenticatedPage, viewport }) => {
+  test('should display correct number of columns at each breakpoint', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/dashboard');
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
-    const statsGrid = authenticatedPage.locator('.grid').first();
+    // Use data-testid for reliable selection
+    const statsGrid = authenticatedPage.locator('[data-testid="dashboard-stats-grid"]');
     await expect(statsGrid).toBeVisible();
 
     // Get the computed grid-template-columns style
@@ -325,12 +367,9 @@ test.describe('Grid Responsive Behavior', () => {
       if (viewport.width >= 1024) {
         // lg breakpoint: 4 columns expected
         expect(columnCount).toBe(4);
-      } else if (viewport.width >= 768) {
-        // md breakpoint: 2 columns expected
-        expect(columnCount).toBe(2);
       } else if (viewport.width >= 640) {
-        // sm breakpoint: could be 1 or 2 columns
-        expect(columnCount).toBeGreaterThanOrEqual(1);
+        // sm/md breakpoints: 2 columns expected
+        expect(columnCount).toBe(2);
       } else {
         // mobile: 1 column expected
         expect(columnCount).toBe(1);
@@ -340,7 +379,10 @@ test.describe('Grid Responsive Behavior', () => {
     }
   });
 
-  test('should maintain aspect ratio of stat cards across viewports', async ({ authenticatedPage, viewport }) => {
+  test('should maintain aspect ratio of stat cards across viewports', async ({
+    authenticatedPage,
+    viewport,
+  }) => {
     await authenticatedPage.goto('/templates'); // Use templates page which has StatCard components
     await authenticatedPage.waitForLoadState('domcontentloaded');
 
@@ -356,7 +398,7 @@ test.describe('Grid Responsive Behavior', () => {
 
       // Verify reasonable dimensions
       expect(box.height).toBeGreaterThan(50); // At least 50px tall
-      expect(box.width).toBeGreaterThan(100);  // At least 100px wide
+      expect(box.width).toBeGreaterThan(100); // At least 100px wide
 
       console.log(`StatCard dimensions at ${viewport.width}px: ${box.width}x${box.height}`);
     }

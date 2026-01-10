@@ -18,34 +18,44 @@ export class DashboardPage extends BasePage {
   // Page URL
   readonly path = '/dashboard';
 
-  // Selectors
+  // Selectors - data-testid as primary, fallbacks for compatibility
   readonly selectors = {
-    // Page structure
-    pageTitle: 'h1:has-text("Good"), h1:has-text("Dashboard"), [data-testid="dashboard-title"]',
-    mainContent: '.max-w-7xl, [data-testid="dashboard-content"]',
+    // Page structure - data-testid as primary
+    pageTitle: '[data-testid="dashboard-greeting"], h1:has-text("Good"), h1:has-text("Dashboard")',
+    mainContent: '[data-testid="dashboard-content"], .max-w-7xl',
+    header: '[data-testid="dashboard-header"]',
+    refreshBtn: '[data-testid="dashboard-refresh-btn"]',
+    headerUploadBtn: '[data-testid="dashboard-upload-btn"]',
 
-    // Stats cards
-    statsGrid: '.grid:has([data-testid^="stat-card"])',
-    statCard: '[data-testid^="stat-card"]',
-    totalDocuments: '[data-testid="stat-card-total-documents"], [data-testid="stat-card-dashboard-1"]',
-    processedToday: '[data-testid="stat-card-processed-today"], [data-testid="stat-card-dashboard-2"]',
-    inProgress: '[data-testid="stat-card-in-progress"], [data-testid="stat-card-dashboard-3"]',
-    failed: '[data-testid="stat-card-failed"], [data-testid="stat-card-dashboard-4"]',
+    // Stats cards - data-testid as primary
+    statsGrid: '[data-testid="dashboard-stats-grid"], .grid:has([data-testid^="stat-card"])',
+    statCard: '[data-testid^="stat-card-dashboard-"]',
+    totalDocuments: '[data-testid="stat-card-dashboard-1"]',
+    processedToday: '[data-testid="stat-card-dashboard-2"]',
+    inProgress: '[data-testid="stat-card-dashboard-3"]',
+    failed: '[data-testid="stat-card-dashboard-4"]',
 
-    // Quick actions
-    quickActions: ':has-text("Quick Actions")',
-    uploadButton: 'button:has-text("Upload"), a:has-text("Upload Document")',
-    createTemplateButton: 'button:has-text("Template"), a:has-text("Create Template")',
-    browseLibraryButton: 'button:has-text("Library"), a:has-text("Browse Library")',
+    // Quick actions - data-testid as primary
+    quickActions: '[data-testid="dashboard-quick-actions"], :has-text("Quick Actions")',
+    uploadButton: '[data-testid="quick-action-upload"], button:has-text("Upload Document")',
+    createTemplateButton:
+      '[data-testid="quick-action-template"], button:has-text("Create Template")',
+    browseLibraryButton: '[data-testid="quick-action-library"], button:has-text("Browse Library")',
 
-    // Recent documents
-    recentDocuments: ':has-text("Recent Documents")',
-    documentRow: '[data-testid="document-row"], .document-row, tr[data-document-id]',
+    // Recent documents - data-testid as primary
+    recentDocuments: '[data-testid="dashboard-recent-documents"], :has-text("Recent Documents")',
+    recentDocsEmpty: '[data-testid="recent-documents-empty"]',
+    recentDocsLoading: '[data-testid="recent-documents-loading"]',
+    documentRow: '[data-testid^="document-row-"], [data-testid="document-row"], .document-row',
     documentName: '[data-testid="document-name"], .document-name',
     documentStatus: '[data-testid="document-status"], .document-status',
 
-    // Processing queue
-    processingQueue: ':has-text("Processing Queue")',
+    // Processing queue - data-testid as primary
+    processingQueue: '[data-testid="dashboard-processing-queue"], :has-text("Processing Queue")',
+    queueLiveBadge: '[data-testid="queue-live-badge"]',
+    queueActiveJobs: '[data-testid="queue-active-jobs"]',
+    queueAvgTime: '[data-testid="queue-avg-time"]',
+    queueSuccessRate: '[data-testid="queue-success-rate"]',
     queueItem: '[data-testid="queue-item"], .queue-item',
 
     // Navigation
@@ -60,11 +70,23 @@ export class DashboardPage extends BasePage {
   // ========== Element Locators ==========
 
   get pageTitle(): Locator {
-    return this.page.locator(this.selectors.pageTitle);
+    return this.page.locator(this.selectors.pageTitle).first();
+  }
+
+  get header(): Locator {
+    return this.page.locator(this.selectors.header);
+  }
+
+  get refreshBtn(): Locator {
+    return this.page.locator(this.selectors.refreshBtn);
+  }
+
+  get headerUploadBtn(): Locator {
+    return this.page.locator(this.selectors.headerUploadBtn);
   }
 
   get statsGrid(): Locator {
-    return this.page.locator(this.selectors.statsGrid);
+    return this.page.locator(this.selectors.statsGrid).first();
   }
 
   get statCards(): Locator {
@@ -72,19 +94,51 @@ export class DashboardPage extends BasePage {
   }
 
   get recentDocumentsSection(): Locator {
-    return this.page.locator(this.selectors.recentDocuments);
+    return this.page.locator(this.selectors.recentDocuments).first();
+  }
+
+  get recentDocsEmpty(): Locator {
+    return this.page.locator(this.selectors.recentDocsEmpty);
+  }
+
+  get recentDocsLoading(): Locator {
+    return this.page.locator(this.selectors.recentDocsLoading);
   }
 
   get processingQueueSection(): Locator {
-    return this.page.locator(this.selectors.processingQueue);
+    return this.page.locator(this.selectors.processingQueue).first();
+  }
+
+  get queueLiveBadge(): Locator {
+    return this.page.locator(this.selectors.queueLiveBadge);
+  }
+
+  get queueActiveJobs(): Locator {
+    return this.page.locator(this.selectors.queueActiveJobs);
+  }
+
+  get queueAvgTime(): Locator {
+    return this.page.locator(this.selectors.queueAvgTime);
+  }
+
+  get queueSuccessRate(): Locator {
+    return this.page.locator(this.selectors.queueSuccessRate);
   }
 
   get quickActionsSection(): Locator {
-    return this.page.locator(this.selectors.quickActions);
+    return this.page.locator(this.selectors.quickActions).first();
   }
 
   get uploadButton(): Locator {
-    return this.page.locator(this.selectors.uploadButton);
+    return this.page.locator(this.selectors.uploadButton).first();
+  }
+
+  get createTemplateButton(): Locator {
+    return this.page.locator(this.selectors.createTemplateButton).first();
+  }
+
+  get browseLibraryButton(): Locator {
+    return this.page.locator(this.selectors.browseLibraryButton).first();
   }
 
   // ========== Navigation ==========
@@ -99,18 +153,24 @@ export class DashboardPage extends BasePage {
   /**
    * Navigate to a section via sidebar
    */
-  async navigateTo(section: 'documents' | 'templates' | 'upload' | 'settings' | 'history' | 'knowledge-base'): Promise<void> {
+  async navigateTo(
+    section: 'documents' | 'templates' | 'upload' | 'settings' | 'history' | 'knowledge-base'
+  ): Promise<void> {
     const sectionMap: Record<string, string> = {
-      'documents': 'Documents',
-      'templates': 'Templates',
-      'upload': 'Upload',
-      'settings': 'Settings',
-      'history': 'History',
+      documents: 'Documents',
+      templates: 'Templates',
+      upload: 'Upload',
+      settings: 'Settings',
+      history: 'History',
       'knowledge-base': 'Knowledge',
     };
 
     const linkText = sectionMap[section] || section;
-    await this.page.locator(this.selectors.navLink).filter({ hasText: new RegExp(linkText, 'i') }).first().click();
+    await this.page
+      .locator(this.selectors.navLink)
+      .filter({ hasText: new RegExp(linkText, 'i') })
+      .first()
+      .click();
     await this.waitForPageLoad();
   }
 
@@ -126,7 +186,7 @@ export class DashboardPage extends BasePage {
    * Click create template button
    */
   async clickCreateTemplate(): Promise<void> {
-    await this.page.locator(this.selectors.createTemplateButton).click();
+    await this.createTemplateButton.click();
     await this.waitForPageLoad();
   }
 
@@ -134,7 +194,15 @@ export class DashboardPage extends BasePage {
    * Click browse library button
    */
   async clickBrowseLibrary(): Promise<void> {
-    await this.page.locator(this.selectors.browseLibraryButton).click();
+    await this.browseLibraryButton.click();
+    await this.waitForPageLoad();
+  }
+
+  /**
+   * Click refresh button
+   */
+  async clickRefresh(): Promise<void> {
+    await this.refreshBtn.click();
     await this.waitForPageLoad();
   }
 
@@ -289,6 +357,37 @@ export class DashboardPage extends BasePage {
    */
   async assertProcessingQueueVisible(): Promise<void> {
     await expect(this.processingQueueSection).toBeVisible();
+  }
+
+  /**
+   * Assert processing queue metrics are visible
+   */
+  async assertQueueMetricsVisible(): Promise<void> {
+    await expect(this.queueActiveJobs).toBeVisible();
+    await expect(this.queueAvgTime).toBeVisible();
+    await expect(this.queueSuccessRate).toBeVisible();
+  }
+
+  /**
+   * Assert header elements are visible
+   */
+  async assertHeaderVisible(): Promise<void> {
+    await expect(this.header).toBeVisible();
+    await expect(this.pageTitle).toBeVisible();
+  }
+
+  /**
+   * Assert recent documents empty state
+   */
+  async assertRecentDocsEmpty(): Promise<void> {
+    await expect(this.recentDocsEmpty).toBeVisible();
+  }
+
+  /**
+   * Assert recent documents loading state
+   */
+  async assertRecentDocsLoading(): Promise<void> {
+    await expect(this.recentDocsLoading).toBeVisible();
   }
 
   /**

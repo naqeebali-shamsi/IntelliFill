@@ -36,11 +36,16 @@ export class SettingsPage extends BasePage {
     settingsTabs: '[data-testid="settings-tabs"], [role="tablist"]',
 
     // Tab items
-    profileTab: '[data-testid="profile-tab"], button:has-text("Profile"), [role="tab"]:has-text("Profile")',
-    accountTab: '[data-testid="account-tab"], button:has-text("Account"), [role="tab"]:has-text("Account")',
-    organizationTab: '[data-testid="organization-tab"], button:has-text("Organization"), [role="tab"]:has-text("Organization")',
-    securityTab: '[data-testid="security-tab"], button:has-text("Security"), [role="tab"]:has-text("Security")',
-    billingTab: '[data-testid="billing-tab"], button:has-text("Billing"), [role="tab"]:has-text("Billing")',
+    profileTab:
+      '[data-testid="profile-tab"], button:has-text("Profile"), [role="tab"]:has-text("Profile")',
+    accountTab:
+      '[data-testid="account-tab"], button:has-text("Account"), [role="tab"]:has-text("Account")',
+    organizationTab:
+      '[data-testid="organization-tab"], button:has-text("Organization"), [role="tab"]:has-text("Organization")',
+    securityTab:
+      '[data-testid="security-tab"], button:has-text("Security"), [role="tab"]:has-text("Security")',
+    billingTab:
+      '[data-testid="billing-tab"], button:has-text("Billing"), [role="tab"]:has-text("Billing")',
 
     // Profile form
     nameInput: '[data-testid="name-input"], input[name="name"]',
@@ -58,12 +63,32 @@ export class SettingsPage extends BasePage {
     enable2FAButton: 'button:has-text("Enable 2FA"), button:has-text("Two-Factor")',
     logoutAllButton: 'button:has-text("Logout All"), button:has-text("all devices")',
 
-    // Organization settings
-    orgNameInput: 'input[name="organizationName"], input[name="orgName"]',
+    // Organization settings - data-testid selectors
+    createOrgButton: '[data-testid="create-org-button"]',
+    orgNameInput: '[data-testid="org-name-input"]',
+    createOrgSubmit: '[data-testid="create-org-submit"]',
+    orgEditButton: '[data-testid="org-edit-button"]',
+    orgSaveButton: '[data-testid="org-save-button"]',
+    orgCancelButton: '[data-testid="org-cancel-button"]',
+    deleteOrgButton: '[data-testid="delete-org-button"]',
+    deleteOrgDialog: '[data-testid="delete-org-dialog"]',
+    deleteOrgConfirm: '[data-testid="delete-org-confirm"]',
+    deleteOrgCancel: '[data-testid="delete-org-cancel"]',
+    orgNameError: '[data-testid="org-name-error"]',
     orgAddressInput: 'input[name="address"], textarea[name="address"]',
-    addMemberButton: 'button:has-text("Add Member"), button:has-text("Invite")',
-    membersList: '[data-testid="members-list"], .members-list',
-    memberRow: '[data-testid="member-row"], .member-row',
+
+    // Member management - data-testid selectors
+    inviteMemberButton: '[data-testid="invite-member-button"]',
+    inviteEmailInput: '[data-testid="invite-email-input"]',
+    inviteRoleSelect: '[data-testid="invite-role-select"]',
+    inviteSubmitButton: '[data-testid="invite-submit-button"]',
+    inviteSuccessMessage: '[data-testid="invite-success-message"]',
+    inviteErrorMessage: '[data-testid="invite-error-message"]',
+    membersList: '[data-testid="members-list"]',
+    memberRow: '[data-testid="member-row"]',
+    // Legacy fallback selectors for backwards compatibility
+    addMemberButton:
+      '[data-testid="invite-member-button"], button:has-text("Add Member"), button:has-text("Invite")',
 
     // Theme settings
     themeSelect: '[data-testid="theme-select"], select[name="theme"]',
@@ -266,12 +291,33 @@ export class SettingsPage extends BasePage {
   }
 
   /**
-   * Get member count
+   * Get member count using data-testid selector
    */
   async getMemberCount(): Promise<number> {
     await this.goToOrganizationTab();
     const members = this.page.locator(this.selectors.memberRow);
     return await members.count();
+  }
+
+  /**
+   * Get member role selector for a specific user
+   * @param userId - The user ID to get the role selector for
+   * @returns CSS selector string for the member's role element
+   */
+  getMemberRoleSelector(userId: string): string {
+    return `[data-testid="member-role-${userId}"]`;
+  }
+
+  /**
+   * Get member role for a specific user
+   * @param userId - The user ID to get the role for
+   */
+  async getMemberRole(userId: string): Promise<string | null> {
+    const roleElement = this.page.locator(this.getMemberRoleSelector(userId));
+    if (await roleElement.isVisible()) {
+      return await roleElement.textContent();
+    }
+    return null;
   }
 
   /**
@@ -281,6 +327,78 @@ export class SettingsPage extends BasePage {
     await this.goToOrganizationTab();
     await this.page.locator(this.selectors.addMemberButton).click();
     await this.waitForModal();
+  }
+
+  /**
+   * Click invite member button (data-testid version)
+   */
+  async clickInviteMember(): Promise<void> {
+    await this.goToOrganizationTab();
+    await this.page.locator(this.selectors.inviteMemberButton).click();
+    await this.waitForModal();
+  }
+
+  /**
+   * Fill invite member form
+   * @param email - Email to invite
+   * @param role - Role to assign (optional)
+   */
+  async fillInviteMemberForm(email: string, role?: string): Promise<void> {
+    await this.page.locator(this.selectors.inviteEmailInput).fill(email);
+    if (role) {
+      await this.page.locator(this.selectors.inviteRoleSelect).selectOption(role);
+    }
+  }
+
+  /**
+   * Submit invite member form
+   */
+  async submitInviteMember(): Promise<void> {
+    await this.page.locator(this.selectors.inviteSubmitButton).click();
+  }
+
+  /**
+   * Complete invite member flow
+   * @param email - Email to invite
+   * @param role - Role to assign (optional)
+   */
+  async inviteMember(email: string, role?: string): Promise<void> {
+    await this.clickInviteMember();
+    await this.fillInviteMemberForm(email, role);
+    await this.submitInviteMember();
+  }
+
+  /**
+   * Create organization
+   * @param name - Organization name
+   */
+  async createOrganization(name: string): Promise<void> {
+    await this.goToOrganizationTab();
+    await this.page.locator(this.selectors.createOrgButton).click();
+    await this.page.locator(this.selectors.orgNameInput).fill(name);
+    await this.page.locator(this.selectors.createOrgSubmit).click();
+  }
+
+  /**
+   * Delete organization with confirmation
+   */
+  async deleteOrganization(): Promise<void> {
+    await this.goToOrganizationTab();
+    await this.page.locator(this.selectors.deleteOrgButton).click();
+    // Wait for confirmation dialog
+    await expect(this.page.locator(this.selectors.deleteOrgDialog)).toBeVisible();
+    await this.page.locator(this.selectors.deleteOrgConfirm).click();
+  }
+
+  /**
+   * Cancel organization deletion
+   */
+  async cancelDeleteOrganization(): Promise<void> {
+    await this.goToOrganizationTab();
+    await this.page.locator(this.selectors.deleteOrgButton).click();
+    // Wait for confirmation dialog
+    await expect(this.page.locator(this.selectors.deleteOrgDialog)).toBeVisible();
+    await this.page.locator(this.selectors.deleteOrgCancel).click();
   }
 
   // ========== Theme Operations ==========
@@ -399,5 +517,89 @@ export class SettingsPage extends BasePage {
   async assertAddMemberNotVisible(): Promise<void> {
     await this.goToOrganizationTab();
     await expect(this.page.locator(this.selectors.addMemberButton)).not.toBeVisible();
+  }
+
+  /**
+   * Assert invite member button is visible (data-testid version)
+   */
+  async assertInviteMemberVisible(): Promise<void> {
+    await this.goToOrganizationTab();
+    await expect(this.page.locator(this.selectors.inviteMemberButton)).toBeVisible();
+  }
+
+  /**
+   * Assert invite member button is not visible
+   */
+  async assertInviteMemberNotVisible(): Promise<void> {
+    await this.goToOrganizationTab();
+    await expect(this.page.locator(this.selectors.inviteMemberButton)).not.toBeVisible();
+  }
+
+  /**
+   * Assert delete organization button is visible
+   */
+  async assertDeleteOrgVisible(): Promise<void> {
+    await this.goToOrganizationTab();
+    await expect(this.page.locator(this.selectors.deleteOrgButton)).toBeVisible();
+  }
+
+  /**
+   * Assert delete organization button is not visible
+   */
+  async assertDeleteOrgNotVisible(): Promise<void> {
+    await this.goToOrganizationTab();
+    await expect(this.page.locator(this.selectors.deleteOrgButton)).not.toBeVisible();
+  }
+
+  /**
+   * Assert invite success message is visible
+   */
+  async assertInviteSuccess(): Promise<void> {
+    await expect(this.page.locator(this.selectors.inviteSuccessMessage)).toBeVisible();
+  }
+
+  /**
+   * Assert invite error message is visible
+   */
+  async assertInviteError(): Promise<void> {
+    await expect(this.page.locator(this.selectors.inviteErrorMessage)).toBeVisible();
+  }
+
+  /**
+   * Assert organization name error is visible
+   */
+  async assertOrgNameError(): Promise<void> {
+    await expect(this.page.locator(this.selectors.orgNameError)).toBeVisible();
+  }
+
+  /**
+   * Assert members list is visible
+   */
+  async assertMembersListVisible(): Promise<void> {
+    await this.goToOrganizationTab();
+    await expect(this.page.locator(this.selectors.membersList)).toBeVisible();
+  }
+
+  /**
+   * Assert member count equals expected value
+   * @param expectedCount - Expected number of members
+   */
+  async assertMemberCount(expectedCount: number): Promise<void> {
+    const count = await this.getMemberCount();
+    expect(count).toBe(expectedCount);
+  }
+
+  /**
+   * Assert organization deletion dialog is visible
+   */
+  async assertDeleteOrgDialogVisible(): Promise<void> {
+    await expect(this.page.locator(this.selectors.deleteOrgDialog)).toBeVisible();
+  }
+
+  /**
+   * Assert organization deletion dialog is not visible
+   */
+  async assertDeleteOrgDialogNotVisible(): Promise<void> {
+    await expect(this.page.locator(this.selectors.deleteOrgDialog)).not.toBeVisible();
   }
 }
