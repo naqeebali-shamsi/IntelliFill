@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ModeToggle } from '@/components/mode-toggle';
+import { NotificationBell } from '@/components/notifications';
 import { useTheme } from '@/components/theme-provider';
 import { useAuthStore } from '@/stores/auth';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -279,6 +280,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <ModeToggle />
           </div>
         </header>
