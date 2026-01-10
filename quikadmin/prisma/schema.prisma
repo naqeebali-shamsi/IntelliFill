@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,27 +8,673 @@ datasource db {
   directUrl = env("DIRECT_DATABASE_URL")
 }
 
-// Organization model for multi-tenancy support
-// Critical for Vector Search feature - enables data isolation (ARCH-002, VULN-001)
 model Organization {
-  id        String             @id @default(uuid())
-  name      String
-  slug      String             @unique @db.VarChar(100)
-  status    OrganizationStatus @default(ACTIVE)
-  logoUrl   String?            @map("logo_url")
-  website   String?            @db.VarChar(255)
-  settings  Json               @default("{}")
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-
-  // Relations
-  users           User[]
-  documentSources DocumentSource[]
+  id              String                   @id @default(uuid())
+  name            String
+  status          OrganizationStatus       @default(ACTIVE)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  logoUrl         String?                  @map("logo_url")
+  settings        Json                     @default("{}")
+  slug            String                   @unique @db.VarChar(100)
+  website         String?                  @db.VarChar(255)
   documentChunks  DocumentChunk[]
-  memberships     OrganizationMembership[]
+  documentSources DocumentSource[]
   invitations     OrganizationInvitation[]
+  memberships     OrganizationMembership[]
+  users           User[]
 
   @@map("organizations")
+}
+
+model User {
+  id              String                   @id @default(uuid())
+  email           String                   @unique
+  password        String
+  firstName       String?
+  lastName        String?
+  role            UserRole                 @default(USER)
+  isActive        Boolean                  @default(true)
+  emailVerified   Boolean                  @default(false)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  lastLogin       DateTime?
+  supabaseUserId  String?                  @unique
+  organizationId  String?                  @map("organization_id")
+  avatarUrl       String?                  @map("avatar_url")
+  bio             String?                  @db.VarChar(500)
+  jobTitle        String?                  @map("job_title") @db.VarChar(100)
+  phone           String?                  @db.VarChar(30)
+  apiUsage        ApiUsage[]
+  auditLogs       AuditLog[]
+  clients         Client[]
+  documentSources DocumentSource[]
+  documents       Document[]
+  mappings        FieldMapping[]
+  jobs            Job[]
+  memberships     OrganizationMembership[]
+  refreshTokens   RefreshToken[]
+  sessions        Session[]
+  templates       Template[]
+  profile         UserProfile?
+  settings        UserSettings?
+  organization    Organization?            @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model OrganizationMembership {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  organizationId String           @map("organization_id")
+  role           OrgMemberRole    @default(MEMBER)
+  status         MembershipStatus @default(ACTIVE)
+  invitedBy      String?          @map("invited_by")
+  invitedAt      DateTime?        @map("invited_at")
+  joinedAt       DateTime?        @map("joined_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("organization_memberships")
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  email          String
+  role           OrgMemberRole    @default(MEMBER)
+  invitedBy      String           @map("invited_by")
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime         @map("expires_at")
+  acceptedAt     DateTime?        @map("accepted_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("organization_invitations")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Client {
+  id            String           @id @default(uuid())
+  userId        String           @map("user_id")
+  name          String
+  type          ClientType       @default(INDIVIDUAL)
+  status        ClientStatus     @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  documents     ClientDocument[]
+  profile       ClientProfile?
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  extractedData ExtractedData[]
+  filledForms   FilledForm[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([name])
+  @@map("clients")
+}
+
+model ClientProfile {
+  id           String   @id @default(uuid())
+  clientId     String   @unique @map("client_id")
+  data         Json     @default("{}")
+  fieldSources Json     @default("{}") @map("field_sources")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_profiles")
+}
+
+model ClientDocument {
+  id            String               @id @default(uuid())
+  clientId      String               @map("client_id")
+  userId        String               @map("user_id")
+  fileName      String               @map("file_name")
+  fileType      String               @map("file_type")
+  fileSize      Int                  @map("file_size")
+  storageUrl    String               @map("storage_url")
+  category      DocumentCategory?
+  status        ClientDocumentStatus @default(UPLOADED)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  client        Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  extractedData ExtractedData?
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@map("client_documents")
+}
+
+model ExtractedData {
+  id          String           @id @default(uuid())
+  documentId  String           @unique @map("document_id")
+  clientId    String           @map("client_id")
+  rawText     String?          @map("raw_text")
+  fields      Json             @default("{}")
+  status      ExtractionStatus @default(PENDING)
+  extractedAt DateTime?        @map("extracted_at")
+  reviewedAt  DateTime?        @map("reviewed_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  client      Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  document    ClientDocument   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([documentId])
+  @@index([status])
+  @@map("extracted_data")
+}
+
+model FormTemplate {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  name           String
+  description    String?
+  category       FormCategory?
+  fileUrl        String        @map("file_url")
+  fieldMappings  Json          @default("{}") @map("field_mappings")
+  detectedFields Json          @default("[]") @map("detected_fields")
+  isActive       Boolean       @default(true) @map("is_active")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  filledForms    FilledForm[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([isActive])
+  @@map("form_templates")
+}
+
+model FilledForm {
+  id           String       @id @default(uuid())
+  clientId     String       @map("client_id")
+  templateId   String       @map("template_id")
+  userId       String       @map("user_id")
+  fileUrl      String       @map("file_url")
+  dataSnapshot Json         @map("data_snapshot")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  template     FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([templateId])
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("filled_forms")
+}
+
+model Document {
+  id                  String         @id @default(uuid())
+  userId              String
+  fileName            String
+  fileType            String
+  fileSize            Int
+  storageUrl          String
+  status              DocumentStatus @default(PENDING)
+  extractedText       String?
+  extractedData       Json?
+  confidence          Float?
+  templateId          String?
+  processedAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  reprocessCount      Int            @default(0) @map("reprocess_count")
+  lastReprocessedAt   DateTime?      @map("last_reprocessed_at")
+  reprocessingHistory Json?          @map("reprocessing_history")
+  multiAgentResult    Json?          @map("multi_agent_result")
+  template            Template?      @relation(fields: [templateId], references: [id])
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model Template {
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  userId        String
+  fieldMappings String
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  formType      String
+  isPublic      Boolean    @default(false)
+  usageCount    Int        @default(0)
+  documents     Document[]
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([formType])
+  @@index([isPublic])
+  @@map("templates")
+}
+
+model FieldMapping {
+  id             String   @id @default(uuid())
+  userId         String
+  sourceField    String
+  targetField    String
+  transformRules Json?
+  confidence     Float    @default(1.0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("field_mappings")
+}
+
+model Job {
+  id                String              @id
+  type              JobType
+  status            JobStatus           @default(pending)
+  userId            String?
+  documentsCount    Int                 @map("documents_count")
+  priority          Int                 @default(0)
+  startedAt         DateTime?           @map("started_at")
+  completedAt       DateTime?           @map("completed_at")
+  failedAt          DateTime?           @map("failed_at")
+  result            Json?
+  error             String?
+  metadata          Json?
+  retryCount        Int                 @default(0) @map("retry_count")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  user              User?               @relation(fields: [userId], references: [id])
+  processingHistory ProcessingHistory[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([type, status])
+  @@map("jobs")
+}
+
+model ProcessingHistory {
+  id             Int      @id @default(autoincrement())
+  jobId          String   @map("job_id")
+  formPath       String   @map("form_path")
+  documentPaths  String[] @map("document_paths")
+  outputPath     String   @map("output_path")
+  filledFields   String[] @default([]) @map("filled_fields")
+  confidence     Decimal? @db.Decimal(3, 2)
+  processingTime Int?     @map("processing_time")
+  ocrApplied     Boolean  @default(false) @map("ocr_applied")
+  mlEnhanced     Boolean  @default(false) @map("ml_enhanced")
+  createdAt      DateTime @default(now()) @map("created_at")
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([createdAt(sort: Desc)])
+  @@map("processing_history")
+}
+
+model UserSettings {
+  userId                  String   @id @map("user_id")
+  defaultValidationRules  Json?    @map("default_validation_rules")
+  preferredLanguage       String   @default("en") @map("preferred_language") @db.VarChar(10)
+  emailNotifications      Boolean  @default(true) @map("email_notifications")
+  webhookUrl              String?  @map("webhook_url")
+  autoOcr                 Boolean  @default(false) @map("auto_ocr")
+  autoMlEnhancement       Boolean  @default(true) @map("auto_ml_enhancement")
+  defaultOutputFormat     String   @default("pdf") @map("default_output_format") @db.VarChar(20)
+  timezone                String   @default("UTC") @db.VarChar(50)
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  compactMode             Boolean  @default(false) @map("compact_mode")
+  digestFrequency         String   @default("never") @map("digest_frequency") @db.VarChar(20)
+  notifyOnOrgInvite       Boolean  @default(true) @map("notify_on_org_invite")
+  notifyOnProcessComplete Boolean  @default(true) @map("notify_on_process_complete")
+  theme                   String   @default("system") @db.VarChar(20)
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model UserProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  profileData    Json     @map("profile_data")
+  lastAggregated DateTime @default(now()) @map("last_aggregated")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_profiles")
+}
+
+model ApiUsage {
+  id           Int      @id @default(autoincrement())
+  userId       String   @map("user_id")
+  endpoint     String   @db.VarChar(255)
+  method       String   @db.VarChar(10)
+  statusCode   Int?     @map("status_code")
+  responseTime Int?     @map("response_time")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@index([endpoint])
+  @@map("api_usage")
+}
+
+model MlModel {
+  id              Int      @id @default(autoincrement())
+  modelName       String   @map("model_name") @db.VarChar(255)
+  version         String   @db.VarChar(50)
+  accuracy        Decimal? @db.Decimal(3, 2)
+  precisionScore  Decimal? @map("precision_score") @db.Decimal(3, 2)
+  recallScore     Decimal? @map("recall_score") @db.Decimal(3, 2)
+  f1Score         Decimal? @map("f1_score") @db.Decimal(3, 2)
+  trainingSamples Int?     @map("training_samples")
+  modelPath       String?  @map("model_path")
+  isActive        Boolean  @default(false) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([modelName, version])
+  @@map("ml_models")
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         String?  @map("user_id")
+  action         String   @db.VarChar(255)
+  entityType     String?  @map("entity_type") @db.VarChar(100)
+  entityId       String?  @map("entity_id") @db.VarChar(255)
+  oldValue       Json?    @map("old_value")
+  newValue       Json?    @map("new_value")
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  createdAt      DateTime @default(now()) @map("created_at")
+  organizationId String?  @map("organization_id")
+  metadata       Json?    @map("metadata")
+  user           User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_log")
+}
+
+model DocumentSource {
+  id               String                @id @default(uuid())
+  organizationId   String                @map("organization_id")
+  userId           String                @map("user_id")
+  linkedDocumentId String?               @map("linked_document_id")
+  title            String                @db.VarChar(255)
+  filename         String?               @db.VarChar(255)
+  mimeType         String?               @map("mime_type") @db.VarChar(100)
+  fileSize         Int?                  @map("file_size")
+  pageCount        Int?                  @map("page_count")
+  storageUrl       String?               @map("storage_url")
+  status           DocumentSourceStatus  @default(PENDING)
+  errorMessage     String?               @map("error_message")
+  chunkCount       Int                   @default(0) @map("chunk_count")
+  processingTimeMs Int?                  @map("processing_time_ms")
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  deletedAt        DateTime?             @map("deleted_at")
+  chunks           DocumentChunk[]
+  organization     Organization          @relation(fields: [organizationId], references: [id])
+  user             User                  @relation(fields: [userId], references: [id])
+  checkpoint       ProcessingCheckpoint?
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@index([organizationId, status])
+  @@map("document_sources")
+}
+
+model DocumentChunk {
+  id             String         @id @default(uuid())
+  sourceId       String         @map("source_id")
+  organizationId String         @map("organization_id")
+  text           String
+  tokenCount     Int            @map("token_count")
+  textHash       String         @map("text_hash") @db.VarChar(64)
+  chunkIndex     Int            @map("chunk_index")
+  pageNumber     Int?           @map("page_number")
+  sectionHeader  String?        @map("section_header") @db.VarChar(255)
+  embeddingModel String         @default("text-embedding-004") @map("embedding_model") @db.VarChar(100)
+  metadata       Json           @default("{}")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  source         DocumentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@index([organizationId])
+  @@index([organizationId, sourceId])
+  @@index([textHash])
+  @@map("document_chunks")
+}
+
+model ProcessingCheckpoint {
+  id                      String         @id @default(uuid())
+  sourceId                String         @unique @map("source_id")
+  stage                   String         @db.VarChar(50)
+  lastCompletedChunkIndex Int            @default(0) @map("last_completed_chunk_index")
+  totalChunks             Int            @map("total_chunks")
+  extractedText           String?        @map("extracted_text")
+  chunksJson              String?        @map("chunks_json")
+  startedAt               DateTime       @default(now()) @map("started_at")
+  lastUpdatedAt           DateTime       @updatedAt @map("last_updated_at")
+  source                  DocumentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@map("processing_checkpoints")
+}
+
+model MultiAgentProcessing {
+  id               String                     @id @default(uuid())
+  documentId       String                     @map("document_id")
+  userId           String                     @map("user_id")
+  jobId            String                     @unique @map("job_id")
+  status           MultiAgentProcessingStatus @default(PENDING)
+  pipelineVersion  String                     @default("1.0.0") @map("pipeline_version") @db.VarChar(20)
+  priority         Int                        @default(0)
+  currentAgent     String?                    @map("current_agent") @db.VarChar(50)
+  agentHistory     Json                       @default("[]") @map("agent_history")
+  extractedData    Json?
+  multiAgentResult Json?                      @map("multi_agent_result")
+  confidence       Float?
+  qualityScore     Float?                     @map("quality_score")
+  startedAt        DateTime?                  @map("started_at")
+  completedAt      DateTime?                  @map("completed_at")
+  failedAt         DateTime?                  @map("failed_at")
+  errorMessage     String?                    @map("error_message")
+  retryCount       Int                        @default(0) @map("retry_count")
+  maxRetries       Int                        @default(3) @map("max_retries")
+  metadata         Json                       @default("{}")
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+  checkpoints      MultiAgentCheckpoint[]
+  comparison       ProcessingComparison?
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([jobId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("multi_agent_processing")
+}
+
+model MultiAgentCheckpoint {
+  id                 String               @id @default(uuid())
+  processingId       String               @map("processing_id")
+  threadId           String               @map("thread_id")
+  checkpointId       String               @map("checkpoint_id")
+  parentCheckpointId String?              @map("parent_checkpoint_id")
+  stateData          Bytes                @map("state_data")
+  stateMetadata      Json                 @default("{}") @map("state_metadata")
+  currentNode        String               @map("current_node") @db.VarChar(50)
+  pendingNodes       String[]             @default([]) @map("pending_nodes")
+  completedNodes     String[]             @default([]) @map("completed_nodes")
+  version            Int                  @default(1)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  processing         MultiAgentProcessing @relation(fields: [processingId], references: [id], onDelete: Cascade)
+
+  @@unique([processingId, checkpointId])
+  @@index([processingId])
+  @@index([threadId])
+  @@index([createdAt(sort: Desc)])
+  @@map("multi_agent_checkpoints")
+}
+
+model ABTestAssignment {
+  id         String        @id @default(uuid())
+  userId     String        @map("user_id")
+  testName   String        @map("test_name") @db.VarChar(100)
+  variant    ABTestVariant
+  assignedAt DateTime      @default(now()) @map("assigned_at")
+  expiresAt  DateTime?     @map("expires_at")
+  isActive   Boolean       @default(true) @map("is_active")
+  metadata   Json          @default("{}")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  @@unique([userId, testName])
+  @@index([userId])
+  @@index([testName, variant])
+  @@index([isActive])
+  @@map("ab_test_assignments")
+}
+
+model ProcessingComparison {
+  id                         String               @id @default(uuid())
+  documentId                 String               @map("document_id")
+  multiAgentProcessingId     String               @unique @map("multi_agent_processing_id")
+  legacyResult               Json?                @map("legacy_result")
+  legacyConfidence           Float?               @map("legacy_confidence")
+  legacyProcessingTimeMs     Int?                 @map("legacy_processing_time_ms")
+  multiAgentResult           Json?                @map("multi_agent_result")
+  multiAgentConfidence       Float?               @map("multi_agent_confidence")
+  multiAgentProcessingTimeMs Int?                 @map("multi_agent_processing_time_ms")
+  fieldDiff                  Json?                @map("field_diff")
+  matchingFieldsCount        Int?                 @map("matching_fields_count")
+  totalFieldsCount           Int?                 @map("total_fields_count")
+  accuracyDelta              Float?               @map("accuracy_delta")
+  winner                     String?              @db.VarChar(20)
+  assessedBy                 String?              @map("assessed_by")
+  assessmentNotes            String?              @map("assessment_notes")
+  createdAt                  DateTime             @default(now()) @map("created_at")
+  updatedAt                  DateTime             @updatedAt @map("updated_at")
+  multiAgentProcessing       MultiAgentProcessing @relation(fields: [multiAgentProcessingId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([winner])
+  @@index([createdAt(sort: Desc)])
+  @@map("processing_comparisons")
+}
+
+model UserFeedback {
+  id               String         @id @default(uuid())
+  userId           String         @map("user_id")
+  documentId       String         @map("document_id")
+  jobId            String?        @map("job_id")
+  accuracyRating   Int            @map("accuracy_rating")
+  isCorrect        Boolean        @map("is_correct")
+  fieldsFeedback   Json?          @map("fields_feedback")
+  comments         String?
+  processingType   String         @map("processing_type") @db.VarChar(20)
+  testVariant      ABTestVariant? @map("test_variant")
+  documentCategory String?        @map("document_category") @db.VarChar(50)
+  metadata         Json           @default("{}")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([documentId])
+  @@index([processingType])
+  @@index([accuracyRating])
+  @@index([createdAt(sort: Desc)])
+  @@map("user_feedback")
+}
+
+model FeatureFlag {
+  id           String   @id @default(uuid())
+  name         String   @unique @db.VarChar(100)
+  description  String?
+  enabled      Boolean  @default(false)
+  percentage   Int      @default(0)
+  rules        Json     @default("{}")
+  targetUsers  String[] @default([]) @map("target_users")
+  excludeUsers String[] @default([]) @map("exclude_users")
+  createdBy    String?  @map("created_by")
+  updatedBy    String?  @map("updated_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([name])
+  @@index([enabled])
+  @@map("feature_flags")
+}
+
+model AgentMetrics {
+  id               String   @id @default(uuid())
+  agentName        String   @map("agent_name") @db.VarChar(50)
+  modelName        String   @map("model_name") @db.VarChar(50)
+  processingTimeMs Int      @map("processing_time_ms")
+  tokenCount       Int?     @map("token_count")
+  retryCount       Int      @default(0) @map("retry_count")
+  success          Boolean
+  confidenceScore  Float?   @map("confidence_score")
+  qualityScore     Float?   @map("quality_score")
+  errorType        String?  @map("error_type") @db.VarChar(100)
+  errorMessage     String?  @map("error_message")
+  documentCategory String?  @map("document_category") @db.VarChar(50)
+  jobId            String?  @map("job_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([agentName])
+  @@index([modelName])
+  @@index([success])
+  @@index([createdAt(sort: Desc)])
+  @@index([agentName, createdAt(sort: Desc)])
+  @@map("agent_metrics")
 }
 
 enum OrganizationStatus {
@@ -61,269 +704,6 @@ enum InvitationStatus {
   CANCELLED
 }
 
-model User {
-  id             String         @id @default(uuid())
-  email          String         @unique
-  password       String
-  firstName      String?
-  lastName       String?
-  avatarUrl      String?        @map("avatar_url")
-  phone          String?        @db.VarChar(30)
-  jobTitle       String?        @map("job_title") @db.VarChar(100)
-  bio            String?        @db.VarChar(500)
-  role           UserRole       @default(USER)
-  isActive       Boolean        @default(true)
-  emailVerified  Boolean        @default(false)
-  supabaseUserId String?        @unique
-  organizationId String?        @map("organization_id")
-  organization   Organization?  @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  lastLogin      DateTime?
-  refreshTokens  RefreshToken[]
-  documents      Document[]
-  sessions       Session[]
-  templates      Template[]
-  mappings       FieldMapping[]
-  jobs           Job[]
-  settings       UserSettings?
-  profile        UserProfile?
-  apiUsage       ApiUsage[]
-  auditLogs      AuditLog[]
-  clients        Client[]
-  documentSources DocumentSource[]
-  memberships    OrganizationMembership[]
-
-  @@index([organizationId])
-  @@map("users")
-}
-
-model OrganizationMembership {
-  id             String           @id @default(uuid())
-  userId         String           @map("user_id")
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organizationId String           @map("organization_id")
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role           OrgMemberRole    @default(MEMBER)
-  status         MembershipStatus @default(ACTIVE)
-  invitedBy      String?          @map("invited_by")
-  invitedAt      DateTime?        @map("invited_at")
-  joinedAt       DateTime?        @map("joined_at")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  @@unique([userId, organizationId])
-  @@index([userId])
-  @@index([organizationId])
-  @@index([status])
-  @@map("organization_memberships")
-}
-
-model OrganizationInvitation {
-  id             String           @id @default(uuid())
-  organizationId String           @map("organization_id")
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email          String
-  role           OrgMemberRole    @default(MEMBER)
-  invitedBy      String           @map("invited_by")
-  status         InvitationStatus @default(PENDING)
-  expiresAt      DateTime         @map("expires_at")
-  acceptedAt     DateTime?        @map("accepted_at")
-  createdAt      DateTime         @default(now()) @map("created_at")
-
-  @@unique([organizationId, email])
-  @@index([email])
-  @@index([status])
-  @@index([expiresAt])
-  @@map("organization_invitations")
-}
-
-model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@map("refresh_tokens")
-}
-
-model Session {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  ipAddress String?
-  userAgent String?
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@map("sessions")
-}
-
-// Client entity - the core of the client-centric architecture
-// Every document, profile, and form belongs to a client
-model Client {
-  id        String       @id @default(uuid())
-  userId    String       @map("user_id")
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  type      ClientType   @default(INDIVIDUAL)
-  status    ClientStatus @default(ACTIVE)
-  notes     String?
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-
-  // Relations
-  documents     ClientDocument[]
-  profile       ClientProfile?
-  filledForms   FilledForm[]
-  extractedData ExtractedData[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([name])
-  @@map("clients")
-}
-
-// ClientProfile - unified extracted data from all client documents
-// This is what gets used when filling forms
-model ClientProfile {
-  id           String   @id @default(uuid())
-  clientId     String   @unique @map("client_id")
-  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  // Unified client data from all documents (JSON)
-  data         Json     @default("{}")
-
-  // Track which document each field came from (JSON)
-  // Format: { fieldName: { documentId, extractedAt, manuallyEdited } }
-  fieldSources Json     @default("{}") @map("field_sources")
-
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  @@index([clientId])
-  @@map("client_profiles")
-}
-
-// ClientDocument - documents belonging to a specific client
-model ClientDocument {
-  id            String               @id @default(uuid())
-  clientId      String               @map("client_id")
-  client        Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  userId        String               @map("user_id") // Owner tracking
-
-  fileName      String               @map("file_name")
-  fileType      String               @map("file_type") // MIME type
-  fileSize      Int                  @map("file_size")
-  storageUrl    String               @map("storage_url")
-
-  // Document categorization
-  category      DocumentCategory?
-
-  // Processing status
-  status        ClientDocumentStatus @default(UPLOADED)
-
-  createdAt     DateTime             @default(now()) @map("created_at")
-  updatedAt     DateTime             @updatedAt @map("updated_at")
-
-  // Relations
-  extractedData ExtractedData?
-
-  @@index([clientId])
-  @@index([userId])
-  @@index([category])
-  @@index([status])
-  @@map("client_documents")
-}
-
-// ExtractedData - OCR output from a document
-model ExtractedData {
-  id           String              @id @default(uuid())
-  documentId   String              @unique @map("document_id")
-  document     ClientDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  clientId     String              @map("client_id")
-  client       Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  // Full OCR text
-  rawText      String?             @map("raw_text")
-
-  // Structured extracted fields (JSON)
-  // Format: { fieldName: { value, confidence, source } }
-  fields       Json                @default("{}")
-
-  status       ExtractionStatus    @default(PENDING)
-  extractedAt  DateTime?           @map("extracted_at")
-  reviewedAt   DateTime?           @map("reviewed_at")
-
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
-
-  @@index([clientId])
-  @@index([documentId])
-  @@index([status])
-  @@map("extracted_data")
-}
-
-// FormTemplate - reusable form templates with field mappings
-model FormTemplate {
-  id            String              @id @default(uuid())
-  userId        String              @map("user_id")
-
-  name          String
-  description   String?
-  category      FormCategory?
-
-  // The blank PDF form file URL
-  fileUrl       String              @map("file_url")
-
-  // Map form fields to client profile fields (JSON)
-  // Format: { formFieldName: profileFieldName }
-  fieldMappings Json                @default("{}") @map("field_mappings")
-
-  // Detected form field names from PDF (JSON array)
-  detectedFields Json               @default("[]") @map("detected_fields")
-
-  isActive      Boolean             @default(true) @map("is_active")
-
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
-
-  // Relations
-  filledForms   FilledForm[]
-
-  @@index([userId])
-  @@index([category])
-  @@index([isActive])
-  @@map("form_templates")
-}
-
-// FilledForm - generated/filled forms history
-model FilledForm {
-  id           String       @id @default(uuid())
-  clientId     String       @map("client_id")
-  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  templateId   String       @map("template_id")
-  template     FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  userId       String       @map("user_id") // Who generated it
-
-  // The generated filled PDF file URL
-  fileUrl      String       @map("file_url")
-
-  // Snapshot of data used at generation time (for audit)
-  dataSnapshot Json         @map("data_snapshot")
-
-  createdAt    DateTime     @default(now()) @map("created_at")
-
-  @@index([clientId])
-  @@index([templateId])
-  @@index([userId])
-  @@index([createdAt(sort: Desc)])
-  @@map("filled_forms")
-}
-
 enum ClientType {
   COMPANY
   INDIVIDUAL
@@ -334,7 +714,6 @@ enum ClientStatus {
   ARCHIVED
 }
 
-// Document categories for client documents
 enum DocumentCategory {
   PASSPORT
   EMIRATES_ID
@@ -342,12 +721,11 @@ enum DocumentCategory {
   VISA
   LABOR_CARD
   ESTABLISHMENT_CARD
-  MOA // Memorandum of Association
+  MOA
   BANK_STATEMENT
   OTHER
 }
 
-// Status for client documents
 enum ClientDocumentStatus {
   UPLOADED
   PROCESSING
@@ -355,7 +733,6 @@ enum ClientDocumentStatus {
   FAILED
 }
 
-// Status for extracted data
 enum ExtractionStatus {
   PENDING
   COMPLETED
@@ -363,7 +740,6 @@ enum ExtractionStatus {
   FAILED
 }
 
-// Form template categories
 enum FormCategory {
   VISA
   COMPANY_FORMATION
@@ -372,67 +748,6 @@ enum FormCategory {
   BANKING
   GOVERNMENT
   OTHER
-}
-
-model Document {
-  id                 String         @id @default(uuid())
-  userId             String
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fileName           String
-  fileType           String
-  fileSize           Int
-  storageUrl         String
-  status             DocumentStatus @default(PENDING)
-  extractedText      String?
-  extractedData      Json?
-  multiAgentResult   Json?          @map("multi_agent_result")  // Multi-agent pipeline results
-  confidence         Float?
-  templateId         String?
-  template           Template?      @relation(fields: [templateId], references: [id])
-  processedAt        DateTime?
-  reprocessCount     Int            @default(0) @map("reprocess_count")
-  lastReprocessedAt  DateTime?      @map("last_reprocessed_at")
-  reprocessingHistory Json?         @map("reprocessing_history")
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-
-  @@map("documents")
-}
-
-model Template {
-  id            String     @id @default(uuid())
-  name          String
-  description   String?
-  userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  formType      String     // W2, I9, PASSPORT, JOB_APPLICATION, CUSTOM
-  fieldMappings String     // Encrypted JSON with field mappings
-  isPublic      Boolean    @default(false) // For marketplace
-  usageCount    Int        @default(0)
-  isActive      Boolean    @default(true)
-  documents     Document[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  @@index([userId])
-  @@index([formType])
-  @@index([isPublic])
-  @@map("templates")
-}
-
-model FieldMapping {
-  id             String   @id @default(uuid())
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourceField    String
-  targetField    String
-  transformRules Json?
-  confidence     Float    @default(1.0)
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@map("field_mappings")
 }
 
 enum UserRole {
@@ -444,10 +759,10 @@ enum UserRole {
 enum DocumentStatus {
   PENDING
   PROCESSING
-  REPROCESSING
   COMPLETED
   FAILED
   ARCHIVED
+  REPROCESSING
 }
 
 enum JobStatus {
@@ -463,199 +778,6 @@ enum JobType {
   batch
 }
 
-// Jobs table for batch processing
-model Job {
-  id                String              @id
-  type              JobType
-  status            JobStatus           @default(pending)
-  userId            String?
-  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  documentsCount    Int                 @map("documents_count")
-  priority          Int                 @default(0)
-  startedAt         DateTime?           @map("started_at")
-  completedAt       DateTime?           @map("completed_at")
-  failedAt          DateTime?           @map("failed_at")
-  result            Json?
-  error             String?
-  metadata          Json?
-  retryCount        Int                 @default(0) @map("retry_count")
-  createdAt         DateTime            @default(now()) @map("created_at")
-  updatedAt         DateTime            @updatedAt @map("updated_at")
-  processingHistory ProcessingHistory[]
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt(sort: Desc)])
-  @@index([type, status])
-  @@map("jobs")
-}
-
-// Processing history for tracking form filling operations
-model ProcessingHistory {
-  id             Int      @id @default(autoincrement())
-  jobId          String   @map("job_id")
-  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  formPath       String   @map("form_path")
-  documentPaths  String[] @map("document_paths")
-  outputPath     String   @map("output_path")
-  filledFields   String[] @default([]) @map("filled_fields")
-  confidence     Decimal? @db.Decimal(3, 2)
-  processingTime Int?     @map("processing_time")
-  ocrApplied     Boolean  @default(false) @map("ocr_applied")
-  mlEnhanced     Boolean  @default(false) @map("ml_enhanced")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  @@index([jobId])
-  @@index([createdAt(sort: Desc)])
-  @@map("processing_history")
-}
-
-// User settings and preferences
-model UserSettings {
-  userId                 String   @id @map("user_id")
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultValidationRules Json?    @map("default_validation_rules")
-  preferredLanguage      String   @default("en") @map("preferred_language") @db.VarChar(10)
-  emailNotifications     Boolean  @default(true) @map("email_notifications")
-  notifyOnProcessComplete Boolean @default(true) @map("notify_on_process_complete")
-  notifyOnOrgInvite      Boolean  @default(true) @map("notify_on_org_invite")
-  digestFrequency        String   @default("never") @map("digest_frequency") @db.VarChar(20)
-  webhookUrl             String?  @map("webhook_url")
-  autoOcr                Boolean  @default(false) @map("auto_ocr")
-  autoMlEnhancement      Boolean  @default(true) @map("auto_ml_enhancement")
-  defaultOutputFormat    String   @default("pdf") @map("default_output_format") @db.VarChar(20)
-  theme                  String   @default("system") @db.VarChar(20)
-  compactMode            Boolean  @default(false) @map("compact_mode")
-  timezone               String   @default("UTC") @db.VarChar(50)
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
-
-  @@map("user_settings")
-}
-
-// User profile aggregated from all uploaded documents
-model UserProfile {
-  id             String   @id @default(uuid())
-  userId         String   @unique @map("user_id")
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  profileData    Json     @map("profile_data") // Encrypted JSON with key-value pairs
-  lastAggregated DateTime @default(now()) @map("last_aggregated")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  @@index([userId])
-  @@map("user_profiles")
-}
-
-// API usage tracking
-model ApiUsage {
-  id           Int      @id @default(autoincrement())
-  userId       String   @map("user_id")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint     String   @db.VarChar(255)
-  method       String   @db.VarChar(10)
-  statusCode   Int?     @map("status_code")
-  responseTime Int?     @map("response_time")
-  ipAddress    String?  @map("ip_address")
-  userAgent    String?  @map("user_agent")
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  @@index([userId])
-  @@index([createdAt(sort: Desc)])
-  @@index([endpoint])
-  @@map("api_usage")
-}
-
-// ML model versions
-model MlModel {
-  id              Int      @id @default(autoincrement())
-  modelName       String   @map("model_name") @db.VarChar(255)
-  version         String   @db.VarChar(50)
-  accuracy        Decimal? @db.Decimal(3, 2)
-  precisionScore  Decimal? @map("precision_score") @db.Decimal(3, 2)
-  recallScore     Decimal? @map("recall_score") @db.Decimal(3, 2)
-  f1Score         Decimal? @map("f1_score") @db.Decimal(3, 2)
-  trainingSamples Int?     @map("training_samples")
-  modelPath       String?  @map("model_path")
-  isActive        Boolean  @default(false) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  @@unique([modelName, version])
-  @@map("ml_models")
-}
-
-// Audit log for security and compliance
-model AuditLog {
-  id             Int           @id @default(autoincrement())
-  userId         String?       @map("user_id")
-  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  organizationId String?       @map("organization_id")
-  action         String        @db.VarChar(255)
-  entityType     String?       @map("entity_type") @db.VarChar(100)
-  entityId       String?       @map("entity_id") @db.VarChar(255)
-  oldValue       Json?         @map("old_value")
-  newValue       Json?         @map("new_value")
-  metadata       Json?         @map("metadata")
-  ipAddress      String?       @map("ip_address")
-  userAgent      String?       @map("user_agent")
-  createdAt      DateTime      @default(now()) @map("created_at")
-
-  @@index([userId])
-  @@index([organizationId])
-  @@index([entityType, entityId])
-  @@index([createdAt(sort: Desc)])
-  @@map("audit_log")
-}
-
-// ============================================================================
-// VECTOR SEARCH & DOCUMENT INTELLIGENCE MODELS
-// PRD: Vector Search Implementation v2.0
-// ============================================================================
-
-// DocumentSource - Source documents for the knowledge base
-// Separate from Document model (form-filling) but can optionally link
-model DocumentSource {
-  id               String               @id @default(uuid())
-  organizationId   String               @map("organization_id")
-  organization     Organization         @relation(fields: [organizationId], references: [id])
-  userId           String               @map("user_id")
-  user             User                 @relation(fields: [userId], references: [id])
-
-  // Optional link to existing Document model (for form-filling integration)
-  linkedDocumentId String?              @map("linked_document_id")
-
-  // Document info
-  title            String               @db.VarChar(255)
-  filename         String?              @db.VarChar(255)
-  mimeType         String?              @map("mime_type") @db.VarChar(100)
-  fileSize         Int?                 @map("file_size")
-  pageCount        Int?                 @map("page_count")
-  storageUrl       String?              @map("storage_url")
-
-  // Processing status
-  status           DocumentSourceStatus @default(PENDING)
-  errorMessage     String?              @map("error_message")
-
-  // Metadata
-  chunkCount       Int                  @default(0) @map("chunk_count")
-  processingTimeMs Int?                 @map("processing_time_ms")
-
-  // Timestamps
-  createdAt        DateTime             @default(now()) @map("created_at")
-  updatedAt        DateTime             @updatedAt @map("updated_at")
-  deletedAt        DateTime?            @map("deleted_at")
-
-  // Relations
-  chunks           DocumentChunk[]
-  checkpoint       ProcessingCheckpoint?
-
-  @@index([organizationId])
-  @@index([userId])
-  @@index([status])
-  @@index([organizationId, status])
-  @@map("document_sources")
-}
-
 enum DocumentSourceStatus {
   PENDING
   EXTRACTING
@@ -663,114 +785,6 @@ enum DocumentSourceStatus {
   EMBEDDING
   COMPLETED
   FAILED
-}
-
-// DocumentChunk - Text chunks with embeddings for vector search
-// Note: The 'embedding' column uses pgvector and is managed via raw SQL migrations
-model DocumentChunk {
-  id             String         @id @default(uuid())
-  sourceId       String         @map("source_id")
-  source         DocumentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  organizationId String         @map("organization_id")
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-
-  // Content
-  text           String
-  tokenCount     Int            @map("token_count")
-  textHash       String         @map("text_hash") @db.VarChar(64)
-
-  // Position metadata
-  chunkIndex     Int            @map("chunk_index")
-  pageNumber     Int?           @map("page_number")
-  sectionHeader  String?        @map("section_header") @db.VarChar(255)
-
-  // Embedding model info (actual vector stored via raw SQL)
-  embeddingModel String         @default("text-embedding-004") @map("embedding_model") @db.VarChar(100)
-
-  // Flexible metadata
-  metadata       Json           @default("{}")
-
-  // Timestamps
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-
-  @@index([sourceId])
-  @@index([organizationId])
-  @@index([organizationId, sourceId])
-  @@index([textHash])
-  @@map("document_chunks")
-}
-
-// ProcessingCheckpoint - Recovery checkpoints for document processing
-model ProcessingCheckpoint {
-  id                      String         @id @default(uuid())
-  sourceId                String         @unique @map("source_id")
-  source                  DocumentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  stage                   String         @db.VarChar(50)
-  lastCompletedChunkIndex Int            @default(0) @map("last_completed_chunk_index")
-  totalChunks             Int            @map("total_chunks")
-  extractedText           String?        @map("extracted_text")
-  chunksJson              String?        @map("chunks_json")
-  startedAt               DateTime       @default(now()) @map("started_at")
-  lastUpdatedAt           DateTime       @updatedAt @map("last_updated_at")
-
-  @@map("processing_checkpoints")
-}
-
-// ============================================================================
-// MULTI-AGENT DOCUMENT PROCESSING PIPELINE MODELS
-// PRD: IntelliFill Multi-Agent Integration
-// Purpose: LangGraph-based multi-agent OCR enhancement (85-90% -> 92-97% accuracy)
-// ============================================================================
-
-// MultiAgentProcessing - Tracks multi-agent processing jobs
-// Links to both legacy Document and BullMQ job tracking
-model MultiAgentProcessing {
-  id               String                     @id @default(uuid())
-  documentId       String                     @map("document_id")
-  userId           String                     @map("user_id")
-  jobId            String                     @unique @map("job_id") // BullMQ job ID
-
-  // Processing metadata
-  status           MultiAgentProcessingStatus @default(PENDING)
-  pipelineVersion  String                     @default("1.0.0") @map("pipeline_version") @db.VarChar(20)
-  priority         Int                        @default(0)
-
-  // Agent execution tracking
-  currentAgent     String?                    @map("current_agent") @db.VarChar(50)
-  agentHistory     Json                       @default("[]") @map("agent_history") // [{agent, startTime, endTime, status}]
-
-  // Results
-  extractedData    Json?
-  multiAgentResult   Json?          @map("multi_agent_result")  // Multi-agent pipeline results                      @map("extracted_data")
-  confidence       Float?
-  qualityScore     Float?                     @map("quality_score")
-
-  // Timing
-  startedAt        DateTime?                  @map("started_at")
-  completedAt      DateTime?                  @map("completed_at")
-  failedAt         DateTime?                  @map("failed_at")
-
-  // Error handling
-  errorMessage     String?                    @map("error_message")
-  retryCount       Int                        @default(0) @map("retry_count")
-  maxRetries       Int                        @default(3) @map("max_retries")
-
-  // Metadata
-  metadata         Json                       @default("{}")
-  createdAt        DateTime                   @default(now()) @map("created_at")
-  updatedAt        DateTime                   @updatedAt @map("updated_at")
-
-  // Relations
-  checkpoints      MultiAgentCheckpoint[]
-  comparison       ProcessingComparison?
-
-  @@index([documentId])
-  @@index([userId])
-  @@index([jobId])
-  @@index([status])
-  @@index([createdAt(sort: Desc)])
-  @@map("multi_agent_processing")
 }
 
 enum MultiAgentProcessingStatus {
@@ -785,232 +799,7 @@ enum MultiAgentProcessingStatus {
   CANCELLED
 }
 
-// MultiAgentCheckpoint - LangGraph state checkpoints for recovery
-// Stores serialized LangGraph state for resumability
-model MultiAgentCheckpoint {
-  id                String               @id @default(uuid())
-  processingId      String               @map("processing_id")
-  processing        MultiAgentProcessing @relation(fields: [processingId], references: [id], onDelete: Cascade)
-
-  // Checkpoint metadata
-  threadId          String               @map("thread_id") // LangGraph thread ID
-  checkpointId      String               @map("checkpoint_id") // LangGraph checkpoint ID
-  parentCheckpointId String?             @map("parent_checkpoint_id")
-
-  // State storage (binary for efficiency)
-  stateData         Bytes                @map("state_data")
-  stateMetadata     Json                 @default("{}") @map("state_metadata")
-
-  // Node tracking
-  currentNode       String               @map("current_node") @db.VarChar(50)
-  pendingNodes      String[]             @default([]) @map("pending_nodes")
-  completedNodes    String[]             @default([]) @map("completed_nodes")
-
-  // Version for state schema migrations
-  version           Int                  @default(1)
-
-  createdAt         DateTime             @default(now()) @map("created_at")
-
-  @@unique([processingId, checkpointId])
-  @@index([processingId])
-  @@index([threadId])
-  @@index([createdAt(sort: Desc)])
-  @@map("multi_agent_checkpoints")
-}
-
-// ABTestAssignment - User assignments for A/B testing multi-agent vs legacy
-// Ensures sticky assignment (same user always gets same variant)
-model ABTestAssignment {
-  id           String            @id @default(uuid())
-  userId       String            @map("user_id")
-  testName     String            @map("test_name") @db.VarChar(100) // e.g., "multiagent-v1"
-  variant      ABTestVariant
-
-  // Assignment metadata
-  assignedAt   DateTime          @default(now()) @map("assigned_at")
-  expiresAt    DateTime?         @map("expires_at")
-  isActive     Boolean           @default(true) @map("is_active")
-
-  // Tracking
-  metadata     Json              @default("{}")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
-
-  @@unique([userId, testName])
-  @@index([userId])
-  @@index([testName, variant])
-  @@index([isActive])
-  @@map("ab_test_assignments")
-}
-
 enum ABTestVariant {
-  CONTROL    // Legacy pipeline
-  TREATMENT  // Multi-agent pipeline
-}
-
-// ProcessingComparison - Compare legacy vs multi-agent results
-// Used in Shadow Mode to validate multi-agent accuracy
-model ProcessingComparison {
-  id                     String               @id @default(uuid())
-  documentId             String               @map("document_id")
-  multiAgentProcessingId String               @unique @map("multi_agent_processing_id")
-  multiAgentProcessing   MultiAgentProcessing @relation(fields: [multiAgentProcessingId], references: [id], onDelete: Cascade)
-
-  // Results from both pipelines
-  legacyResult           Json?                @map("legacy_result")
-  legacyConfidence       Float?               @map("legacy_confidence")
-  legacyProcessingTimeMs Int?                 @map("legacy_processing_time_ms")
-
-  multiAgentResult       Json?                @map("multi_agent_result")
-  multiAgentConfidence   Float?               @map("multi_agent_confidence")
-  multiAgentProcessingTimeMs Int?             @map("multi_agent_processing_time_ms")
-
-  // Comparison metrics
-  fieldDiff              Json?                @map("field_diff") // {fieldName: {legacy, multiAgent, match}}
-  matchingFieldsCount    Int?                 @map("matching_fields_count")
-  totalFieldsCount       Int?                 @map("total_fields_count")
-  accuracyDelta          Float?               @map("accuracy_delta") // multiAgent - legacy
-
-  // Quality assessment
-  winner                 String?              @db.VarChar(20) // "legacy", "multiagent", "tie"
-  assessedBy             String?              @map("assessed_by") // "auto" or userId
-  assessmentNotes        String?              @map("assessment_notes")
-
-  createdAt              DateTime             @default(now()) @map("created_at")
-  updatedAt              DateTime             @updatedAt @map("updated_at")
-
-  @@index([documentId])
-  @@index([winner])
-  @@index([createdAt(sort: Desc)])
-  @@map("processing_comparisons")
-}
-
-// UserFeedback - Collect user feedback on processing accuracy
-// Critical for A/B test evaluation and model improvement
-model UserFeedback {
-  id                String               @id @default(uuid())
-  userId            String               @map("user_id")
-  documentId        String               @map("document_id")
-  jobId             String?              @map("job_id") // Optional link to processing job
-
-  // Feedback data
-  accuracyRating    Int                  @map("accuracy_rating") // 1-5 scale
-  isCorrect         Boolean              @map("is_correct") // Simple yes/no
-  fieldsFeedback    Json?                @map("fields_feedback") // {fieldName: {correct, userValue}}
-  comments          String?
-
-  // Context for analysis
-  processingType    String               @map("processing_type") @db.VarChar(20) // "legacy" or "multiagent"
-  testVariant       ABTestVariant?       @map("test_variant")
-  documentCategory  String?              @map("document_category") @db.VarChar(50)
-
-  // Metadata
-  metadata          Json                 @default("{}")
-  createdAt         DateTime             @default(now()) @map("created_at")
-
-  @@index([userId])
-  @@index([documentId])
-  @@index([processingType])
-  @@index([accuracyRating])
-  @@index([createdAt(sort: Desc)])
-  @@map("user_feedback")
-}
-
-// FeatureFlag - Runtime feature flag configuration
-// Used to control Shadow Mode, A/B percentages, and full rollout
-model FeatureFlag {
-  id           String              @id @default(uuid())
-  name         String              @unique @db.VarChar(100)
-  description  String?
-
-  // Flag configuration
-  enabled      Boolean             @default(false)
-  percentage   Int                 @default(0) // 0-100 for gradual rollout
-  rules        Json                @default("{}") // Custom targeting rules
-
-  // Targeting
-  targetUsers  String[]            @default([]) @map("target_users") // Specific user IDs
-  excludeUsers String[]            @default([]) @map("exclude_users")
-
-  // Metadata
-  createdBy    String?             @map("created_by")
-  updatedBy    String?             @map("updated_by")
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
-
-  @@index([name])
-  @@index([enabled])
-  @@map("feature_flags")
-}
-
-// AgentMetrics - Performance metrics for individual agents
-// Used for monitoring and optimization
-model AgentMetrics {
-  id                String   @id @default(uuid())
-  agentName         String   @map("agent_name") @db.VarChar(50)
-  modelName         String   @map("model_name") @db.VarChar(50)
-
-  // Processing metrics
-  processingTimeMs  Int      @map("processing_time_ms")
-  tokenCount        Int?     @map("token_count")
-  retryCount        Int      @default(0) @map("retry_count")
-  success           Boolean
-
-  // Quality metrics (where applicable)
-  confidenceScore   Float?   @map("confidence_score")
-  qualityScore      Float?   @map("quality_score")
-
-  // Error tracking
-  errorType         String?  @map("error_type") @db.VarChar(100)
-  errorMessage      String?  @map("error_message")
-
-  // Context
-  documentCategory  String?  @map("document_category") @db.VarChar(50)
-  jobId             String?  @map("job_id")
-
-  createdAt         DateTime @default(now()) @map("created_at")
-
-  @@index([agentName])
-  @@index([modelName])
-  @@index([success])
-  @@index([createdAt(sort: Desc)])
-  @@index([agentName, createdAt(sort: Desc)])
-  @@map("agent_metrics")
-}
-
-// CspReport - Content Security Policy violation reports
-// Task 282: Store and aggregate CSP reports for security monitoring
-model CspReport {
-  id                 String   @id @default(uuid())
-
-  // Report details
-  documentUri        String   @map("document_uri") @db.VarChar(2048)
-  blockedUri         String   @map("blocked_uri") @db.VarChar(2048)
-  violatedDirective  String   @map("violated_directive") @db.VarChar(255)
-  effectiveDirective String?  @map("effective_directive") @db.VarChar(255)
-  sourceFile         String?  @map("source_file") @db.VarChar(2048)
-  lineNumber         Int?     @map("line_number")
-  columnNumber       Int?     @map("column_number")
-
-  // Request context
-  userAgent          String?  @map("user_agent") @db.VarChar(500)
-  ipAddress          String?  @map("ip_address") @db.VarChar(45) // IPv6 max length
-
-  // Aggregation
-  count              Int      @default(1) // For aggregated reports
-  firstSeen          DateTime @default(now()) @map("first_seen")
-  lastSeen           DateTime @default(now()) @map("last_seen")
-
-  // Alert tracking
-  alertSent          Boolean  @default(false) @map("alert_sent")
-  alertSentAt        DateTime? @map("alert_sent_at")
-
-  createdAt          DateTime @default(now()) @map("created_at")
-
-  // Composite index for aggregation queries
-  @@index([documentUri, blockedUri])
-  @@index([violatedDirective])
-  @@index([createdAt(sort: Desc)])
-  @@index([alertSent])
-  @@map("csp_reports")
+  CONTROL
+  TREATMENT
 }
