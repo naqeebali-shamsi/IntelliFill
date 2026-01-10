@@ -25,6 +25,12 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './supabaseAuth';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
+import {
+  sendOrgContextError,
+  sendCustomOrgError,
+  OrgContextErrorKey,
+} from './utils/orgContextErrors';
+import { findActiveMembership } from './utils/membershipLookup';
 
 // ============================================================================
 // Types & Interfaces
@@ -83,7 +89,6 @@ function getCachedOrganization(userId: string): CacheEntry | null {
   const entry = organizationCache.get(userId);
   if (!entry) return null;
 
-  // Check if expired
   if (Date.now() - entry.timestamp > config.cacheTtlMs) {
     organizationCache.delete(userId);
     return null;
@@ -105,7 +110,6 @@ function setCachedOrganization(
     permissions?: string[];
   }
 ): void {
-  // Evict oldest entries if at capacity
   if (organizationCache.size >= config.maxCacheSize) {
     const oldestKey = organizationCache.keys().next().value;
     if (oldestKey) {
@@ -173,11 +177,7 @@ async function fetchOrganizationContext(
       where: { id: userId },
       select: {
         organizationId: true,
-        organization: {
-          select: {
-            name: true,
-          },
-        },
+        organization: { select: { name: true } },
         role: true,
       },
     });
@@ -206,7 +206,6 @@ async function getOrganizationForUser(userId: string): Promise<{
   organizationName?: string;
   role?: string;
 }> {
-  // Check cache first
   if (config.enableCache) {
     const cached = getCachedOrganization(userId);
     if (cached) {
@@ -220,13 +219,11 @@ async function getOrganizationForUser(userId: string): Promise<{
     cacheStats.misses++;
   }
 
-  // Fetch from database
   const context = await fetchOrganizationContext(userId);
   if (!context) {
     return { organizationId: null };
   }
 
-  // Cache the result
   if (config.enableCache) {
     setCachedOrganization(userId, context.organizationId, {
       organizationName: context.organizationName,
@@ -235,6 +232,24 @@ async function getOrganizationForUser(userId: string): Promise<{
   }
 
   return context;
+}
+
+// ============================================================================
+// Helper: Attach Organization Context to Request
+// ============================================================================
+
+function attachOrganizationContext(
+  req: OrganizationRequest,
+  organizationId: string,
+  extras?: { name?: string; role?: string }
+): void {
+  req.organizationId = organizationId;
+  req.organizationContext = {
+    id: organizationId,
+    name: extras?.name,
+    role: extras?.role,
+    cachedAt: new Date(),
+  };
 }
 
 // ============================================================================
@@ -257,11 +272,7 @@ export async function requireOrganization(
     const requestId = req.headers['x-request-id'] as string | undefined;
 
     if (!userId) {
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'AUTH_REQUIRED',
-      });
+      sendOrgContextError(res, 'AUTH_REQUIRED');
       return;
     }
 
@@ -269,22 +280,14 @@ export async function requireOrganization(
 
     if (!context.organizationId) {
       logger.warn('[OrgContext] User has no organization', { userId, requestId });
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'User must belong to an organization to access this resource',
-        code: 'ORGANIZATION_REQUIRED',
-      });
+      sendOrgContextError(res, 'ORGANIZATION_REQUIRED');
       return;
     }
 
-    // Attach organization context to request
-    req.organizationId = context.organizationId;
-    req.organizationContext = {
-      id: context.organizationId,
+    attachOrganizationContext(req, context.organizationId, {
       name: context.organizationName,
       role: context.role,
-      cachedAt: new Date(),
-    };
+    });
 
     logger.debug('[OrgContext] Organization context attached', {
       userId,
@@ -298,11 +301,7 @@ export async function requireOrganization(
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: req.user?.id,
     });
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to validate organization context',
-      code: 'ORG_CONTEXT_ERROR',
-    });
+    sendOrgContextError(res, 'ORG_CONTEXT_ERROR');
   }
 }
 
@@ -321,7 +320,6 @@ export async function optionalOrganization(
     const userId = req.user?.id;
 
     if (!userId) {
-      // No user, no organization - continue anyway
       next();
       return;
     }
@@ -329,18 +327,14 @@ export async function optionalOrganization(
     const context = await getOrganizationForUser(userId);
 
     if (context.organizationId) {
-      req.organizationId = context.organizationId;
-      req.organizationContext = {
-        id: context.organizationId,
+      attachOrganizationContext(req, context.organizationId, {
         name: context.organizationName,
         role: context.role,
-        cachedAt: new Date(),
-      };
+      });
     }
 
     next();
   } catch (error) {
-    // Log but don't fail - optional means we continue even on error
     logger.warn('[OrgContext] Optional organization lookup failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: req.user?.id,
@@ -367,15 +361,10 @@ export function validateOrganizationAccess(
       const userId = req.user?.id;
 
       if (!userId) {
-        res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Authentication required',
-          code: 'AUTH_REQUIRED',
-        });
+        sendOrgContextError(res, 'AUTH_REQUIRED');
         return;
       }
 
-      // Extract target organization from request
       const targetOrgId =
         source === 'params'
           ? req.params[paramName]
@@ -384,66 +373,115 @@ export function validateOrganizationAccess(
             : req.body[paramName];
 
       if (!targetOrgId) {
-        res.status(400).json({
-          error: 'Bad Request',
-          message: `Missing ${paramName} in ${source}`,
-          code: 'MISSING_ORG_ID',
-        });
+        sendCustomOrgError(
+          res,
+          400,
+          'Bad Request',
+          `Missing ${paramName} in ${source}`,
+          'MISSING_ORG_ID'
+        );
         return;
       }
 
-      // Get user's organization
       const context = await getOrganizationForUser(userId);
 
       if (!context.organizationId) {
-        res.status(403).json({
-          error: 'Forbidden',
-          message: 'User has no organization membership',
-          code: 'NO_ORGANIZATION',
-        });
+        sendOrgContextError(res, 'NO_ORGANIZATION');
         return;
       }
 
-      // Validate access
       if (context.organizationId !== targetOrgId) {
         logger.warn('[OrgContext] Organization access denied', {
           userId,
           userOrgId: context.organizationId,
           targetOrgId,
         });
-        res.status(403).json({
-          error: 'Forbidden',
-          message: 'Access denied to this organization',
-          code: 'ORG_ACCESS_DENIED',
-        });
+        sendOrgContextError(res, 'ORG_ACCESS_DENIED');
         return;
       }
 
-      // Attach context
-      req.organizationId = context.organizationId;
-      req.organizationContext = {
-        id: context.organizationId,
+      attachOrganizationContext(req, context.organizationId, {
         name: context.organizationName,
         role: context.role,
-        cachedAt: new Date(),
-      };
+      });
 
       next();
     } catch (error) {
       logger.error('[OrgContext] Access validation error', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Failed to validate organization access',
-        code: 'ORG_ACCESS_ERROR',
-      });
+      sendOrgContextError(res, 'ORG_ACCESS_ERROR');
     }
   };
 }
 
 // ============================================================================
-// Task 383: Member Authorization Middleware
+// Role-Based Middleware Factory
+// ============================================================================
+
+type MembershipRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+
+interface RoleMiddlewareConfig {
+  name: string;
+  roleFilter?: MembershipRole[];
+  permissionDeniedError: OrgContextErrorKey;
+  internalError: OrgContextErrorKey;
+}
+
+/**
+ * Factory function to create role-based organization membership middleware
+ */
+function createRoleMiddleware(config: RoleMiddlewareConfig) {
+  return async (req: OrganizationRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const orgId = req.params.id;
+
+      if (!userId) {
+        sendOrgContextError(res, 'AUTH_REQUIRED');
+        return;
+      }
+
+      if (!orgId) {
+        sendOrgContextError(res, 'MISSING_ORG_ID');
+        return;
+      }
+
+      const membership = await findActiveMembership(userId, orgId, config.roleFilter);
+
+      if (!membership) {
+        logger.warn(`[OrgContext] User is not a ${config.name} of organization`, { userId, orgId });
+        sendOrgContextError(res, config.permissionDeniedError);
+        return;
+      }
+
+      attachOrganizationContext(req, membership.organizationId, { role: membership.role });
+
+      logger.debug(
+        `[OrgContext] ${config.name.charAt(0).toUpperCase() + config.name.slice(1)} context attached`,
+        {
+          userId,
+          orgId,
+          role: membership.role,
+        }
+      );
+
+      next();
+    } catch (error) {
+      logger.error(
+        `[OrgContext] ${config.name.charAt(0).toUpperCase() + config.name.slice(1)} check error`,
+        {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          userId: req.user?.id,
+        }
+      );
+      sendOrgContextError(res, config.internalError);
+    }
+  };
+}
+
+// ============================================================================
+// Role-Based Middleware Exports
 // ============================================================================
 
 /**
@@ -454,82 +492,12 @@ export function validateOrganizationAccess(
  *
  * Usage: router.get('/:id/members', authenticateSupabase, requireOrgMember, handler)
  */
-export async function requireOrgMember(
-  req: OrganizationRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const userId = req.user?.id;
-    const orgId = req.params.id;
-
-    if (!userId) {
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'AUTH_REQUIRED',
-      });
-      return;
-    }
-
-    if (!orgId) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'Organization ID is required',
-        code: 'MISSING_ORG_ID',
-      });
-      return;
-    }
-
-    // Check membership
-    const membership = await prisma.organizationMembership.findFirst({
-      where: {
-        userId,
-        organizationId: orgId,
-        status: 'ACTIVE',
-      },
-      select: {
-        role: true,
-        organizationId: true,
-      },
-    });
-
-    if (!membership) {
-      logger.warn('[OrgContext] User is not a member of organization', { userId, orgId });
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'You are not a member of this organization',
-        code: 'NOT_ORG_MEMBER',
-      });
-      return;
-    }
-
-    // Attach membership context to request
-    req.organizationId = membership.organizationId;
-    req.organizationContext = {
-      id: membership.organizationId,
-      role: membership.role,
-    };
-
-    logger.debug('[OrgContext] Member context attached', {
-      userId,
-      orgId,
-      role: membership.role,
-    });
-
-    next();
-  } catch (error) {
-    logger.error('[OrgContext] Member check error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      userId: req.user?.id,
-    });
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to validate organization membership',
-      code: 'ORG_MEMBER_CHECK_ERROR',
-    });
-  }
-}
+export const requireOrgMember = createRoleMiddleware({
+  name: 'member',
+  roleFilter: undefined,
+  permissionDeniedError: 'NOT_ORG_MEMBER',
+  internalError: 'ORG_MEMBER_CHECK_ERROR',
+});
 
 /**
  * Require organization admin middleware
@@ -539,85 +507,12 @@ export async function requireOrgMember(
  *
  * Usage: router.patch('/:id/members/:userId', authenticateSupabase, requireOrgAdmin, handler)
  */
-export async function requireOrgAdmin(
-  req: OrganizationRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const userId = req.user?.id;
-    const orgId = req.params.id;
-
-    if (!userId) {
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'AUTH_REQUIRED',
-      });
-      return;
-    }
-
-    if (!orgId) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'Organization ID is required',
-        code: 'MISSING_ORG_ID',
-      });
-      return;
-    }
-
-    // Check membership and role
-    const membership = await prisma.organizationMembership.findFirst({
-      where: {
-        userId,
-        organizationId: orgId,
-        status: 'ACTIVE',
-        role: {
-          in: ['OWNER', 'ADMIN'],
-        },
-      },
-      select: {
-        role: true,
-        organizationId: true,
-      },
-    });
-
-    if (!membership) {
-      logger.warn('[OrgContext] User is not an admin of organization', { userId, orgId });
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'You must be an admin or owner to perform this action',
-        code: 'ADMIN_REQUIRED',
-      });
-      return;
-    }
-
-    // Attach membership context to request
-    req.organizationId = membership.organizationId;
-    req.organizationContext = {
-      id: membership.organizationId,
-      role: membership.role,
-    };
-
-    logger.debug('[OrgContext] Admin context attached', {
-      userId,
-      orgId,
-      role: membership.role,
-    });
-
-    next();
-  } catch (error) {
-    logger.error('[OrgContext] Admin check error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      userId: req.user?.id,
-    });
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to validate admin permissions',
-      code: 'ORG_ADMIN_CHECK_ERROR',
-    });
-  }
-}
+export const requireOrgAdmin = createRoleMiddleware({
+  name: 'admin',
+  roleFilter: ['OWNER', 'ADMIN'],
+  permissionDeniedError: 'ADMIN_REQUIRED',
+  internalError: 'ORG_ADMIN_CHECK_ERROR',
+});
 
 /**
  * Require organization owner middleware
@@ -627,83 +522,12 @@ export async function requireOrgAdmin(
  *
  * Usage: router.delete('/:id', authenticateSupabase, requireOrgOwner, handler)
  */
-export async function requireOrgOwner(
-  req: OrganizationRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const userId = req.user?.id;
-    const orgId = req.params.id;
-
-    if (!userId) {
-      res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'AUTH_REQUIRED',
-      });
-      return;
-    }
-
-    if (!orgId) {
-      res.status(400).json({
-        error: 'Bad Request',
-        message: 'Organization ID is required',
-        code: 'MISSING_ORG_ID',
-      });
-      return;
-    }
-
-    // Check membership and role
-    const membership = await prisma.organizationMembership.findFirst({
-      where: {
-        userId,
-        organizationId: orgId,
-        status: 'ACTIVE',
-        role: 'OWNER',
-      },
-      select: {
-        role: true,
-        organizationId: true,
-      },
-    });
-
-    if (!membership) {
-      logger.warn('[OrgContext] User is not an owner of organization', { userId, orgId });
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'You must be an owner to perform this action',
-        code: 'OWNER_REQUIRED',
-      });
-      return;
-    }
-
-    // Attach membership context to request
-    req.organizationId = membership.organizationId;
-    req.organizationContext = {
-      id: membership.organizationId,
-      role: membership.role,
-    };
-
-    logger.debug('[OrgContext] Owner context attached', {
-      userId,
-      orgId,
-      role: membership.role,
-    });
-
-    next();
-  } catch (error) {
-    logger.error('[OrgContext] Owner check error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      userId: req.user?.id,
-    });
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to validate owner permissions',
-      code: 'ORG_OWNER_CHECK_ERROR',
-    });
-  }
-}
+export const requireOrgOwner = createRoleMiddleware({
+  name: 'owner',
+  roleFilter: ['OWNER'],
+  permissionDeniedError: 'OWNER_REQUIRED',
+  internalError: 'ORG_OWNER_CHECK_ERROR',
+});
 
 // ============================================================================
 // Exports
