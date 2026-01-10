@@ -353,6 +353,9 @@ importers:
       p-queue:
         specifier: ^9.0.1
         version: 9.0.1
+      pdfjs-dist:
+        specifier: ^5.4.530
+        version: 5.4.530
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -9120,6 +9123,13 @@ packages:
       }
     engines: { node: '>=20.16.0 || >=22.3.0' }
 
+  pdfjs-dist@5.4.530:
+    resolution:
+      {
+        integrity: sha512-r1hWsSIGGmyYUAHR26zSXkxYWLXLMd6AwqcaFYG9YUZ0GBf5GvcjJSeo512tabM4GYFhxhl5pMCmPr7Q72Rq2Q==,
+      }
+    engines: { node: '>=20.16.0 || >=22.3.0' }
+
   peberminta@0.9.0:
     resolution:
       {
@@ -17284,6 +17294,10 @@ snapshots:
       - supports-color
 
   pdfjs-dist@5.4.449:
+    optionalDependencies:
+      '@napi-rs/canvas': 0.1.84
+
+  pdfjs-dist@5.4.530:
     optionalDependencies:
       '@napi-rs/canvas': 0.1.84
 
