@@ -7,6 +7,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+import { requireOrgAdmin, requireOrgOwner } from '../middleware/organizationContext';
 import { validate, validateParams, validateQuery } from '../middleware/validation';
 import {
   createOrganizationSchema,
@@ -21,7 +22,7 @@ import {
 } from '../validators/schemas/organizationSchemas';
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
-import { OrganizationStatus } from '@prisma/client';
+import { OrganizationStatus, OrgMemberRole } from '@prisma/client';
 import crypto from 'crypto';
 
 /**
@@ -38,99 +39,58 @@ function generateSlug(name: string): string {
 }
 
 /**
- * Middleware: Require admin role (ADMIN or OWNER) for organization
+ * Result of checking if a member can be removed/demoted from organization
  */
-async function requireOrgAdmin(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const userId = req.user?.id;
-    const organizationId = req.params.id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' });
-      return;
-    }
-
-    const membership = await prisma.organizationMembership.findFirst({
-      where: {
-        userId,
-        organizationId,
-        status: 'ACTIVE',
-      },
-      select: {
-        role: true,
-      },
-    });
-
-    if (!membership || (membership.role !== 'ADMIN' && membership.role !== 'OWNER')) {
-      logger.warn('[Organization] Admin access denied', { userId, organizationId });
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'Admin or Owner role required',
-        code: 'INSUFFICIENT_PERMISSIONS',
-      });
-      return;
-    }
-
-    next();
-  } catch (error) {
-    logger.error('[Organization] Admin check error', { error });
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to verify admin access',
-    });
-  }
+interface ProtectionCheckResult {
+  allowed: boolean;
+  code?: 'LAST_OWNER_PROTECTION' | 'LAST_ADMIN_PROTECTION';
+  message?: string;
 }
 
 /**
- * Middleware: Require owner role for organization
+ * Check if removing/demoting a member would leave the organization without leadership.
+ * Enforces:
+ * - Cannot demote/remove last OWNER
+ * - Cannot demote/remove last ADMIN if no OWNER exists
  */
-async function requireOrgOwner(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const userId = req.user?.id;
-    const organizationId = req.params.id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized', code: 'AUTH_REQUIRED' });
-      return;
-    }
-
-    const membership = await prisma.organizationMembership.findFirst({
-      where: {
-        userId,
-        organizationId,
-        status: 'ACTIVE',
-      },
-      select: {
-        role: true,
-      },
+async function checkLeadershipProtection(
+  organizationId: string,
+  currentRole: OrgMemberRole,
+  isSelfAction: boolean
+): Promise<ProtectionCheckResult> {
+  if (currentRole === 'OWNER') {
+    const ownerCount = await prisma.organizationMembership.count({
+      where: { organizationId, role: 'OWNER', status: 'ACTIVE' },
     });
 
-    if (!membership || membership.role !== 'OWNER') {
-      logger.warn('[Organization] Owner access denied', { userId, organizationId });
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'Owner role required',
-        code: 'OWNER_ONLY',
-      });
-      return;
+    if (ownerCount <= 1) {
+      return {
+        allowed: false,
+        code: 'LAST_OWNER_PROTECTION',
+        message: isSelfAction
+          ? 'Cannot leave organization as the last owner. Transfer ownership first or delete the organization.'
+          : 'Cannot demote/remove the last owner. Promote another member to owner first.',
+      };
     }
-
-    next();
-  } catch (error) {
-    logger.error('[Organization] Owner check error', { error });
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to verify owner access',
-    });
   }
+
+  if (currentRole === 'ADMIN' || currentRole === 'OWNER') {
+    const adminCount = await prisma.organizationMembership.count({
+      where: { organizationId, role: { in: ['ADMIN', 'OWNER'] }, status: 'ACTIVE' },
+    });
+
+    if (adminCount <= 1) {
+      return {
+        allowed: false,
+        code: 'LAST_ADMIN_PROTECTION',
+        message: isSelfAction
+          ? 'Cannot leave organization as the last admin. Promote another member first.'
+          : 'Cannot demote/remove the last admin. Promote another member to admin or owner first.',
+      };
+    }
+  }
+
+  return { allowed: true };
 }
 
 export function createOrganizationRoutes(): Router {
@@ -575,41 +535,22 @@ export function createOrganizationRoutes(): Router {
           });
         }
 
-        // Business Rule: Cannot demote last OWNER
-        if (targetMembership.role === 'OWNER' && newRole !== 'OWNER') {
-          const ownerCount = await prisma.organizationMembership.count({
-            where: {
-              organizationId,
-              role: 'OWNER',
-              status: 'ACTIVE',
-            },
-          });
+        // Check if demotion would leave org without leadership
+        const isDemotion =
+          (targetMembership.role === 'OWNER' && newRole !== 'OWNER') ||
+          (targetMembership.role === 'ADMIN' && newRole !== 'ADMIN' && newRole !== 'OWNER');
 
-          if (ownerCount <= 1) {
+        if (isDemotion) {
+          const protection = await checkLeadershipProtection(
+            organizationId,
+            targetMembership.role,
+            false
+          );
+          if (!protection.allowed) {
             return res.status(400).json({
               error: 'Bad Request',
-              message: 'Cannot demote the last owner. Promote another member to owner first.',
-              code: 'LAST_OWNER_PROTECTION',
-            });
-          }
-        }
-
-        // Business Rule: Cannot demote last ADMIN if no OWNER exists
-        if (targetMembership.role === 'ADMIN' && newRole !== 'ADMIN' && newRole !== 'OWNER') {
-          const adminCount = await prisma.organizationMembership.count({
-            where: {
-              organizationId,
-              role: { in: ['ADMIN', 'OWNER'] },
-              status: 'ACTIVE',
-            },
-          });
-
-          if (adminCount <= 1) {
-            return res.status(400).json({
-              error: 'Bad Request',
-              message:
-                'Cannot demote the last admin. Promote another member to admin or owner first.',
-              code: 'LAST_ADMIN_PROTECTION',
+              message: protection.message,
+              code: protection.code,
             });
           }
         }
@@ -730,46 +671,18 @@ export function createOrganizationRoutes(): Router {
           });
         }
 
-        // Business Rule: Cannot remove last OWNER
-        if (targetMembership.role === 'OWNER') {
-          const ownerCount = await prisma.organizationMembership.count({
-            where: {
-              organizationId,
-              role: 'OWNER',
-              status: 'ACTIVE',
-            },
+        // Check if removal would leave org without leadership
+        const protection = await checkLeadershipProtection(
+          organizationId,
+          targetMembership.role,
+          isSelfRemoval
+        );
+        if (!protection.allowed) {
+          return res.status(400).json({
+            error: 'Bad Request',
+            message: protection.message,
+            code: protection.code,
           });
-
-          if (ownerCount <= 1) {
-            return res.status(400).json({
-              error: 'Bad Request',
-              message: isSelfRemoval
-                ? 'Cannot leave organization as the last owner. Transfer ownership first or delete the organization.'
-                : 'Cannot remove the last owner. Promote another member to owner first.',
-              code: 'LAST_OWNER_PROTECTION',
-            });
-          }
-        }
-
-        // Business Rule: Cannot remove last ADMIN if no OWNER exists
-        if (targetMembership.role === 'ADMIN' || targetMembership.role === 'OWNER') {
-          const adminCount = await prisma.organizationMembership.count({
-            where: {
-              organizationId,
-              role: { in: ['ADMIN', 'OWNER'] },
-              status: 'ACTIVE',
-            },
-          });
-
-          if (adminCount <= 1) {
-            return res.status(400).json({
-              error: 'Bad Request',
-              message: isSelfRemoval
-                ? 'Cannot leave organization as the last admin. Promote another member first.'
-                : 'Cannot remove the last admin. Promote another member to admin or owner first.',
-              code: 'LAST_ADMIN_PROTECTION',
-            });
-          }
         }
 
         // Update membership status to LEFT (soft delete)
@@ -799,9 +712,7 @@ export function createOrganizationRoutes(): Router {
 
         res.json({
           success: true,
-          message: isSelfRemoval
-            ? 'You have left the organization'
-            : 'Member removed successfully',
+          message: isSelfRemoval ? 'You have left the organization' : 'Member removed successfully',
         });
       } catch (error) {
         logger.error('[Organization] Remove member error', { error });
@@ -844,43 +755,14 @@ export function createOrganizationRoutes(): Router {
           });
         }
 
-        // Business Rule: Cannot leave if last OWNER
-        if (membership.role === 'OWNER') {
-          const ownerCount = await prisma.organizationMembership.count({
-            where: {
-              organizationId,
-              role: 'OWNER',
-              status: 'ACTIVE',
-            },
+        // Check if leaving would leave org without leadership
+        const protection = await checkLeadershipProtection(organizationId, membership.role, true);
+        if (!protection.allowed) {
+          return res.status(400).json({
+            error: 'Bad Request',
+            message: protection.message,
+            code: protection.code,
           });
-
-          if (ownerCount <= 1) {
-            return res.status(400).json({
-              error: 'Bad Request',
-              message:
-                'Cannot leave organization as the last owner. Transfer ownership first or delete the organization.',
-              code: 'LAST_OWNER_PROTECTION',
-            });
-          }
-        }
-
-        // Business Rule: Cannot leave if last ADMIN
-        if (membership.role === 'ADMIN' || membership.role === 'OWNER') {
-          const adminCount = await prisma.organizationMembership.count({
-            where: {
-              organizationId,
-              role: { in: ['ADMIN', 'OWNER'] },
-              status: 'ACTIVE',
-            },
-          });
-
-          if (adminCount <= 1) {
-            return res.status(400).json({
-              error: 'Bad Request',
-              message: 'Cannot leave organization as the last admin. Promote another member first.',
-              code: 'LAST_ADMIN_PROTECTION',
-            });
-          }
         }
 
         // Update membership status to LEFT

@@ -1,28 +1,41 @@
 import request from 'supertest';
 import { Express } from 'express';
 import { initializeApp } from '../../src/index';
-import { DatabaseService } from '../../src/database/DatabaseService';
+import { prisma } from '../../src/utils/prisma';
 
 describe('Auth Integration Tests', () => {
   let app: Express;
-  let db: DatabaseService;
-  
+
   beforeAll(async () => {
     // Initialize test app
     const appData = await initializeApp();
     app = appData.app;
-    db = appData.db;
 
-    // Clean up test data
-    await db.query('DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%test%']);
-    await db.query('DELETE FROM users WHERE email LIKE $1', ['%test%']);
+    // Clean up test data using Prisma
+    await prisma.refreshToken.deleteMany({
+      where: {
+        user: {
+          email: { contains: 'test' },
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: { email: { contains: 'test' } },
+    });
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await db.query('DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE $1)', ['%test%']);
-    await db.query('DELETE FROM users WHERE email LIKE $1', ['%test%']);
-    await db.disconnect();
+    // Clean up test data using Prisma
+    await prisma.refreshToken.deleteMany({
+      where: {
+        user: {
+          email: { contains: 'test' },
+        },
+      },
+    });
+    await prisma.user.deleteMany({
+      where: { email: { contains: 'test' } },
+    });
   });
 
   describe('POST /api/auth/register', () => {
@@ -30,7 +43,7 @@ describe('Auth Integration Tests', () => {
       email: 'integration.test@example.com',
       password: 'TestPass123!',
       fullName: 'Integration Test User',
-      role: 'user'
+      role: 'user',
     };
 
     it('should register a new user successfully', async () => {
@@ -48,10 +61,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should reject duplicate email registration', async () => {
-      await request(app)
-        .post('/api/auth/register')
-        .send(validUserData)
-        .expect(409);
+      await request(app).post('/api/auth/register').send(validUserData).expect(409);
     });
 
     it('should validate required fields', async () => {
@@ -69,7 +79,7 @@ describe('Auth Integration Tests', () => {
         .send({
           email: 'weak.password.test@example.com',
           password: '123',
-          fullName: 'Test User'
+          fullName: 'Test User',
         })
         .expect(400);
 
@@ -82,7 +92,7 @@ describe('Auth Integration Tests', () => {
         .send({
           email: 'invalid-email',
           password: 'ValidPass123!',
-          fullName: 'Test User'
+          fullName: 'Test User',
         })
         .expect(400);
 
@@ -94,14 +104,12 @@ describe('Auth Integration Tests', () => {
     const testUser = {
       email: 'login.test@example.com',
       password: 'LoginTest123!',
-      fullName: 'Login Test User'
+      fullName: 'Login Test User',
     };
 
     beforeAll(async () => {
       // Create test user
-      await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
+      await request(app).post('/api/auth/register').send(testUser);
     });
 
     it('should login successfully with valid credentials', async () => {
@@ -109,7 +117,7 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: testUser.email,
-          password: testUser.password
+          password: testUser.password,
         })
         .expect(200);
 
@@ -124,7 +132,7 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: testUser.email,
-          password: 'WrongPassword123!'
+          password: 'WrongPassword123!',
         })
         .expect(401);
 
@@ -136,7 +144,7 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: 'nonexistent@example.com',
-          password: 'SomePassword123!'
+          password: 'SomePassword123!',
         })
         .expect(401);
 
@@ -161,20 +169,16 @@ describe('Auth Integration Tests', () => {
       const testUser = {
         email: 'refresh.test@example.com',
         password: 'RefreshTest123!',
-        fullName: 'Refresh Test User'
+        fullName: 'Refresh Test User',
       };
 
       // Register and login to get tokens
-      await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
+      await request(app).post('/api/auth/register').send(testUser);
 
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: testUser.password
-        });
+      const loginResponse = await request(app).post('/api/auth/login').send({
+        email: testUser.email,
+        password: testUser.password,
+      });
 
       refreshToken = loginResponse.body.data.tokens.refreshToken;
       accessToken = loginResponse.body.data.tokens.accessToken;
@@ -202,10 +206,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should require refresh token', async () => {
-      const response = await request(app)
-        .post('/api/auth/refresh')
-        .send({})
-        .expect(400);
+      const response = await request(app).post('/api/auth/refresh').send({}).expect(400);
 
       expect(response.body.error).toContain('required');
     });
@@ -219,13 +220,11 @@ describe('Auth Integration Tests', () => {
       const testUser = {
         email: 'profile.test@example.com',
         password: 'ProfileTest123!',
-        fullName: 'Profile Test User'
+        fullName: 'Profile Test User',
       };
 
       // Register and login
-      const registerResponse = await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
+      const registerResponse = await request(app).post('/api/auth/register').send(testUser);
 
       accessToken = registerResponse.body.data.tokens.accessToken;
       userId = registerResponse.body.data.user.id;
@@ -244,9 +243,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should reject requests without token', async () => {
-      const response = await request(app)
-        .get('/api/auth/me')
-        .expect(401);
+      const response = await request(app).get('/api/auth/me').expect(401);
 
       expect(response.body.error).toContain('Authentication required');
     });
@@ -266,13 +263,11 @@ describe('Auth Integration Tests', () => {
     const testUser = {
       email: 'password.test@example.com',
       password: 'OldPassword123!',
-      fullName: 'Password Test User'
+      fullName: 'Password Test User',
     };
 
     beforeAll(async () => {
-      const registerResponse = await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
+      const registerResponse = await request(app).post('/api/auth/register').send(testUser);
 
       accessToken = registerResponse.body.data.tokens.accessToken;
     });
@@ -283,7 +278,7 @@ describe('Auth Integration Tests', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           currentPassword: testUser.password,
-          newPassword: 'NewPassword456!'
+          newPassword: 'NewPassword456!',
         })
         .expect(200);
 
@@ -293,12 +288,10 @@ describe('Auth Integration Tests', () => {
 
     it('should reject incorrect current password', async () => {
       // Login again to get new token (old tokens are revoked after password change)
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: 'NewPassword456!' // Use new password
-        });
+      const loginResponse = await request(app).post('/api/auth/login').send({
+        email: testUser.email,
+        password: 'NewPassword456!', // Use new password
+      });
 
       const newAccessToken = loginResponse.body.data.tokens.accessToken;
 
@@ -307,7 +300,7 @@ describe('Auth Integration Tests', () => {
         .set('Authorization', `Bearer ${newAccessToken}`)
         .send({
           currentPassword: 'WrongPassword123!',
-          newPassword: 'AnotherPassword789!'
+          newPassword: 'AnotherPassword789!',
         })
         .expect(400);
 
@@ -316,12 +309,10 @@ describe('Auth Integration Tests', () => {
 
     it('should validate new password strength', async () => {
       // Login again to get fresh token
-      const loginResponse = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: testUser.email,
-          password: 'NewPassword456!'
-        });
+      const loginResponse = await request(app).post('/api/auth/login').send({
+        email: testUser.email,
+        password: 'NewPassword456!',
+      });
 
       const newAccessToken = loginResponse.body.data.tokens.accessToken;
 
@@ -330,7 +321,7 @@ describe('Auth Integration Tests', () => {
         .set('Authorization', `Bearer ${newAccessToken}`)
         .send({
           currentPassword: 'NewPassword456!',
-          newPassword: 'weak'
+          newPassword: 'weak',
         })
         .expect(400);
 
@@ -342,7 +333,7 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/change-password')
         .send({
           currentPassword: 'OldPassword123!',
-          newPassword: 'NewPassword456!'
+          newPassword: 'NewPassword456!',
         })
         .expect(401);
 
@@ -358,12 +349,10 @@ describe('Auth Integration Tests', () => {
       const testUser = {
         email: `logout.test.${Date.now()}@example.com`,
         password: 'LogoutTest123!',
-        fullName: 'Logout Test User'
+        fullName: 'Logout Test User',
       };
 
-      const registerResponse = await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
+      const registerResponse = await request(app).post('/api/auth/register').send(testUser);
 
       accessToken = registerResponse.body.data.tokens.accessToken;
       refreshToken = registerResponse.body.data.tokens.refreshToken;
@@ -405,12 +394,10 @@ describe('Auth Integration Tests', () => {
       const testUser = {
         email: 'verify.test@example.com',
         password: 'VerifyTest123!',
-        fullName: 'Verify Test User'
+        fullName: 'Verify Test User',
       };
 
-      const registerResponse = await request(app)
-        .post('/api/auth/register')
-        .send(testUser);
+      const registerResponse = await request(app).post('/api/auth/register').send(testUser);
 
       accessToken = registerResponse.body.data.tokens.accessToken;
     });
@@ -436,10 +423,7 @@ describe('Auth Integration Tests', () => {
     });
 
     it('should require token', async () => {
-      const response = await request(app)
-        .post('/api/auth/verify-token')
-        .send({})
-        .expect(400);
+      const response = await request(app).post('/api/auth/verify-token').send({}).expect(400);
 
       expect(response.body.error).toContain('required');
     });
@@ -449,38 +433,38 @@ describe('Auth Integration Tests', () => {
     it('should enforce rate limits on login endpoint', async () => {
       const testData = {
         email: 'rate.limit.test@example.com',
-        password: 'InvalidPassword123!'
+        password: 'InvalidPassword123!',
       };
 
       // Make 6 requests (limit is 5)
-      const promises = Array(6).fill(null).map(() =>
-        request(app)
-          .post('/api/auth/login')
-          .send(testData)
-      );
+      const promises = Array(6)
+        .fill(null)
+        .map(() => request(app).post('/api/auth/login').send(testData));
 
       const responses = await Promise.all(promises);
-      
+
       // At least one should be rate limited
-      const rateLimitedResponses = responses.filter(r => r.status === 429);
+      const rateLimitedResponses = responses.filter((r) => r.status === 429);
       expect(rateLimitedResponses.length).toBeGreaterThan(0);
     });
 
     it('should enforce rate limits on register endpoint', async () => {
-      const promises = Array(4).fill(null).map((_, i) =>
-        request(app)
-          .post('/api/auth/register')
-          .send({
-            email: `rate.limit.register.${i}.${Date.now()}@example.com`,
-            password: 'ValidPassword123!',
-            fullName: 'Rate Limit Test User'
-          })
-      );
+      const promises = Array(4)
+        .fill(null)
+        .map((_, i) =>
+          request(app)
+            .post('/api/auth/register')
+            .send({
+              email: `rate.limit.register.${i}.${Date.now()}@example.com`,
+              password: 'ValidPassword123!',
+              fullName: 'Rate Limit Test User',
+            })
+        );
 
       const responses = await Promise.all(promises);
-      
+
       // At least one should be rate limited (limit is 3 per hour)
-      const rateLimitedResponses = responses.filter(r => r.status === 429);
+      const rateLimitedResponses = responses.filter((r) => r.status === 429);
       expect(rateLimitedResponses.length).toBeGreaterThan(0);
     });
   });

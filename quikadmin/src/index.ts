@@ -43,7 +43,6 @@ import { DataExtractor } from './extractors/DataExtractor';
 import { FieldMapper } from './mappers/FieldMapper';
 import { FormFiller } from './fillers/FormFiller';
 import { ValidationService } from './validators/ValidationService';
-import { DatabaseService } from './database/DatabaseService';
 import { setupRoutes } from './api/routes';
 import { logger } from './utils/logger';
 import {
@@ -106,14 +105,9 @@ if (config.server.nodeEnv === 'production') {
   logger.info('   Trust proxy: enabled (production mode)');
 }
 
-async function initializeApp(): Promise<{ app: Application; db: DatabaseService }> {
+async function initializeApp(): Promise<{ app: Application }> {
   try {
-    // Initialize database
-    const db = new DatabaseService();
-    // Enhanced connection with retry logic
-    await db.connect();
-
-    // Verify Prisma connection as well
+    // Verify Prisma connection with retry logic
     const { ensureDbConnection, startKeepalive } = await import('./utils/prisma');
     const prismaConnected = await ensureDbConnection();
     if (!prismaConnected) {
@@ -343,7 +337,7 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
     });
 
     // Setup routes with authentication
-    setupRoutes(app, intelliFillService, db);
+    setupRoutes(app, intelliFillService);
 
     // Error handling middleware (must be after routes)
     // Task 300: Include requestId in all error responses for client-side correlation
@@ -519,7 +513,7 @@ async function initializeApp(): Promise<{ app: Application; db: DatabaseService 
       });
     });
 
-    return { app, db };
+    return { app };
   } catch (error) {
     logger.error('Failed to initialize application:', error);
     process.exit(1);
@@ -538,7 +532,7 @@ process.on('SIGINT', async () => {
 // Start server
 async function startServer() {
   try {
-    const { app, db } = await initializeApp();
+    const { app } = await initializeApp();
 
     const server = app.listen(PORT, async () => {
       logger.info(`🚀 IntelliFill API server running on port ${PORT}`);
@@ -576,7 +570,6 @@ async function startServer() {
 
       server.close(async () => {
         logger.info('HTTP server closed');
-        await db.disconnect();
         process.exit(0);
       });
 

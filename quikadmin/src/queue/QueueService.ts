@@ -2,7 +2,7 @@ import Bull from 'bull';
 import { Job } from 'bull';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { logger } from '../utils/logger';
-import { DatabaseService } from '../database/DatabaseService';
+import { prisma } from '../utils/prisma';
 import { verifyRedisAtStartup, checkRedisHealth } from '../utils/redisHealth';
 
 export interface ProcessingJob {
@@ -23,7 +23,6 @@ export class QueueService {
   private ocrQueue: Bull.Queue<{ filePath: string; jobId: string }>;
   private mlTrainingQueue: Bull.Queue<{ data: any[]; modelId: string }>;
   private intelliFillService: IntelliFillService;
-  private databaseService: DatabaseService;
 
   static get isAvailable(): boolean {
     return QueueService._isAvailable;
@@ -64,13 +63,8 @@ export class QueueService {
     };
   }
 
-  constructor(
-    intelliFillService: IntelliFillService,
-    databaseService: DatabaseService,
-    redisUrl: string = 'redis://localhost:6379'
-  ) {
+  constructor(intelliFillService: IntelliFillService, redisUrl: string = 'redis://localhost:6379') {
     this.intelliFillService = intelliFillService;
-    this.databaseService = databaseService;
 
     let redisConfig: any;
 
@@ -148,13 +142,15 @@ export class QueueService {
 
       try {
         // Store job start in database
-        await this.databaseService.createJob({
-          id: job.id as string,
-          type,
-          status: 'processing',
-          userId,
-          documentsCount: documents.length,
-          startedAt: new Date(),
+        await prisma.job.create({
+          data: {
+            id: job.id as string,
+            type,
+            status: 'processing',
+            userId,
+            documentsCount: documents.length,
+            startedAt: new Date(),
+          },
         });
 
         let result;
@@ -188,10 +184,13 @@ export class QueueService {
         await job.progress(90);
 
         // Store results in database
-        await this.databaseService.updateJob(job.id as string, {
-          status: 'completed',
-          result,
-          completedAt: new Date(),
+        await prisma.job.update({
+          where: { id: job.id as string },
+          data: {
+            status: 'completed',
+            result: result as any,
+            completedAt: new Date(),
+          },
         });
 
         await job.progress(100);
@@ -199,10 +198,13 @@ export class QueueService {
         return result;
       } catch (error) {
         // Store error in database
-        await this.databaseService.updateJob(job.id as string, {
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Unknown error',
-          failedAt: new Date(),
+        await prisma.job.update({
+          where: { id: job.id as string },
+          data: {
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Unknown error',
+            failedAt: new Date(),
+          },
         });
 
         throw error;

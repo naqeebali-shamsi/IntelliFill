@@ -17,7 +17,6 @@ import securityDashboardRoutes from './security-dashboard.routes';
 import { createOrganizationRoutes } from './organization.routes';
 import { createInvitationRoutes } from './invitation.routes';
 import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
-import { DatabaseService } from '../database/DatabaseService';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
 import { realtimeService } from '../services/RealtimeService';
@@ -74,23 +73,19 @@ const upload = multer({
 
 export function setupRoutes(
   app: express.Application,
-  intelliFillService: IntelliFillService,
-  db?: DatabaseService
+  intelliFillService: IntelliFillService
 ): void {
   const router = Router();
 
-  // Setup authentication routes
-  if (db) {
-    // Supabase auth routes (Phase 6 - Production Ready)
-    // Mounted at /api/auth/v2
-    // All authentication uses Supabase Auth SDK
-    const supabaseAuthRoutes = createSupabaseAuthRoutes();
-    app.use('/api/auth/v2', supabaseAuthRoutes);
+  // Supabase auth routes (Phase 6 - Production Ready)
+  // Mounted at /api/auth/v2
+  // All authentication uses Supabase Auth SDK
+  const supabaseAuthRoutes = createSupabaseAuthRoutes();
+  app.use('/api/auth/v2', supabaseAuthRoutes);
 
-    // Setup stats and dashboard routes
-    const statsRoutes = createStatsRoutes(db);
-    app.use('/api', statsRoutes);
-  }
+  // Setup stats and dashboard routes
+  const statsRoutes = createStatsRoutes();
+  app.use('/api', statsRoutes);
 
   // Setup document management routes
   const documentRoutes = createDocumentRoutes();
@@ -190,14 +185,12 @@ export function setupRoutes(
         filesystem: false,
       };
 
-      // Check database if available
-      if (db) {
-        try {
-          await db.query('SELECT 1');
-          checks.database = true;
-        } catch (error) {
-          logger.error('Database health check failed:', error);
-        }
+      // Check database via Prisma
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        checks.database = true;
+      } catch (error) {
+        logger.error('Database health check failed:', error);
       }
 
       // Check filesystem

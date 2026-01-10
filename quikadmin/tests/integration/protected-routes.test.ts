@@ -10,20 +10,20 @@ import request from 'supertest';
 import express from 'express';
 import { setupRoutes } from '../../src/api/routes';
 import { IntelliFillService } from '../../src/services/IntelliFillService';
-import { DatabaseService } from '../../src/database/DatabaseService';
 import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { createClient } from '@supabase/supabase-js';
 
 // Test configuration
-const TEST_JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key-at-least-64-characters-long-for-security-purposes-12345';
+const TEST_JWT_SECRET =
+  process.env.JWT_SECRET ||
+  'test-secret-key-at-least-64-characters-long-for-security-purposes-12345';
 const TEST_SUPABASE_URL = process.env.SUPABASE_URL || 'https://test.supabase.co';
 const TEST_SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'test-key';
 
 describe('Protected Routes - Dual Authentication', () => {
   let app: express.Application;
   let intelliFillService: IntelliFillService;
-  let dbService: DatabaseService;
   let prisma: PrismaClient;
 
   // Test tokens
@@ -37,11 +37,10 @@ describe('Protected Routes - Dual Authentication', () => {
     app.use(express.json());
 
     prisma = new PrismaClient();
-    dbService = new DatabaseService();
     intelliFillService = new IntelliFillService();
 
     // Setup routes
-    setupRoutes(app, intelliFillService, dbService);
+    setupRoutes(app, intelliFillService);
 
     // Create test user
     testUserId = 'test-user-id-12345';
@@ -51,14 +50,14 @@ describe('Protected Routes - Dual Authentication', () => {
       {
         id: testUserId,
         email: 'test@example.com',
-        role: 'user'
+        role: 'user',
       },
       TEST_JWT_SECRET,
       {
         algorithm: 'HS256',
         expiresIn: '15m',
         issuer: process.env.JWT_ISSUER || 'quikadmin-api',
-        audience: process.env.JWT_AUDIENCE || 'quikadmin-client'
+        audience: process.env.JWT_AUDIENCE || 'quikadmin-client',
       }
     );
 
@@ -87,8 +86,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/process/single');
+        const response = await request(app).post('/api/process/single');
 
         expect(response.status).toBe(401);
         expect(response.body).toHaveProperty('error');
@@ -115,8 +113,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/process/multiple');
+        const response = await request(app).post('/api/process/multiple');
 
         expect(response.status).toBe(401);
       });
@@ -134,8 +131,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/process/batch');
+        const response = await request(app).post('/api/process/batch');
 
         expect(response.status).toBe(401);
       });
@@ -152,8 +148,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/validate');
+        const response = await request(app).post('/api/validate');
 
         expect(response.status).toBe(401);
       });
@@ -173,8 +168,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .get('/api/documents');
+        const response = await request(app).get('/api/documents');
 
         expect(response.status).toBe(401);
       });
@@ -190,8 +184,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .get('/api/documents/test-doc-id');
+        const response = await request(app).get('/api/documents/test-doc-id');
 
         expect(response.status).toBe(401);
       });
@@ -207,8 +200,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .get('/api/documents/test-doc-id/data');
+        const response = await request(app).get('/api/documents/test-doc-id/data');
 
         expect(response.status).toBe(401);
       });
@@ -225,8 +217,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/documents/test-doc-id/fill');
+        const response = await request(app).post('/api/documents/test-doc-id/fill');
 
         expect(response.status).toBe(401);
       });
@@ -242,8 +233,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .get('/api/documents/test-doc-id/download');
+        const response = await request(app).get('/api/documents/test-doc-id/download');
 
         expect(response.status).toBe(401);
       });
@@ -259,8 +249,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .delete('/api/documents/test-doc-id');
+        const response = await request(app).delete('/api/documents/test-doc-id');
 
         expect(response.status).toBe(401);
       });
@@ -278,7 +267,7 @@ describe('Protected Routes - Dual Authentication', () => {
           .send({
             name: 'Test Template',
             description: 'Test Description',
-            fields: [{ name: 'field1', type: 'text' }]
+            fields: [{ name: 'field1', type: 'text' }],
           });
 
         expect(response.status).not.toBe(401);
@@ -290,7 +279,7 @@ describe('Protected Routes - Dual Authentication', () => {
           .send({
             name: 'Test Template',
             description: 'Test Description',
-            fields: [{ name: 'field1', type: 'text' }]
+            fields: [{ name: 'field1', type: 'text' }],
           });
 
         expect(response.status).toBe(401);
@@ -307,8 +296,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/extract');
+        const response = await request(app).post('/api/extract');
 
         expect(response.status).toBe(401);
       });
@@ -324,8 +312,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token', async () => {
-        const response = await request(app)
-          .post('/api/validate/form');
+        const response = await request(app).post('/api/validate/form');
 
         expect(response.status).toBe(401);
       });
@@ -345,8 +332,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token (security fix)', async () => {
-        const response = await request(app)
-          .get('/jobs/recent');
+        const response = await request(app).get('/jobs/recent');
 
         expect(response.status).toBe(401);
       });
@@ -362,8 +348,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token (security fix)', async () => {
-        const response = await request(app)
-          .post('/jobs/test-job-id/cancel');
+        const response = await request(app).post('/jobs/test-job-id/cancel');
 
         expect(response.status).toBe(401);
       });
@@ -379,8 +364,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should reject request without token (security fix)', async () => {
-        const response = await request(app)
-          .post('/jobs/test-job-id/retry');
+        const response = await request(app).post('/jobs/test-job-id/retry');
 
         expect(response.status).toBe(401);
       });
@@ -420,8 +404,7 @@ describe('Protected Routes - Dual Authentication', () => {
       });
 
       it('should accept request without token (optional auth)', async () => {
-        const response = await request(app)
-          .get('/api/statistics');
+        const response = await request(app).get('/api/statistics');
 
         expect(response.status).toBe(200);
       });
@@ -439,7 +422,7 @@ describe('Protected Routes - Dual Authentication', () => {
           algorithm: 'HS256',
           expiresIn: '-1h', // Expired 1 hour ago
           issuer: process.env.JWT_ISSUER || 'quikadmin-api',
-          audience: process.env.JWT_AUDIENCE || 'quikadmin-client'
+          audience: process.env.JWT_AUDIENCE || 'quikadmin-client',
         }
       );
 
@@ -478,9 +461,7 @@ describe('Protected Routes - Dual Authentication', () => {
     });
 
     it('should reject empty authorization header', async () => {
-      const response = await request(app)
-        .get('/api/documents')
-        .set('Authorization', '');
+      const response = await request(app).get('/api/documents').set('Authorization', '');
 
       expect(response.status).toBe(401);
     });
@@ -512,14 +493,14 @@ describe('Protected Routes - Dual Authentication', () => {
         {
           id: 'user-123',
           email: 'legacy@example.com',
-          role: 'user'
+          role: 'user',
         },
         TEST_JWT_SECRET,
         {
           algorithm: 'HS256',
           expiresIn: '15m',
           issuer: process.env.JWT_ISSUER || 'quikadmin-api',
-          audience: process.env.JWT_AUDIENCE || 'quikadmin-client'
+          audience: process.env.JWT_AUDIENCE || 'quikadmin-client',
         }
       );
 

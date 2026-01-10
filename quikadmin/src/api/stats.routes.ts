@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { DatabaseService } from '../database/DatabaseService';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
@@ -32,7 +31,7 @@ const upload = multer({
   },
 });
 
-export function createStatsRoutes(_db: DatabaseService): Router {
+export function createStatsRoutes(): Router {
   const router = Router();
 
   // Get dashboard statistics

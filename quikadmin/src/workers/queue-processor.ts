@@ -1,6 +1,5 @@
 import { QueueService } from '../queue/QueueService';
 import { IntelliFillService } from '../services/IntelliFillService';
-import { DatabaseService } from '../database/DatabaseService';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import * as dotenv from 'dotenv';
 
@@ -38,22 +37,10 @@ class QueueProcessor {
         validationService: new ValidationService(),
       });
 
-      // Validate DATABASE_URL is configured (fail-fast pattern)
-      const databaseUrl = process.env.DATABASE_URL;
-      if (!databaseUrl) {
-        throw new Error(
-          'DATABASE_URL environment variable is required. ' +
-            'Please set it in your .env file. ' +
-            'Example: DATABASE_URL=postgresql://user:password@host:port/database'
-        );
-      }
-
-      const databaseService = new DatabaseService(databaseUrl);
-
       // Redis URL can fallback to localhost for development
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-      this.queueService = new QueueService(intelliFillService, databaseService, redisUrl);
+      this.queueService = new QueueService(intelliFillService, redisUrl);
 
       logger.info('Queue processor initialized successfully');
       return true;
