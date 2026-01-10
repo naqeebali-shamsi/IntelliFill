@@ -44,7 +44,14 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
-import { getProfile, updateProfile, type UpdateProfileData } from '@/services/accountService';
+import {
+  getProfile,
+  updateProfile,
+  getSettings,
+  updateSettings,
+  type UpdateProfileData,
+  type UpdateSettingsData,
+} from '@/services/accountService';
 import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
 import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
 import {
@@ -113,6 +120,27 @@ export default function Settings() {
     queryKey: ['profile'],
     queryFn: getProfile,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch user settings on mount
+  const { data: userSettings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: getSettings,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Settings update mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: (data: UpdateSettingsData) => updateSettings(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      toast.success('Settings updated');
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to update settings', {
+        description: error.message || 'Please try again.',
+      });
+    },
   });
 
   // React Hook Form setup for profile editing
@@ -323,7 +351,13 @@ export default function Settings() {
                             Automatically process files upon upload
                           </p>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch
+                          checked={userSettings?.autoMlEnhancement ?? true}
+                          onCheckedChange={(checked) =>
+                            updateSettingsMutation.mutate({ autoMlEnhancement: checked })
+                          }
+                          disabled={updateSettingsMutation.isPending}
+                        />
                       </SettingsRow>
                       <SettingsRow>
                         <div className="space-y-0.5">
@@ -332,7 +366,13 @@ export default function Settings() {
                             Extract text from images/scans
                           </p>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch
+                          checked={userSettings?.autoOcr ?? false}
+                          onCheckedChange={(checked) =>
+                            updateSettingsMutation.mutate({ autoOcr: checked })
+                          }
+                          disabled={updateSettingsMutation.isPending}
+                        />
                       </SettingsRow>
                     </SettingsSection>
                   </>
