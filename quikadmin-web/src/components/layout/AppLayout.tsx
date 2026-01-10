@@ -1,14 +1,15 @@
-import React from 'react';
+import { useState } from 'react';
 import { useToggle } from 'usehooks-ts';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useTheme } from '@/components/theme-provider';
 import { useAuthStore } from '@/stores/auth';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ProfileFormModal } from '@/components/features/profile-form-modal';
 import {
   LayoutDashboard,
   UploadCloud,
@@ -28,7 +29,6 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -55,6 +55,7 @@ interface SidebarContentProps {
   logout: () => Promise<void>;
   navigate: (path: string) => void;
   theme: string;
+  onNewClient?: () => void;
 }
 
 const SidebarContent = ({
@@ -65,6 +66,7 @@ const SidebarContent = ({
   logout,
   navigate,
   theme,
+  onNewClient,
 }: SidebarContentProps) => {
   // Use light logo variant for dark theme, dark variant for light theme
   const logoIcon = theme === 'dark' ? '/logo-light.svg' : '/logo-dark.svg';
@@ -137,6 +139,10 @@ const SidebarContent = ({
               <Button
                 variant="outline"
                 className="w-full justify-start border-dashed border-white/10 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all"
+                onClick={() => {
+                  onNewClient?.();
+                  setSidebarOpen?.(false);
+                }}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 New Client
@@ -185,12 +191,15 @@ const SidebarContent = ({
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [sidebarOpen, toggleSidebarOpen, setSidebarOpen] = useToggle(false);
-  const [sidebarCollapsed, toggleSidebarCollapsed, setSidebarCollapsed] = useToggle(false);
+  const [sidebarOpen, , setSidebarOpen] = useToggle(false);
+  const [sidebarCollapsed, toggleSidebarCollapsed] = useToggle(false);
+  const [newClientModalOpen, setNewClientModalOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const { theme } = useTheme();
 
-  const toggleSidebar = () => toggleSidebarCollapsed();
+  const handleNewClientSuccess = () => {
+    navigate('/profiles');
+  };
 
   return (
     <div className="flex min-h-screen bg-background font-sans selection:bg-primary/20">
@@ -207,13 +216,14 @@ export function AppLayout({ children }: AppLayoutProps) {
           logout={logout}
           navigate={navigate}
           theme={theme}
+          onNewClient={() => setNewClientModalOpen(true)}
         />
 
         {/* Toggle Button */}
         <Button
           variant="outline"
           size="icon"
-          onClick={toggleSidebar}
+          onClick={toggleSidebarCollapsed}
           className="absolute -right-3 top-20 h-6 w-6 rounded-full border-border bg-background shadow-md hover:bg-accent z-40 hidden md:flex"
           data-testid="sidebar-toggle"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -241,6 +251,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             logout={logout}
             navigate={navigate}
             theme={theme}
+            onNewClient={() => setNewClientModalOpen(true)}
           />
         </SheetContent>
       </Sheet>
@@ -291,6 +302,13 @@ export function AppLayout({ children }: AppLayoutProps) {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* New Client Modal */}
+      <ProfileFormModal
+        open={newClientModalOpen}
+        onOpenChange={setNewClientModalOpen}
+        onSuccess={handleNewClientSuccess}
+      />
     </div>
   );
 }
