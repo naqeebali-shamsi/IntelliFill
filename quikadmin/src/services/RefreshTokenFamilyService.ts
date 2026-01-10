@@ -7,11 +7,17 @@
  * - Each login creates a new "token family" identified by a UUID (fid)
  * - Each refresh increments a generation counter (gen)
  * - Used tokens are tracked in Redis with TTL
- * - If a used token is presented, the entire family is revoked
+ * - If a used token is presented OUTSIDE the grace period, the entire family is revoked
+ *
+ * Grace Period (10 seconds):
+ * - Allows legitimate concurrent requests (multiple tabs, E2E workers, mobile+web)
+ * - Industry standard: Auth0, Supabase, Okta all implement similar grace periods
+ * - Token reuse WITHIN grace period is allowed and does NOT trigger theft detection
+ * - Token reuse OUTSIDE grace period triggers theft detection and family revocation
  *
  * This provides:
  * 1. Token rotation on every refresh
- * 2. Theft detection via reuse detection
+ * 2. Theft detection via reuse detection (with grace period to prevent false positives)
  * 3. Session revocation on compromise
  *
  * @module services/RefreshTokenFamilyService
@@ -76,6 +82,11 @@ const REFRESH_TOKEN_TTL = 7 * 24 * 60 * 60;
 
 // Used token tracking TTL (same as refresh token TTL + buffer)
 const USED_TOKEN_TTL = REFRESH_TOKEN_TTL + 60 * 60; // +1 hour buffer
+
+// Grace period for token reuse (industry standard: 10 seconds)
+// Allows legitimate concurrent requests without triggering false positive theft detection
+// Reference: Auth0, Supabase, Okta all implement similar grace periods
+export const TOKEN_REUSE_GRACE_PERIOD_SECONDS = 10;
 
 // ============================================================================
 // RefreshTokenFamilyService Class
@@ -410,29 +421,108 @@ export class RefreshTokenFamilyService {
 
   /**
    * Mark a token as used (for reuse detection)
+   * Uses NX (Not Exists) semantics to preserve the original timestamp
+   * This ensures the grace period is based on FIRST use, not extended by subsequent uses
    */
   private async markTokenAsUsed(
     token: string,
     familyId: string,
     generation: number
   ): Promise<void> {
+    if (!this.isReady()) return;
+
     const tokenHash = this.hashToken(token);
-    const success = await this.redisSet(REDIS_KEY_PREFIX.USED_TOKEN, tokenHash, {
+    const key = `${REDIS_KEY_PREFIX.USED_TOKEN}${tokenHash}`;
+    const data = JSON.stringify({
       familyId,
       generation,
       usedAt: new Date().toISOString(),
     });
 
-    if (success) {
-      logger.debug('[TokenFamily] Token marked as used', { familyId, generation });
+    try {
+      // Use NX (only set if Not eXists) to preserve original timestamp
+      // This ensures grace period is measured from FIRST use, not sliding window
+      const result = await this.client!.set(key, data, {
+        NX: true, // Only set if key does not exist
+        EX: USED_TOKEN_TTL, // Expiration in seconds
+      });
+
+      if (result === 'OK') {
+        logger.debug('[TokenFamily] Token marked as used (first use)', { familyId, generation });
+      } else {
+        logger.debug('[TokenFamily] Token already marked (within grace period)', {
+          familyId,
+          generation,
+        });
+      }
+    } catch (error) {
+      logger.warn('[TokenFamily] Failed to mark token as used', {
+        error: error instanceof Error ? error.message : 'Unknown',
+        familyId,
+      });
     }
   }
 
   /**
-   * Check if a token has been used before
+   * Get token usage data including timestamp
+   */
+  private async getTokenUsageData(
+    token: string
+  ): Promise<{ familyId: string; generation: number; usedAt: string } | null> {
+    if (!this.isReady()) return null;
+    try {
+      const key = `${REDIS_KEY_PREFIX.USED_TOKEN}${this.hashToken(token)}`;
+      const data = await this.client!.get(key);
+      if (!data) return null;
+      return JSON.parse(data);
+    } catch (error) {
+      logger.warn('[TokenFamily] Redis get failed', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Check if a token has been used before (outside grace period)
+   *
+   * Returns true only if:
+   * 1. Token was previously used AND
+   * 2. Usage was more than TOKEN_REUSE_GRACE_PERIOD_SECONDS ago
+   *
+   * This prevents false positive theft detection from legitimate concurrent requests
+   * (e.g., multiple browser tabs, E2E parallel workers, mobile + web simultaneous access)
    */
   private async isTokenUsed(token: string): Promise<boolean> {
-    return this.redisExists(REDIS_KEY_PREFIX.USED_TOKEN, this.hashToken(token));
+    const usageData = await this.getTokenUsageData(token);
+
+    if (!usageData) {
+      return false; // Never used
+    }
+
+    // Check if within grace period
+    const usedAtTime = new Date(usageData.usedAt).getTime();
+    const nowTime = Date.now();
+    const elapsedSeconds = (nowTime - usedAtTime) / 1000;
+
+    if (elapsedSeconds <= TOKEN_REUSE_GRACE_PERIOD_SECONDS) {
+      logger.debug('[TokenFamily] Token reuse within grace period - allowing', {
+        familyId: usageData.familyId,
+        generation: usageData.generation,
+        elapsedSeconds: elapsedSeconds.toFixed(2),
+        gracePeriod: TOKEN_REUSE_GRACE_PERIOD_SECONDS,
+      });
+      return false; // Within grace period - not considered reuse
+    }
+
+    // Outside grace period - this is suspicious reuse
+    logger.warn('[TokenFamily] Token reuse detected outside grace period', {
+      familyId: usageData.familyId,
+      generation: usageData.generation,
+      elapsedSeconds: elapsedSeconds.toFixed(2),
+      gracePeriod: TOKEN_REUSE_GRACE_PERIOD_SECONDS,
+    });
+    return true; // Theft detection triggered
   }
 
   // ==========================================================================
