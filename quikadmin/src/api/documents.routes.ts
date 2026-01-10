@@ -18,10 +18,7 @@ import { OCRService } from '../services/OCRService';
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
 import { uploadFile as uploadToStorage, isR2Configured } from '../services/storageHelper';
-import {
-  normalizeExtractedData,
-  flattenExtractedData,
-} from '../types/extractedData';
+import { normalizeExtractedData, flattenExtractedData } from '../types/extractedData';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
@@ -138,19 +135,18 @@ const upload = multer({
 export function createDocumentRoutes(): Router {
   const router = Router();
 
-  /**
-   * GET /api/documents - List user's documents
-   * Phase 6 Complete: Uses Supabase-only authentication
-   */
+  /** GET /api/documents - List user's documents */
   router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as unknown as { user: { id: string } }).user.id;
       const { type, search, limit = 50 } = req.query;
 
+      const types = type ? (Array.isArray(type) ? type : [type]).map((t) => String(t)) : undefined;
+
       const documents = await prisma.document.findMany({
         where: {
           userId,
-          ...(type && { fileType: type as string }),
+          ...(types && types.length > 0 && { fileType: { in: types } }),
           ...(search && {
             fileName: {
               contains: search as string,

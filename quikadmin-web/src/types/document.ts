@@ -270,9 +270,9 @@ export type DateRangePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'cus
  */
 export interface DocumentQueryParams {
   /**
-   * File type filter
+   * File type filter (single or multiple types)
    */
-  type?: string;
+  type?: string | string[];
 
   /**
    * Search query

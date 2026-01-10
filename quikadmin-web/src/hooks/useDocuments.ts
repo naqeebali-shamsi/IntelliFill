@@ -38,10 +38,7 @@ export interface UseDocumentsOptions {
   /**
    * React Query options
    */
-  queryOptions?: Omit<
-    UseQueryOptions<DocumentListResponse, Error>,
-    'queryKey' | 'queryFn'
-  >;
+  queryOptions?: Omit<UseQueryOptions<DocumentListResponse, Error>, 'queryKey' | 'queryFn'>;
 }
 
 /**
@@ -61,9 +58,8 @@ async function fetchDocuments(options: UseDocumentsOptions = {}): Promise<Docume
     params.search = filter.searchQuery;
   }
 
-  // Add file type filter (backend only supports single type currently)
   if (filter?.fileType && filter.fileType.length > 0) {
-    params.type = filter.fileType[0];
+    params.type = filter.fileType;
   }
 
   // Add sort parameter (format: "field:direction")
@@ -136,10 +132,7 @@ export function useDocuments(options: UseDocumentsOptions = {}) {
  * Apply client-side filtering for filters not supported by backend
  * (status, date range, min confidence, tags)
  */
-export function applyClientSideFilters(
-  documents: Document[],
-  filter: DocumentFilter
-): Document[] {
+export function applyClientSideFilters(documents: Document[], filter: DocumentFilter): Document[] {
   let filtered = documents;
 
   // Filter by status (multiple)
@@ -163,15 +156,16 @@ export function applyClientSideFilters(
   // Filter by minimum confidence
   if (filter.minConfidence !== undefined && filter.minConfidence > 0) {
     filtered = filtered.filter(
-      (doc) => doc.confidence !== null && doc.confidence !== undefined && doc.confidence >= filter.minConfidence!
+      (doc) =>
+        doc.confidence !== null &&
+        doc.confidence !== undefined &&
+        doc.confidence >= filter.minConfidence!
     );
   }
 
   // Filter by tags
   if (filter.tags && filter.tags.length > 0) {
-    filtered = filtered.filter((doc) =>
-      doc.tags?.some((tag) => filter.tags!.includes(tag))
-    );
+    filtered = filtered.filter((doc) => doc.tags?.some((tag) => filter.tags!.includes(tag)));
   }
 
   return filtered;
@@ -180,10 +174,7 @@ export function applyClientSideFilters(
 /**
  * Apply client-side sorting
  */
-export function applyClientSideSorting(
-  documents: Document[],
-  sort: DocumentSort
-): Document[] {
+export function applyClientSideSorting(documents: Document[], sort: DocumentSort): Document[] {
   return [...documents].sort((a, b) => {
     const aValue = a[sort.field];
     const bValue = b[sort.field];

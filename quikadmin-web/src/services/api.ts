@@ -411,7 +411,7 @@ export const uploadDocuments = async (
 
 // Document management
 export const getDocuments = async (params?: {
-  type?: string;
+  type?: string | string[];
   search?: string;
   limit?: number;
   page?: number;
