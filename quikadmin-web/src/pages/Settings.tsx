@@ -47,6 +47,7 @@ import { useBackendAuthStore } from '@/stores/backendAuthStore';
 import { getProfile, updateProfile, type UpdateProfileData } from '@/services/accountService';
 import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
 import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
+import { ChangePasswordModal } from '@/components/settings';
 
 // Sidebar Navigation Items
 const navItems = [
@@ -96,6 +97,7 @@ const SettingsRow = ({
 export default function Settings() {
   const user = useBackendAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('general');
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch profile data on mount
@@ -337,160 +339,168 @@ export default function Settings() {
                           <span className="ml-2 text-muted-foreground">Loading profile...</span>
                         </div>
                       ) : (
-                      <form onSubmit={handleSubmit(onSubmitProfile)} data-testid="profile-form">
-                        <div className="grid gap-4 max-w-xl">
-                          {/* First Name - Required */}
-                          <div className="grid gap-2">
-                            <Label htmlFor="firstName">
-                              First Name <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                              id="firstName"
-                              data-testid="profile-first-name-input"
-                              {...register('firstName')}
-                              aria-invalid={!!errors.firstName}
-                              placeholder="Enter your first name"
-                            />
-                            {errors.firstName && (
-                              <p className="text-sm text-destructive">{errors.firstName.message}</p>
-                            )}
-                          </div>
-
-                          {/* Last Name - Optional */}
-                          <div className="grid gap-2">
-                            <Label htmlFor="lastName">Last Name</Label>
-                            <Input
-                              id="lastName"
-                              data-testid="profile-last-name-input"
-                              {...register('lastName')}
-                              aria-invalid={!!errors.lastName}
-                              placeholder="Enter your last name"
-                            />
-                            {errors.lastName && (
-                              <p className="text-sm text-destructive">{errors.lastName.message}</p>
-                            )}
-                          </div>
-
-                          {/* Email - Read-only */}
-                          <div className="grid gap-2">
-                            <Label htmlFor="email">Email Address</Label>
-                            <div className="relative">
+                        <form onSubmit={handleSubmit(onSubmitProfile)} data-testid="profile-form">
+                          <div className="grid gap-4 max-w-xl">
+                            {/* First Name - Required */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="firstName">
+                                First Name <span className="text-destructive">*</span>
+                              </Label>
                               <Input
-                                id="email"
-                                data-testid="profile-email-display"
-                                type="email"
-                                value={user?.email || ''}
-                                readOnly
-                                disabled
-                                className="pr-24 bg-muted/50 cursor-not-allowed"
+                                id="firstName"
+                                data-testid="profile-first-name-input"
+                                {...register('firstName')}
+                                aria-invalid={!!errors.firstName}
+                                placeholder="Enter your first name"
                               />
-                              {user?.emailVerified && (
-                                <Badge
-                                  variant="outline"
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-status-success/10 border-status-success/30 text-status-success text-xs"
-                                >
-                                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Verified
-                                </Badge>
+                              {errors.firstName && (
+                                <p className="text-sm text-destructive">
+                                  {errors.firstName.message}
+                                </p>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              Email cannot be changed. Contact support if needed.
-                            </p>
-                          </div>
 
-                          {/* Phone - Optional */}
-                          <div className="grid gap-2">
-                            <Label htmlFor="phone">Phone Number</Label>
-                            <Input
-                              id="phone"
-                              data-testid="profile-phone-input"
-                              type="tel"
-                              {...register('phone')}
-                              aria-invalid={!!errors.phone}
-                              placeholder="+1 (555) 000-0000"
-                            />
-                            {errors.phone && (
-                              <p className="text-sm text-destructive">{errors.phone.message}</p>
-                            )}
-                          </div>
-
-                          {/* Job Title - Optional */}
-                          <div className="grid gap-2">
-                            <Label htmlFor="jobTitle">Job Title</Label>
-                            <Input
-                              id="jobTitle"
-                              data-testid="profile-job-title-input"
-                              {...register('jobTitle')}
-                              aria-invalid={!!errors.jobTitle}
-                              placeholder="e.g., Software Engineer"
-                            />
-                            {errors.jobTitle && (
-                              <p className="text-sm text-destructive">{errors.jobTitle.message}</p>
-                            )}
-                          </div>
-
-                          {/* Bio - Optional, Textarea */}
-                          <div className="grid gap-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="bio">Bio</Label>
-                              <span className="text-xs text-muted-foreground">Max 500 characters</span>
+                            {/* Last Name - Optional */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="lastName">Last Name</Label>
+                              <Input
+                                id="lastName"
+                                data-testid="profile-last-name-input"
+                                {...register('lastName')}
+                                aria-invalid={!!errors.lastName}
+                                placeholder="Enter your last name"
+                              />
+                              {errors.lastName && (
+                                <p className="text-sm text-destructive">
+                                  {errors.lastName.message}
+                                </p>
+                              )}
                             </div>
-                            <Textarea
-                              id="bio"
-                              data-testid="profile-bio-input"
-                              {...register('bio')}
-                              aria-invalid={!!errors.bio}
-                              placeholder="Tell us a little about yourself..."
-                              className="min-h-[100px] resize-none"
-                              maxLength={500}
-                            />
-                            {errors.bio && (
-                              <p className="text-sm text-destructive">{errors.bio.message}</p>
+
+                            {/* Email - Read-only */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="email">Email Address</Label>
+                              <div className="relative">
+                                <Input
+                                  id="email"
+                                  data-testid="profile-email-display"
+                                  type="email"
+                                  value={user?.email || ''}
+                                  readOnly
+                                  disabled
+                                  className="pr-24 bg-muted/50 cursor-not-allowed"
+                                />
+                                {user?.emailVerified && (
+                                  <Badge
+                                    variant="outline"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-status-success/10 border-status-success/30 text-status-success text-xs"
+                                  >
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    Verified
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Email cannot be changed. Contact support if needed.
+                              </p>
+                            </div>
+
+                            {/* Phone - Optional */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="phone">Phone Number</Label>
+                              <Input
+                                id="phone"
+                                data-testid="profile-phone-input"
+                                type="tel"
+                                {...register('phone')}
+                                aria-invalid={!!errors.phone}
+                                placeholder="+1 (555) 000-0000"
+                              />
+                              {errors.phone && (
+                                <p className="text-sm text-destructive">{errors.phone.message}</p>
+                              )}
+                            </div>
+
+                            {/* Job Title - Optional */}
+                            <div className="grid gap-2">
+                              <Label htmlFor="jobTitle">Job Title</Label>
+                              <Input
+                                id="jobTitle"
+                                data-testid="profile-job-title-input"
+                                {...register('jobTitle')}
+                                aria-invalid={!!errors.jobTitle}
+                                placeholder="e.g., Software Engineer"
+                              />
+                              {errors.jobTitle && (
+                                <p className="text-sm text-destructive">
+                                  {errors.jobTitle.message}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Bio - Optional, Textarea */}
+                            <div className="grid gap-2">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor="bio">Bio</Label>
+                                <span className="text-xs text-muted-foreground">
+                                  Max 500 characters
+                                </span>
+                              </div>
+                              <Textarea
+                                id="bio"
+                                data-testid="profile-bio-input"
+                                {...register('bio')}
+                                aria-invalid={!!errors.bio}
+                                placeholder="Tell us a little about yourself..."
+                                className="min-h-[100px] resize-none"
+                                maxLength={500}
+                              />
+                              {errors.bio && (
+                                <p className="text-sm text-destructive">{errors.bio.message}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Save Button */}
+                          <div className="flex gap-3 mt-6">
+                            <Button
+                              type="submit"
+                              data-testid="profile-save-button"
+                              disabled={!isDirty || isSubmitting || updateProfileMutation.isPending}
+                              className="w-fit shadow-lg shadow-primary/20"
+                            >
+                              {updateProfileMutation.isPending ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="mr-2 h-4 w-4" />
+                                  Save Changes
+                                </>
+                              )}
+                            </Button>
+                            {isDirty && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                data-testid="profile-reset-button"
+                                onClick={() =>
+                                  reset({
+                                    firstName: profile?.firstName || '',
+                                    lastName: profile?.lastName || '',
+                                    phone: profile?.phone || '',
+                                    jobTitle: profile?.jobTitle || '',
+                                    bio: profile?.bio || '',
+                                  })
+                                }
+                              >
+                                Reset
+                              </Button>
                             )}
                           </div>
-                        </div>
-
-                        {/* Save Button */}
-                        <div className="flex gap-3 mt-6">
-                          <Button
-                            type="submit"
-                            data-testid="profile-save-button"
-                            disabled={!isDirty || isSubmitting || updateProfileMutation.isPending}
-                            className="w-fit shadow-lg shadow-primary/20"
-                          >
-                            {updateProfileMutation.isPending ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Saving...
-                              </>
-                            ) : (
-                              <>
-                                <Save className="mr-2 h-4 w-4" />
-                                Save Changes
-                              </>
-                            )}
-                          </Button>
-                          {isDirty && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              data-testid="profile-reset-button"
-                              onClick={() =>
-                                reset({
-                                  firstName: profile?.firstName || '',
-                                  lastName: profile?.lastName || '',
-                                  phone: profile?.phone || '',
-                                  jobTitle: profile?.jobTitle || '',
-                                  bio: profile?.bio || '',
-                                })
-                              }
-                            >
-                              Reset
-                            </Button>
-                          )}
-                        </div>
-                      </form>
+                        </form>
                       )}
                     </SettingsSection>
 
@@ -586,7 +596,11 @@ export default function Settings() {
                           </div>
                           <p className="text-xs text-muted-foreground">Last changed 3 months ago</p>
                         </div>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setChangePasswordOpen(true)}
+                        >
                           Change Password
                         </Button>
                       </SettingsRow>
@@ -665,6 +679,8 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </div>
   );
 }
