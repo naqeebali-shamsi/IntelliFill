@@ -41,6 +41,7 @@ const DocumentLibrary = lazy(() => import('./pages/DocumentLibrary'));
 const SimpleFillForm = lazy(() => import('./pages/SimpleFillForm'));
 const FormFillDemo = lazy(() => import('./pages/FormFillDemo'));
 const FilledFormHistory = lazy(() => import('./pages/FilledFormHistory'));
+const BatchFillForm = lazy(() => import('./pages/BatchFillForm'));
 
 // Profile pages - lazy loaded
 const ProfileList = lazy(() => import('./pages/ProfileList'));
@@ -180,6 +181,7 @@ function App() {
                   <Route path="documents" element={<DocumentLibrary />} />
                   <Route path="knowledge" element={<KnowledgeBase />} />
                   <Route path="fill-form" element={<SimpleFillForm />} />
+                  <Route path="batch-fill" element={<BatchFillForm />} />
                   <Route path="demo/autocomplete" element={<FormFillDemo />} />
                   <Route path="filled-forms" element={<FilledFormHistory />} />
                   <Route path="profiles" element={<ProfileList />} />

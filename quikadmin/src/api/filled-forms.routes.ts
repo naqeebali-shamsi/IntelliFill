@@ -45,6 +45,59 @@ const listFilledFormsSchema = z.object({
   offset: z.coerce.number().min(0).default(0),
 });
 
+// Schema for batch form generation
+const batchFormSchema = z.object({
+  combinations: z
+    .array(
+      z.object({
+        templateId: z.string().uuid('Invalid template ID'),
+        profileId: z.string().uuid('Invalid profile ID'),
+      })
+    )
+    .min(1, 'At least one combination is required')
+    .max(50, 'Maximum 50 combinations per batch'),
+});
+
+// Result type for batch operations
+interface BatchResult {
+  templateId: string;
+  templateName: string;
+  profileId: string;
+  profileName: string;
+  success: boolean;
+  documentId?: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+function createFailureResult(
+  templateId: string,
+  templateName: string,
+  profileId: string,
+  profileName: string,
+  error: string
+): BatchResult {
+  return { templateId, templateName, profileId, profileName, success: false, error };
+}
+
+function createSuccessResult(
+  templateId: string,
+  templateName: string,
+  profileId: string,
+  profileName: string,
+  documentId: string
+): BatchResult {
+  return {
+    templateId,
+    templateName,
+    profileId,
+    profileName,
+    success: true,
+    documentId,
+    downloadUrl: `/api/filled-forms/${documentId}/download`,
+  };
+}
+
 /**
  * Fill a PDF form with profile data using field mappings
  */
@@ -763,8 +816,15 @@ export function createFilledFormRoutes(): Router {
           });
         }
 
-        const { documentId, clientId, formName, confidence, filledFields, totalFields, dataSnapshot } =
-          validation.data;
+        const {
+          documentId,
+          clientId,
+          formName,
+          confidence,
+          filledFields,
+          totalFields,
+          dataSnapshot,
+        } = validation.data;
 
         // Verify the document exists and belongs to the user
         const document = await prisma.document.findFirst({
@@ -848,6 +908,183 @@ export function createFilledFormRoutes(): Router {
         });
       } catch (error) {
         logger.error('Error saving ad-hoc filled form:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * POST /api/filled-forms/batch - Generate multiple filled forms in batch
+   *
+   * Task 549: Batch Form Filling UI
+   *
+   * Takes an array of template/profile combinations and generates filled
+   * forms for each valid combination. Returns results for all combinations.
+   */
+  router.post(
+    '/batch',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Validate request body
+        const validation = batchFormSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        const { combinations } = validation.data;
+
+        // Get unique template and profile IDs
+        const templateIds = [...new Set(combinations.map((c) => c.templateId))];
+        const profileIds = [...new Set(combinations.map((c) => c.profileId))];
+
+        // Fetch all templates at once
+        const templates = await prisma.formTemplate.findMany({
+          where: { id: { in: templateIds }, userId, isActive: true },
+        });
+        const templateMap = new Map(templates.map((t) => [t.id, t]));
+
+        // Fetch all clients/profiles at once
+        const clients = await prisma.client.findMany({
+          where: { id: { in: profileIds }, userId },
+          include: { profile: true },
+        });
+        const clientMap = new Map(clients.map((c) => [c.id, c]));
+
+        const results: BatchResult[] = [];
+
+        let totalGenerated = 0;
+        let totalFailed = 0;
+
+        // Process each combination
+        for (const combination of combinations) {
+          const template = templateMap.get(combination.templateId);
+          const client = clientMap.get(combination.profileId);
+
+          // Handle missing template
+          if (!template) {
+            results.push(
+              createFailureResult(
+                combination.templateId,
+                'Unknown',
+                combination.profileId,
+                client?.name || 'Unknown',
+                'Template not found or not accessible'
+              )
+            );
+            totalFailed++;
+            continue;
+          }
+
+          // Handle missing client/profile
+          if (!client) {
+            results.push(
+              createFailureResult(
+                combination.templateId,
+                template.name,
+                combination.profileId,
+                'Unknown',
+                'Profile not found'
+              )
+            );
+            totalFailed++;
+            continue;
+          }
+
+          // Check template file exists
+          try {
+            await fs.access(template.fileUrl);
+          } catch {
+            results.push(
+              createFailureResult(
+                template.id,
+                template.name,
+                client.id,
+                client.name,
+                'Template file not found on disk'
+              )
+            );
+            totalFailed++;
+            continue;
+          }
+
+          // Get field mappings
+          const fieldMappings = (template.fieldMappings || {}) as Record<string, string>;
+          if (Object.keys(fieldMappings).length === 0) {
+            results.push(
+              createFailureResult(
+                template.id,
+                template.name,
+                client.id,
+                client.name,
+                'No field mappings configured for this template'
+              )
+            );
+            totalFailed++;
+            continue;
+          }
+
+          // Get profile data
+          const profileData = (client.profile?.data || {}) as Record<string, unknown>;
+
+          // Generate output filename
+          const timestamp = Date.now();
+          const safeTemplateName = template.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+          const safeClientName = client.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+          const outputFileName = `${safeClientName}_${safeTemplateName}_${timestamp}.pdf`;
+          const outputPath = `outputs/filled-forms/${outputFileName}`;
+
+          try {
+            await fillPdfForm(template.fileUrl, fieldMappings, profileData, outputPath);
+
+            const filledForm = await prisma.filledForm.create({
+              data: {
+                clientId: client.id,
+                templateId: template.id,
+                userId,
+                fileUrl: outputPath,
+                dataSnapshot: profileData as Prisma.InputJsonValue,
+              },
+            });
+
+            results.push(
+              createSuccessResult(template.id, template.name, client.id, client.name, filledForm.id)
+            );
+            totalGenerated++;
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : 'Unknown error during form generation';
+            results.push(
+              createFailureResult(template.id, template.name, client.id, client.name, errorMessage)
+            );
+            totalFailed++;
+          }
+        }
+
+        logger.info(`Batch form generation complete`, {
+          userId,
+          totalCombinations: combinations.length,
+          totalGenerated,
+          totalFailed,
+        });
+
+        res.status(200).json({
+          success: true,
+          results,
+          totalGenerated,
+          totalFailed,
+        });
+      } catch (error) {
+        logger.error('Error processing batch form generation:', error);
         next(error);
       }
     }
