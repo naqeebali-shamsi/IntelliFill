@@ -546,6 +546,7 @@ export function createSupabaseAuthRoutes(): Router {
             emailVerified: true,
             createdAt: true,
             lastLogin: true,
+            mfaEnabled: true,
           },
         });
 
@@ -566,6 +567,12 @@ export function createSupabaseAuthRoutes(): Router {
             error: 'Account is deactivated. Please contact support.',
             code: 'ACCOUNT_DEACTIVATED',
           });
+        }
+
+        // Check if MFA is enabled (simplified for test mode - no actual MFA verification)
+        if (user.mfaEnabled) {
+          logger.info('[TEST MODE] MFA enabled but bypassed for testing', { email });
+          // In test mode, we don't actually enforce MFA
         }
 
         const accessToken = generateAccessToken(user.id, user.email, user.role);
@@ -613,6 +620,7 @@ export function createSupabaseAuthRoutes(): Router {
           emailVerified: true,
           createdAt: true,
           lastLogin: true,
+          mfaEnabled: true,
         },
       });
 
@@ -629,6 +637,34 @@ export function createSupabaseAuthRoutes(): Router {
           error: 'Account is deactivated. Please contact support.',
           code: 'ACCOUNT_DEACTIVATED',
         });
+      }
+
+      // Check if MFA is enabled and require second factor
+      if (user.mfaEnabled) {
+        const { data: factorsData } = await supabase.auth.mfa.listFactors();
+        const totpFactors = factorsData?.totp || [];
+        const verifiedFactors = totpFactors.filter((f) => f.status === 'verified');
+
+        if (verifiedFactors.length > 0) {
+          logger.info('MFA required for login', { userId: user.id });
+
+          // Return MFA required response with factor info
+          return res.json({
+            success: true,
+            mfaRequired: true,
+            factors: verifiedFactors.map((f) => ({
+              id: f.id,
+              type: f.factor_type,
+              friendlyName: f.friendly_name,
+            })),
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+            },
+          });
+        }
       }
 
       await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
@@ -1394,6 +1430,320 @@ export function createSupabaseAuthRoutes(): Router {
     } catch (error: unknown) {
       logger.error('Demo login error:', error);
       res.status(500).json({ error: 'Demo login failed. Please try again.' });
+    }
+  });
+
+  // MFA (Multi-Factor Authentication) Endpoints
+
+  const BACKUP_CODE_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes confusing chars (0, O, 1, I)
+  const BACKUP_CODE_COUNT = 10;
+  const BACKUP_CODE_LENGTH = 8;
+
+  function generateBackupCodes(): string[] {
+    return Array.from({ length: BACKUP_CODE_COUNT }, () =>
+      Array.from({ length: BACKUP_CODE_LENGTH }, () =>
+        BACKUP_CODE_CHARSET.charAt(Math.floor(Math.random() * BACKUP_CODE_CHARSET.length))
+      ).join('')
+    );
+  }
+
+  function hashBackupCodes(codes: string[]): Promise<string[]> {
+    return Promise.all(codes.map((code) => bcrypt.hash(code, 10)));
+  }
+
+  router.post(
+    '/mfa/enroll',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        if (!req.user?.id) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { supabaseUserId: req.user.id },
+          select: { mfaEnabled: true },
+        });
+
+        if (user?.mfaEnabled) {
+          return res.status(400).json({
+            error: 'MFA is already enabled. Disable it first to re-enroll.',
+            code: 'MFA_ALREADY_ENABLED',
+          });
+        }
+
+        logger.info('Starting MFA enrollment', { userId: req.user.id });
+
+        const { data, error } = await supabase.auth.mfa.enroll({
+          factorType: 'totp',
+          friendlyName: 'IntelliFill Authenticator',
+        });
+
+        if (error || !data) {
+          logger.error('MFA enrollment failed:', error);
+          return res.status(400).json({
+            error: error?.message || 'Failed to start MFA enrollment',
+            code: 'MFA_ENROLL_FAILED',
+          });
+        }
+
+        logger.info('MFA enrollment started', { userId: req.user.id, factorId: data.id });
+
+        res.json({
+          success: true,
+          factorId: data.id,
+          qrCode: data.totp.qr_code,
+          secret: data.totp.secret,
+          uri: data.totp.uri,
+        });
+      } catch (error: unknown) {
+        logger.error('MFA enroll error:', error);
+        res.status(500).json({ error: 'Failed to start MFA enrollment' });
+      }
+    }
+  );
+
+  router.post(
+    '/mfa/verify',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        if (!req.user?.id) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const { factorId, code } = req.body;
+
+        if (!factorId || !code) {
+          return res.status(400).json({
+            error: 'Factor ID and verification code are required',
+            details: {
+              factorId: !factorId ? 'Factor ID is required' : null,
+              code: !code ? 'Verification code is required' : null,
+            },
+          });
+        }
+
+        if (!/^\d{6}$/.test(code)) {
+          return res.status(400).json({ error: 'Verification code must be exactly 6 digits' });
+        }
+
+        logger.info('Verifying MFA code', { userId: req.user.id, factorId });
+
+        const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+          factorId,
+        });
+
+        if (challengeError || !challengeData) {
+          logger.error('MFA challenge failed:', challengeError);
+          return res.status(400).json({
+            error: challengeError?.message || 'Failed to create MFA challenge',
+            code: 'MFA_CHALLENGE_FAILED',
+          });
+        }
+
+        const { data: verifyData, error: verifyError } = await supabase.auth.mfa.verify({
+          factorId,
+          challengeId: challengeData.id,
+          code,
+        });
+
+        if (verifyError || !verifyData) {
+          logger.warn('MFA verification failed', { userId: req.user.id, factorId });
+          return res.status(400).json({
+            error: 'Invalid verification code. Please try again.',
+            code: 'MFA_VERIFY_FAILED',
+          });
+        }
+
+        const backupCodes = generateBackupCodes();
+        const hashedCodes = await hashBackupCodes(backupCodes);
+
+        await prisma.user.update({
+          where: { supabaseUserId: req.user.id },
+          data: { mfaEnabled: true, mfaBackupCodes: hashedCodes },
+        });
+
+        logger.info('MFA enabled successfully', { userId: req.user.id });
+
+        res.json({
+          success: true,
+          message: 'Two-factor authentication has been enabled.',
+          backupCodes,
+          warning: 'Save these backup codes securely. They will not be shown again.',
+        });
+      } catch (error: unknown) {
+        logger.error('MFA verify error:', error);
+        res.status(500).json({ error: 'Failed to verify MFA code' });
+      }
+    }
+  );
+
+  router.get(
+    '/mfa/factors',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        if (!req.user?.id) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const { data, error } = await supabase.auth.mfa.listFactors();
+
+        if (error) {
+          logger.error('Failed to list MFA factors:', error);
+          return res.status(400).json({
+            error: error.message || 'Failed to retrieve MFA factors',
+            code: 'MFA_LIST_FAILED',
+          });
+        }
+
+        const user = await prisma.user.findUnique({
+          where: { supabaseUserId: req.user.id },
+          select: { mfaEnabled: true },
+        });
+
+        res.json({
+          success: true,
+          mfaEnabled: user?.mfaEnabled || false,
+          factors: data.totp.map((factor) => ({
+            id: factor.id,
+            type: factor.factor_type,
+            friendlyName: factor.friendly_name,
+            status: factor.status,
+            createdAt: factor.created_at,
+            updatedAt: factor.updated_at,
+          })),
+        });
+      } catch (error: unknown) {
+        logger.error('MFA factors list error:', error);
+        res.status(500).json({ error: 'Failed to retrieve MFA factors' });
+      }
+    }
+  );
+
+  router.delete('/mfa', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.user?.id || !req.user?.email) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const { password, factorId } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ error: 'Password is required to disable MFA' });
+      }
+
+      if (!factorId) {
+        return res.status(400).json({ error: 'Factor ID is required' });
+      }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: req.user.email,
+        password,
+      });
+
+      if (verifyError) {
+        logger.warn('Password verification failed for MFA disable', { userId: req.user.id });
+        return res.status(400).json({ error: 'Incorrect password' });
+      }
+
+      logger.info('Disabling MFA', { userId: req.user.id, factorId });
+
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId });
+
+      if (unenrollError) {
+        logger.error('MFA unenroll failed:', unenrollError);
+        return res.status(400).json({
+          error: unenrollError.message || 'Failed to disable MFA',
+          code: 'MFA_UNENROLL_FAILED',
+        });
+      }
+
+      await prisma.user.update({
+        where: { supabaseUserId: req.user.id },
+        data: { mfaEnabled: false, mfaBackupCodes: [] },
+      });
+
+      logger.info('MFA disabled successfully', { userId: req.user.id });
+
+      res.json({
+        success: true,
+        message: 'Two-factor authentication has been disabled.',
+      });
+    } catch (error: unknown) {
+      logger.error('MFA disable error:', error);
+      res.status(500).json({ error: 'Failed to disable MFA' });
+    }
+  });
+
+  router.post('/mfa/challenge', async (req: Request, res: Response) => {
+    try {
+      const { factorId } = req.body;
+
+      if (!factorId) {
+        return res.status(400).json({ error: 'Factor ID is required' });
+      }
+
+      const { data, error } = await supabase.auth.mfa.challenge({ factorId });
+
+      if (error || !data) {
+        logger.error('MFA challenge creation failed:', error);
+        return res.status(400).json({
+          error: error?.message || 'Failed to create MFA challenge',
+          code: 'MFA_CHALLENGE_FAILED',
+        });
+      }
+
+      res.json({
+        success: true,
+        challengeId: data.id,
+      });
+    } catch (error: unknown) {
+      logger.error('MFA challenge error:', error);
+      res.status(500).json({ error: 'Failed to create MFA challenge' });
+    }
+  });
+
+  router.post('/mfa/verify-login', async (req: Request, res: Response) => {
+    try {
+      const { factorId, challengeId, code } = req.body;
+
+      if (!factorId || !challengeId || !code) {
+        return res.status(400).json({
+          error: 'Factor ID, challenge ID, and verification code are required',
+        });
+      }
+
+      if (!/^\d{6}$/.test(code)) {
+        return res.status(400).json({ error: 'Verification code must be exactly 6 digits' });
+      }
+
+      const { data, error } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId,
+        code,
+      });
+
+      if (error || !data) {
+        logger.warn('MFA login verification failed');
+        return res.status(400).json({
+          error: 'Invalid verification code',
+          code: 'MFA_VERIFY_FAILED',
+        });
+      }
+
+      res.json({
+        success: true,
+        session: {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expiresIn: data.expires_in,
+        },
+      });
+    } catch (error: unknown) {
+      logger.error('MFA verify-login error:', error);
+      res.status(500).json({ error: 'Failed to verify MFA code' });
     }
   });
 
