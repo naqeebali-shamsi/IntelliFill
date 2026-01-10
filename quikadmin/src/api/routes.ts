@@ -17,6 +17,7 @@ import securityDashboardRoutes from './security-dashboard.routes';
 import { createOrganizationRoutes } from './organization.routes';
 import { createInvitationRoutes } from './invitation.routes';
 import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
+import { createNotificationRoutes } from './notifications.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
 import { realtimeService } from '../services/RealtimeService';
@@ -138,6 +139,11 @@ export function setupRoutes(
   // Mounted at /api/invites for public invitation validation and acceptance
   const invitationRoutes = createInvitationRoutes();
   app.use('/api/invites', invitationRoutes);
+
+  // Setup notification routes (Task 539)
+  // Mounted at /api/notifications for user notification management
+  const notificationRoutes = createNotificationRoutes();
+  app.use('/api/notifications', notificationRoutes);
 
   // Setup E2E test routes (Task 478)
   // ONLY available when E2E_TEST_MODE=true or NODE_ENV=test
