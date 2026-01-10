@@ -47,7 +47,7 @@ import { useBackendAuthStore } from '@/stores/backendAuthStore';
 import { getProfile, updateProfile, type UpdateProfileData } from '@/services/accountService';
 import { profileFormSchema, type ProfileFormData } from '@/lib/validations/account';
 import { OrganizationTabContent } from '@/components/features/OrganizationTabContent';
-import { ChangePasswordModal } from '@/components/settings';
+import { ChangePasswordModal, DeleteAccountModal } from '@/components/settings';
 
 // Sidebar Navigation Items
 const navItems = [
@@ -98,6 +98,7 @@ export default function Settings() {
   const user = useBackendAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('general');
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch profile data on mount
@@ -667,7 +668,11 @@ export default function Settings() {
                             Permanently delete your account and all data
                           </p>
                         </div>
-                        <Button variant="destructive" size="sm">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeleteAccountOpen(true)}
+                        >
                           Delete Account
                         </Button>
                       </div>
@@ -681,6 +686,7 @@ export default function Settings() {
       </div>
 
       <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
+      <DeleteAccountModal open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen} />
     </div>
   );
 }
