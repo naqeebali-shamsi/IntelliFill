@@ -42,6 +42,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -175,6 +186,84 @@ function ExportDataRow(): React.ReactElement {
           'Export All'
         )}
       </Button>
+    </SettingsRow>
+  );
+}
+
+/** Keys to preserve when clearing cache */
+const PRESERVED_STORAGE_KEYS = [
+  'vite-ui-theme', // Theme preference
+  'intellifill-ui', // UI store (has theme and sidebar state)
+  'preferred_language', // Language preference
+];
+
+/** Clear cache button with confirmation dialog */
+function ClearCacheRow(): React.ReactElement {
+  const queryClient = useQueryClient();
+  const [isClearing, setIsClearing] = useState(false);
+
+  function handleClearCache(): void {
+    setIsClearing(true);
+
+    // Preserve essential keys before clearing
+    const preserved: Record<string, string | null> = {};
+    for (const key of PRESERVED_STORAGE_KEYS) {
+      preserved[key] = localStorage.getItem(key);
+    }
+
+    localStorage.clear();
+    sessionStorage.clear();
+    queryClient.clear();
+
+    // Restore preserved keys
+    for (const [key, value] of Object.entries(preserved)) {
+      if (value !== null) {
+        localStorage.setItem(key, value);
+      }
+    }
+
+    toast.success('Cache cleared', {
+      description: 'Local storage and query cache have been cleared.',
+    });
+
+    setIsClearing(false);
+  }
+
+  return (
+    <SettingsRow>
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-2 font-medium">
+          <RefreshCw className="h-4 w-4" /> Clear Cache
+        </div>
+        <p className="text-xs text-muted-foreground">Clear local storage and query cache</p>
+      </div>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button variant="outline" size="sm" disabled={isClearing}>
+            {isClearing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Clearing...
+              </>
+            ) : (
+              'Clear'
+            )}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Cache?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will clear your local storage and query cache. Your theme, language preference,
+              and authentication will be preserved.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearCache}>Clear Cache</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SettingsRow>
   );
 }
@@ -885,16 +974,7 @@ export default function Settings() {
                       description="Export or delete your data."
                     >
                       <ExportDataRow />
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <RefreshCw className="h-4 w-4" /> Clear Cache
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Clear
-                        </Button>
-                      </SettingsRow>
+                      <ClearCacheRow />
                     </SettingsSection>
 
                     <div className="mt-8 pt-8 border-t border-destructive/20">
