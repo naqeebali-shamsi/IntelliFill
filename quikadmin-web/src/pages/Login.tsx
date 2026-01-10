@@ -13,8 +13,8 @@ import { Testimonial } from '@/components/ui/design-testimonial';
 import { Boxes } from '@/components/ui/background-boxes';
 import { AccentLine, AnimatedLogo, PasswordVisibilityToggle, AttemptsWarning } from '@/components';
 import { cn } from '@/lib/utils';
-import { useBoolean } from '@/hooks';
-import { useLockoutCountdown } from '@/hooks';
+import { logger } from '@/utils/logger';
+import { useBoolean, useLockoutCountdown } from '@/hooks';
 
 // Shared input styling for auth forms
 const authInputClassName = cn(
@@ -87,7 +87,7 @@ export default function Login(): JSX.Element {
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const error = err as { code?: string; message?: string };
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
 
       if (error.code === ErrorCode.ACCOUNT_LOCKED) {
         toast.error('Account locked due to multiple failed attempts');

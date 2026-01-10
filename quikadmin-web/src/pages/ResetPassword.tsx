@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useToggle, useTimeout } from 'usehooks-ts';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { logger } from '@/utils/logger';
 import {
   Card,
   CardContent,
@@ -155,7 +156,7 @@ export default function ResetPassword(): React.ReactElement {
       setResetSuccess(true);
       toast.success('Password reset successful!');
     } catch (err: unknown) {
-      console.error('Password reset error:', err);
+      logger.error('Password reset error:', err);
       const message =
         err instanceof Error ? err.message : 'Failed to reset password. Please try again.';
       setError(message);

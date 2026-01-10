@@ -28,6 +28,7 @@ import {
 import { getJob, ProcessingJob } from '@/services/api';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
+import { logger } from '@/utils/logger';
 
 interface JobData extends ProcessingJob {
   startedAt?: string;
@@ -43,7 +44,7 @@ interface JobData extends ProcessingJob {
   }>;
 }
 
-export default function JobDetails() {
+export default function JobDetails(): React.ReactElement {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const [job, setJob] = useState<JobData | null>(null);
@@ -65,7 +66,7 @@ export default function JobDetails() {
       const data = await getJob(jobId);
       setJob(data);
     } catch (err) {
-      console.error('Failed to fetch job details:', err);
+      logger.error('Failed to fetch job details:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch job details');
       setJob(null);
     } finally {
@@ -73,65 +74,64 @@ export default function JobDetails() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="h-5 w-5 text-status-success" />;
-      case 'failed':
-        return <XCircle className="h-5 w-5 text-status-error" />;
-      case 'processing':
-        return <RefreshCw className="h-5 w-5 text-status-pending animate-spin" />;
-      default:
-        return <Clock className="h-5 w-5 text-status-warning" />;
-    }
+  const statusConfig: Record<string, { icon: React.ReactNode; badge: React.ReactNode }> = {
+    completed: {
+      icon: <CheckCircle className="h-5 w-5 text-status-success" />,
+      badge: (
+        <Badge className="bg-success-light text-success-foreground border-success-border">
+          Completed
+        </Badge>
+      ),
+    },
+    failed: {
+      icon: <XCircle className="h-5 w-5 text-status-error" />,
+      badge: (
+        <Badge className="bg-error-light text-error-foreground border-error-border">Failed</Badge>
+      ),
+    },
+    processing: {
+      icon: <RefreshCw className="h-5 w-5 text-status-pending animate-spin" />,
+      badge: (
+        <Badge className="bg-info-light text-info-foreground border-info-border">Processing</Badge>
+      ),
+    },
+    pending: {
+      icon: <Clock className="h-5 w-5 text-status-warning" />,
+      badge: (
+        <Badge className="bg-warning-light text-warning-foreground border-warning-border">
+          Pending
+        </Badge>
+      ),
+    },
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <Badge className="bg-success-light text-success-foreground border-success-border">
-            Completed
-          </Badge>
-        );
-      case 'failed':
-        return (
-          <Badge className="bg-error-light text-error-foreground border-error-border">Failed</Badge>
-        );
-      case 'processing':
-        return (
-          <Badge className="bg-info-light text-info-foreground border-info-border">
-            Processing
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-warning-light text-warning-foreground border-warning-border">
-            Pending
-          </Badge>
-        );
-    }
-  };
+  function getStatusIcon(status: string): React.ReactNode {
+    return statusConfig[status]?.icon ?? statusConfig.pending.icon;
+  }
 
-  const formatDate = (dateString?: string) => {
+  function getStatusBadge(status: string): React.ReactNode {
+    return statusConfig[status]?.badge ?? statusConfig.pending.badge;
+  }
+
+  function formatDate(dateString?: string): string {
     if (!dateString) return 'N/A';
     try {
       return format(new Date(dateString), 'PPpp');
     } catch {
       return dateString;
     }
-  };
+  }
 
-  const formatRelativeDate = (dateString?: string) => {
+  function formatRelativeDate(dateString?: string): string {
     if (!dateString) return 'N/A';
     try {
       return formatDistanceToNow(new Date(dateString), { addSuffix: true });
     } catch {
       return dateString;
     }
-  };
+  }
 
-  const calculateDuration = () => {
+  function calculateDuration(): string {
     if (!job?.startedAt || !job?.completedAt) return 'N/A';
     try {
       const start = new Date(job.startedAt).getTime();
@@ -143,12 +143,12 @@ export default function JobDetails() {
     } catch {
       return 'N/A';
     }
-  };
+  }
 
-  const copyToClipboard = (text: string) => {
+  function copyToClipboard(text: string): void {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
-  };
+  }
 
   if (loading) {
     return (

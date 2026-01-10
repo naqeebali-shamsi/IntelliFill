@@ -15,6 +15,7 @@ import { AccentLine, AnimatedLogo } from '@/components';
 import { PasswordVisibilityToggle, PasswordStrengthIndicator } from '@/components/auth';
 import { usePasswordValidation } from '@/hooks';
 import { cn } from '@/lib/utils';
+import { logger } from '@/utils/logger';
 
 const INPUT_CLASS = cn(
   'w-full h-11 bg-surface-1/50 border-sleek-line-default',
@@ -100,7 +101,7 @@ export default function Register(): React.ReactElement {
       }
     } catch (err: unknown) {
       const error = err as { code?: string; message?: string };
-      console.error('Registration error:', error);
+      logger.error('Registration error:', error);
 
       if (error.code === ErrorCode.EMAIL_EXISTS) {
         toast.error('An account with this email already exists');

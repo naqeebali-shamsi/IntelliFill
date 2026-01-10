@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -34,6 +34,7 @@ import { ProfileSelector } from '@/components/features/profile-selector';
 import type { FormField, FieldMapping, MappingTemplate } from '@/types/formFilling';
 import type { Profile } from '@/types/profile';
 import { generateAutoMappings, validateMappings } from '@/utils/fieldMapping';
+import { logger } from '@/utils/logger';
 
 interface FillResult {
   documentId: string;
@@ -161,7 +162,7 @@ const FormStepper = ({
   );
 };
 
-export default function SimpleFillForm() {
+export default function SimpleFillForm(): React.ReactElement {
   const navigate = useNavigate();
   const [blankForm, setBlankForm] = useState<File | null>(null);
   const [filling, setFilling] = useState(false);
@@ -336,7 +337,7 @@ export default function SimpleFillForm() {
         description: `Using ${effectiveData.fieldCount} fields from ${sourceDescription}`,
       });
     } catch (error: unknown) {
-      console.error('Form validation failed:', error);
+      logger.error('Form validation failed:', error);
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
         'Failed to validate form';
@@ -428,7 +429,7 @@ export default function SimpleFillForm() {
 
       toast.success('Form filled successfully!');
     } catch (error: unknown) {
-      console.error('Form filling failed:', error);
+      logger.error('Form filling failed:', error);
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
         'Failed to fill form';
@@ -510,7 +511,7 @@ export default function SimpleFillForm() {
         },
       });
     } catch (error: unknown) {
-      console.error('Failed to save to history:', error);
+      logger.error('Failed to save to history:', error);
       const message =
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
         'Failed to save to history';

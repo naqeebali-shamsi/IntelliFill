@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +17,7 @@ import {
   History,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { logger } from '@/utils/logger';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,7 +60,7 @@ import {
 } from '@/services/userProfileService';
 import { addCustomFieldSchema, AddCustomFieldInput } from '@/lib/validations/profile';
 
-export default function ProfileSettings() {
+export default function ProfileSettings(): React.ReactElement {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
   const [updatingField, setUpdatingField] = useState<string | null>(null);
@@ -126,7 +127,7 @@ export default function ProfileSettings() {
     },
     onError: (error: unknown) => {
       // Error is handled in ProfileFieldEditor
-      console.error('Update field error:', error);
+      logger.error('Update field error:', error);
     },
     onSettled: () => {
       setUpdatingField(null);
@@ -144,7 +145,7 @@ export default function ProfileSettings() {
     },
     onError: (error: unknown) => {
       // Error is handled in ProfileFieldEditor
-      console.error('Delete field error:', error);
+      logger.error('Delete field error:', error);
     },
     onSettled: () => {
       setDeletingField(null);

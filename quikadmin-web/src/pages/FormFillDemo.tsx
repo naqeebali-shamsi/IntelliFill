@@ -17,6 +17,7 @@ import { AutocompleteField } from '@/components/features/autocomplete-field';
 import { FieldType, getSuggestionEngine } from '@/services/suggestionEngine';
 import { Sparkles, FileText, RefreshCw, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { logger } from '@/utils/logger';
 
 /**
  * Form data interface
@@ -68,7 +69,7 @@ const initialFormData: FormData = {
 /**
  * FormFillDemo Component
  */
-export default function FormFillDemo() {
+export default function FormFillDemo(): React.ReactElement {
   const [formData, setFormData] = React.useState<FormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [hasProfile, setHasProfile] = React.useState<boolean | null>(null);
@@ -87,7 +88,7 @@ export default function FormFillDemo() {
         const profile = await suggestionEngine.getUserProfile();
         setHasProfile(profile !== null && profile.fields.length > 0);
       } catch (error) {
-        console.error('Failed to check profile:', error);
+        logger.error('Failed to check profile:', error);
         setHasProfile(false);
       } finally {
         setProfileLoading(false);
@@ -153,9 +154,7 @@ export default function FormFillDemo() {
   /**
    * Calculate completion percentage
    */
-  const completionPercentage = Math.round(
-    (filledFieldsCount / Object.keys(formData).length) * 100
-  );
+  const completionPercentage = Math.round((filledFieldsCount / Object.keys(formData).length) * 100);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -171,11 +170,7 @@ export default function FormFillDemo() {
               Experience intelligent form filling powered by your profile data
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleRefreshProfile}
-            disabled={profileLoading}
-          >
+          <Button variant="outline" onClick={handleRefreshProfile} disabled={profileLoading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh Profile
           </Button>
@@ -194,8 +189,8 @@ export default function FormFillDemo() {
                 <AlertDescription>
                   {hasProfile ? (
                     <span>
-                      Profile data loaded successfully. Start typing in any field to see
-                      intelligent suggestions.
+                      Profile data loaded successfully. Start typing in any field to see intelligent
+                      suggestions.
                     </span>
                   ) : (
                     <span>

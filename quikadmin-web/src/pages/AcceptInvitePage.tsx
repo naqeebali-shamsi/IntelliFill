@@ -1,4 +1,5 @@
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import React from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -24,7 +25,7 @@ import { AnimatedLogo } from '@/components';
  * 4. If authenticated, show accept button
  * 5. On accept, create membership and redirect to dashboard
  */
-export default function AcceptInvitePage() {
+export default function AcceptInvitePage(): React.ReactElement {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();

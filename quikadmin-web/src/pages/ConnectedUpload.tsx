@@ -50,8 +50,9 @@ import {
 } from '@/utils/fileValidation';
 import { UploadFile } from '@/types/upload';
 import { staggerContainer, slideInLeft } from '@/lib/animations';
+import { logger } from '@/utils/logger';
 
-export default function ConnectedUpload() {
+export default function ConnectedUpload(): React.ReactElement {
   const navigate = useNavigate();
 
   // Upload queue state
@@ -64,10 +65,10 @@ export default function ConnectedUpload() {
     autoStart: true,
     maxConcurrent: 3,
     onSuccess: (file, result) => {
-      console.log('Upload successful:', file.file.name, result);
+      logger.log('Upload successful:', file.file.name, result);
     },
     onError: (file, error) => {
-      console.error('Upload failed:', file.file.name, error);
+      logger.error('Upload failed:', file.file.name, error);
     },
   });
 
@@ -75,10 +76,10 @@ export default function ConnectedUpload() {
   useQueueJobPolling({
     interval: 2000,
     onComplete: (result) => {
-      console.log('Processing complete:', result);
+      logger.log('Processing complete:', result);
     },
     onError: (error) => {
-      console.error('Processing error:', error);
+      logger.error('Processing error:', error);
     },
   });
 
@@ -166,7 +167,10 @@ export default function ConnectedUpload() {
 
           {/* Upload Queue */}
           {files.length > 0 && (
-            <div className="glass-panel rounded-xl overflow-hidden border border-white/10" data-testid="upload-queue">
+            <div
+              className="glass-panel rounded-xl overflow-hidden border border-white/10"
+              data-testid="upload-queue"
+            >
               <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/5">
                 <div>
                   <h3 className="font-medium text-foreground">Upload Queue</h3>

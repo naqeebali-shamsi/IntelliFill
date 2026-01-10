@@ -3,7 +3,7 @@
  * Redesigned with "Deep Ocean" aesthetic
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { logger } from '@/utils/logger';
 import { staggerContainerFast, fadeInUpSubtle } from '@/lib/animations';
 import { StatCard } from '@/components/features/stat-card';
 import { ResponsiveGrid } from '@/components/layout/responsive-grid';
@@ -47,7 +48,7 @@ interface HistoryItem {
   progress: number;
 }
 
-export default function History() {
+export default function History(): React.ReactElement {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -68,7 +69,7 @@ export default function History() {
       const jobsArray = Array.isArray(data) ? data : data.jobs || [];
       setHistory(jobsArray);
     } catch (err) {
-      console.error('Failed to fetch history:', err);
+      logger.error('Failed to fetch history:', err);
       setHistory([]);
     } finally {
       setLoading(false);
@@ -81,53 +82,59 @@ export default function History() {
       const data = await getStatistics();
       setStats(data);
     } catch (err) {
-      console.error('Failed to fetch statistics:', err);
+      logger.error('Failed to fetch statistics:', err);
       setStats(null);
     } finally {
       setStatsLoading(false);
     }
   };
 
-  const getStatusConfig = (status: HistoryItem['status']) => {
-    switch (status) {
-      case 'completed':
-        return {
-          icon: CheckCircle,
-          color: 'text-status-success',
-          bg: 'bg-success-light',
-          border: 'border-success-border',
-        };
-      case 'failed':
-        return {
-          icon: XCircle,
-          color: 'text-status-error',
-          bg: 'bg-error-light',
-          border: 'border-error-border',
-        };
-      case 'processing':
-        return {
-          icon: RefreshCw,
-          color: 'text-status-pending',
-          bg: 'bg-info-light',
-          border: 'border-info-border',
-          animate: true,
-        };
-      case 'pending':
-        return {
-          icon: Clock,
-          color: 'text-status-warning',
-          bg: 'bg-warning-light',
-          border: 'border-warning-border',
-        };
-      default:
-        return {
-          icon: Clock,
-          color: 'text-muted-foreground',
-          bg: 'bg-muted/10',
-          border: 'border-border',
-        };
-    }
+  type StatusConfig = {
+    icon: typeof CheckCircle;
+    color: string;
+    bg: string;
+    border: string;
+    animate?: boolean;
   };
+
+  const statusConfigMap: Record<HistoryItem['status'], StatusConfig> = {
+    completed: {
+      icon: CheckCircle,
+      color: 'text-status-success',
+      bg: 'bg-success-light',
+      border: 'border-success-border',
+    },
+    failed: {
+      icon: XCircle,
+      color: 'text-status-error',
+      bg: 'bg-error-light',
+      border: 'border-error-border',
+    },
+    processing: {
+      icon: RefreshCw,
+      color: 'text-status-pending',
+      bg: 'bg-info-light',
+      border: 'border-info-border',
+      animate: true,
+    },
+    pending: {
+      icon: Clock,
+      color: 'text-status-warning',
+      bg: 'bg-warning-light',
+      border: 'border-warning-border',
+    },
+  };
+
+  const defaultStatusConfig: StatusConfig = {
+    icon: Clock,
+    color: 'text-muted-foreground',
+    bg: 'bg-muted/10',
+    border: 'border-border',
+  };
+
+  function getStatusConfig(status: HistoryItem['status']): StatusConfig {
+    return statusConfigMap[status] ?? defaultStatusConfig;
+  }
 
   const filteredHistory = history.filter((item) => {
     const matchesSearch =

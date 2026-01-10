@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth';
 import { AuthPageLayout } from '@/components/auth';
+import { logger } from '@/utils/logger';
 
 interface EmailSentViewProps {
   email: string;
@@ -80,7 +81,7 @@ export default function ForgotPassword(): React.ReactElement {
       setEmailSent(true);
       toast.success('Password reset email sent!');
     } catch (err: unknown) {
-      console.error('Password reset error:', err);
+      logger.error('Password reset error:', err);
       const message =
         err instanceof Error ? err.message : 'Failed to send reset email. Please try again.';
       setError(message);
@@ -98,7 +99,7 @@ export default function ForgotPassword(): React.ReactElement {
       await requestPasswordReset(email);
       toast.success('Reset email resent!');
     } catch (err: unknown) {
-      console.error('Password reset resend error:', err);
+      logger.error('Password reset resend error:', err);
       toast.error('Failed to resend email');
     } finally {
       setIsLoading(false);

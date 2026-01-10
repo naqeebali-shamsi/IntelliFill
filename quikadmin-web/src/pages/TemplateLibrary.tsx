@@ -5,19 +5,13 @@
  * search, category filtering, sorting, duplication and preview capabilities.
  */
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Plus,
-  Search,
-  Grid3X3,
-  List,
-  Loader2,
-  LayoutTemplate,
-} from 'lucide-react';
+import { Plus, Search, Grid3X3, List, Loader2, LayoutTemplate } from 'lucide-react';
 import { toast } from 'sonner';
+import { logger } from '@/utils/logger';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -77,23 +71,26 @@ const sortOptions: { value: SortBy; label: string }[] = [
 ];
 
 /**
- * Map form type to category
+ * Map form type to category based on keywords in the form type string
  */
 function formTypeToCategory(formType?: string): TemplateCategory {
   if (!formType) return 'custom';
+
   const type = formType.toUpperCase();
-  if (type.includes('W2') || type.includes('W-2') || type.includes('TAX') || type.includes('INVOICE')) {
-    return 'financial';
+
+  const categoryKeywords: Record<Exclude<TemplateCategory, 'all' | 'custom'>, string[]> = {
+    financial: ['W2', 'W-2', 'TAX', 'INVOICE'],
+    hr: ['I9', 'I-9', 'EMPLOY', 'HR'],
+    legal: ['LEGAL', 'ATTORNEY', 'CONTRACT'],
+    medical: ['MEDICAL', 'HEALTH', 'PATIENT'],
+  };
+
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    if (keywords.some((keyword) => type.includes(keyword))) {
+      return category as TemplateCategory;
+    }
   }
-  if (type.includes('I9') || type.includes('I-9') || type.includes('EMPLOY') || type.includes('HR')) {
-    return 'hr';
-  }
-  if (type.includes('LEGAL') || type.includes('ATTORNEY') || type.includes('CONTRACT')) {
-    return 'legal';
-  }
-  if (type.includes('MEDICAL') || type.includes('HEALTH') || type.includes('PATIENT')) {
-    return 'medical';
-  }
+
   return 'custom';
 }
 
@@ -113,7 +110,7 @@ function transformTemplate(t: MappingTemplate): Template {
   };
 }
 
-export default function TemplateLibrary() {
+export default function TemplateLibrary(): React.ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -191,9 +188,7 @@ export default function TemplateLibrary() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
-        (t) =>
-          t.name.toLowerCase().includes(query) ||
-          t.description.toLowerCase().includes(query)
+        (t) => t.name.toLowerCase().includes(query) || t.description.toLowerCase().includes(query)
       );
     }
 
@@ -220,7 +215,7 @@ export default function TemplateLibrary() {
     try {
       await incrementTemplateUsage(id);
     } catch (error) {
-      console.warn('Failed to increment usage count:', error);
+      logger.warn('Failed to increment usage count:', error);
     }
     navigate('/fill-form', { state: { templateId: id } });
   };
@@ -259,7 +254,7 @@ export default function TemplateLibrary() {
     try {
       await incrementTemplateUsage(id);
     } catch (error) {
-      console.warn('Failed to increment usage count:', error);
+      logger.warn('Failed to increment usage count:', error);
     }
     navigate('/fill-form', { state: { templateId: id } });
   };
@@ -387,9 +382,7 @@ export default function TemplateLibrary() {
       {/* Template Content */}
       <AnimatePresence mode="wait">
         {isLoading ? (
-          <div data-testid="loading-state">
-            {renderSkeletons()}
-          </div>
+          <div data-testid="loading-state">{renderSkeletons()}</div>
         ) : error ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

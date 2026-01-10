@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTimeout } from 'usehooks-ts';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { logger } from '@/utils/logger';
 import {
   CardContent,
   CardDescription,
@@ -97,7 +98,7 @@ export default function VerifyEmail(): React.ReactElement {
       setSuccess(true);
       toast.success('Email verified successfully! Redirecting to login...');
     } catch (err: unknown) {
-      console.error('Email verification error:', err);
+      logger.error('Email verification error:', err);
       const statusCode = (err as { response?: { status?: number } })?.response?.status;
       const errorMessage = getErrorMessage(err, statusCode);
       setError(errorMessage);
@@ -125,7 +126,7 @@ export default function VerifyEmail(): React.ReactElement {
       }
       toast.success('Verification email sent! Please check your inbox.');
     } catch (err: unknown) {
-      console.error('Resend verification error:', err);
+      logger.error('Resend verification error:', err);
       const statusCode = (err as { response?: { status?: number; data?: { message?: string } } })
         ?.response?.status;
       const errorMessage =
