@@ -41,6 +41,7 @@ import {
 } from '@/stores/knowledgeStore';
 import { SearchResult } from '@/services/knowledgeService';
 import { useDebouncedValue } from '@/hooks/useDebounce';
+import api from '@/services/api';
 
 // ============================================================================
 // Types
@@ -51,6 +52,11 @@ interface SearchOptions {
   minScore: number;
   hybridMode: 'balanced' | 'semantic' | 'keyword';
   useHybrid: boolean;
+}
+
+interface AutocompleteSuggestion {
+  type: 'document' | 'recent';
+  text: string;
 }
 
 // ============================================================================
@@ -247,8 +253,44 @@ export function SearchInterface() {
   });
   const [searchTime, setSearchTime] = React.useState(0);
 
-  // Debounce query for autocomplete (future feature)
-  const debouncedQuery = useDebouncedValue(query, 300);
+  // Autocomplete state
+  const [suggestions, setSuggestions] = React.useState<AutocompleteSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [activeIndex, setActiveIndex] = React.useState(-1);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Debounce query for autocomplete
+  const debouncedQuery = useDebouncedValue(query, 200);
+
+  // Fetch autocomplete suggestions
+  React.useEffect(() => {
+    if (debouncedQuery.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    api
+      .get<{ suggestions: AutocompleteSuggestion[] }>(
+        `/knowledge/autocomplete?q=${encodeURIComponent(debouncedQuery)}`,
+        { signal: controller.signal }
+      )
+      .then((res) => {
+        setSuggestions(res.data.suggestions);
+        setShowSuggestions(res.data.suggestions.length > 0);
+        setActiveIndex(-1);
+      })
+      .catch((err) => {
+        if (err.name !== 'CanceledError') {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [debouncedQuery]);
 
   // Handle search
   const handleSearch = async () => {
@@ -274,10 +316,48 @@ export function SearchInterface() {
     setSearchTime(Date.now() - startTime);
   };
 
-  // Handle key press
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
+  // Handle suggestion selection
+  const selectSuggestion = (text: string) => {
+    setQuery(text);
+    setShowSuggestions(false);
+    setSuggestions([]);
+    setActiveIndex(-1);
+    inputRef.current?.focus();
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // When suggestions aren't visible, only handle Enter for search
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter') {
+        handleSearch();
+      }
+      return;
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (activeIndex >= 0 && suggestions[activeIndex]) {
+          selectSuggestion(suggestions[activeIndex].text);
+        } else {
+          setShowSuggestions(false);
+          handleSearch();
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        setShowSuggestions(false);
+        setActiveIndex(-1);
+        break;
     }
   };
 
@@ -295,12 +375,47 @@ export function SearchInterface() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={inputRef}
             placeholder="Search your knowledge base..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             className="pl-9 pr-4"
+            role="combobox"
+            aria-expanded={showSuggestions}
+            aria-controls="search-suggestions"
+            aria-activedescendant={activeIndex >= 0 ? `suggestion-${activeIndex}` : undefined}
           />
+          {/* Autocomplete Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              id="search-suggestions"
+              role="listbox"
+              className="absolute top-full left-0 right-0 z-50 mt-1 bg-popover border border-border rounded-md shadow-lg overflow-hidden"
+            >
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={`${suggestion.type}-${suggestion.text}`}
+                  id={`suggestion-${index}`}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-muted transition-colors ${
+                    index === activeIndex ? 'bg-muted' : ''
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    selectSuggestion(suggestion.text);
+                  }}
+                  onMouseEnter={() => setActiveIndex(index)}
+                >
+                  <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="truncate">{suggestion.text}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <Button
           variant="outline"

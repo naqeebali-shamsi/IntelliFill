@@ -847,6 +847,50 @@ export function createKnowledgeRoutes(): Router {
     }
   );
 
+  /**
+   * GET /api/knowledge/autocomplete
+   * Quick autocomplete for search input dropdown
+   * Returns matching document titles for fast typeahead
+   * Rate limit: 30/min per organization
+   */
+  router.get(
+    '/autocomplete',
+    authenticateSupabase,
+    requireOrganization,
+    knowledgeSuggestLimiter,
+    auditLogger('knowledge:autocomplete'),
+    async (req: KnowledgeRequest, res: Response, next: NextFunction) => {
+      try {
+        const { organizationId } = req;
+        const query = String(req.query.q || '');
+
+        if (query.length < 2) {
+          return res.json({ suggestions: [] });
+        }
+
+        const documents = await prisma.documentSource.findMany({
+          where: {
+            organizationId,
+            deletedAt: null,
+            title: { contains: query, mode: 'insensitive' },
+          },
+          select: { title: true },
+          take: 5,
+          orderBy: { updatedAt: 'desc' },
+        });
+
+        const suggestions = documents.map((doc) => ({
+          type: 'document' as const,
+          text: doc.title,
+        }));
+
+        res.json({ suggestions });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
   // ==========================================================================
   // Form Suggestion Endpoints
   // ==========================================================================
