@@ -1,13 +1,7 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle, XCircle, Building2, UserPlus } from 'lucide-react';
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
@@ -122,11 +116,7 @@ export default function AcceptInvitePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate('/login')}
-                >
+                <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
                   Go to Login
                 </Button>
               </CardContent>
@@ -188,11 +178,7 @@ export default function AcceptInvitePage() {
                 <p className="text-sm text-white/50 text-center">
                   Please contact the organization administrator for a new invitation.
                 </p>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate('/login')}
-                >
+                <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
                   Go to Login
                 </Button>
               </CardContent>
@@ -218,22 +204,15 @@ export default function AcceptInvitePage() {
             <Card className="bg-surface-2/80 backdrop-blur-xl border-sleek-line-default">
               <CardHeader className="text-center">
                 <Building2 className="h-12 w-12 mx-auto text-primary mb-4" />
-                <CardTitle className="text-white">
-                  Join {invitation.organization.name}
-                </CardTitle>
+                <CardTitle className="text-white">Join {invitation.organization.name}</CardTitle>
                 <CardDescription className="text-white/60">
                   You've been invited to join this organization as a{' '}
-                  <span className="font-medium text-white/80">
-                    {invitation.role.toLowerCase()}
-                  </span>
+                  <span className="font-medium text-white/80">{invitation.role.toLowerCase()}</span>
                   . Please log in or create an account to accept.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button
-                  className="w-full"
-                  onClick={() => navigate(buildRedirectUrl('/login'))}
-                >
+                <Button className="w-full" onClick={() => navigate(buildRedirectUrl('/login'))}>
                   Log In to Accept
                 </Button>
                 <Button
@@ -270,14 +249,10 @@ export default function AcceptInvitePage() {
             <Card className="bg-surface-2/80 backdrop-blur-xl border-sleek-line-default">
               <CardHeader className="text-center">
                 <CheckCircle className="h-12 w-12 mx-auto text-status-success mb-4" />
-                <CardTitle className="text-white">
-                  Join {invitation.organization.name}
-                </CardTitle>
+                <CardTitle className="text-white">Join {invitation.organization.name}</CardTitle>
                 <CardDescription className="text-white/60">
                   You've been invited to join as a{' '}
-                  <span className="font-medium text-white/80">
-                    {invitation.role.toLowerCase()}
-                  </span>
+                  <span className="font-medium text-white/80">{invitation.role.toLowerCase()}</span>
                   .
                 </CardDescription>
               </CardHeader>
@@ -285,8 +260,8 @@ export default function AcceptInvitePage() {
                 {user?.email && user.email !== invitation.email && (
                   <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-warning text-sm">
                     <p>
-                      This invitation was sent to <strong>{invitation.email}</strong>, but
-                      you're logged in as <strong>{user.email}</strong>.
+                      This invitation was sent to <strong>{invitation.email}</strong>, but you're
+                      logged in as <strong>{user.email}</strong>.
                     </p>
                   </div>
                 )}
@@ -294,6 +269,7 @@ export default function AcceptInvitePage() {
                   className="w-full"
                   onClick={() => acceptMutation.mutate()}
                   disabled={acceptMutation.isPending}
+                  data-testid="accept-invite-button"
                 >
                   {acceptMutation.isPending ? (
                     <>
@@ -312,6 +288,7 @@ export default function AcceptInvitePage() {
                   className="w-full text-white/50 hover:text-white/80"
                   onClick={() => navigate('/dashboard')}
                   disabled={acceptMutation.isPending}
+                  data-testid="decline-invite-button"
                 >
                   Decline and go to Dashboard
                 </Button>

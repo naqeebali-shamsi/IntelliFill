@@ -213,6 +213,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           size="icon"
           onClick={toggleSidebar}
           className="absolute -right-3 top-20 h-6 w-6 rounded-full border-border bg-background shadow-md hover:bg-accent z-40 hidden md:flex"
+          data-testid="sidebar-toggle"
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!sidebarCollapsed}
         >
           {sidebarCollapsed ? (
             <ChevronRight className="h-3 w-3" />
