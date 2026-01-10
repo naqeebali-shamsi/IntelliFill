@@ -15,6 +15,7 @@ import {
   Settings2,
   History,
   Clock,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,6 +29,7 @@ import { useFilledFormStore } from '@/stores/filledFormStore';
 import { EditableFieldTable } from '@/components/features/editable-field-table';
 import { FormSourceTabs, type FormTemplate } from '@/components/features/form-source-tabs';
 import { TemplateManager } from '@/components/features/template-manager';
+import { FormPreview } from '@/components/features/form-preview';
 import { ProfileSelector } from '@/components/features/profile-selector';
 import type { FormField, FieldMapping, MappingTemplate } from '@/types/formFilling';
 import type { Profile } from '@/types/profile';
@@ -83,7 +85,6 @@ interface ProfileDataResponse {
   };
 }
 
-// Animation Variants
 const stepVariants = {
   enter: (direction: number) => ({
     x: direction > 0 ? 50 : -50,
@@ -99,11 +100,15 @@ const stepVariants = {
   }),
 };
 
-// Stepper Component
-const FormStepper = ({ currentStep }: { currentStep: 'upload' | 'map' | 'process' }) => {
+const FormStepper = ({
+  currentStep,
+}: {
+  currentStep: 'upload' | 'map' | 'preview' | 'process';
+}) => {
   const steps = [
     { id: 'upload', label: 'Upload', icon: Upload },
     { id: 'map', label: 'Review & Map', icon: Settings2 },
+    { id: 'preview', label: 'Preview', icon: Eye },
     { id: 'process', label: 'Download', icon: Download },
   ];
 
@@ -161,37 +166,28 @@ export default function SimpleFillForm() {
   const [blankForm, setBlankForm] = useState<File | null>(null);
   const [filling, setFilling] = useState(false);
   const [result, setResult] = useState<FillResult | null>(null);
-  const [currentStep, setCurrentStep] = useState<'upload' | 'map' | 'process'>('upload');
+  const [currentStep, setCurrentStep] = useState<'upload' | 'map' | 'preview' | 'process'>(
+    'upload'
+  );
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [mappings, setMappings] = useState<FieldMapping[]>([]);
   const [validatingForm, setValidatingForm] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-  const [direction, setDirection] = useState(0); // For animation direction
+  const [direction, setDirection] = useState(0);
   const [savingToHistory, setSavingToHistory] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
 
-  // Filled form store for saving to history
   const { loadFilledForms } = useFilledFormStore();
 
-  // Fetch ALL user's aggregated data
-  const {
-    data: userData,
-    isLoading: loadingUserData,
-    error: userDataError,
-  } = useQuery<UserDataResponse>({
+  const { data: userData } = useQuery<UserDataResponse>({
     queryKey: ['user-data'],
     queryFn: () => api.get('/users/me/data').then((res) => res.data),
     staleTime: 60000,
     retry: 1,
   });
 
-  // Fetch selected profile's data
-  const {
-    data: profileData,
-    isLoading: loadingProfileData,
-    error: profileDataError,
-  } = useQuery<ProfileDataResponse>({
+  const { data: profileData } = useQuery<ProfileDataResponse>({
     queryKey: ['profile-data', selectedProfile?.id],
     queryFn: () => api.get(`/clients/${selectedProfile!.id}/profile`).then((res) => res.data),
     enabled: !!selectedProfile?.id,
@@ -256,13 +252,11 @@ export default function SimpleFillForm() {
     }
   };
 
-  // Handler for template selection from FormSourceTabs
   const handleTemplateSelected = async (template: FormTemplate) => {
     setSelectedTemplate(template);
     setResult(null);
     setEditedValues({});
 
-    // Template includes pre-configured fields and mappings
     if (template.detectedFields && template.detectedFields.length > 0) {
       const fields: FormField[] = template.detectedFields.map((name) => ({
         name,
@@ -271,7 +265,6 @@ export default function SimpleFillForm() {
       }));
       setFormFields(fields);
 
-      // If template has pre-configured mappings, use them
       if (template.fieldMappings && Object.keys(template.fieldMappings).length > 0) {
         const templateMappings: FieldMapping[] = fields.map((f) => ({
           formField: f.name,
@@ -281,7 +274,6 @@ export default function SimpleFillForm() {
         }));
         setMappings(templateMappings);
       } else if (effectiveData.fieldCount > 0) {
-        // Auto-map if no pre-configured mappings
         const autoMappings = generateAutoMappings(fields, effectiveData.fields);
         setMappings(autoMappings);
       }
@@ -296,7 +288,6 @@ export default function SimpleFillForm() {
     }
   };
 
-  // Handler for file upload from FormSourceTabs
   const handleFileUploaded = async (file: File) => {
     if (file.type !== 'application/pdf') {
       toast.error('Please upload a PDF file');
@@ -356,7 +347,6 @@ export default function SimpleFillForm() {
     }
   };
 
-  // Handler for editing field values in EditableFieldTable
   const handleValueChange = (fieldName: string, value: string) => {
     setEditedValues((prev) => ({
       ...prev,
@@ -364,7 +354,6 @@ export default function SimpleFillForm() {
     }));
   };
 
-  // Handler for resetting an edited value
   const handleResetValue = (fieldName: string) => {
     setEditedValues((prev) => {
       const updated = { ...prev };
@@ -391,19 +380,16 @@ export default function SimpleFillForm() {
       return;
     }
     setDirection(1);
-    setCurrentStep('process');
-    handleFillForm();
+    setCurrentStep('preview');
   };
 
   const handleFillForm = async () => {
-    // Support both direct file upload and template-based form filling
     if ((!blankForm && !selectedTemplate) || effectiveData.fieldCount === 0) return;
 
     try {
       setFilling(true);
       const formData = new FormData();
 
-      // If using a template, send template ID; otherwise send the file
       if (selectedTemplate) {
         formData.append('templateId', selectedTemplate.id);
       } else if (blankForm) {
@@ -423,7 +409,6 @@ export default function SimpleFillForm() {
       formData.append('mappings', JSON.stringify(mappingsRecord));
       formData.append('userData', JSON.stringify(dataPayload));
 
-      // Include any edited/overridden values
       if (Object.keys(editedValues).length > 0) {
         formData.append('overrideValues', JSON.stringify(editedValues));
       }
@@ -490,7 +475,6 @@ export default function SimpleFillForm() {
     }
   };
 
-  // Save the filled form to history (creates a record linked to the profile)
   const handleSaveToHistory = async () => {
     if (!result || !selectedProfile) {
       toast.error('No form result or profile selected');
@@ -500,8 +484,6 @@ export default function SimpleFillForm() {
     try {
       setSavingToHistory(true);
 
-      // Create a history record by linking the filled document to the profile
-      // This uses a lightweight API call to save form fill metadata
       const response = await api.post('/filled-forms/save-adhoc', {
         documentId: result.documentId,
         clientId: selectedProfile.id,
@@ -518,7 +500,6 @@ export default function SimpleFillForm() {
         historyId: response.data.data?.id,
       });
 
-      // Refresh the filled forms list in store
       loadFilledForms();
 
       toast.success('Saved to history!', {
@@ -679,12 +660,8 @@ export default function SimpleFillForm() {
                   disabled={filling}
                   className="shadow-lg shadow-primary/20"
                 >
-                  {filling ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 mr-2" />
-                  )}
-                  Fill Form
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview
                 </Button>
               </div>
             </div>
@@ -699,6 +676,60 @@ export default function SimpleFillForm() {
                   <TemplateManager currentMappings={mappings} onLoadTemplate={handleLoadTemplate} />
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 'preview' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Preview Filled Form</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review and edit field values before generating the PDF
+                </p>
+              </div>
+              <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary">
+                {mappings.filter((m) => m.documentField).length}/{formFields.length} Fields Ready
+              </Badge>
+            </div>
+
+            <FormPreview
+              formFields={formFields}
+              mappings={mappings}
+              profileData={effectiveData.fields}
+              editedValues={editedValues}
+              onValueChange={handleValueChange}
+              filledFields={mappings.filter((m) => m.documentField).length}
+              totalFields={formFields.length}
+            />
+
+            <div className="flex justify-between pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDirection(-1);
+                  setCurrentStep('map');
+                }}
+              >
+                Back to Mapping
+              </Button>
+              <Button
+                onClick={() => {
+                  setDirection(1);
+                  setCurrentStep('process');
+                  handleFillForm();
+                }}
+                disabled={filling}
+                className="shadow-lg shadow-primary/20"
+              >
+                {filling ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Generate PDF
+              </Button>
             </div>
           </div>
         )}
