@@ -124,6 +124,73 @@ function CompactModeRow(): React.ReactElement {
   );
 }
 
+const SUPPORTED_LANGUAGES = [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'ar', label: 'Arabic' },
+] as const;
+
+/** Language preference row with localStorage + backend sync */
+interface LanguageRowProps {
+  userSettings: UserSettings | undefined;
+  updateSettingsMutation: ReturnType<typeof useMutation<UserSettings, Error, UpdateSettingsData>>;
+}
+
+function LanguageRow({
+  userSettings,
+  updateSettingsMutation,
+}: LanguageRowProps): React.ReactElement {
+  const storedLanguage = localStorage.getItem('preferred_language');
+  const initialLanguage = storedLanguage || userSettings?.preferredLanguage || 'en';
+  const [language, setLanguage] = useState(initialLanguage);
+
+  // Sync with userSettings when it loads (only if no localStorage preference)
+  useEffect(() => {
+    if (!storedLanguage && userSettings?.preferredLanguage) {
+      setLanguage(userSettings.preferredLanguage);
+    }
+  }, [storedLanguage, userSettings?.preferredLanguage]);
+
+  function handleLanguageChange(value: string): void {
+    setLanguage(value);
+    localStorage.setItem('preferred_language', value);
+
+    updateSettingsMutation.mutate(
+      { preferredLanguage: value },
+      {
+        onSuccess: () => {
+          toast.info('Language preference saved', {
+            description: 'Full localization coming soon!',
+          });
+        },
+      }
+    );
+  }
+
+  return (
+    <SettingsRow>
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-2 font-medium">
+          <Globe className="h-4 w-4" /> Language
+        </div>
+      </div>
+      <Select value={language} onValueChange={handleLanguageChange}>
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Select language" />
+        </SelectTrigger>
+        <SelectContent>
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <SelectItem key={lang.value} value={lang.value}>
+              {lang.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </SettingsRow>
+  );
+}
+
 // Browser notification helpers
 const isBrowserNotificationSupported = typeof Notification !== 'undefined';
 const isBrowserNotificationDenied =
@@ -452,23 +519,10 @@ export default function Settings() {
                       title="Language & Region"
                       description="Set your language and timezone preferences."
                     >
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <Globe className="h-4 w-4" /> Language
-                          </div>
-                        </div>
-                        <Select defaultValue="en">
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select language" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="en">English</SelectItem>
-                            <SelectItem value="es">Spanish</SelectItem>
-                            <SelectItem value="fr">French</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </SettingsRow>
+                      <LanguageRow
+                        userSettings={userSettings}
+                        updateSettingsMutation={updateSettingsMutation}
+                      />
                     </SettingsSection>
 
                     <SettingsSection
