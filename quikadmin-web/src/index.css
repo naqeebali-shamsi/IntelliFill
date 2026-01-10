@@ -244,6 +244,15 @@
     --status-error: oklch(65% 0.180 15); /* Brighter rose */
     --status-error-foreground: oklch(20% 0.035 15);
   }
+
+  /* Compact Mode - Reduced spacing for higher density UI */
+  :root.compact {
+    --radius: 0.5rem; /* 8px - Tighter corners */
+  }
+
+  :root.compact body {
+    font-size: 0.875rem; /* 14px base font */
+  }
 }
 
 @layer base {
@@ -279,5 +288,56 @@
 
   .animate-in-stagger {
     @apply animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards;
+  }
+}
+
+/* Compact Mode Utilities */
+@layer utilities {
+  /* Reduce padding in compact mode */
+  :root.compact .card-content,
+  :root.compact [data-slot="card-content"] {
+    @apply p-4;
+  }
+
+  :root.compact .card-header,
+  :root.compact [data-slot="card-header"] {
+    @apply p-4 pb-2;
+  }
+
+  /* Tighter gaps in compact mode */
+  :root.compact .space-y-6 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+  }
+
+  :root.compact .space-y-4 {
+    --tw-space-y-reverse: 0;
+    margin-top: calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));
+    margin-bottom: calc(0.5rem * var(--tw-space-y-reverse));
+  }
+
+  :root.compact .gap-6 {
+    gap: 1rem;
+  }
+
+  :root.compact .gap-4 {
+    gap: 0.5rem;
+  }
+
+  /* Smaller text in compact mode */
+  :root.compact .text-lg {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+
+  :root.compact .text-xl {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+
+  :root.compact .text-2xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
   }
 }

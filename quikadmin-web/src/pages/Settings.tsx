@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
+import { useUIStore } from '@/stores/uiStore';
 import {
   getProfile,
   updateProfile,
@@ -106,6 +107,22 @@ const SettingsRow = ({
     {children}
   </div>
 );
+
+/** Compact mode toggle - DOM class is managed by uiStore */
+function CompactModeRow(): React.ReactElement {
+  const compactMode = useUIStore((state) => state.compactMode);
+  const setCompactMode = useUIStore((state) => state.setCompactMode);
+
+  return (
+    <SettingsRow>
+      <div className="space-y-0.5">
+        <div className="font-medium">Compact Mode</div>
+        <p className="text-xs text-muted-foreground">Reduce spacing for higher density</p>
+      </div>
+      <Switch id="compact" checked={compactMode} onCheckedChange={setCompactMode} />
+    </SettingsRow>
+  );
+}
 
 // Browser notification helpers
 const isBrowserNotificationSupported = typeof Notification !== 'undefined';
@@ -426,15 +443,7 @@ export default function Settings() {
                           </SelectContent>
                         </Select>
                       </SettingsRow>
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="font-medium">Compact Mode</div>
-                          <p className="text-xs text-muted-foreground">
-                            Reduce spacing for higher density
-                          </p>
-                        </div>
-                        <Switch id="compact" />
-                      </SettingsRow>
+                      <CompactModeRow />
                     </SettingsSection>
 
                     <Separator className="bg-white/10" />
