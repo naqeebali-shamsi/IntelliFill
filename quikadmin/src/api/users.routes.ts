@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
+import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { decryptExtractedData } from '../middleware/encryptionMiddleware';
@@ -12,6 +13,7 @@ import { ExtractedData } from '../extractors/DataExtractor';
 import { prisma } from '../utils/prisma';
 import { validate } from '../middleware/validation';
 import { updateProfileSchema, updateSettingsSchema } from '../validators/schemas';
+import { supabaseAdmin } from '../utils/supabase';
 
 // Validation schema for fill-form endpoint
 const fillFormBodySchema = z.object({
@@ -19,6 +21,11 @@ const fillFormBodySchema = z.object({
   userData: z.string().optional(),
   overrideValues: z.string().optional(), // JSON string of field value overrides
   templateId: z.string().uuid().optional(), // Form template ID (alternative to file upload)
+});
+
+// Task 516: Validation schema for delete account endpoint
+const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
 });
 
 /** Error response for JSON parsing failure */
@@ -608,6 +615,137 @@ export function createUserRoutes(): Router {
         });
       } catch (error) {
         logger.error('Fill form error:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * DELETE /api/users/me - Delete user account
+   * Task 516: Securely delete user account with password verification
+   */
+  router.delete(
+    '/me',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      try {
+        // Validate request body
+        const validation = deleteAccountSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        const { password } = validation.data;
+
+        // Fetch user with password hash
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            email: true,
+            password: true,
+            supabaseUserId: true,
+          },
+        });
+
+        if (!user) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Verify password
+        const passwordValid = await bcrypt.compare(password, user.password);
+        if (!passwordValid) {
+          logger.warn('Delete account: invalid password attempt', { userId, email: user.email });
+          return res.status(401).json({ error: 'Invalid password' });
+        }
+
+        // Create audit log entry BEFORE deletion (so we have userId reference)
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'USER_DELETED',
+            entityType: 'User',
+            entityId: user.id,
+            metadata: {
+              email: user.email,
+              deletedAt: new Date().toISOString(),
+              ipAddress: req.ip,
+              userAgent: req.get('user-agent'),
+            },
+          },
+        });
+
+        // Delete all user data in transaction (order matters for FK constraints)
+        await prisma.$transaction(async (tx) => {
+          // Get client IDs for cascading deletes
+          const clients = await tx.client.findMany({
+            where: { userId },
+            select: { id: true },
+          });
+          const clientIds = clients.map((c) => c.id);
+
+          // Delete records that reference clients
+          await tx.filledForm.deleteMany({ where: { clientId: { in: clientIds } } });
+          await tx.clientProfile.deleteMany({ where: { clientId: { in: clientIds } } });
+
+          // Delete user-owned records
+          await tx.clientDocument.deleteMany({ where: { userId } });
+          await tx.client.deleteMany({ where: { userId } });
+          await tx.document.deleteMany({ where: { userId } });
+          await tx.organizationMembership.deleteMany({ where: { userId } });
+          await tx.organizationInvitation.deleteMany({ where: { invitedBy: userId } });
+          await tx.userSettings.deleteMany({ where: { userId } });
+          await tx.userProfile.deleteMany({ where: { userId } });
+          await tx.refreshToken.deleteMany({ where: { userId } });
+          await tx.session.deleteMany({ where: { userId } });
+          await tx.formTemplate.deleteMany({ where: { userId } });
+          await tx.documentSource.deleteMany({ where: { userId } });
+          await tx.userFeedback.deleteMany({ where: { userId } });
+
+          // Finally delete the user
+          await tx.user.delete({ where: { id: userId } });
+        });
+
+        // Delete Supabase auth user if exists
+        if (user.supabaseUserId) {
+          try {
+            await supabaseAdmin.auth.admin.deleteUser(user.supabaseUserId);
+          } catch (supabaseError) {
+            // Log but don't fail - Prisma user is already deleted
+            logger.error('Failed to delete Supabase auth user', {
+              userId,
+              supabaseUserId: user.supabaseUserId,
+              error: supabaseError,
+            });
+          }
+        }
+
+        // Clear refresh token cookie
+        const isTestMode = process.env.NODE_ENV === 'test';
+        res.clearCookie('refreshToken', {
+          httpOnly: true,
+          secure: !isTestMode,
+          sameSite: isTestMode ? 'lax' : 'strict',
+          path: isTestMode ? '/api' : '/api/auth',
+        });
+
+        logger.info('User account deleted successfully', { userId, email: user.email });
+
+        return res.json({
+          success: true,
+          message: 'Account deleted successfully',
+        });
+      } catch (error) {
+        logger.error('Delete account error:', error);
         next(error);
       }
     }
