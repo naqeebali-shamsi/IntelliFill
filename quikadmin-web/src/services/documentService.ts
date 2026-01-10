@@ -185,6 +185,66 @@ export async function updateDocument(
   return response.data.document;
 }
 
+// ==================== Document Sharing ====================
+
+export type SharePermission = 'VIEW' | 'COMMENT' | 'EDIT';
+
+export interface ShareDocumentRequest {
+  email: string;
+  permission: SharePermission;
+  expiresIn?: number; // Hours until expiry
+  generateLink?: boolean;
+}
+
+export interface DocumentShare {
+  id: string;
+  email: string;
+  permission: SharePermission;
+  expiresAt: string | null;
+  createdAt: string;
+  shareUrl: string | null;
+}
+
+export interface ShareDocumentResponse {
+  success: boolean;
+  share: DocumentShare;
+}
+
+/**
+ * Create a share link for a document
+ * @param documentId - Document to share
+ * @param data - Share configuration
+ * @returns Share details including URL
+ */
+export async function shareDocument(
+  documentId: string,
+  data: ShareDocumentRequest
+): Promise<ShareDocumentResponse> {
+  const response = await api.post<ShareDocumentResponse>(`/documents/${documentId}/share`, data);
+  return response.data;
+}
+
+/**
+ * List all shares for a document
+ * @param documentId - Document ID
+ * @returns Array of shares
+ */
+export async function getDocumentShares(documentId: string): Promise<DocumentShare[]> {
+  const response = await api.get<{ success: boolean; shares: DocumentShare[] }>(
+    `/documents/${documentId}/shares`
+  );
+  return response.data.shares;
+}
+
+/**
+ * Revoke a document share
+ * @param documentId - Document ID
+ * @param shareId - Share ID to revoke
+ */
+export async function revokeDocumentShare(documentId: string, shareId: string): Promise<void> {
+  await api.delete(`/documents/${documentId}/shares/${shareId}`);
+}
+
 const documentService = {
   uploadDocument,
   uploadDocuments,
@@ -197,6 +257,9 @@ const documentService = {
   deleteDocument,
   reprocessDocument,
   updateDocument,
+  shareDocument,
+  getDocumentShares,
+  revokeDocumentShare,
 };
 
 export default documentService;

@@ -31,6 +31,7 @@ import {
   Trash2,
   Eye,
   Edit,
+  Share2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -126,6 +127,10 @@ export interface DocumentCardProps extends Omit<React.HTMLAttributes<HTMLDivElem
    */
   onEdit?: (id: string) => void;
   /**
+   * Share handler
+   */
+  onShare?: (id: string) => void;
+  /**
    * Card click handler
    */
   onClick?: (id: string) => void;
@@ -171,6 +176,7 @@ function DocumentCard({
   onDelete,
   onView,
   onEdit,
+  onShare,
   onClick,
   showActions = true,
   compact = false,
@@ -257,7 +263,7 @@ function DocumentCard({
         </div>
 
         {/* Actions Menu */}
-        {showActions && (onView || onDownload || onEdit || onDelete) && (
+        {showActions && (onView || onDownload || onEdit || onShare || onDelete) && (
           <CardAction>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -292,9 +298,18 @@ function DocumentCard({
                     Edit
                   </DropdownMenuItem>
                 )}
+                {onShare && (
+                  <DropdownMenuItem
+                    onClick={handleAction(() => onShare(id))}
+                    data-testid="document-card-share"
+                  >
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share
+                  </DropdownMenuItem>
+                )}
                 {onDelete && (
                   <>
-                    {(onView || onDownload || onEdit) && <DropdownMenuSeparator />}
+                    {(onView || onDownload || onEdit || onShare) && <DropdownMenuSeparator />}
                     <DropdownMenuItem
                       onClick={handleAction(() => onDelete(id))}
                       className="text-destructive focus:text-destructive"

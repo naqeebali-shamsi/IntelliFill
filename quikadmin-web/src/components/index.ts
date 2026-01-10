@@ -231,6 +231,9 @@ export type {
 export { TagInput } from './features/tag-input';
 export type { TagInputProps } from './features/tag-input';
 
+// Share Modal
+export { ShareDocumentModal } from './features/ShareDocumentModal';
+
 // ============================================================================
 // Special Components
 // ============================================================================

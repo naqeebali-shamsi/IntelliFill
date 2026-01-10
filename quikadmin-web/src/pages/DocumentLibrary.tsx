@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { DocumentStatistics } from '@/components/features/document-statistics';
 import { DocumentFilters } from '@/components/features/document-filters';
 import { BulkActionsToolbar } from '@/components/features/bulk-actions-toolbar';
 import { DocumentDetail } from '@/components/features/document-detail';
+import { ShareDocumentModal } from '@/components/features/ShareDocumentModal';
 import { toast } from 'sonner';
 import {
   Upload,
@@ -28,8 +29,6 @@ import {
   ChevronRight,
   RefreshCw,
   FileText,
-  Filter,
-  X,
 } from 'lucide-react';
 import {
   useDocuments,
@@ -40,7 +39,6 @@ import {
 import { useDocumentActions } from '@/hooks/useDocumentActions';
 import { getDocumentStats } from '@/hooks/useDocumentStats';
 import {
-  useDocumentStore,
   useDocumentSelection,
   useDocumentViewMode,
   useDocumentFilters,
@@ -56,21 +54,12 @@ import { staggerContainerFast, fadeInUpSubtle } from '@/lib/animations';
 
 export default function DocumentLibrary() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
   // State from stores
-  const {
-    selectedIds,
-    selectionCount,
-    selectDocument,
-    deselectDocument,
-    toggleDocument,
-    selectAll,
-    clearSelection,
-    isSelected,
-  } = useDocumentSelection();
+  const { selectedIds, selectionCount, toggleDocument, selectAll, clearSelection, isSelected } =
+    useDocumentSelection();
 
-  const { viewMode, setViewMode, toggleViewMode } = useDocumentViewMode();
+  const { viewMode, setViewMode } = useDocumentViewMode();
   const {
     filter,
     setFilter,
@@ -80,10 +69,11 @@ export default function DocumentLibrary() {
     applyDateRangePreset,
   } = useDocumentFilters();
   const { sort, setSort } = useDocumentSort();
-  const { page, pageSize, setPage, setPageSize, resetPage } = useDocumentPagination();
+  const { page, pageSize, setPage } = useDocumentPagination();
 
   // Local UI state
   const [selectedDocumentId, setSelectedDocumentId] = React.useState<string | null>(null);
+  const [shareDocumentId, setShareDocumentId] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState(filter.searchQuery || '');
 
   // Debounce search query (300ms)
@@ -146,6 +136,8 @@ export default function DocumentLibrary() {
   const handleDownload = async (doc: Document) => {
     await downloadDocument({ id: doc.id, fileName: doc.fileName });
   };
+
+  const handleShare = (id: string) => setShareDocumentId(id);
 
   const handleBulkDelete = async () => {
     await bulkDelete(selectedIds);
@@ -418,7 +410,12 @@ export default function DocumentLibrary() {
           </motion.div>
         ) : viewMode === 'grid' ? (
           /* Grid View */
-          <motion.div variants={staggerContainerFast} initial="hidden" animate="show" data-testid="document-grid">
+          <motion.div
+            variants={staggerContainerFast}
+            initial="hidden"
+            animate="show"
+            data-testid="document-grid"
+          >
             <ResponsiveGrid preset="cards">
               {isLoading
                 ? Array.from({ length: pageSize }).map((_, i) => (
@@ -459,6 +456,7 @@ export default function DocumentLibrary() {
                         pageCount={doc.pageCount || undefined}
                         onView={() => handleDocumentClick(doc.id)}
                         onDownload={() => handleDownload(doc)}
+                        onShare={() => handleShare(doc.id)}
                         onClick={() => handleDocumentClick(doc.id)}
                       />
                     </motion.div>
@@ -528,6 +526,14 @@ export default function DocumentLibrary() {
         documentId={selectedDocumentId}
         open={!!selectedDocumentId}
         onClose={() => setSelectedDocumentId(null)}
+      />
+
+      {/* Share Document Modal */}
+      <ShareDocumentModal
+        documentId={shareDocumentId || ''}
+        documentName={documents.find((d) => d.id === shareDocumentId)?.fileName}
+        open={!!shareDocumentId}
+        onOpenChange={(open) => !open && setShareDocumentId(null)}
       />
     </div>
   );
