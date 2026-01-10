@@ -17,7 +17,46 @@ import { updateProfileSchema, updateSettingsSchema } from '../validators/schemas
 const fillFormBodySchema = z.object({
   mappings: z.string().optional(),
   userData: z.string().optional(),
+  overrideValues: z.string().optional(), // JSON string of field value overrides
+  templateId: z.string().uuid().optional(), // Form template ID (alternative to file upload)
 });
+
+/** Error response for JSON parsing failure */
+interface JsonParseError {
+  error: string;
+  details: string;
+}
+
+/**
+ * Safely parse a JSON string field from the request body.
+ * Returns the parsed object or throws a JsonParseError.
+ */
+function parseJsonField<T extends object>(jsonString: string | undefined, fieldName: string): T {
+  if (!jsonString) {
+    return {} as T;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (err) {
+    const error: JsonParseError = {
+      error: `Invalid JSON format in ${fieldName} field`,
+      details: err instanceof Error ? err.message : 'Parse error',
+    };
+    throw error;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    const error: JsonParseError = {
+      error: 'Invalid JSON format',
+      details: `${fieldName} must be a valid JSON object`,
+    };
+    throw error;
+  }
+
+  return parsed as T;
+}
 
 export function createUserRoutes(): Router {
   const router = Router();
@@ -378,10 +417,6 @@ export function createUserRoutes(): Router {
           return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        if (!req.file) {
-          return res.status(400).json({ error: 'Form file is required' });
-        }
-
         // Validate request body
         const validation = fillFormBodySchema.safeParse(req.body);
         if (!validation.success) {
@@ -391,45 +426,62 @@ export function createUserRoutes(): Router {
           });
         }
 
-        // Get mappings and userData from request body with safe JSON parsing
-        let mappings: Record<string, string> = {};
-        let userData: ExtractedData | undefined;
+        // Support either file upload OR templateId
+        let formPath: string;
+        let tempFormFile: string | null = null;
 
-        // Parse mappings with error handling
-        if (validation.data.mappings) {
-          try {
-            mappings = JSON.parse(validation.data.mappings);
-            if (typeof mappings !== 'object' || mappings === null) {
-              return res.status(400).json({
-                error: 'Invalid JSON format',
-                details: 'mappings must be a valid JSON object',
-              });
-            }
-          } catch (error) {
-            return res.status(400).json({
-              error: 'Invalid JSON format in mappings field',
-              details: error instanceof Error ? error.message : 'Parse error',
-            });
+        if (req.file) {
+          formPath = req.file.path;
+        } else if (validation.data.templateId) {
+          // Fetch template and download its PDF
+          const template = await prisma.formTemplate.findFirst({
+            where: {
+              id: validation.data.templateId,
+              userId,
+            },
+          });
+
+          if (!template || !template.fileUrl) {
+            return res.status(404).json({ error: 'Form template not found or has no file' });
           }
+
+          // Download template file to temp location
+          const tempDir = path.join('uploads', 'temp');
+          await fs.mkdir(tempDir, { recursive: true });
+          tempFormFile = path.join(tempDir, `template-${Date.now()}.pdf`);
+
+          // If fileUrl is a relative path, use local file system
+          if (!template.fileUrl.startsWith('http')) {
+            await fs.copyFile(template.fileUrl, tempFormFile);
+          } else {
+            // TODO: Download from remote URL (S3, etc.) if needed
+            return res.status(400).json({ error: 'Remote template files not yet supported' });
+          }
+          formPath = tempFormFile;
+        } else {
+          return res.status(400).json({ error: 'Form file or templateId is required' });
         }
 
-        // Parse userData with error handling
-        if (validation.data.userData) {
-          try {
-            userData = JSON.parse(validation.data.userData);
-            if (typeof userData !== 'object' || userData === null) {
-              return res.status(400).json({
-                error: 'Invalid JSON format',
-                details: 'userData must be a valid JSON object',
-              });
-            }
-          } catch (error) {
-            return res.status(400).json({
-              error: 'Invalid JSON format in userData field',
-              details: error instanceof Error ? error.message : 'Parse error',
-            });
+        // Parse JSON fields from request body
+        let mappings: Record<string, string>;
+        let overrideValues: Record<string, string>;
+        let userData: ExtractedData | undefined;
+
+        try {
+          mappings = parseJsonField<Record<string, string>>(validation.data.mappings, 'mappings');
+          overrideValues = parseJsonField<Record<string, string>>(
+            validation.data.overrideValues,
+            'overrideValues'
+          );
+          if (validation.data.userData) {
+            userData = parseJsonField<ExtractedData>(validation.data.userData, 'userData');
           }
-        } else {
+        } catch (parseError) {
+          const err = parseError as JsonParseError;
+          return res.status(400).json({ error: err.error, details: err.details });
+        }
+
+        if (!userData) {
           // Fetch fresh aggregated data
           const documents = await prisma.document.findMany({
             where: {
@@ -461,12 +513,11 @@ export function createUserRoutes(): Router {
         const fieldMapper = new FieldMapper();
         const formFiller = new FormFiller();
 
-        // Process form
-        const formPath = req.file.path;
-
         // Ensure outputs directory exists
         await fs.mkdir('outputs', { recursive: true });
-        const outputPath = path.join('outputs', `filled-${Date.now()}-${req.file.originalname}`);
+        const originalFilename =
+          req.file?.originalname || `template-${validation.data.templateId}.pdf`;
+        const outputPath = path.join('outputs', `filled-${Date.now()}-${originalFilename}`);
 
         // Get form fields
         const formFieldsInfo = await formFiller.validateFormFields(formPath);
@@ -492,6 +543,27 @@ export function createUserRoutes(): Router {
           mappingResult = await fieldMapper.mapFields(userData, formFieldsInfo.fields);
         }
 
+        // Apply override values (user-edited field values take precedence)
+        if (Object.keys(overrideValues).length > 0) {
+          mappingResult.mappings = mappingResult.mappings.map(
+            (mapping: {
+              formField: string;
+              dataField: string;
+              value: unknown;
+              confidence: number;
+            }) => {
+              if (mapping.formField in overrideValues) {
+                return {
+                  ...mapping,
+                  value: overrideValues[mapping.formField],
+                  confidence: 1.0, // User-provided value has max confidence
+                };
+              }
+              return mapping;
+            }
+          );
+        }
+
         // Fill form
         const fillResult = await formFiller.fillPDFForm(formPath, mappingResult, outputPath);
 
@@ -507,7 +579,7 @@ export function createUserRoutes(): Router {
         const filledDoc = await prisma.document.create({
           data: {
             userId,
-            fileName: `filled-${req.file.originalname}`,
+            fileName: `filled-${originalFilename}`,
             fileType: 'application/pdf',
             fileSize: stats.size,
             storageUrl: outputPath,
@@ -516,8 +588,14 @@ export function createUserRoutes(): Router {
           },
         });
 
-        // Cleanup temp form file
-        await fs.unlink(formPath).catch(() => {});
+        // Cleanup temp form file if we created one for template
+        if (tempFormFile) {
+          await fs.unlink(tempFormFile).catch(() => {});
+        }
+        // Also cleanup the uploaded file if present
+        if (req.file) {
+          await fs.unlink(req.file.path).catch(() => {});
+        }
 
         res.json({
           success: true,

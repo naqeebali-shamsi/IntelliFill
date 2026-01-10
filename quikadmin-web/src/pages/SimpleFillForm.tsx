@@ -1,15 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  FileUp,
   Download,
   Loader2,
   FileText,
   CheckCircle,
-  ArrowRight,
-  AlertCircle,
   Info,
   User,
   Check,
@@ -23,18 +20,16 @@ import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import api, { validateForm } from '@/services/api';
 import { useFilledFormStore } from '@/stores/filledFormStore';
 
-import { FieldMappingTable } from '@/components/features/field-mapping-table';
+import { EditableFieldTable } from '@/components/features/editable-field-table';
+import { FormSourceTabs, type FormTemplate } from '@/components/features/form-source-tabs';
 import { TemplateManager } from '@/components/features/template-manager';
 import { ProfileSelector } from '@/components/features/profile-selector';
-import type { FormField, DocumentData, FieldMapping, MappingTemplate } from '@/types/formFilling';
+import type { FormField, FieldMapping, MappingTemplate } from '@/types/formFilling';
 import type { Profile } from '@/types/profile';
 import { generateAutoMappings, validateMappings } from '@/utils/fieldMapping';
 
@@ -173,6 +168,8 @@ export default function SimpleFillForm() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [direction, setDirection] = useState(0); // For animation direction
   const [savingToHistory, setSavingToHistory] = useState(false);
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
 
   // Filled form store for saving to history
   const { loadFilledForms } = useFilledFormStore();
@@ -241,68 +238,6 @@ export default function SimpleFillForm() {
     }
   };
 
-  const handleFormUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type !== 'application/pdf') {
-        toast.error('Please upload a PDF file');
-        return;
-      }
-
-      setBlankForm(file);
-      setResult(null);
-      setFormFields([]);
-      setMappings([]);
-
-      try {
-        setValidatingForm(true);
-        const validation = await validateForm(file);
-        const fields: FormField[] = validation.fields.map((name) => ({
-          name,
-          type: validation.fieldTypes?.[name] || 'text',
-          required: false,
-        }));
-
-        setFormFields(fields);
-
-        if (effectiveData.fieldCount === 0) {
-          if (selectedProfile) {
-            toast.error('No profile data available. Please add data to this profile first.');
-          } else {
-            toast.error(
-              'No user data available. Please upload documents or select a profile first.'
-            );
-          }
-          setBlankForm(null);
-          return;
-        }
-
-        const autoMappings = generateAutoMappings(fields, effectiveData.fields);
-        setMappings(autoMappings);
-
-        setDirection(1);
-        setCurrentStep('map');
-
-        const sourceDescription =
-          effectiveData.source === 'profile'
-            ? `profile "${selectedProfile?.name}"`
-            : `${userData?.documentCount || 0} document(s)`;
-        toast.success(`Form uploaded: ${file.name}`, {
-          description: `Using ${effectiveData.fieldCount} fields from ${sourceDescription}`,
-        });
-      } catch (error: unknown) {
-        console.error('Form validation failed:', error);
-        const message =
-          (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-          'Failed to validate form';
-        toast.error(message);
-        setBlankForm(null);
-      } finally {
-        setValidatingForm(false);
-      }
-    }
-  };
-
   const handleMappingChange = (formField: string, documentField: string | null) => {
     setMappings((prev) =>
       prev.map((m) =>
@@ -319,6 +254,124 @@ export default function SimpleFillForm() {
       setMappings((prev) => prev.map((m) => (m.formField === formField ? autoMapping : m)));
       toast.success('Mapping reset to auto-detection');
     }
+  };
+
+  // Handler for template selection from FormSourceTabs
+  const handleTemplateSelected = async (template: FormTemplate) => {
+    setSelectedTemplate(template);
+    setResult(null);
+    setEditedValues({});
+
+    // Template includes pre-configured fields and mappings
+    if (template.detectedFields && template.detectedFields.length > 0) {
+      const fields: FormField[] = template.detectedFields.map((name) => ({
+        name,
+        type: 'text',
+        required: false,
+      }));
+      setFormFields(fields);
+
+      // If template has pre-configured mappings, use them
+      if (template.fieldMappings && Object.keys(template.fieldMappings).length > 0) {
+        const templateMappings: FieldMapping[] = fields.map((f) => ({
+          formField: f.name,
+          documentField: template.fieldMappings?.[f.name] || null,
+          confidence: template.fieldMappings?.[f.name] ? 1 : 0,
+          manualOverride: false,
+        }));
+        setMappings(templateMappings);
+      } else if (effectiveData.fieldCount > 0) {
+        // Auto-map if no pre-configured mappings
+        const autoMappings = generateAutoMappings(fields, effectiveData.fields);
+        setMappings(autoMappings);
+      }
+
+      setDirection(1);
+      setCurrentStep('map');
+      toast.success(`Template loaded: ${template.name}`, {
+        description: `${fields.length} fields ready for mapping`,
+      });
+    } else {
+      toast.error('Template has no detected fields');
+    }
+  };
+
+  // Handler for file upload from FormSourceTabs
+  const handleFileUploaded = async (file: File) => {
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+
+    setBlankForm(file);
+    setSelectedTemplate(null);
+    setResult(null);
+    setFormFields([]);
+    setMappings([]);
+    setEditedValues({});
+
+    try {
+      setValidatingForm(true);
+      const validation = await validateForm(file);
+      const fields: FormField[] = validation.fields.map((name) => ({
+        name,
+        type: validation.fieldTypes?.[name] || 'text',
+        required: false,
+      }));
+
+      setFormFields(fields);
+
+      if (effectiveData.fieldCount === 0) {
+        if (selectedProfile) {
+          toast.error('No profile data available. Please add data to this profile first.');
+        } else {
+          toast.error('No user data available. Please upload documents or select a profile first.');
+        }
+        setBlankForm(null);
+        return;
+      }
+
+      const autoMappings = generateAutoMappings(fields, effectiveData.fields);
+      setMappings(autoMappings);
+
+      setDirection(1);
+      setCurrentStep('map');
+
+      const sourceDescription =
+        effectiveData.source === 'profile'
+          ? `profile "${selectedProfile?.name}"`
+          : `${userData?.documentCount || 0} document(s)`;
+      toast.success(`Form uploaded: ${file.name}`, {
+        description: `Using ${effectiveData.fieldCount} fields from ${sourceDescription}`,
+      });
+    } catch (error: unknown) {
+      console.error('Form validation failed:', error);
+      const message =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to validate form';
+      toast.error(message);
+      setBlankForm(null);
+    } finally {
+      setValidatingForm(false);
+    }
+  };
+
+  // Handler for editing field values in EditableFieldTable
+  const handleValueChange = (fieldName: string, value: string) => {
+    setEditedValues((prev) => ({
+      ...prev,
+      [fieldName]: value,
+    }));
+  };
+
+  // Handler for resetting an edited value
+  const handleResetValue = (fieldName: string) => {
+    setEditedValues((prev) => {
+      const updated = { ...prev };
+      delete updated[fieldName];
+      return updated;
+    });
+    toast.success('Value reset to original');
   };
 
   const handleLoadTemplate = (template: MappingTemplate) => {
@@ -343,12 +396,20 @@ export default function SimpleFillForm() {
   };
 
   const handleFillForm = async () => {
-    if (!blankForm || effectiveData.fieldCount === 0) return;
+    // Support both direct file upload and template-based form filling
+    if ((!blankForm && !selectedTemplate) || effectiveData.fieldCount === 0) return;
 
     try {
       setFilling(true);
       const formData = new FormData();
-      formData.append('form', blankForm);
+
+      // If using a template, send template ID; otherwise send the file
+      if (selectedTemplate) {
+        formData.append('templateId', selectedTemplate.id);
+      } else if (blankForm) {
+        formData.append('form', blankForm);
+      }
+
       const mappingsRecord: Record<string, string> = {};
       mappings.forEach((m) => {
         if (m.documentField) mappingsRecord[m.formField] = m.documentField;
@@ -361,6 +422,11 @@ export default function SimpleFillForm() {
 
       formData.append('mappings', JSON.stringify(mappingsRecord));
       formData.append('userData', JSON.stringify(dataPayload));
+
+      // Include any edited/overridden values
+      if (Object.keys(editedValues).length > 0) {
+        formData.append('overrideValues', JSON.stringify(editedValues));
+      }
 
       const response = await api.post('/users/me/fill-form', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -391,8 +457,10 @@ export default function SimpleFillForm() {
 
   const handleReset = () => {
     setBlankForm(null);
+    setSelectedTemplate(null);
     setFormFields([]);
     setMappings([]);
+    setEditedValues({});
     setResult(null);
     setDirection(-1);
     setCurrentStep('upload');
@@ -534,39 +602,35 @@ export default function SimpleFillForm() {
               </div>
             </div>
 
-            {/* Upload Drop Zone */}
+            {/* Form Source Selection - Templates or Upload */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                2. Upload Target Form
+                2. Select Form Source
               </h3>
 
               <div
                 className={cn(
-                  'border-2 border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center justify-center text-center hover:bg-white/5 hover:border-primary/30 transition-all cursor-pointer relative',
+                  'transition-opacity',
                   (!selectedProfile || effectiveData.fieldCount === 0) &&
                     'opacity-50 pointer-events-none'
                 )}
               >
-                <Input
-                  id="form-upload"
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFormUpload}
-                  disabled={validatingForm || !selectedProfile || effectiveData.fieldCount === 0}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
-                  {validatingForm ? (
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                  ) : (
-                    <Upload className="h-8 w-8" />
-                  )}
-                </div>
-                <h4 className="text-lg font-medium mb-1">
-                  {validatingForm ? 'Analyzing Form...' : 'Drop your PDF here'}
-                </h4>
-                <p className="text-sm text-muted-foreground">or click to browse</p>
+                {validatingForm ? (
+                  <div className="border-2 border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center justify-center text-center">
+                    <div className="p-4 rounded-full bg-primary/10 text-primary mb-4">
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                    <h4 className="text-lg font-medium mb-1">Analyzing Form...</h4>
+                    <p className="text-sm text-muted-foreground">Detecting fillable fields</p>
+                  </div>
+                ) : (
+                  <FormSourceTabs
+                    onTemplateSelected={handleTemplateSelected}
+                    onFileUploaded={handleFileUploaded}
+                    disabled={!selectedProfile || effectiveData.fieldCount === 0}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -587,16 +651,16 @@ export default function SimpleFillForm() {
                 </div>
               </div>
 
-              <div className="bg-background/20 rounded-xl border border-white/5 overflow-hidden">
-                <FieldMappingTable
+              <div className="bg-background/20 rounded-xl border border-white/5 overflow-hidden p-4">
+                <EditableFieldTable
                   formFields={formFields}
-                  documentData={effectiveData.fields}
                   mappings={mappings}
+                  profileData={effectiveData.fields}
+                  editedValues={editedValues}
+                  onValueChange={handleValueChange}
                   onMappingChange={handleMappingChange}
-                  onResetMapping={handleResetMapping}
-                  fieldSources={
-                    effectiveData.source === 'profile' ? {} : userData?.fieldSources || {}
-                  }
+                  onResetValue={handleResetValue}
+                  disabled={filling}
                 />
               </div>
 
