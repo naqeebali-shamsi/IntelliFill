@@ -5,6 +5,7 @@
  */
 
 import * as React from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -15,12 +16,15 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBadge } from './status-badge';
 import { OCRConfidenceAlert } from './ocr-confidence-alert';
+import { TagInput } from './tag-input';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import {
   FileText,
   Download,
@@ -33,9 +37,12 @@ import {
   FileType,
   Clock,
   CheckCircle2,
+  Edit,
+  Tag,
 } from 'lucide-react';
 import { useDocumentDetail } from '@/hooks/useDocumentDetail';
 import { useDocumentActions } from '@/hooks/useDocumentActions';
+import { updateDocument } from '@/services/documentService';
 import { Document, getFriendlyFileType, getFileTypeCategory } from '@/types/document';
 import { formatFileSize } from '@/utils/fileValidation';
 import { format } from 'date-fns';
@@ -145,6 +152,8 @@ export function DocumentDetail({
               {/* Metadata Tab */}
               <TabsContent value="metadata" className="space-y-4 mt-4">
                 <MetadataSection document={document} />
+                <Separator />
+                <TagsSection document={document} />
               </TabsContent>
 
               {/* Extracted Data Tab */}
@@ -376,6 +385,97 @@ function HistorySection({ document }: { document: Document }) {
             </p>
           </div>
         </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Tags section with edit capability
+ */
+function TagsSection({ document }: { document: Document }) {
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editedTags, setEditedTags] = React.useState<string[]>([]);
+
+  const documentTags = document.tags ?? [];
+
+  const updateTagsMutation = useMutation({
+    mutationFn: (newTags: string[]) => updateDocument(document.id, { tags: newTags }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['document', document.id] });
+      toast.success('Tags updated');
+      setIsEditing(false);
+    },
+    onError: () => {
+      toast.error('Failed to update tags');
+    },
+  });
+
+  function startEditing(): void {
+    setEditedTags(documentTags);
+    setIsEditing(true);
+  }
+
+  function cancelEditing(): void {
+    setIsEditing(false);
+  }
+
+  function saveTags(): void {
+    updateTagsMutation.mutate(editedTags);
+  }
+
+  const isPending = updateTagsMutation.isPending;
+
+  return (
+    <div className="space-y-2">
+      <Label className="flex items-center justify-between">
+        <span className="flex items-center gap-2">
+          <Tag className="h-4 w-4" />
+          Tags
+        </span>
+        {!isEditing && (
+          <Button variant="ghost" size="sm" className="h-6 px-2" onClick={startEditing}>
+            <Edit className="h-3 w-3 mr-1" />
+            Edit
+          </Button>
+        )}
+      </Label>
+
+      {isEditing ? (
+        <div className="space-y-3">
+          <TagInput tags={editedTags} onChange={setEditedTags} placeholder="Add tags..." />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={saveTags} disabled={isPending}>
+              {isPending ? 'Saving...' : 'Save'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={isPending}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <TagDisplay tags={documentTags} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Display component for read-only tag list
+ */
+function TagDisplay({ tags }: { tags: string[] }): React.ReactElement {
+  if (tags.length === 0) {
+    return <span className="text-sm text-muted-foreground">No tags</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {tags.map((tag) => (
+        <Badge key={tag} variant="secondary">
+          {tag}
+        </Badge>
       ))}
     </div>
   );
