@@ -227,6 +227,10 @@ export type {
   ProcessingStatusType,
 } from './features/processing-status';
 
+// Tag Input
+export { TagInput } from './features/tag-input';
+export type { TagInputProps } from './features/tag-input';
+
 // ============================================================================
 // Special Components
 // ============================================================================
