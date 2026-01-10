@@ -62,6 +62,8 @@ model User {
   settings        UserSettings?
   notifications   Notification[]
   organization    Organization?            @relation(fields: [organizationId], references: [id])
+  sharedByMe      DocumentShare[]          @relation("SharedByUser")
+  sharedWithMe    DocumentShare[]          @relation("SharedWithUser")
 
   @@index([organizationId])
   @@map("users")
@@ -267,6 +269,7 @@ model Document {
   tags                String[]       @default([])
   template            Template?      @relation(fields: [templateId], references: [id])
   user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shares              DocumentShare[]
 
   @@map("documents")
 }
@@ -853,4 +856,36 @@ enum NotificationType {
   ORG_MEMBER_JOINED
   DOCUMENT_SHARED
   SYSTEM_ALERT
+}
+
+enum SharePermission {
+  VIEW
+  COMMENT
+  EDIT
+}
+
+model DocumentShare {
+  id               String          @id @default(uuid())
+  documentId       String          @map("document_id")
+  sharedByUserId   String          @map("shared_by_user_id")
+  sharedWithEmail  String?         @map("shared_with_email")
+  sharedWithUserId String?         @map("shared_with_user_id")
+  permission       SharePermission @default(VIEW)
+  accessToken      String?         @unique @map("access_token")
+  expiresAt        DateTime?       @map("expires_at")
+  accessCount      Int             @default(0) @map("access_count")
+  lastAccessedAt   DateTime?       @map("last_accessed_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharedBy   User     @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+  sharedWith User?    @relation("SharedWithUser", fields: [sharedWithUserId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([accessToken])
+  @@index([sharedByUserId])
+  @@index([sharedWithUserId])
+  @@index([expiresAt])
+  @@map("document_shares")
 }

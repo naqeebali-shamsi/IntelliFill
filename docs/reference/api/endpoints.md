@@ -236,6 +236,149 @@ Retrieve documents with confidence scores below a specified threshold.
 
 Retrieve reprocessing history and metadata for a document.
 
+---
+
+## Document Sharing API
+
+Share documents with other users via email or public link.
+
+### POST /api/documents/:id/share
+
+Create a share for a document. Only the document owner can create shares.
+
+**Request Body**:
+
+```json
+{
+  "email": "recipient@example.com",
+  "permission": "VIEW",
+  "expiresIn": 24,
+  "generateLink": true
+}
+```
+
+| Field          | Type    | Required | Description                                 |
+| -------------- | ------- | -------- | ------------------------------------------- |
+| `email`        | string  | Yes      | Recipient's email address                   |
+| `permission`   | string  | No       | `VIEW` (default), `COMMENT`, or `EDIT`      |
+| `expiresIn`    | number  | No       | Hours until the share expires               |
+| `generateLink` | boolean | No       | Generate a shareable link (default: `true`) |
+
+**Response** (201):
+
+```json
+{
+  "success": true,
+  "share": {
+    "id": "share-uuid",
+    "email": "recipient@example.com",
+    "permission": "VIEW",
+    "expiresAt": "2025-12-31T00:00:00.000Z",
+    "createdAt": "2025-12-30T12:00:00.000Z",
+    "shareUrl": "/shared/abc123..."
+  }
+}
+```
+
+### GET /api/documents/:id/shares
+
+List all shares for a document. Only the document owner can view shares.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "shares": [
+    {
+      "id": "share-uuid",
+      "email": "recipient@example.com",
+      "recipientName": "John Doe",
+      "permission": "VIEW",
+      "shareUrl": "/shared/abc123...",
+      "expiresAt": null,
+      "accessCount": 5,
+      "lastAccessedAt": "2025-12-30T15:00:00.000Z",
+      "createdAt": "2025-12-25T10:00:00.000Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+### DELETE /api/documents/:id/shares/:shareId
+
+Revoke a share. Only the document owner can revoke shares.
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "message": "Share revoked successfully"
+}
+```
+
+### GET /api/shared/:token (Public)
+
+Access a shared document via its access token. **No authentication required.**
+
+**Query Parameters**:
+
+| Parameter           | Type    | Description                         |
+| ------------------- | ------- | ----------------------------------- |
+| `includeConfidence` | boolean | Include per-field confidence scores |
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "document": {
+    "id": "document-uuid",
+    "fileName": "document.pdf",
+    "fileType": "application/pdf",
+    "fileSize": 1024000,
+    "status": "COMPLETED",
+    "confidence": 0.95,
+    "extractedData": { "name": "John Doe" }
+  },
+  "share": {
+    "permission": "VIEW",
+    "sharedBy": "Jane Owner",
+    "createdAt": "2025-12-25T10:00:00.000Z",
+    "expiresAt": null
+  }
+}
+```
+
+**Error Responses**:
+
+- `404` - Share not found (`SHARE_NOT_FOUND`)
+- `410` - Share expired (`SHARE_EXPIRED`)
+
+### GET /api/shared/:token/download (Public)
+
+Download a shared document. **Only available for `EDIT` permission.**
+
+**Response**: Binary file download with appropriate Content-Type header.
+
+**Error Responses**:
+
+- `403` - Insufficient permission (`INSUFFICIENT_PERMISSION`)
+- `404` - Share not found
+- `410` - Share expired
+
+### Share Permission Levels
+
+| Permission | View Data | View Text | Download |
+| ---------- | --------- | --------- | -------- |
+| `VIEW`     | ✓         | ✗         | ✗        |
+| `COMMENT`  | ✓         | ✓         | ✗        |
+| `EDIT`     | ✓         | ✓         | ✓        |
+
+---
+
 ### Enhanced OCR Settings (Reprocessing)
 
 | Setting               | Normal OCR | Reprocessing |

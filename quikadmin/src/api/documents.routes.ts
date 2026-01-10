@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import multer from 'multer';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import {
@@ -20,6 +21,7 @@ import { fileValidationService } from '../services/fileValidation.service';
 import { uploadFile as uploadToStorage, fetchFromStorage } from '../services/storageHelper';
 import { normalizeExtractedData, flattenExtractedData } from '../types/extractedData';
 import archiver from 'archiver';
+import { SharePermission } from '@prisma/client';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
@@ -1013,6 +1015,242 @@ export function createDocumentRoutes(): Router {
         });
       } catch (error) {
         logger.error('Get reprocessing history error:', error);
+        next(error);
+      }
+    }
+  );
+
+  // ============================================================================
+  // DOCUMENT SHARING ROUTES
+  // ============================================================================
+
+  /** POST /api/documents/:id/share - Create a share for a document */
+  router.post(
+    '/:id/share',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id: documentId } = req.params;
+        const { email, permission = 'VIEW', expiresIn, generateLink = true } = req.body;
+
+        if (!email || typeof email !== 'string') {
+          return res.status(400).json({ error: 'Email is required' });
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        const validPermissions: SharePermission[] = ['VIEW', 'COMMENT', 'EDIT'];
+        if (!validPermissions.includes(permission as SharePermission)) {
+          return res.status(400).json({
+            error: `Invalid permission. Must be one of: ${validPermissions.join(', ')}`,
+          });
+        }
+
+        const document = await prisma.document.findFirst({
+          where: { id: documentId, userId },
+          select: { id: true },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const recipientUser = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+          select: { id: true },
+        });
+
+        const expiresAt =
+          expiresIn && typeof expiresIn === 'number' && expiresIn > 0
+            ? new Date(Date.now() + expiresIn * 60 * 60 * 1000)
+            : null;
+
+        const accessToken = generateLink ? crypto.randomBytes(32).toString('hex') : null;
+
+        const existingShare = await prisma.documentShare.findFirst({
+          where: { documentId, sharedWithEmail: email.toLowerCase() },
+        });
+
+        if (existingShare) {
+          return res.status(409).json({
+            error: 'Document already shared with this email',
+            shareId: existingShare.id,
+          });
+        }
+
+        const share = await prisma.documentShare.create({
+          data: {
+            documentId,
+            sharedByUserId: userId,
+            sharedWithEmail: email.toLowerCase(),
+            sharedWithUserId: recipientUser?.id || null,
+            permission: permission as SharePermission,
+            accessToken,
+            expiresAt,
+          },
+          select: {
+            id: true,
+            sharedWithEmail: true,
+            permission: true,
+            accessToken: true,
+            expiresAt: true,
+            createdAt: true,
+          },
+        });
+
+        logger.info('Document share created', {
+          documentId,
+          shareId: share.id,
+          sharedBy: userId,
+          sharedWithEmail: email,
+          permission,
+          hasExpiration: !!expiresAt,
+        });
+
+        // Build share URL
+        const shareUrl = accessToken ? `/shared/${accessToken}` : null;
+
+        res.status(201).json({
+          success: true,
+          share: {
+            id: share.id,
+            email: share.sharedWithEmail,
+            permission: share.permission,
+            expiresAt: share.expiresAt,
+            createdAt: share.createdAt,
+            shareUrl,
+          },
+        });
+      } catch (error) {
+        logger.error('Create share error:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * GET /api/documents/:id/shares - List all shares for a document
+   * Only document owner can view shares
+   */
+  router.get(
+    '/:id/shares',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id: documentId } = req.params;
+
+        // Verify document exists and user is the owner
+        const document = await prisma.document.findFirst({
+          where: { id: documentId, userId },
+          select: { id: true },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const shares = await prisma.documentShare.findMany({
+          where: { documentId },
+          select: {
+            id: true,
+            sharedWithEmail: true,
+            sharedWithUserId: true,
+            permission: true,
+            accessToken: true,
+            expiresAt: true,
+            accessCount: true,
+            lastAccessedAt: true,
+            createdAt: true,
+            sharedWith: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Transform response to include share URLs
+        const transformedShares = shares.map((share) => ({
+          id: share.id,
+          email: share.sharedWithEmail,
+          recipientName: share.sharedWith
+            ? `${share.sharedWith.firstName || ''} ${share.sharedWith.lastName || ''}`.trim() ||
+              null
+            : null,
+          permission: share.permission,
+          shareUrl: share.accessToken ? `/shared/${share.accessToken}` : null,
+          expiresAt: share.expiresAt,
+          accessCount: share.accessCount,
+          lastAccessedAt: share.lastAccessedAt,
+          createdAt: share.createdAt,
+        }));
+
+        res.json({
+          success: true,
+          shares: transformedShares,
+          count: shares.length,
+        });
+      } catch (error) {
+        logger.error('List shares error:', error);
+        next(error);
+      }
+    }
+  );
+
+  /**
+   * DELETE /api/documents/:id/shares/:shareId - Revoke a share
+   * Only document owner can revoke shares
+   */
+  router.delete(
+    '/:id/shares/:shareId',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { id: documentId, shareId } = req.params;
+
+        // Verify document exists and user is the owner
+        const document = await prisma.document.findFirst({
+          where: { id: documentId, userId },
+          select: { id: true },
+        });
+
+        if (!document) {
+          return res.status(404).json({ error: 'Document not found' });
+        }
+
+        // Verify share exists and belongs to this document
+        const share = await prisma.documentShare.findFirst({
+          where: { id: shareId, documentId },
+        });
+
+        if (!share) {
+          return res.status(404).json({ error: 'Share not found' });
+        }
+
+        // Delete the share
+        await prisma.documentShare.delete({
+          where: { id: shareId },
+        });
+
+        logger.info('Document share revoked', {
+          documentId,
+          shareId,
+          revokedBy: userId,
+        });
+
+        res.json({
+          success: true,
+          message: 'Share revoked successfully',
+        });
+      } catch (error) {
+        logger.error('Revoke share error:', error);
         next(error);
       }
     }
