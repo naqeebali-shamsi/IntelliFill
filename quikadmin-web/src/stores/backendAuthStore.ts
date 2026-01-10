@@ -17,6 +17,7 @@ import { create, type StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { devtools } from 'zustand/middleware';
+import * as Sentry from '@sentry/react';
 import authService, { AuthUser, AuthTokens } from '@/services/authService';
 import { AUTH_STORAGE_KEY } from '@/utils/migrationUtils';
 import { toast } from '@/lib/toast';
@@ -251,6 +252,11 @@ function setAuthenticatedState(set: ImmerStateSetter, data: AuthSuccessData): vo
   // Store access token in memory (Task 277: XSS mitigation)
   tokenManager.setToken(tokens.accessToken, tokens.expiresIn);
 
+  // Set Sentry user context for error reporting (Task 552)
+  if (import.meta.env.PROD) {
+    Sentry.setUser({ id: user.id, email: user.email });
+  }
+
   set((state) => {
     state.user = user;
     state.tokens = tokens;
@@ -273,6 +279,12 @@ function setAuthenticatedState(set: ImmerStateSetter, data: AuthSuccessData): vo
 /** Clears all session state */
 function clearSessionState(set: ImmerStateSetter): void {
   tokenManager.clearToken();
+
+  // Clear Sentry user context on logout (Task 552)
+  if (import.meta.env.PROD) {
+    Sentry.setUser(null);
+  }
+
   set((state) => {
     state.user = null;
     state.tokens = null;
@@ -668,18 +680,6 @@ export const useBackendAuthStore = create<AuthStore>()(
         },
 
         // =================== SECURITY ===================
-
-        /**
-         * Check if we can perform token refresh
-         * With httpOnly cookies (Phase 2 REQ-005), the cookie is sent automatically
-         * We just need to verify we're authenticated
-         */
-        canRefreshToken: () => {
-          const { isAuthenticated, tokens } = get();
-          // With httpOnly cookies, we can refresh if authenticated
-          // even without refreshToken in state (cookie handles it)
-          return isAuthenticated && !!tokens?.accessToken;
-        },
 
         resetLoginAttempts: () => {
           set((state) => {
