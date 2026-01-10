@@ -176,13 +176,29 @@ export interface ProcessingJob {
   error?: string;
 }
 
+export interface StatsTrend {
+  value: number;
+  change: number;
+  trend: 'up' | 'down' | 'stable';
+}
+
 export interface Statistics {
   totalJobs: number;
   completedJobs: number;
   failedJobs: number;
+  inProgress: number;
+  processedToday: number;
   averageProcessingTime: number;
   averageConfidence: number;
   successRate: number;
+  totalClients: number;
+  totalDocuments: number;
+  trends: {
+    documents: StatsTrend;
+    processedToday: StatsTrend;
+    inProgress: StatsTrend;
+    failed: StatsTrend;
+  };
 }
 
 // File upload with progress
