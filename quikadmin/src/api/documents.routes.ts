@@ -887,7 +887,56 @@ export function createDocumentRoutes(): Router {
   );
 
   /**
-   * POST /api/documents/:id/reprocess - Reprocess single document with higher quality OCR
+   * Quality presets for OCR reprocessing
+   * Each preset defines DPI, preprocessing, and enhancement settings
+   */
+  const QUALITY_PRESETS = {
+    draft: {
+      dpi: 150,
+      preprocessing: false,
+      enhance: false,
+      estimatedSeconds: 30,
+    },
+    standard: {
+      dpi: 300,
+      preprocessing: true,
+      enhance: false,
+      estimatedSeconds: 60,
+    },
+    high: {
+      dpi: 600,
+      preprocessing: true,
+      enhance: true,
+      estimatedSeconds: 180,
+    },
+  } as const;
+
+  type QualityPreset = keyof typeof QUALITY_PRESETS;
+
+  /**
+   * Supported OCR languages
+   * Maps language codes to Tesseract language names
+   */
+  const SUPPORTED_LANGUAGES = [
+    'eng',
+    'ara',
+    'fra',
+    'deu',
+    'spa',
+    'ita',
+    'por',
+    'rus',
+    'chi_sim',
+    'jpn',
+  ] as const;
+  type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+  /**
+   * POST /api/documents/:id/reprocess - Reprocess single document with quality options
+   *
+   * Body parameters:
+   * - quality: 'draft' | 'standard' | 'high' (default: 'standard')
+   * - language: 'eng' | 'ara' | 'fra' | etc. (default: 'eng')
    */
   router.post(
     '/:id/reprocess',
@@ -896,11 +945,34 @@ export function createDocumentRoutes(): Router {
       try {
         const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
+        const { quality = 'standard', language = 'eng' } = req.body;
+
+        // Validate quality preset
+        if (!(quality in QUALITY_PRESETS)) {
+          return res.status(400).json({
+            error: `Invalid quality preset. Must be one of: ${Object.keys(QUALITY_PRESETS).join(', ')}`,
+          });
+        }
+
+        // Validate language
+        if (!SUPPORTED_LANGUAGES.includes(language)) {
+          return res.status(400).json({
+            error: `Unsupported language. Must be one of: ${SUPPORTED_LANGUAGES.join(', ')}`,
+          });
+        }
+
+        const qualitySettings = QUALITY_PRESETS[quality as QualityPreset];
 
         const { DocumentService } = await import('../services/DocumentService');
         const documentService = new DocumentService();
 
-        const job = await documentService.reprocessDocument(id, userId);
+        const job = await documentService.reprocessDocument(id, userId, {
+          quality: quality as QualityPreset,
+          language: language as SupportedLanguage,
+          dpi: qualitySettings.dpi,
+          preprocessing: qualitySettings.preprocessing,
+          enhance: qualitySettings.enhance,
+        });
 
         res.json({
           success: true,
@@ -908,6 +980,9 @@ export function createDocumentRoutes(): Router {
           jobId: job.id,
           documentId: id,
           statusUrl: `/api/documents/${id}/status`,
+          quality,
+          language,
+          estimatedTime: qualitySettings.estimatedSeconds,
         });
       } catch (error) {
         logger.error('Reprocess document error:', error);

@@ -7,7 +7,14 @@
 import * as React from 'react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, CheckCircle2, XCircle, RefreshCw, Info } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { AlertTriangle, CheckCircle2, XCircle, RefreshCw, Info, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -18,6 +25,68 @@ const CONFIDENCE_THRESHOLDS = {
   MEDIUM: 0.7,
   LOW: 0.5,
 } as const;
+
+/**
+ * Quality presets for OCR reprocessing
+ */
+export type QualityPreset = 'draft' | 'standard' | 'high';
+
+export const QUALITY_PRESETS: Record<
+  QualityPreset,
+  { label: string; description: string; estimatedTime: string }
+> = {
+  draft: {
+    label: 'Draft',
+    description: 'Fast processing, lower accuracy',
+    estimatedTime: '~30s',
+  },
+  standard: {
+    label: 'Standard',
+    description: 'Balanced speed and accuracy',
+    estimatedTime: '~1 min',
+  },
+  high: {
+    label: 'High Quality',
+    description: 'Best accuracy, slower processing',
+    estimatedTime: '~3 min',
+  },
+};
+
+/**
+ * Supported OCR languages
+ */
+export type SupportedLanguage =
+  | 'eng'
+  | 'ara'
+  | 'fra'
+  | 'deu'
+  | 'spa'
+  | 'ita'
+  | 'por'
+  | 'rus'
+  | 'chi_sim'
+  | 'jpn';
+
+export const SUPPORTED_LANGUAGES: Record<SupportedLanguage, string> = {
+  eng: 'English',
+  ara: 'Arabic',
+  fra: 'French',
+  deu: 'German',
+  spa: 'Spanish',
+  ita: 'Italian',
+  por: 'Portuguese',
+  rus: 'Russian',
+  chi_sim: 'Chinese (Simplified)',
+  jpn: 'Japanese',
+};
+
+/**
+ * Reprocess options passed to callback
+ */
+export interface ReprocessOptions {
+  quality: QualityPreset;
+  language: SupportedLanguage;
+}
 
 export interface OCRConfidenceAlertProps {
   /**
@@ -36,14 +105,19 @@ export interface OCRConfidenceAlertProps {
   compact?: boolean;
 
   /**
-   * Callback for reprocess action
+   * Callback for reprocess action with quality options
    */
-  onReprocess?: () => void;
+  onReprocess?: (options: ReprocessOptions) => void;
 
   /**
    * Whether reprocessing is in progress
    */
   isReprocessing?: boolean;
+
+  /**
+   * Show quality/language options (default: true for low confidence)
+   */
+  showOptions?: boolean;
 
   /**
    * Custom class name
@@ -120,7 +194,7 @@ function getConfidenceInfo(level: 'high' | 'medium' | 'low' | 'very_low') {
  * ```tsx
  * <OCRConfidenceAlert
  *   confidence={document.confidence}
- *   onReprocess={handleReprocess}
+ *   onReprocess={({ quality, language }) => handleReprocess(quality, language)}
  *   isReprocessing={isReprocessing}
  * />
  * ```
@@ -131,8 +205,13 @@ export function OCRConfidenceAlert({
   compact = false,
   onReprocess,
   isReprocessing = false,
+  showOptions,
   className,
 }: OCRConfidenceAlertProps) {
+  const [quality, setQuality] = React.useState<QualityPreset>('standard');
+  const [language, setLanguage] = React.useState<SupportedLanguage>('eng');
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+
   // Don't render if no confidence data
   if (confidence === null || confidence === undefined) {
     return null;
@@ -148,6 +227,19 @@ export function OCRConfidenceAlert({
 
   const Icon = info.icon;
   const confidencePercent = Math.round(confidence * 100);
+
+  // Determine if we should show options (default to true for low/very_low confidence)
+  const shouldShowOptions = showOptions ?? (level === 'low' || level === 'very_low');
+
+  const handleReprocess = () => {
+    onReprocess?.({ quality, language });
+  };
+
+  function getReprocessButtonText(): string {
+    if (isReprocessing) return 'Reprocessing...';
+    if (showAdvanced) return `Reprocess (${QUALITY_PRESETS[quality].label})`;
+    return 'Reprocess with Enhanced Settings';
+  }
 
   if (compact) {
     return (
@@ -178,20 +270,90 @@ export function OCRConfidenceAlert({
         {info.title}
         <span className="text-sm font-normal text-muted-foreground">({confidencePercent}%)</span>
       </AlertTitle>
-      <AlertDescription className="space-y-2">
+      <AlertDescription className="space-y-3">
         <p>{info.description}</p>
         {info.suggestion && <p className="text-sm font-medium">{info.suggestion}</p>}
+
         {onReprocess && (level === 'low' || level === 'very_low') && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onReprocess}
-            disabled={isReprocessing}
-            className="mt-2"
-          >
-            <RefreshCw className={cn('h-3 w-3 mr-2', isReprocessing && 'animate-spin')} />
-            {isReprocessing ? 'Reprocessing...' : 'Reprocess with Enhanced Settings'}
-          </Button>
+          <div className="space-y-3 pt-2">
+            {/* Quality options toggle */}
+            {shouldShowOptions && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-muted-foreground hover:text-foreground p-0 h-auto"
+              >
+                <Settings2 className="h-3 w-3 mr-1" />
+                {showAdvanced ? 'Hide' : 'Show'} quality options
+              </Button>
+            )}
+
+            {/* Quality and language selectors */}
+            {shouldShowOptions && showAdvanced && (
+              <div className="flex flex-wrap gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Quality</label>
+                  <Select value={quality} onValueChange={(v) => setQuality(v as QualityPreset)}>
+                    <SelectTrigger className="w-[160px] h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(
+                        Object.entries(QUALITY_PRESETS) as [
+                          QualityPreset,
+                          typeof QUALITY_PRESETS.draft,
+                        ][]
+                      ).map(([key, preset]) => (
+                        <SelectItem key={key} value={key}>
+                          <span className="flex items-center justify-between gap-2">
+                            <span>{preset.label}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {preset.estimatedTime}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Language</label>
+                  <Select
+                    value={language}
+                    onValueChange={(v) => setLanguage(v as SupportedLanguage)}
+                  >
+                    <SelectTrigger className="w-[160px] h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(SUPPORTED_LANGUAGES) as [SupportedLanguage, string][]).map(
+                        ([code, name]) => (
+                          <SelectItem key={code} value={code}>
+                            {name}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* Estimated time hint */}
+            {shouldShowOptions && showAdvanced && (
+              <p className="text-xs text-muted-foreground">
+                Estimated processing time: {QUALITY_PRESETS[quality].estimatedTime}
+              </p>
+            )}
+
+            {/* Reprocess button */}
+            <Button variant="outline" size="sm" onClick={handleReprocess} disabled={isReprocessing}>
+              <RefreshCw className={cn('h-3 w-3 mr-2', isReprocessing && 'animate-spin')} />
+              {getReprocessButtonText()}
+            </Button>
+          </div>
         )}
       </AlertDescription>
     </Alert>

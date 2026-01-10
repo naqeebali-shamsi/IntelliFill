@@ -90,6 +90,12 @@ export const OCR_QUEUE_CONFIG = {
 } as const;
 
 /**
+ * Job states that indicate the job is still pending or in-progress
+ * Used for deduplication checks to avoid creating duplicate jobs
+ */
+const PENDING_JOB_STATES = ['waiting', 'active', 'delayed'] as const;
+
+/**
  * Queue health status interface
  *
  * Represents the current state of the OCR processing queue
@@ -161,6 +167,37 @@ export interface OCRJobStatus {
 }
 
 /**
+ * Quality presets for OCR reprocessing
+ */
+export type QualityPreset = 'draft' | 'standard' | 'high';
+
+/**
+ * Supported OCR languages
+ */
+export type SupportedLanguage =
+  | 'eng'
+  | 'ara'
+  | 'fra'
+  | 'deu'
+  | 'spa'
+  | 'ita'
+  | 'por'
+  | 'rus'
+  | 'chi_sim'
+  | 'jpn';
+
+/**
+ * Reprocessing options for OCR quality control
+ */
+export interface ReprocessingOptions {
+  quality?: QualityPreset;
+  language?: SupportedLanguage;
+  dpi?: number;
+  preprocessing?: boolean;
+  enhance?: boolean;
+}
+
+/**
  * Job data interface for OCR processing
  */
 export interface OCRProcessingJob {
@@ -173,6 +210,8 @@ export interface OCRProcessingJob {
     language?: string;
     dpi?: number;
     enhancedPreprocessing?: boolean;
+    enhance?: boolean;
+    quality?: QualityPreset;
   };
 }
 
@@ -336,7 +375,10 @@ if (ocrQueue) {
 
       // Extract structured data from OCR text with per-field confidence
       // Pass OCR confidence to factor into field-level extraction confidence
-      const structuredData = await ocrService.extractStructuredData(ocrResult.text, ocrResult.confidence);
+      const structuredData = await ocrService.extractStructuredData(
+        ocrResult.text,
+        ocrResult.confidence
+      );
 
       await job.progress(95);
 
@@ -522,7 +564,7 @@ export async function enqueueDocumentForOCR(
     if (existingJob) {
       const state = await existingJob.getState();
       // Only deduplicate if job is still pending or active
-      if (state === 'waiting' || state === 'active' || state === 'delayed') {
+      if (PENDING_JOB_STATES.includes(state as (typeof PENDING_JOB_STATES)[number])) {
         logger.info(
           `Duplicate OCR job detected for document ${documentId}, returning existing job`,
           {
@@ -699,12 +741,19 @@ process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
  *
  * Uses deterministic job IDs for deduplication - if a reprocessing job
  * for the same document is already in the queue, returns the existing job.
+ *
+ * @param documentId - Document ID
+ * @param userId - User ID for authorization
+ * @param filePath - Storage URL/path to the document
+ * @param reason - Optional reason for reprocessing
+ * @param options - Optional quality settings (quality, language, dpi, etc.)
  */
 export async function enqueueDocumentForReprocessing(
   documentId: string,
   userId: string,
   filePath: string,
-  reason?: string
+  reason?: string,
+  options?: ReprocessingOptions
 ): Promise<Bull.Job<OCRProcessingJob>> {
   if (!isOCRQueueAvailable()) {
     throw new QueueUnavailableError('ocr-processing');
@@ -740,7 +789,7 @@ export async function enqueueDocumentForReprocessing(
     if (existingJob) {
       const state = await existingJob.getState();
       // Only deduplicate if job is still pending or active
-      if (state === 'waiting' || state === 'active' || state === 'delayed') {
+      if (PENDING_JOB_STATES.includes(state as (typeof PENDING_JOB_STATES)[number])) {
         logger.info(
           `Duplicate reprocessing job detected for document ${documentId}, returning existing job`,
           {
@@ -755,9 +804,19 @@ export async function enqueueDocumentForReprocessing(
       logger.debug(`Previous reprocessing job ${jobId} is in state ${state}, allowing new job`);
     }
 
+    // Determine DPI and preprocessing based on options or defaults
+    const dpi = options?.dpi || OCR_QUEUE_CONFIG.REPROCESSING_DPI;
+    const enhancedPreprocessing = options?.preprocessing ?? true;
+    const enhance = options?.enhance ?? false;
+    const language = options?.language || 'eng';
+    const quality = options?.quality || 'standard';
+
     logger.info('Enqueueing document for reprocessing', {
       documentId,
       attempt: document.reprocessCount + 1,
+      quality,
+      language,
+      dpi,
     });
 
     const job = await ocrQueue!.add(
@@ -768,8 +827,11 @@ export async function enqueueDocumentForReprocessing(
         isReprocessing: true,
         reprocessReason: reason,
         options: {
-          dpi: OCR_QUEUE_CONFIG.REPROCESSING_DPI,
-          enhancedPreprocessing: true,
+          dpi,
+          enhancedPreprocessing,
+          enhance,
+          language,
+          quality,
         },
       },
       {

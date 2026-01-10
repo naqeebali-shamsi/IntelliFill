@@ -1,5 +1,5 @@
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
-import { enqueueDocumentForReprocessing } from '../queues/ocrQueue';
+import { enqueueDocumentForReprocessing, ReprocessingOptions } from '../queues/ocrQueue';
 import Bull from 'bull';
 import { prisma } from '../utils/prisma';
 import {
@@ -11,22 +11,30 @@ import {
 
 export class DocumentService {
   /**
-   * Reprocess a single document with higher quality OCR settings
+   * Reprocess a single document with configurable quality settings
+   *
+   * @param documentId - Document ID
+   * @param userId - User ID for authorization
+   * @param options - Optional quality settings (quality preset, language, DPI, etc.)
    */
-  async reprocessDocument(documentId: string, userId: string): Promise<Bull.Job> {
+  async reprocessDocument(
+    documentId: string,
+    userId: string,
+    options?: ReprocessingOptions
+  ): Promise<Bull.Job> {
     try {
       // Get document and verify ownership
       const document = await prisma.document.findFirst({
         where: {
           id: documentId,
-          userId
+          userId,
         },
         select: {
           id: true,
           storageUrl: true,
           reprocessCount: true,
-          status: true
-        }
+          status: true,
+        },
       });
 
       if (!document) {
@@ -46,15 +54,18 @@ export class DocumentService {
       logger.info('Initiating document reprocessing', {
         documentId,
         userId,
-        attempt: document.reprocessCount + 1
+        attempt: document.reprocessCount + 1,
+        quality: options?.quality || 'standard',
+        language: options?.language || 'eng',
       });
 
-      // Enqueue for reprocessing
+      // Enqueue for reprocessing with options
       const job = await enqueueDocumentForReprocessing(
         documentId,
         userId,
         document.storageUrl,
-        'User-initiated reprocessing'
+        'User-initiated reprocessing',
+        options
       );
 
       return job;
@@ -71,21 +82,21 @@ export class DocumentService {
     try {
       logger.info('Initiating batch reprocessing', {
         userId,
-        documentCount: documentIds.length
+        documentCount: documentIds.length,
       });
 
       // Verify all documents belong to user and are eligible for reprocessing
       const documents = await prisma.document.findMany({
         where: {
           id: { in: documentIds },
-          userId
+          userId,
         },
         select: {
           id: true,
           storageUrl: true,
           reprocessCount: true,
-          status: true
-        }
+          status: true,
+        },
       });
 
       if (documents.length !== documentIds.length) {
@@ -93,7 +104,7 @@ export class DocumentService {
       }
 
       // Filter documents that can be reprocessed
-      const eligibleDocs = documents.filter(doc => {
+      const eligibleDocs = documents.filter((doc) => {
         if (doc.reprocessCount >= 3) {
           logger.warn('Document reached max reprocessing attempts', { documentId: doc.id });
           return false;
@@ -111,13 +122,8 @@ export class DocumentService {
 
       // Enqueue all eligible documents
       const jobs = await Promise.all(
-        eligibleDocs.map(doc =>
-          enqueueDocumentForReprocessing(
-            doc.id,
-            userId,
-            doc.storageUrl,
-            'Batch reprocessing'
-          )
+        eligibleDocs.map((doc) =>
+          enqueueDocumentForReprocessing(doc.id, userId, doc.storageUrl, 'Batch reprocessing')
         )
       );
 
@@ -125,7 +131,7 @@ export class DocumentService {
         userId,
         totalDocuments: documentIds.length,
         eligibleDocuments: eligibleDocs.length,
-        skippedDocuments: documents.length - eligibleDocs.length
+        skippedDocuments: documents.length - eligibleDocs.length,
       });
 
       return jobs;
@@ -138,15 +144,18 @@ export class DocumentService {
   /**
    * Get documents with low confidence (< threshold)
    */
-  async getLowConfidenceDocuments(userId: string, confidenceThreshold: number = 0.7): Promise<any[]> {
+  async getLowConfidenceDocuments(
+    userId: string,
+    confidenceThreshold: number = 0.7
+  ): Promise<any[]> {
     try {
       const documents = await prisma.document.findMany({
         where: {
           userId,
           confidence: {
-            lt: confidenceThreshold
+            lt: confidenceThreshold,
           },
-          status: 'COMPLETED'
+          status: 'COMPLETED',
         },
         select: {
           id: true,
@@ -154,11 +163,11 @@ export class DocumentService {
           confidence: true,
           reprocessCount: true,
           processedAt: true,
-          createdAt: true
+          createdAt: true,
         },
         orderBy: {
-          confidence: 'asc'
-        }
+          confidence: 'asc',
+        },
       });
 
       return documents;
@@ -176,13 +185,13 @@ export class DocumentService {
       const document = await prisma.document.findFirst({
         where: {
           id: documentId,
-          userId
+          userId,
         },
         select: {
           reprocessCount: true,
           lastReprocessedAt: true,
-          reprocessingHistory: true
-        }
+          reprocessingHistory: true,
+        },
       });
 
       if (!document) {
@@ -216,8 +225,8 @@ export class DocumentService {
       const document = await prisma.document.findFirst({
         where: {
           id: documentId,
-          userId
-        }
+          userId,
+        },
       });
 
       if (!document) {
@@ -239,7 +248,7 @@ export class DocumentService {
 
       return {
         document,
-        extractedData
+        extractedData,
       };
     } catch (error) {
       logger.error('Failed to get document with extracted data', { documentId, userId, error });
@@ -259,11 +268,11 @@ export class DocumentService {
       const document = await prisma.document.findFirst({
         where: {
           id: documentId,
-          userId
+          userId,
         },
         select: {
-          extractedData: true
-        }
+          extractedData: true,
+        },
       });
 
       if (!document || !document.extractedData) {
