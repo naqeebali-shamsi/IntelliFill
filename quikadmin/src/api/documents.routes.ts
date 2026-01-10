@@ -17,8 +17,9 @@ import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { OCRService } from '../services/OCRService';
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
-import { uploadFile as uploadToStorage, isR2Configured } from '../services/storageHelper';
+import { uploadFile as uploadToStorage, fetchFromStorage } from '../services/storageHelper';
 import { normalizeExtractedData, flattenExtractedData } from '../types/extractedData';
+import archiver from 'archiver';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
@@ -381,6 +382,103 @@ export function createDocumentRoutes(): Router {
       } catch (error) {
         logger.error('Get low confidence documents error:', error);
         next(error);
+      }
+    }
+  );
+
+  /**
+   * POST /api/documents/download-batch - Download multiple documents as a ZIP file
+   */
+  router.post(
+    '/download-batch',
+    authenticateSupabase,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const { documentIds } = req.body;
+
+        if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+          return res.status(400).json({ error: 'documentIds array is required' });
+        }
+
+        // Limit batch size to prevent abuse
+        const MAX_BATCH_SIZE = 50;
+        if (documentIds.length > MAX_BATCH_SIZE) {
+          return res.status(400).json({
+            error: `Maximum ${MAX_BATCH_SIZE} documents allowed per batch`,
+          });
+        }
+
+        // Get documents owned by the user
+        const documents = await prisma.document.findMany({
+          where: {
+            id: { in: documentIds },
+            userId,
+          },
+          select: {
+            id: true,
+            fileName: true,
+            storageUrl: true,
+          },
+        });
+
+        if (documents.length === 0) {
+          return res.status(404).json({ error: 'No authorized documents found' });
+        }
+
+        // Set response headers for ZIP download
+        const timestamp = Date.now();
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="documents-${timestamp}.zip"`);
+
+        // Create ZIP archive with medium compression
+        const archive = archiver('zip', { zlib: { level: 5 } });
+
+        // Handle archive errors
+        archive.on('error', (err) => {
+          logger.error('Archive error:', err);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to create archive' });
+          }
+        });
+
+        // Pipe archive to response
+        archive.pipe(res);
+
+        // Track files that couldn't be added
+        const failures: string[] = [];
+
+        // Add each document to the archive
+        for (const doc of documents) {
+          try {
+            const fileBuffer = await fetchFromStorage(doc.storageUrl);
+            archive.append(fileBuffer, { name: doc.fileName });
+            logger.debug('Added to ZIP archive', { documentId: doc.id, fileName: doc.fileName });
+          } catch (fetchError) {
+            logger.error('Failed to fetch document for ZIP', {
+              documentId: doc.id,
+              error: fetchError,
+            });
+            failures.push(doc.fileName);
+          }
+        }
+
+        // Log summary
+        const successCount = documents.length - failures.length;
+        logger.info('ZIP archive created', {
+          userId,
+          totalDocuments: documents.length,
+          successCount,
+          failedCount: failures.length,
+        });
+
+        // Finalize the archive
+        await archive.finalize();
+      } catch (error) {
+        logger.error('Batch download error:', error);
+        if (!res.headersSent) {
+          next(error);
+        }
       }
     }
   );

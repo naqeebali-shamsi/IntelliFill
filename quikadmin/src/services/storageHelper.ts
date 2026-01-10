@@ -11,7 +11,12 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { S3Client, PutObjectCommand, PutObjectCommandInput } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  PutObjectCommandInput,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { logger } from '../utils/logger';
 
 /**
@@ -161,4 +166,65 @@ export function isR2Url(url: string): boolean {
  */
 export function isLocalPath(url: string): boolean {
   return !url.startsWith('http://') && !url.startsWith('https://');
+}
+
+/**
+ * Fetch a file from storage (R2 or local filesystem)
+ *
+ * @param storageUrl - URL or path to the file
+ * @returns File content as Buffer
+ */
+export async function fetchFromStorage(storageUrl: string): Promise<Buffer> {
+  if (isR2Url(storageUrl)) {
+    // Fetch from R2
+    try {
+      const client = getR2Client();
+      const bucketName = process.env.R2_BUCKET_NAME!;
+
+      // Extract key from URL
+      // URL format: https://{accountId}.r2.cloudflarestorage.com/{bucket}/{key}
+      const urlObj = new URL(storageUrl);
+      const pathParts = urlObj.pathname.split('/').filter(Boolean);
+      // First part is bucket name, rest is the key
+      const key = pathParts.slice(1).join('/');
+
+      const command = new GetObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+      });
+
+      const response = await client.send(command);
+
+      if (!response.Body) {
+        throw new Error('Empty response body from R2');
+      }
+
+      // Convert stream to buffer
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      logger.debug('File fetched from R2', { key, size: buffer.length });
+      return buffer;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to fetch from R2', { storageUrl, error: errorMessage });
+      throw new Error(`Failed to fetch file from R2: ${errorMessage}`);
+    }
+  }
+
+  // Local filesystem
+  try {
+    const filePath = isLocalPath(storageUrl) ? path.join(process.cwd(), storageUrl) : storageUrl;
+
+    const buffer = await fs.readFile(filePath);
+    logger.debug('File fetched from local storage', { filePath, size: buffer.length });
+    return buffer;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to fetch from local storage', { storageUrl, error: errorMessage });
+    throw new Error(`Failed to fetch file: ${errorMessage}`);
+  }
 }

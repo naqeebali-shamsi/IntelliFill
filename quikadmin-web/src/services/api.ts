@@ -449,6 +449,20 @@ export const downloadDocument = async (documentId: string): Promise<Blob> => {
   return response.data;
 };
 
+/**
+ * Download multiple documents as a ZIP file
+ * @param documentIds - Array of document IDs to download
+ * @returns Blob containing the ZIP file
+ */
+export const bulkDownloadZip = async (documentIds: string[]): Promise<Blob> => {
+  const response = await api.post(
+    '/documents/download-batch',
+    { documentIds },
+    { responseType: 'blob' }
+  );
+  return response.data;
+};
+
 export const reprocessDocument = async (
   documentId: string
 ): Promise<{

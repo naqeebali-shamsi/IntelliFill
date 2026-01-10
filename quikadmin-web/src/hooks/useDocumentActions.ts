@@ -4,9 +4,15 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { deleteDocument as deleteDocumentAPI, downloadDocument as downloadDocumentAPI } from '@/services/api';
+import {
+  deleteDocument as deleteDocumentAPI,
+  downloadDocument as downloadDocumentAPI,
+  bulkDownloadZip,
+  reprocessDocument as reprocessDocumentAPI,
+  batchReprocessDocuments,
+} from '@/services/api';
 import { toast } from 'sonner';
-import { Document, DocumentActionResult, BulkActionResult } from '@/types/document';
+import { DocumentActionResult, BulkActionResult } from '@/types/document';
 import { getUserErrorMessage, isRetryableError, getErrorSuggestion } from '@/utils/errorMessages';
 
 /**
@@ -116,9 +122,7 @@ export function useBulkDelete() {
 
   return useMutation<BulkActionResult, Error, string[]>({
     mutationFn: async (documentIds: string[]) => {
-      const results = await Promise.allSettled(
-        documentIds.map((id) => deleteDocumentAPI(id))
-      );
+      const results = await Promise.allSettled(documentIds.map((id) => deleteDocumentAPI(id)));
 
       const successCount = results.filter((r) => r.status === 'fulfilled').length;
       const failedCount = results.filter((r) => r.status === 'rejected').length;
@@ -172,9 +176,8 @@ export function useBulkDelete() {
 }
 
 /**
- * Hook for bulk document download
- * Downloads multiple files as individual downloads
- * (ZIP download would require backend endpoint)
+ * Hook for bulk document download as ZIP
+ * Downloads multiple files as a single ZIP archive
  *
  * @example
  * ```tsx
@@ -187,57 +190,96 @@ export function useBulkDelete() {
  * ```
  */
 export function useBulkDownload() {
-  return useMutation<
-    BulkActionResult,
-    Error,
-    Array<{ id: string; fileName: string }>
-  >({
+  return useMutation<BulkActionResult, Error, Array<{ id: string; fileName: string }>>({
     mutationFn: async (documents) => {
-      // Download files sequentially to avoid overwhelming the browser
-      const results = [];
+      const documentIds = documents.map((doc) => doc.id);
 
-      for (const doc of documents) {
-        try {
-          const blob = await downloadDocumentAPI(doc.id);
+      // Download as ZIP
+      const blob = await bulkDownloadZip(documentIds);
 
-          // Create download
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', doc.fileName);
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.URL.revokeObjectURL(url);
-
-          results.push({ success: true });
-
-          // Small delay between downloads
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } catch (error) {
-          results.push({ success: false, error });
-        }
-      }
-
-      const successCount = results.filter((r) => r.success).length;
-      const failedCount = results.filter((r) => !r.success).length;
+      // Create download link for ZIP
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `documents-${Date.now()}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
       return {
-        success: failedCount === 0,
-        successCount,
-        failedCount,
-        message: `Downloaded ${successCount} of ${documents.length} documents`,
+        success: true,
+        successCount: documents.length,
+        failedCount: 0,
+        message: `Downloaded ${documents.length} documents as ZIP`,
       };
     },
     onMutate: (documents) => {
-      toast.info(`Downloading ${documents.length} documents...`);
+      toast.info(`Preparing ${documents.length} documents for download...`);
     },
     onSuccess: (result) => {
-      if (result.success) {
-        toast.success(result.message);
-      } else {
-        toast.warning(`${result.message}. ${result.failedCount} failed.`);
+      toast.success(result.message);
+    },
+    onError: (error) => {
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
       }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
+    },
+  });
+}
+
+/**
+ * Hook for single document reprocessing
+ */
+export function useDocumentReprocess() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ jobId: string }, Error, string>({
+    mutationFn: async (documentId: string) => {
+      return reprocessDocumentAPI(documentId);
+    },
+    onSuccess: (data, documentId) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['document', documentId] });
+      toast.success('Document queued for reprocessing');
+    },
+    onError: (error) => {
+      const userMessage = getUserErrorMessage(error);
+      toast.error(userMessage);
+
+      if (isRetryableError(error)) {
+        toast.info('This may be a temporary issue. You can try again.');
+      }
+
+      const suggestion = getErrorSuggestion(error);
+      if (suggestion) {
+        toast.info(suggestion);
+      }
+    },
+  });
+}
+
+/**
+ * Hook for batch document reprocessing
+ */
+export function useBulkReprocess() {
+  const queryClient = useQueryClient();
+
+  return useMutation<any, Error, string[]>({
+    mutationFn: async (documentIds: string[]) => {
+      return batchReprocessDocuments(documentIds);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      toast.success(`${data.totalQueued} documents queued for reprocessing`);
     },
     onError: (error) => {
       const userMessage = getUserErrorMessage(error);
@@ -271,73 +313,6 @@ export function useBulkDownload() {
  *   bulkReprocess,
  * } = useDocumentActions();
  * ```
- */
-
-/**
- * Hook for single document reprocessing
- */
-export function useDocumentReprocess() {
-  const queryClient = useQueryClient();
-
-  return useMutation<{ jobId: string }, Error, string>({
-    mutationFn: async (documentId: string) => {
-      const response = await import('@/services/api').then(m => m.reprocessDocument(documentId));
-      return response;
-    },
-    onSuccess: (data, documentId) => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
-      queryClient.invalidateQueries({ queryKey: ['document', documentId] });
-      toast.success('Document queued for reprocessing');
-    },
-    onError: (error) => {
-      const userMessage = getUserErrorMessage(error);
-      toast.error(userMessage);
-
-      if (isRetryableError(error)) {
-        toast.info('This may be a temporary issue. You can try again.');
-      }
-
-      const suggestion = getErrorSuggestion(error);
-      if (suggestion) {
-        toast.info(suggestion);
-      }
-    },
-  });
-}
-
-/**
- * Hook for batch document reprocessing
- */
-export function useBulkReprocess() {
-  const queryClient = useQueryClient();
-
-  return useMutation<any, Error, string[]>({
-    mutationFn: async (documentIds: string[]) => {
-      const response = await import('@/services/api').then(m => m.batchReprocessDocuments(documentIds));
-      return response;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] });
-      toast.success(`${data.totalQueued} documents queued for reprocessing`);
-    },
-    onError: (error) => {
-      const userMessage = getUserErrorMessage(error);
-      toast.error(userMessage);
-
-      if (isRetryableError(error)) {
-        toast.info('This may be a temporary issue. You can try again.');
-      }
-
-      const suggestion = getErrorSuggestion(error);
-      if (suggestion) {
-        toast.info(suggestion);
-      }
-    },
-  });
-}
-
-/**
- * Combined hook for all document actions
  */
 export function useDocumentActions() {
   const deleteDoc = useDocumentDelete();
