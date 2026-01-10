@@ -46,7 +46,14 @@ function setRefreshTokenCookie(res: Response, refreshToken: string): void {
 }
 
 function clearRefreshTokenCookie(res: Response): void {
-  res.clearCookie('refreshToken', { path: isTestMode ? '/api' : '/api/auth' });
+  // Must match all options from REFRESH_TOKEN_COOKIE_OPTIONS (except expires/maxAge)
+  // for clearCookie to work properly across all browsers
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== 'test',
+    sameSite: isTestMode ? 'lax' : 'strict',
+    path: isTestMode ? '/api' : '/api/auth',
+  });
 }
 
 // JWT secrets from validated config (≥64 characters enforced)
@@ -555,12 +562,10 @@ export function createSupabaseAuthRoutes(): Router {
 
         if (!user.isActive) {
           logger.warn('[TEST MODE] Inactive user attempted login', { email });
-          return res
-            .status(403)
-            .json({
-              error: 'Account is deactivated. Please contact support.',
-              code: 'ACCOUNT_DEACTIVATED',
-            });
+          return res.status(403).json({
+            error: 'Account is deactivated. Please contact support.',
+            code: 'ACCOUNT_DEACTIVATED',
+          });
         }
 
         const accessToken = generateAccessToken(user.id, user.email, user.role);
@@ -620,12 +625,10 @@ export function createSupabaseAuthRoutes(): Router {
 
       if (!user.isActive) {
         logger.warn('Inactive user attempted login', { userId: user.id });
-        return res
-          .status(403)
-          .json({
-            error: 'Account is deactivated. Please contact support.',
-            code: 'ACCOUNT_DEACTIVATED',
-          });
+        return res.status(403).json({
+          error: 'Account is deactivated. Please contact support.',
+          code: 'ACCOUNT_DEACTIVATED',
+        });
       }
 
       await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
@@ -1248,12 +1251,10 @@ export function createSupabaseAuthRoutes(): Router {
         }
 
         if (user.emailVerified) {
-          return res
-            .status(400)
-            .json({
-              error: 'Email is already verified. You can login directly.',
-              code: 'ALREADY_VERIFIED',
-            });
+          return res.status(400).json({
+            error: 'Email is already verified. You can login directly.',
+            code: 'ALREADY_VERIFIED',
+          });
         }
 
         logger.info('Resending verification email', { email: normalizedEmail });
@@ -1266,12 +1267,10 @@ export function createSupabaseAuthRoutes(): Router {
         if (resendError) {
           logger.error(`Failed to resend verification email for ${normalizedEmail}:`, resendError);
           if (resendError.message?.includes('rate') || resendError.status === 429) {
-            return res
-              .status(429)
-              .json({
-                error: 'Too many requests. Please wait a few minutes before trying again.',
-                code: 'RATE_LIMITED',
-              });
+            return res.status(429).json({
+              error: 'Too many requests. Please wait a few minutes before trying again.',
+              code: 'RATE_LIMITED',
+            });
           }
           return res
             .status(500)
@@ -1322,23 +1321,19 @@ export function createSupabaseAuthRoutes(): Router {
 
       if (!user) {
         logger.error('Demo user not found. Run: npx ts-node prisma/seed-demo.ts');
-        return res
-          .status(500)
-          .json({
-            error: 'Demo account not configured. Please contact support.',
-            code: 'DEMO_NOT_CONFIGURED',
-          });
+        return res.status(500).json({
+          error: 'Demo account not configured. Please contact support.',
+          code: 'DEMO_NOT_CONFIGURED',
+        });
       }
 
       const passwordValid = await bcrypt.compare(DEMO_PASSWORD, user.password);
       if (!passwordValid) {
         logger.error('Demo user password mismatch. Re-run seed-demo.ts');
-        return res
-          .status(500)
-          .json({
-            error: 'Demo account misconfigured. Please contact support.',
-            code: 'DEMO_MISCONFIGURED',
-          });
+        return res.status(500).json({
+          error: 'Demo account misconfigured. Please contact support.',
+          code: 'DEMO_MISCONFIGURED',
+        });
       }
 
       // Demo uses extended 4h session
