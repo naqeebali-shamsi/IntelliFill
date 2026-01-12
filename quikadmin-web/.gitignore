@@ -41,3 +41,6 @@ cypress/screenshots/
 playwright-report/
 test-results/
 playwright/.cache/
+
+# E2E auth storage states (contain sensitive session data)
+e2e/.auth/

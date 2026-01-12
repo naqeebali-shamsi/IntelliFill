@@ -1,197 +1,317 @@
 {
-	"meta": {
-		"generatedAt": "2026-01-09T05:01:53.291Z",
-		"tasksAnalyzed": 23,
-		"totalTasks": 308,
-		"analysisCount": 23,
-		"thresholdScore": 5,
-		"projectName": "Task Master",
-		"usedResearch": true
-	},
-	"complexityAnalysis": [
-		{
-			"taskId": 472,
-			"taskTitle": "Add API-Level User Verification in Global Setup",
-			"complexityScore": 3,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Break this into subtasks covering: (1) updating Playwright global.setup.ts to perform API login for a known test user with robust error handling and clear messaging; (2) configuration concerns (env vars, URL handling, test-mode flags) and keeping credentials out of source control; (3) tests and CI integration to ensure fast-fail behavior and stable diagnostics when auth or seeding is broken.",
-			"reasoning": "Small, localized change to existing Playwright global setup with straightforward HTTP call and assertions; main work is clean error handling and ensuring it behaves deterministically in all environments."
-		},
-		{
-			"taskId": 473,
-			"taskTitle": "Add Password Hash Validation to Seed Verification",
-			"complexityScore": 4,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Split into subtasks for: (1) extending verifySeedData() to perform bcrypt.compare on all test users and membership checks with clear aggregated error reporting; (2) handling performance and idempotency concerns (reruns, partially bad data, and corrupt hashes); (3) adding/adjusting automated tests around the seed script, including intentional corruption scenarios.",
-			"reasoning": "Logic is simple but touches critical auth data and idempotent seed behavior; needs careful handling of failures, DB access, and test coverage to avoid masking real issues."
-		},
-		{
-			"taskId": 474,
-			"taskTitle": "Create Database Verification SQL Script",
-			"complexityScore": 3,
-			"recommendedSubtasks": 2,
-			"expansionPrompt": "Decompose into: (1) designing and implementing the verification SQL to check org, users, bcrypt hash shape, and memberships with clear PASS/FAIL markers; (2) validating script on different environments and documenting how to run and interpret results within the troubleshooting docs.",
-			"reasoning": "Pure SQL with read-only checks against a known schema; low implementation risk, but requires attention to correctness and clarity of output for troubleshooting."
-		},
-		{
-			"taskId": 475,
-			"taskTitle": "Add Login Success E2E Test",
-			"complexityScore": 4,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Create subtasks for: (1) implementing/expanding Playwright tests to cover login success for all seeded roles plus invalid password handling; (2) ensuring fixtures, test data, and selectors are stable and DRY; (3) making tests robust in CI (seeding dependency, auth state management, flakiness mitigation).",
-			"reasoning": "Standard Playwright E2E work but involves multiple user roles, UI assertions, and dependency on seed/auth flows, so care is needed to avoid brittle tests."
-		},
-		{
-			"taskId": 476,
-			"taskTitle": "Create E2E Troubleshooting Documentation",
-			"complexityScore": 3,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Define subtasks for: (1) drafting the troubleshooting guide structure and core flows (quick-fix checklist, seed/SQL usage, cache clearing); (2) validating all commands, paths, and messages against the actual system; (3) usability review with another developer and iteration based on their feedback.",
-			"reasoning": "Documentation-focused; technical accuracy and alignment with real scripts/endpoints is the main effort, with little implementation risk."
-		},
-		{
-			"taskId": 477,
-			"taskTitle": "Add Seed Script to CI/CD Pipeline",
-			"complexityScore": 5,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Break into subtasks: (1) update CI workflow to provision DB/Redis, run migrations, and execute the seed script with proper env; (2) integrate seed verification output into CI logs and failure conditions; (3) add basic retry/backoff or ordering to reduce flakiness; (4) validate across branches/PRs and possibly matrix builds.",
-			"reasoning": "Touches CI infrastructure, external services, and ordering of steps; moderate complexity due to environment variability and need for stable, non-flaky pipelines."
-		},
-		{
-			"taskId": 478,
-			"taskTitle": "Add Seed Health Check Endpoint",
-			"complexityScore": 5,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Create subtasks for: (1) implementing the test-only /e2e/seed-status route with Prisma queries and detailed per-user/org checks; (2) gating exposure via environment flags and ensuring no leakage to production; (3) wiring into E2E tests or setup as a preflight check; (4) adding unit/integration tests for healthy/unhealthy/error scenarios.",
-			"reasoning": "Backend API addition with conditional exposure, DB access, and contract with tests; moderate complexity to ensure safety, correctness, and non-production exposure."
-		},
-		{
-			"taskId": 479,
-			"taskTitle": "Update CLAUDE.md with E2E Seed Requirements",
-			"complexityScore": 2,
-			"recommendedSubtasks": 2,
-			"expansionPrompt": "Split into: (1) updating CLAUDE-related docs with accurate E2E commands, test user references, and common-issue flows; (2) validating that AI agents and developers can follow the steps end-to-end without missing prerequisites.",
-			"reasoning": "Small documentation update with low technical risk; primary work is ensuring instructions are correct and concise for both humans and agents."
-		},
-		{
-			"taskId": 480,
-			"taskTitle": "Add Organization Context Verification to Auth Fixture",
-			"complexityScore": 5,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "Break down into: (1) extending the auth.fixture AuthenticatedContext type and post-login flow to fetch /api/users/me/profile with the correct auth headers; (2) aligning the profile response shape with fixture typing (org ID, memberships) and handling null/edge cases; (3) updating dependent tests to consume the richer context; (4) adding tests for fixture behavior and regression coverage.",
-			"reasoning": "Moderate complexity due to cross-layer dependency between frontend fixture, backend profile API, and existing tests; must be robust to API changes and network timing."
-		},
-		{
-			"taskId": 481,
-			"taskTitle": "Add Seed Script Retry Logic for Transient Failures",
-			"complexityScore": 4,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Define subtasks for: (1) implementing generic withRetry() wrapper around seedE2EUsers with clear logging and retry conditions; (2) tuning retry parameters and error classification for CI/Docker vs local dev; (3) tests/simulations for DB unavailable vs available and ensuring failures still fail fast when non-transient.",
-			"reasoning": "Logic is conceptually simple but must avoid masking real errors or extending CI times unnecessarily; careful error classification and testing are needed."
-		},
-		{
-			"taskId": 482,
-			"taskTitle": "Enhance OCR Pattern Extraction with Per-Field Confidence",
-			"complexityScore": 7,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Split into: (1) designing the ExtractedFieldResult shape and updating extractStructuredData signature; (2) implementing pattern-based extraction with confidence computation using OCR confidence and pattern specificity; (3) wiring OCR confidence from processPDF/processImage; (4) updating type contracts and callers (including multiagent state types); (5) adding comprehensive unit tests for patterns and confidence behavior.",
-			"reasoning": "Touches a core service with new data model and scoring logic; requires careful type propagation, backward compatibility, and non-trivial testing of heuristics."
-		},
-		{
-			"taskId": 483,
-			"taskTitle": "Update ExtractedData Storage and API Response with Per-Field Confidence",
-			"complexityScore": 7,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Break into: (1) updating persistence layer to store enhanced field objects in ExtractedData.fields; (2) updating /api/users/me/data and related DTOs to return confidence/source plus fieldSources; (3) implementing mergeExtractedData and normalizeFieldData with backward compatibility; (4) updating frontend types and consumers; (5) adding unit/integration tests for merge behavior and legacy data handling.",
-			"reasoning": "Cross-cutting change from backend persistence to API shape and frontend types; must be backward compatible and preserve existing data while introducing richer semantics."
-		},
-		{
-			"taskId": 484,
-			"taskTitle": "Update FieldMappingTable to Display Real Extraction Confidence",
-			"complexityScore": 6,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Create subtasks for: (1) adapting FieldMappingTable props and internal logic to consume EnhancedFieldData and fieldSources; (2) implementing getExtractionConfidence with backward compatibility; (3) adding confidence filter state and UI plus row highlighting; (4) ensuring UX and accessibility of badges/tooltips; (5) unit/component/E2E tests around filtering and visual states.",
-			"reasoning": "Moderate UI and state complexity; needs to reconcile multiple confidence sources, preserve backward compatibility, and ensure clear UX for filtering and highlighting."
-		},
-		{
-			"taskId": 485,
-			"taskTitle": "Create TemplateLibrary Page with Grid View",
-			"complexityScore": 6,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Break into: (1) new /templates page with React Query data loading and client-side search/filter/sort/viewMode; (2) route wiring and navigation; (3) implementing grid/list container and responsive layout; (4) creating LoadingSkeleton and EmptyState components; (5) component tests and E2E coverage for navigation and interactions.",
-			"reasoning": "Feature page with multiple UI controls (search, filters, sort, view toggle), data fetching, and responsive layout; moderate front-end complexity but no deep backend changes."
-		},
-		{
-			"taskId": 486,
-			"taskTitle": "Create TemplateCard and TemplateEditor Components",
-			"complexityScore": 7,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Split into: (1) building TemplateCard with grid/list variants and action menu (edit/duplicate/delete/preview hooks); (2) wiring TemplateEditor for create/edit flows with React Query, form state, and category handling; (3) integrating file upload and field detection via validateForm; (4) integrating FieldMappingTable for mapping configuration; (5) navigation and UX flows (success, cancel, errors); (6) component and E2E tests for create/edit/duplicate/delete flows.",
-			"reasoning": "Substantial UI feature with multiple components, async operations, and mapping logic; involves routing, state management, and integration with existing services."
-		},
-		{
-			"taskId": 487,
-			"taskTitle": "Add Template Duplication and Preview Features",
-			"complexityScore": 6,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Create subtasks for: (1) implementing duplication via frontend mutation and/or backend duplicate endpoint; (2) building TemplatePreviewModal to show metadata and mappings; (3) integrating preview and duplicate actions into TemplateCard and TemplateLibrary; (4) permission and data-consistency checks (IDs, timestamps, usage counts); (5) tests for preview rendering and duplication correctness.",
-			"reasoning": "Moderate complexity around data cloning, modal UX, and integration with existing template list/editor; backend duplication path adds some extra care but not algorithmic difficulty."
-		},
-		{
-			"taskId": 488,
-			"taskTitle": "Create Filled Forms API Endpoints",
-			"complexityScore": 7,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Break into: (1) defining Prisma model usage and DTO shapes for filled forms (summary vs detail); (2) implementing list endpoint with filters, pagination, and authorization scoping to user; (3) implementing detail and download endpoints, including storage integration/presigned URLs; (4) implementing delete semantics and any storage cleanup policy; (5) wiring routes and frontend service layer; (6) unit/integration tests for filtering, auth boundaries, and error codes.",
-			"reasoning": "New backend surface with multiple endpoints, filtering/pagination, storage concerns, and security; plus a frontend service wrapper and tests across these paths."
-		},
-		{
-			"taskId": 489,
-			"taskTitle": "Create FilledFormHistory Page",
-			"complexityScore": 6,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Define subtasks for: (1) building the /history page with filters (date, template) and pagination wired to getFilledForms; (2) table UI with action buttons for view/download/delete; (3) integrating FilledFormDetailModal and delete confirmation dialog; (4) handling loading/empty/error states cleanly; (5) component and E2E tests for filtering, pagination, and actions.",
-			"reasoning": "Front-end page with moderate state and interaction complexity, depending on the new history API; no deep algorithms but significant UI and data handling."
-		},
-		{
-			"taskId": 490,
-			"taskTitle": "Integrate Form Filling with FilledForm History",
-			"complexityScore": 7,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Break into: (1) extending /users/me/fill-form to create FilledForm records with a well-defined dataSnapshot including per-field confidence; (2) defining snapshot schema and ensuring it is versioned and queryable; (3) updating SimpleFillForm to send clientId/templateId and handle success responses with navigation/toast; (4) implementing FilledFormDetailModal rendering of snapshot and confidence badges; (5) integration tests bridging form filling to history; (6) data security review for what’s stored in snapshots.",
-			"reasoning": "Ties core form-filling flow into persistent audit/history; requires careful schema design, backwards compatibility, and coordinated backend–frontend changes with audit/privacy considerations."
-		},
-		{
-			"taskId": 491,
-			"taskTitle": "Complete E2E Tests for Template Autofill Flows",
-			"complexityScore": 6,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "Split into: (1) updating TemplatesPage page object to align with new /templates UI and selectors; (2) fixing FF-040 and related tests for manual field selection across multiple documents; (3) adding tests for per-field confidence indicators and styling; (4) adding tests for filled-form history integration; (5) stabilizing tests with mocks, timeouts, and CI-friendly configuration.",
-			"reasoning": "Primarily E2E test authoring and refactoring; complexity comes from coordinating multiple pages, mocks (OCR, storage), and new confidence/history features, not from algorithms."
-		},
-		{
-			"taskId": 492,
-			"taskTitle": "Implement Classifier Agent with Gemini",
-			"complexityScore": 7,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Create subtasks for: (1) defining ClassificationResult types, prompts, and schemas for Gemini; (2) implementing classifyDocument with Gemini client, response parsing, and safety around malformed JSON; (3) wiring classifyNode into the multiagent workflow with fallbacks to rule-based classification; (4) implementing and tuning classifyByRules patterns; (5) configuration and secrets management for GEMINI_API_KEY plus local mocking; (6) unit/integration tests for classifier behavior under success, low-confidence, and failure paths.",
-			"reasoning": "LLM integration into pipeline with fallback logic and environment concerns; moderate algorithmic complexity and higher integration/testing complexity, especially around robustness and cost control."
-		},
-		{
-			"taskId": 493,
-			"taskTitle": "Implement Extractor Agent with Per-Field Confidence",
-			"complexityScore": 8,
-			"recommendedSubtasks": 7,
-			"expansionPrompt": "Break into: (1) defining EXTRACTION_PROMPTS and FIELD_SCHEMAS per document category; (2) integrating Gemini extraction call with JSON response parsing and error handling; (3) normalizing/validating extracted fields against schemas and adjusting confidence; (4) implementing extractByPatterns and merging with LLM output; (5) wiring extractNode into workflow state, including metrics (high/low confidence counts); (6) performance and token-usage considerations (text truncation, prompt tuning); (7) comprehensive tests with mocked Gemini and pattern-only fallbacks per category.",
-			"reasoning": "Central, high-impact node in the pipeline combining LLM outputs, schema validation, heuristics, and pattern fallbacks; non-trivial to design, tune, and test thoroughly."
-		},
-		{
-			"taskId": 494,
-			"taskTitle": "Implement Mapper and QA Agents for Field Validation",
-			"complexityScore": 8,
-			"recommendedSubtasks": 7,
-			"expansionPrompt": "Split into: (1) implementing mapNode with alias tables and semantic similarity-based canonicalization; (2) defining QA rules per document category, including required fields and confidence thresholds; (3) implementing QA scoring, issue classification, and human-review flags; (4) implementing errorRecoverNode with retry strategies and MAX_RETRIES policy; (5) wiring mapper/QA/error-recovery into workflow control flow; (6) logging, observability, and metrics for mapping/QA outcomes; (7) unit and integration tests for aliasing, QA rules, and recovery behavior under various issue patterns.",
-			"reasoning": "Complex rule-based logic layered onto extracted data and classification; introduces non-trivial workflow control (branching, retries) and requires careful design of QA semantics and recovery behavior."
-		}
-	]
+  "meta": {
+    "generatedAt": "2026-01-10T12:07:27.922Z",
+    "tasksAnalyzed": 38,
+    "totalTasks": 38,
+    "analysisCount": 38,
+    "thresholdScore": 5,
+    "projectName": "Task Master",
+    "usedResearch": true
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 515,
+      "taskTitle": "Fix documentService Security Vulnerability",
+      "complexityScore": 4,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down Task 515 into subtasks covering: (1) refactoring documentService.ts to replace raw fetch() calls with the shared api service and remove all localStorage token access, (2) updating or adding unit/integration/security tests to verify usage of tokenManager, httpOnly cookie auth, 401 refresh flow, and absence of auth_token in localStorage references, and (3) performing regression testing on document download/delete/reprocess flows across browsers and large files.",
+      "reasoning": "Change scope is localized and patterns are well-defined, but it touches security-critical auth behavior and binary responses, requiring careful regression and testing of edge cases like 401 handling and large download flows."
+    },
+    {
+      "taskId": 517,
+      "taskTitle": "Implement Delete Account Frontend Modal",
+      "complexityScore": 5,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down Task 517 into subtasks covering: (1) building the DeleteAccountModal UI with Radix AlertDialog, form validation (password + irreversible checkbox), and loading/error states, (2) wiring the modal into Settings.tsx state and Delete Account button, (3) integrating API call to DELETE /api/users/me, handling 401/validation errors, logout, and redirect to /login with toasts, and (4) adding E2E/interaction tests for open/close, validation, error handling, and successful deletion flow.",
+      "reasoning": "Frontend-only but security-sensitive destructive action that must coordinate UI state, async API errors, and auth/logout behavior; patterns are standard but requires solid UX and E2E coverage."
+    },
+    {
+      "taskId": 518,
+      "taskTitle": "Implement Change Password Modal",
+      "complexityScore": 6,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down Task 518 into subtasks covering: (1) defining the react-hook-form + zod schema and password policy validation logic, (2) implementing the ChangePasswordModal UI with all fields, validation messages, and optional strength indicator, (3) wiring the modal trigger in Settings.tsx and managing open/close state, (4) integrating with the change-password backend endpoint or Supabase API, including error/success toasts and logout/login implications, and (5) adding unit tests for the schema plus integration/E2E tests for full change-password flows and edge cases (wrong current password, weak password, network errors).",
+      "reasoning": "Involves moderately complex form validation, security-sensitive credential handling, coordination with auth backend, and robust UX for error states; testing must cover multiple unhappy paths and regression on login behavior."
+    },
+    {
+      "taskId": 520,
+      "taskTitle": "Implement Two-Factor Authentication Frontend Modal",
+      "complexityScore": 7,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Break down Task 520 into subtasks covering: (1) designing and implementing the multi-step TwoFactorSetupModal wizard (intro, QR, verify, backup) with clear state transitions, (2) integrating API calls to /api/auth/v2/mfa/enroll and /mfa/verify with loading, error, and retry handling, (3) implementing QR code rendering and secret-key fallback, (4) implementing TOTP input UX (6-digit, auto-advance, validation) and backup-code display/download/copy flows, (5) wiring the modal into Settings.tsx including mfaEnabled state and enable/disable UX, and (6) adding E2E and integration tests for complete 2FA enrollment, failure scenarios, and backup-code persistence behavior.",
+      "reasoning": "Multi-step security feature with several moving parts (wizard UX, QR, TOTP, backup codes, backend contract) and high correctness requirements; UI patterns are known but coordination and error handling make it upper-mid complexity."
+    },
+    {
+      "taskId": 526,
+      "taskTitle": "Implement Export Data Functionality",
+      "complexityScore": 6,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down Task 526 into subtasks covering: (1) designing the data export shape and selecting/sanitizing Prisma queries to exclude sensitive fields, (2) implementing the GET /api/users/me/export backend endpoint with appropriate streaming/headers and performance considerations, (3) implementing the frontend export handler for JSON download and wiring it to the Settings Export Data button, (4) adding tests to validate included/excluded fields and large-data behavior, and (5) performing a privacy/security review to ensure compliance with data export expectations and no leakage of secrets or third-party identifiers.",
+      "reasoning": "Touches multiple related data domains and privacy concerns; implementation itself is straightforward but requires careful schema design, query performance consideration, and explicit exclusion of sensitive fields plus robust testing."
+    },
+    {
+      "taskId": 527,
+      "taskTitle": "Implement Clear Cache Functionality",
+      "complexityScore": 3,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down Task 527 into subtasks covering: (1) implementing the clear-cache handler that safely clears localStorage, sessionStorage, React Query cache, and any persisted stores while preserving critical keys like theme or auth if required, (2) wiring the handler (and optional confirmation dialog) to the Settings Clear Cache button, and (3) adding tests or manual test checklist to verify storage and cache states before/after, including edge cases like unavailable storage APIs or SSR.",
+      "reasoning": "Pure frontend task with a simple imperative handler and minimal UI, but requires attention to which keys are preserved and validation that app remains functional post-clear; low algorithmic complexity and limited dependencies."
+    },
+    {
+      "taskId": 528,
+      "taskTitle": "Implement Upgrade Button Navigation",
+      "complexityScore": 2,
+      "recommendedSubtasks": 1,
+      "expansionPrompt": "Break down Task 528 into subtasks covering: wiring the Upgrade button click handler in Settings.tsx to either show a 'Coming Soon' toast or navigate to the /billing route, and validating behavior via a simple interaction test or manual check.",
+      "reasoning": "Very small, self-contained UI wiring task with trivial logic and negligible testing surface beyond verifying navigation or toast behavior."
+    },
+    {
+      "taskId": 544,
+      "taskTitle": "Implement Profile Audit Trail",
+      "complexityScore": 7,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Break down Task 544 into subtasks covering: (1) extending the Prisma schema with ProfileAuditLog and running migrations, (2) designing and implementing the audit logging helper to diff profile changes and create appropriate audit entries (CREATE/UPDATE/DELETE), (3) integrating logging into profile create/update/delete flows with IP/user-agent capture, (4) implementing the GET /profiles/:id/audit endpoint with pagination and authorization checks, (5) building the ProfileDetail audit history UI tab/timeline, and (6) adding tests to verify diffing correctness, log contents, endpoint security, and UI display for typical and edge-case histories.",
+      "reasoning": "Introduces a new data model and cross-cutting concern (auditing) that must be correctly wired into existing mutation flows; requires careful change-diff logic, additional endpoints, UI work, and strong testing for correctness and access control."
+    },
+    {
+      "taskId": 546,
+      "taskTitle": "Implement Search Autocomplete",
+      "complexityScore": 6,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down Task 546 into subtasks covering: (1) implementing the /knowledge/autocomplete backend endpoint that queries recent searches and document titles with appropriate filters and limits, (2) defining a stable suggestions response contract and types, (3) updating SearchInterface.tsx to add debounced querying, suggestion state, and dropdown rendering, (4) implementing keyboard and mouse interactions (navigation, selection, escape behavior, focus management), and (5) adding tests for debounce behavior, minimum query length, suggestion shaping, and keyboard navigation edge cases.",
+      "reasoning": "Requires coordinated backend and frontend changes, including debounced network calls, suggestion ranking, and a relatively intricate UX for keyboard navigation; algorithms are not complex but interaction design and correctness add to effort."
+    },
+    {
+      "taskId": 547,
+      "taskTitle": "Implement Document Sharing Model and Backend",
+      "complexityScore": 8,
+      "recommendedSubtasks": 7,
+      "expansionPrompt": "Break down Task 547 into subtasks covering: (1) extending the Prisma schema with DocumentShare and SharePermission enums and running migrations, (2) designing the sharing semantics (ownership, visibility, permission levels, expiration rules), (3) implementing POST /documents/:id/share with validation, email lookups, secure access-token generation, and optional email notification integration, (4) implementing GET /shared/:token with validation of access token, expiry, and permission checks plus access-count tracking, (5) integrating authorization with existing document access rules, especially for sharedWithUserId flows, (6) adding tests for share lifecycle (creation, usage, expiration, invalid tokens, authorization failures), and (7) documenting the sharing model and potential future frontend integration requirements.",
+      "reasoning": "Introduces a new sharing domain with security-critical access token handling, expiration, permissions, and data modeling; must align with existing auth and document ACLs and be thoroughly tested for abuse cases and data leaks, which makes it relatively high complexity despite limited UI scope."
+    },
+    {
+      "taskId": 516,
+      "taskTitle": "Implement Delete Account Flow Backend",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement delete account flow backend.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 519,
+      "taskTitle": "Implement Two-Factor Authentication Backend",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement two-factor authentication backend.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 521,
+      "taskTitle": "Connect Theme Selection to useTheme Hook",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on connect theme selection to usetheme hook.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 522,
+      "taskTitle": "Implement Compact Mode Toggle with Persistence",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement compact mode toggle with persistence.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 523,
+      "taskTitle": "Implement Language Preference Storage",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement language preference storage.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 524,
+      "taskTitle": "Connect Processing Preferences to User Settings API",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on connect processing preferences to user settings api.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 525,
+      "taskTitle": "Connect Notification Toggles to User Settings",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on connect notification toggles to user settings.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 529,
+      "taskTitle": "Route Knowledge Base Page",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on route knowledge base page.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 530,
+      "taskTitle": "Add Tags Field to Document Model",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on add tags field to document model.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 531,
+      "taskTitle": "Create TagInput Component",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on create taginput component.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 532,
+      "taskTitle": "Integrate Tags into Document Card and Filters",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on integrate tags into document card and filters.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 533,
+      "taskTitle": "Add Tag Management to Document Detail Modal",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on add tag management to document detail modal.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 534,
+      "taskTitle": "Implement Email Invitation Sending",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement email invitation sending.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 535,
+      "taskTitle": "Integrate Form Preview into Fill Workflow",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on integrate form preview into fill workflow.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 536,
+      "taskTitle": "Fix Multi-File-Type Filter",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on fix multi-file-type filter.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 537,
+      "taskTitle": "Implement New Client Button Handler",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement new client button handler.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 538,
+      "taskTitle": "Create Notification Database Model",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on create notification database model.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 539,
+      "taskTitle": "Create Notification API Endpoints",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on create notification api endpoints.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 540,
+      "taskTitle": "Create NotificationBell and NotificationCenter Components",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on create notificationbell and notificationcenter components.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 541,
+      "taskTitle": "Implement Document Preview Component",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement document preview component.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 542,
+      "taskTitle": "Implement Bulk Download as ZIP",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement bulk download as zip.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 543,
+      "taskTitle": "Implement OCR Quality Options",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement ocr quality options.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 545,
+      "taskTitle": "Remove Dead Code - Templates.tsx",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on remove dead code - templates.tsx.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 548,
+      "taskTitle": "Create Document Share Modal UI",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on create document share modal ui.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 549,
+      "taskTitle": "Implement Batch Form Filling UI",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement batch form filling ui.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 550,
+      "taskTitle": "Implement Multi-Format Export for Filled Forms",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on implement multi-format export for filled forms.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 551,
+      "taskTitle": "Remove Console Statements from Production Code",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on remove console statements from production code.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    },
+    {
+      "taskId": 552,
+      "taskTitle": "Integrate Sentry Error Reporting",
+      "complexityScore": 5,
+      "recommendedSubtasks": 3,
+      "expansionPrompt": "Break down this task with a focus on integrate sentry error reporting.",
+      "reasoning": "Automatically added due to missing analysis in AI response."
+    }
+  ]
 }
