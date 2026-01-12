@@ -25,9 +25,9 @@ COPY package*.json ./
 
 # Install dependencies with cache mount for npm
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --only=production --no-audit --no-fund \
+    npm install --omit=dev --no-audit --no-fund \
     && cp -R node_modules /prod_node_modules \
-    && npm ci --no-audit --no-fund
+    && npm install --no-audit --no-fund
 
 # ============================================
 # Stage 2: Builder (compile TypeScript)
