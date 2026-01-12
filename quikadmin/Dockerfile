@@ -36,9 +36,9 @@ FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 
 WORKDIR /app
 
-# Copy dependencies from previous stage
-COPY --from=dependencies /app/node_modules ./node_modules
+# Copy package files and install ALL dependencies (including dev)
 COPY package*.json tsconfig.json ./
+RUN npm install --no-audit --no-fund
 
 # Copy source code and prisma schema
 COPY src ./src
