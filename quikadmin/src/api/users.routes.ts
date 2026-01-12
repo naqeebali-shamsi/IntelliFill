@@ -731,11 +731,13 @@ export function createUserRoutes(): Router {
 
         // Clear refresh token cookie
         const isTestMode = process.env.NODE_ENV === 'test';
+        const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
         res.clearCookie('refreshToken', {
           httpOnly: true,
           secure: !isTestMode,
-          sameSite: isTestMode ? 'lax' : 'strict',
+          sameSite: 'lax',
           path: isTestMode ? '/api' : '/api/auth',
+          ...(cookieDomain && { domain: cookieDomain }),
         });
 
         logger.info('User account deleted successfully', { userId, email: user.email });

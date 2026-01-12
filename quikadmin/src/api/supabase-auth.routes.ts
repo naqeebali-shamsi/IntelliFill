@@ -31,14 +31,24 @@ import { lockoutService } from '../services/lockout.service';
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
 
 // Cookie configuration for httpOnly refreshToken
-// Production: secure, strict sameSite, /api/auth path
+// Production: secure, lax sameSite (for cross-subdomain), /api/auth path
 // Test: not secure, lax sameSite, /api path (allows cross-port requests)
-const REFRESH_TOKEN_COOKIE_OPTIONS = {
+// COOKIE_DOMAIN: Set to '.parentdomain.com' for cross-subdomain cookie sharing
+const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+const REFRESH_TOKEN_COOKIE_OPTIONS: {
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'lax' | 'strict' | 'none';
+  maxAge: number;
+  path: string;
+  domain?: string;
+} = {
   httpOnly: true,
   secure: process.env.NODE_ENV !== 'test',
-  sameSite: (isTestMode ? 'lax' : 'strict') as 'lax' | 'strict',
+  sameSite: 'lax', // Changed from 'strict' to support cross-subdomain
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   path: isTestMode ? '/api' : '/api/auth',
+  ...(cookieDomain && { domain: cookieDomain }),
 };
 
 function setRefreshTokenCookie(res: Response, refreshToken: string): void {
@@ -51,8 +61,9 @@ function clearRefreshTokenCookie(res: Response): void {
   res.clearCookie('refreshToken', {
     httpOnly: true,
     secure: process.env.NODE_ENV !== 'test',
-    sameSite: isTestMode ? 'lax' : 'strict',
+    sameSite: 'lax',
     path: isTestMode ? '/api' : '/api/auth',
+    ...(cookieDomain && { domain: cookieDomain }),
   });
 }
 
