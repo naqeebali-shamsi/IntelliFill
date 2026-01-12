@@ -279,7 +279,13 @@ async function initializeApp(): Promise<{ app: Application }> {
     });
 
     // Apply rate limiting - BEFORE routes
-    app.use('/api/', standardLimiter); // Standard rate limit for all API routes
+    // Skip health endpoints to prevent Docker health checks from being rate limited
+    app.use('/api/', (req, res, next) => {
+      if (req.path === '/health' || req.path.startsWith('/health/')) {
+        return next();
+      }
+      return standardLimiter(req, res, next);
+    });
     app.use('/api/auth/login', authLimiter); // Strict limit for login
     app.use('/api/auth/register', authLimiter); // Strict limit for registration
     app.use('/api/documents/upload', uploadLimiter); // Upload rate limit
