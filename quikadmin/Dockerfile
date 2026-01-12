@@ -1,4 +1,4 @@
-# Optimized Multi-stage Dockerfile with advanced caching and security
+# Optimized Multi-stage Dockerfile with pnpm
 ARG NODE_VERSION=20.11.0
 ARG ALPINE_VERSION=3.19
 
@@ -7,7 +7,7 @@ ARG ALPINE_VERSION=3.19
 # ============================================
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS dependencies
 
-# Install build dependencies without strict versions
+# Install build dependencies
 RUN apk add --no-cache \
     python3 \
     make \
@@ -18,34 +18,39 @@ RUN apk add --no-cache \
     giflib-dev \
     && rm -rf /var/cache/apk/*
 
+# Enable corepack for pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
-# Copy only package files for better cache utilization
-COPY package*.json ./
+# Copy package files
+COPY package.json ./
 
-# Install dependencies with cache mount for npm
-RUN --mount=type=cache,target=/root/.npm \
-    npm install --omit=dev --no-audit --no-fund \
-    && cp -R node_modules /prod_node_modules \
-    && npm install --no-audit --no-fund
+# Install production dependencies only (no lockfile in subdirectory)
+RUN pnpm install --prod
 
 # ============================================
 # Stage 2: Builder (compile TypeScript)
 # ============================================
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 
+# Enable corepack for pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
-# Copy package files and install ALL dependencies (including dev)
-COPY package*.json tsconfig.json ./
-RUN npm install --no-audit --no-fund
+# Copy package files
+COPY package.json tsconfig.json tsconfig.build.json ./
+
+# Install ALL dependencies including devDependencies
+RUN pnpm install
 
 # Copy source code and prisma schema
 COPY src ./src
 COPY prisma ./prisma
 
-# Build application with parallel compilation
-RUN npm run build
+# Generate Prisma client and build
+RUN npx prisma generate && pnpm run build
 
 # ============================================
 # Stage 3: Production runtime
@@ -57,7 +62,7 @@ LABEL maintainer="IntelliFill Team"
 LABEL version="1.0.0"
 LABEL description="IntelliFill Document Processing Platform"
 
-# Install runtime dependencies without strict versions
+# Install runtime dependencies
 RUN apk add --no-cache \
     tesseract-ocr \
     tesseract-ocr-data-eng \
@@ -79,47 +84,48 @@ RUN apk add --no-cache \
     dumb-init \
     && rm -rf /var/cache/apk/*
 
-# Install Python dependencies with specific versions
+# Install Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
     pypdf==3.17.* \
     pytesseract==0.3.*
 
-# Create non-root user and group
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs \
     && adduser -S nodejs -u 1001 -G nodejs
 
 WORKDIR /app
 
-# Copy production dependencies
-COPY --from=dependencies --chown=nodejs:nodejs /prod_node_modules ./node_modules
+# Copy production dependencies from dependencies stage
+COPY --from=dependencies --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-# Copy built application
+# Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy necessary files
-COPY --chown=nodejs:nodejs package*.json ./
+COPY --chown=nodejs:nodejs package.json ./
 COPY --chown=nodejs:nodejs prisma ./prisma
 
-# Create necessary directories with proper permissions
+# Create necessary directories
 RUN mkdir -p uploads outputs logs models data \
     && chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs
 
-# Environment variables with defaults
+# Environment variables
 ENV NODE_ENV=production \
-    PORT=3000 \
+    PORT=3002 \
     NODE_OPTIONS="--max-old-space-size=2048"
 
-# Health check with proper timing
+# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:${PORT}/api/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})" || exit 1
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3002
 
-# Use dumb-init to handle signals properly
+# Use dumb-init for signal handling
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start application
