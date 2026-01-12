@@ -3,9 +3,9 @@ ARG NODE_VERSION=20.11.0
 ARG ALPINE_VERSION=3.19
 
 # ============================================
-# Stage 1: Dependencies (cached layer)
+# Stage 1: Builder (compile TypeScript + Prisma)
 # ============================================
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS dependencies
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -24,22 +24,6 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 # Copy package files
-COPY package.json ./
-
-# Install production dependencies only (no lockfile in subdirectory)
-RUN pnpm install --prod
-
-# ============================================
-# Stage 2: Builder (compile TypeScript)
-# ============================================
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS builder
-
-# Enable corepack for pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-WORKDIR /app
-
-# Copy package files
 COPY package.json tsconfig.json tsconfig.build.json ./
 
 # Install ALL dependencies including devDependencies
@@ -49,11 +33,14 @@ RUN pnpm install
 COPY src ./src
 COPY prisma ./prisma
 
-# Generate Prisma client and build
+# Generate Prisma client and build TypeScript
 RUN npx prisma generate && pnpm run build
 
+# Prune dev dependencies, keeping only production deps with Prisma client
+RUN pnpm prune --prod
+
 # ============================================
-# Stage 3: Production runtime
+# Stage 2: Production runtime
 # ============================================
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runtime
 
@@ -95,12 +82,11 @@ RUN addgroup -g 1001 -S nodejs \
 
 WORKDIR /app
 
-# Copy production dependencies from dependencies stage
-COPY --from=dependencies --chown=nodejs:nodejs /app/node_modules ./node_modules
+# Copy pruned production node_modules (includes Prisma client) from builder
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy necessary files
 COPY --chown=nodejs:nodejs package.json ./
