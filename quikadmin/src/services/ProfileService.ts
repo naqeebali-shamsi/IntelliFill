@@ -460,7 +460,7 @@ export class ProfileService {
         const changes = Object.entries(oldFields).map(([key, field]) => ({
           field: key,
           old: field.values,
-          new: null,
+          new: null as unknown,
         }));
 
         await this.logProfileChange({

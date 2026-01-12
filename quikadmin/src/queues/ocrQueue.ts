@@ -388,11 +388,11 @@ if (ocrQueue) {
         data: {
           status: 'COMPLETED',
           extractedText: ocrResult.text,
-          extractedData: {
+          extractedData: JSON.parse(JSON.stringify({
             ...structuredData,
             ocrMetadata: ocrResult.metadata,
             pages: ocrResult.pages,
-          },
+          })),
           confidence: ocrResult.confidence / 100, // Convert to 0-1 scale
           processedAt: new Date(),
         },

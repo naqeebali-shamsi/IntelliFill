@@ -712,7 +712,7 @@ export async function validateExtraction(
     r => fields[r.field]?.value !== null && fields[r.field]?.value !== undefined
   );
 
-  let score = SCORE_WEIGHTS.BASE_SCORE;
+  let score: number = SCORE_WEIGHTS.BASE_SCORE;
 
   if (requiredFieldsPresent) {
     score += SCORE_WEIGHTS.REQUIRED_FIELD_PRESENT;

@@ -799,8 +799,7 @@ export function createUserRoutes(): Router {
         const profile = await prisma.userProfile.findUnique({
           where: { userId },
           select: {
-            data: true,
-            fieldSources: true,
+            profileData: true,
             createdAt: true,
             updatedAt: true,
             // Exclude: id, userId

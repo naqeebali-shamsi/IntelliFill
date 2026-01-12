@@ -50,7 +50,7 @@ export interface MappingDetail {
   /** Mapping confidence (0-100) */
   confidence: number;
   /** How the mapping was determined */
-  matchType: 'exact' | 'alias' | 'semantic' | 'unmapped';
+  matchType: 'exact' | 'alias' | 'semantic' | 'pattern' | 'unmapped';
 }
 
 /**

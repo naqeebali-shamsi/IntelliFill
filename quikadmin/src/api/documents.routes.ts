@@ -437,7 +437,7 @@ export function createDocumentRoutes(): Router {
         const archive = archiver('zip', { zlib: { level: 5 } });
 
         // Handle archive errors
-        archive.on('error', (err) => {
+        archive.on('error', (err: Error) => {
           logger.error('Archive error:', err);
           if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to create archive' });

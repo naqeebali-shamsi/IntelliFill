@@ -28,25 +28,27 @@ model Organization {
 }
 
 model User {
-  id              String                   @id @default(uuid())
-  email           String                   @unique
-  password        String
-  firstName       String?
-  lastName        String?
-  role            UserRole                 @default(USER)
-  isActive        Boolean                  @default(true)
-  emailVerified   Boolean                  @default(false)
-  mfaEnabled      Boolean                  @default(false) @map("mfa_enabled")
-  mfaBackupCodes  String[]                 @default([]) @map("mfa_backup_codes")
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  lastLogin       DateTime?
-  supabaseUserId  String?                  @unique
-  organizationId  String?                  @map("organization_id")
-  avatarUrl       String?                  @map("avatar_url")
-  bio             String?                  @db.VarChar(500)
-  jobTitle        String?                  @map("job_title") @db.VarChar(100)
-  phone           String?                  @db.VarChar(30)
+  id               String                   @id @default(uuid())
+  email            String                   @unique
+  password         String
+  firstName        String?
+  lastName         String?
+  role             UserRole                 @default(USER)
+  isActive         Boolean                  @default(true)
+  emailVerified    Boolean                  @default(false)
+  mfaEnabled       Boolean                  @default(false) @map("mfa_enabled")
+  mfaBackupCodes   String[]                 @default([]) @map("mfa_backup_codes")
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  lastLogin        DateTime?
+  supabaseUserId   String?                  @unique
+  organizationId   String?                  @map("organization_id")
+  avatarUrl        String?                  @map("avatar_url")
+  bio              String?                  @db.VarChar(500)
+  jobTitle         String?                  @map("job_title") @db.VarChar(100)
+  phone            String?                  @db.VarChar(30)
+  acceptedTermsAt  DateTime?                @map("accepted_terms_at")
+  marketingConsent Boolean                  @default(false) @map("marketing_consent")
   apiUsage        ApiUsage[]
   auditLogs       AuditLog[]
   clients         Client[]
@@ -356,24 +358,27 @@ model ProcessingHistory {
 }
 
 model UserSettings {
-  userId                  String   @id @map("user_id")
-  defaultValidationRules  Json?    @map("default_validation_rules")
-  preferredLanguage       String   @default("en") @map("preferred_language") @db.VarChar(10)
-  emailNotifications      Boolean  @default(true) @map("email_notifications")
-  webhookUrl              String?  @map("webhook_url")
-  autoOcr                 Boolean  @default(false) @map("auto_ocr")
-  autoMlEnhancement       Boolean  @default(true) @map("auto_ml_enhancement")
-  defaultOutputFormat     String   @default("pdf") @map("default_output_format") @db.VarChar(20)
-  timezone                String   @default("UTC") @db.VarChar(50)
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-  compactMode             Boolean  @default(false) @map("compact_mode")
-  digestFrequency         String   @default("never") @map("digest_frequency") @db.VarChar(20)
-  notifyOnOrgInvite       Boolean  @default(true) @map("notify_on_org_invite")
-  notifyOnProcessComplete Boolean  @default(true) @map("notify_on_process_complete")
-  notifyOnErrors          Boolean  @default(true) @map("notify_on_errors")
-  theme                   String   @default("system") @db.VarChar(20)
-  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                   String   @id @map("user_id")
+  defaultValidationRules   Json?    @map("default_validation_rules")
+  preferredLanguage        String   @default("en") @map("preferred_language") @db.VarChar(10)
+  emailNotifications       Boolean  @default(true) @map("email_notifications")
+  webhookUrl               String?  @map("webhook_url")
+  autoOcr                  Boolean  @default(false) @map("auto_ocr")
+  ocrLanguage              String   @default("en") @map("ocr_language") @db.VarChar(10)
+  autoMlEnhancement        Boolean  @default(true) @map("auto_ml_enhancement")
+  defaultOutputFormat      String   @default("pdf") @map("default_output_format") @db.VarChar(20)
+  defaultExtractionProfile String?  @map("default_extraction_profile") @db.VarChar(50)
+  retainOriginalFiles      Boolean  @default(true) @map("retain_original_files")
+  timezone                 String   @default("UTC") @db.VarChar(50)
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  compactMode              Boolean  @default(false) @map("compact_mode")
+  digestFrequency          String   @default("never") @map("digest_frequency") @db.VarChar(20)
+  notifyOnOrgInvite        Boolean  @default(true) @map("notify_on_org_invite")
+  notifyOnProcessComplete  Boolean  @default(true) @map("notify_on_process_complete")
+  notifyOnErrors           Boolean  @default(true) @map("notify_on_errors")
+  theme                    String   @default("system") @db.VarChar(20)
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_settings")
 }
@@ -888,4 +893,29 @@ model DocumentShare {
   @@index([sharedWithUserId])
   @@index([expiresAt])
   @@map("document_shares")
+}
+
+model CspReport {
+  id                 String    @id @default(uuid())
+  documentUri        String    @map("document_uri") @db.VarChar(2000)
+  blockedUri         String    @map("blocked_uri") @db.VarChar(2000)
+  violatedDirective  String    @map("violated_directive") @db.VarChar(255)
+  effectiveDirective String?   @map("effective_directive") @db.VarChar(255)
+  sourceFile         String?   @map("source_file") @db.VarChar(2000)
+  lineNumber         Int?      @map("line_number")
+  columnNumber       Int?      @map("column_number")
+  userAgent          String?   @map("user_agent") @db.VarChar(500)
+  ipAddress          String?   @map("ip_address") @db.VarChar(45)
+  count              Int       @default(1)
+  firstSeen          DateTime  @default(now()) @map("first_seen")
+  lastSeen           DateTime  @default(now()) @map("last_seen")
+  alertSent          Boolean   @default(false) @map("alert_sent")
+  alertSentAt        DateTime? @map("alert_sent_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([documentUri, blockedUri, violatedDirective])
+  @@index([createdAt])
+  @@index([alertSent])
+  @@map("csp_reports")
 }
