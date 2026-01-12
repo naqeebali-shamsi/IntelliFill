@@ -63,6 +63,7 @@ export function DocumentPreview({
       await page.render({
         canvasContext: context,
         viewport,
+        canvas,
       }).promise;
 
       setLoadingState('loaded');
