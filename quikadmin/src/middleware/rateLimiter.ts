@@ -442,10 +442,11 @@ export const knowledgeUploadLimiter = createLimiter({
 // SSE and CSP Rate Limiters
 // ============================================================================
 
-// 10 SSE connection attempts per minute (100 in dev)
+// 30 SSE connection attempts per minute (300 in dev)
+// Higher limit because: EventSource auto-retries on failure, users may have multiple tabs
 export const sseConnectionLimiter = createLimiter({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 30,
   devMultiplier: 10,
   prefix: 'sse',
   keyOptions: { scope: 'user', fallbackScope: 'ip' },
