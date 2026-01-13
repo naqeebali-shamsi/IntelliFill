@@ -19,6 +19,7 @@ import { createInvitationRoutes } from './invitation.routes';
 import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
 import { createNotificationRoutes } from './notifications.routes';
 import { createSharedRoutes } from './shared.routes';
+import { jobsRouter } from './jobs.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
 import { realtimeService } from '../services/RealtimeService';
@@ -151,6 +152,10 @@ export function setupRoutes(
   // Mounted at /api/shared - NO authentication required
   const sharedRoutes = createSharedRoutes();
   app.use('/api/shared', sharedRoutes);
+
+  // Setup jobs routes for queue status polling
+  // Mounted at /api for job status, cancel, retry endpoints
+  app.use('/api', jobsRouter);
 
   // Setup E2E test routes (Task 478)
   // ONLY available when E2E_TEST_MODE=true or NODE_ENV=test
