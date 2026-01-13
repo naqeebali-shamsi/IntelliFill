@@ -174,20 +174,46 @@ export function setupRoutes(
   // SSE Realtime endpoint
   // Protected with rate limiting and authentication
   // Only authenticated users can receive realtime updates
-  router.get(
-    '/realtime',
-    sseConnectionLimiter,
-    authenticateSupabase,
-    (req: Request, res: Response) => {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
-      const clientId = realtimeService.registerClient(res, userId);
-      if (!clientId) return; // Response already sent by registerClient (connection limit reached)
+  // NOTE: EventSource cannot send Authorization headers, so we accept token via query param
+  router.get('/realtime', sseConnectionLimiter, async (req: Request, res: Response) => {
+    // EventSource cannot send custom headers, so we accept token via query param
+    const queryToken = req.query.token as string | undefined;
+    const headerToken = req.headers.authorization?.replace('Bearer ', '');
+    const token = queryToken || headerToken;
 
-      req.on('close', () => {
-        realtimeService.removeClient(clientId);
-      });
+    if (!token) {
+      res.status(401).json({ error: 'Unauthorized', message: 'Token required' });
+      return;
     }
-  );
+
+    // Verify token with Supabase
+    const { verifySupabaseToken } = await import('../utils/supabase');
+    const supabaseUser = await verifySupabaseToken(token);
+
+    if (!supabaseUser) {
+      res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
+      return;
+    }
+
+    // Get user from database
+    const dbUser = await prisma.user.findUnique({
+      where: { id: supabaseUser.id },
+      select: { id: true, isActive: true },
+    });
+
+    if (!dbUser || !dbUser.isActive) {
+      res.status(401).json({ error: 'Unauthorized', message: 'User not found or inactive' });
+      return;
+    }
+
+    const userId = dbUser.id;
+    const clientId = realtimeService.registerClient(res, userId);
+    if (!clientId) return; // Response already sent by registerClient (connection limit reached)
+
+    req.on('close', () => {
+      realtimeService.removeClient(clientId);
+    });
+  });
 
   // Ready check - verifies all services are operational
   router.get('/ready', async (req: Request, res: Response) => {
