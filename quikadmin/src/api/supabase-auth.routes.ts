@@ -59,7 +59,20 @@ const REFRESH_TOKEN_COOKIE_OPTIONS: {
   ...(cookieDomain && { domain: cookieDomain }),
 };
 
+/** Clear legacy cookie with old path (for migration from /api/auth to /api) */
+function clearLegacyCookie(res: Response): void {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV !== 'test',
+    sameSite: isTestMode ? 'lax' : 'none',
+    path: '/api/auth',
+    ...(cookieDomain && { domain: cookieDomain }),
+  });
+}
+
 function setRefreshTokenCookie(res: Response, refreshToken: string): void {
+  // Clear legacy cookie path first to prevent conflicts
+  clearLegacyCookie(res);
   res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
 }
 
@@ -73,6 +86,9 @@ function clearRefreshTokenCookie(res: Response): void {
     path: '/api', // Must match REFRESH_TOKEN_COOKIE_OPTIONS.path
     ...(cookieDomain && { domain: cookieDomain }),
   });
+
+  // Also clear legacy cookie path to prevent conflicts after path migration
+  clearLegacyCookie(res);
 }
 
 // JWT secrets from validated config (≥64 characters enforced)
