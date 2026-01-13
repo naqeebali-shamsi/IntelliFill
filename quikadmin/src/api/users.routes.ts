@@ -735,7 +735,8 @@ export function createUserRoutes(): Router {
         res.clearCookie('refreshToken', {
           httpOnly: true,
           secure: !isTestMode,
-          sameSite: 'lax',
+          // SameSite=None required for cross-origin cookie clearing (frontend on different subdomain)
+          sameSite: isTestMode ? 'lax' : 'none',
           path: isTestMode ? '/api' : '/api/auth',
           ...(cookieDomain && { domain: cookieDomain }),
         });
