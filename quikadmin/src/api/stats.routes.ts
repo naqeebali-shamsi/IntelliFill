@@ -35,77 +35,113 @@ export function createStatsRoutes(): Router {
   const router = Router();
 
   // Get dashboard statistics
+  // NOTE: Uses Document table for stats since OCR processing updates Document records,
+  // not the Job table. Job table is legacy and not populated by current OCR workflow.
   router.get('/statistics', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userFilter = userId ? { userId } : {};
 
-      // Get real statistics from database
-      const [totalJobs, completedJobs, failedJobs, inProgressJobs, totalClients, totalDocuments] =
-        await Promise.all([
-          prisma.job.count({ where: userId ? { userId } : undefined }),
-          prisma.job.count({ where: { status: 'completed', ...(userId ? { userId } : {}) } }),
-          prisma.job.count({ where: { status: 'failed', ...(userId ? { userId } : {}) } }),
-          prisma.job.count({ where: { status: 'processing', ...(userId ? { userId } : {}) } }),
-          prisma.client.count({ where: userId ? { userId } : undefined }),
-          prisma.document.count({ where: userId ? { userId } : undefined }),
-        ]);
+      // Get document statistics (OCR processing updates Document table, not Job table)
+      const [
+        totalDocuments,
+        completedDocuments,
+        failedDocuments,
+        processingDocuments,
+        pendingDocuments,
+        totalClients,
+      ] = await Promise.all([
+        prisma.document.count({ where: userFilter }),
+        prisma.document.count({ where: { status: 'COMPLETED', ...userFilter } }),
+        prisma.document.count({ where: { status: 'FAILED', ...userFilter } }),
+        prisma.document.count({ where: { status: 'PROCESSING', ...userFilter } }),
+        prisma.document.count({ where: { status: 'PENDING', ...userFilter } }),
+        prisma.client.count({ where: userFilter }),
+      ]);
 
       // Calculate today's processed count
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const processedToday = await prisma.job.count({
+      const processedToday = await prisma.document.count({
         where: {
-          status: 'completed',
-          completedAt: { gte: today },
-          ...(userId ? { userId } : {}),
+          status: 'COMPLETED',
+          processedAt: { gte: today },
+          ...userFilter,
         },
       });
 
-      // Calculate average processing time (in seconds)
-      const completedJobsWithTime = await prisma.job.findMany({
+      // Calculate average processing time from documents (in seconds)
+      const completedDocsWithTime = await prisma.document.findMany({
         where: {
-          status: 'completed',
-          startedAt: { not: null },
-          completedAt: { not: null },
-          ...(userId ? { userId } : {}),
+          status: 'COMPLETED',
+          processedAt: { not: null },
+          ...userFilter,
         },
         select: {
-          startedAt: true,
-          completedAt: true,
+          createdAt: true,
+          processedAt: true,
         },
-        take: 100, // Last 100 completed jobs
+        orderBy: { processedAt: 'desc' },
+        take: 100, // Last 100 completed documents
       });
 
       let averageProcessingTime = 0;
-      if (completedJobsWithTime.length > 0) {
-        const totalTime = completedJobsWithTime.reduce((acc, job) => {
-          if (job.startedAt && job.completedAt) {
-            return acc + (job.completedAt.getTime() - job.startedAt.getTime());
+      if (completedDocsWithTime.length > 0) {
+        const totalTime = completedDocsWithTime.reduce((acc, doc) => {
+          if (doc.processedAt) {
+            return acc + (doc.processedAt.getTime() - doc.createdAt.getTime());
           }
           return acc;
         }, 0);
-        averageProcessingTime = totalTime / completedJobsWithTime.length / 1000; // Convert to seconds
+        averageProcessingTime = totalTime / completedDocsWithTime.length / 1000; // Convert to seconds
+      }
+
+      // Calculate average confidence from completed documents
+      const docsWithConfidence = await prisma.document.findMany({
+        where: {
+          status: 'COMPLETED',
+          confidence: { not: null },
+          ...userFilter,
+        },
+        select: { confidence: true },
+        take: 100,
+      });
+
+      let averageConfidence = 0;
+      if (docsWithConfidence.length > 0) {
+        const totalConfidence = docsWithConfidence.reduce(
+          (acc, doc) => acc + (doc.confidence || 0),
+          0
+        );
+        averageConfidence = Math.round((totalConfidence / docsWithConfidence.length) * 10) / 10;
       }
 
       // Calculate success rate
-      const successRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 1000) / 10 : 0;
+      const totalProcessed = completedDocuments + failedDocuments;
+      const successRate =
+        totalProcessed > 0 ? Math.round((completedDocuments / totalProcessed) * 1000) / 10 : 0;
 
       const stats = {
-        totalJobs,
-        completedJobs,
-        failedJobs,
-        inProgress: inProgressJobs,
+        // Use document counts (named as "jobs" for frontend compatibility)
+        totalJobs: totalDocuments,
+        completedJobs: completedDocuments,
+        failedJobs: failedDocuments,
+        inProgress: processingDocuments + pendingDocuments,
         processedToday,
         averageProcessingTime: Math.round(averageProcessingTime * 10) / 10,
-        averageConfidence: 0, // Will be calculated from processing history when available
+        averageConfidence,
         successRate,
         totalClients,
         totalDocuments,
         trends: {
           documents: { value: totalDocuments, change: 0, trend: 'stable' as const },
           processedToday: { value: processedToday, change: 0, trend: 'stable' as const },
-          inProgress: { value: inProgressJobs, change: 0, trend: 'stable' as const },
-          failed: { value: failedJobs, change: 0, trend: 'stable' as const },
+          inProgress: {
+            value: processingDocuments + pendingDocuments,
+            change: 0,
+            trend: 'stable' as const,
+          },
+          failed: { value: failedDocuments, change: 0, trend: 'stable' as const },
         },
       };
 
@@ -116,7 +152,8 @@ export function createStatsRoutes(): Router {
     }
   });
 
-  // Get processing jobs (real data from database)
+  // Get processing history (documents formatted as jobs for frontend compatibility)
+  // NOTE: Uses Document table since OCR processing creates Document records, not Job records.
   router.get('/jobs', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const userId = (req as unknown as { user?: { id: string } }).user?.id;
@@ -124,40 +161,66 @@ export function createStatsRoutes(): Router {
       const offset = parseInt(req.query.offset as string) || 0;
       const status = req.query.status as string;
 
-      const whereClause: any = userId ? { userId } : {};
+      // Build where clause for documents
+      const whereClause: Record<string, unknown> = userId ? { userId } : {};
       if (status) {
-        whereClause.status = status;
+        // Map job status to document status (frontend uses lowercase)
+        const statusMap: Record<string, string> = {
+          completed: 'COMPLETED',
+          failed: 'FAILED',
+          processing: 'PROCESSING',
+          pending: 'PENDING',
+        };
+        whereClause.status = statusMap[status.toLowerCase()] || status.toUpperCase();
       }
 
-      const [jobs, total] = await Promise.all([
-        prisma.job.findMany({
+      const [documents, total] = await Promise.all([
+        prisma.document.findMany({
           where: whereClause,
           orderBy: { createdAt: 'desc' },
           take: limit,
           skip: offset,
-          include: {
-            processingHistory: {
-              orderBy: { createdAt: 'desc' },
-              take: 1,
-            },
+          select: {
+            id: true,
+            fileName: true,
+            fileType: true,
+            fileSize: true,
+            status: true,
+            confidence: true,
+            createdAt: true,
+            processedAt: true,
+            extractedData: true,
           },
         }),
-        prisma.job.count({ where: whereClause }),
+        prisma.document.count({ where: whereClause }),
       ]);
 
-      const formattedJobs = jobs.map((job) => ({
-        id: job.id,
-        type: job.type,
-        status: job.status,
-        progress: job.status === 'completed' ? 100 : job.status === 'processing' ? 50 : 0,
-        createdAt: job.createdAt.toISOString(),
-        startedAt: job.startedAt?.toISOString(),
-        completedAt: job.completedAt?.toISOString(),
-        failedAt: job.failedAt?.toISOString(),
-        error: job.error,
-        result: job.result,
-        metadata: job.metadata,
-        documentsCount: job.documentsCount,
+      // Format documents as jobs for frontend compatibility
+      const formattedJobs = documents.map((doc) => ({
+        id: doc.id,
+        type: 'ocr_processing',
+        status: doc.status.toLowerCase(), // Frontend expects lowercase
+        progress:
+          doc.status === 'COMPLETED'
+            ? 100
+            : doc.status === 'PROCESSING'
+              ? 50
+              : doc.status === 'FAILED'
+                ? 100
+                : 0,
+        createdAt: doc.createdAt.toISOString(),
+        startedAt: doc.createdAt.toISOString(), // Use createdAt as proxy
+        completedAt: doc.processedAt?.toISOString(),
+        failedAt: doc.status === 'FAILED' ? doc.processedAt?.toISOString() : undefined,
+        error: null as string | null, // Documents don't store error message currently
+        result: doc.extractedData,
+        metadata: {
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          fileSize: doc.fileSize,
+          confidence: doc.confidence,
+        },
+        documentsCount: 1,
       }));
 
       res.json({
@@ -173,12 +236,52 @@ export function createStatsRoutes(): Router {
     }
   });
 
-  // Get single job status
+  // Get single job/document details
+  // NOTE: Queries Document table since OCR creates Document records, not Job records.
   router.get('/jobs/:jobId', optionalAuthSupabase, async (req: Request, res: Response) => {
     try {
       const { jobId } = req.params;
       const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
+      // First try to find as a Document
+      const document = await prisma.document.findFirst({
+        where: {
+          id: jobId,
+          ...(userId ? { userId } : {}),
+        },
+      });
+
+      if (document) {
+        return res.json({
+          id: document.id,
+          type: 'ocr_processing',
+          status: document.status.toLowerCase(),
+          progress:
+            document.status === 'COMPLETED'
+              ? 100
+              : document.status === 'PROCESSING'
+                ? 50
+                : document.status === 'FAILED'
+                  ? 100
+                  : 0,
+          createdAt: document.createdAt.toISOString(),
+          startedAt: document.createdAt.toISOString(),
+          completedAt: document.processedAt?.toISOString(),
+          failedAt: document.status === 'FAILED' ? document.processedAt?.toISOString() : undefined,
+          error: null as string | null,
+          result: document.extractedData,
+          metadata: {
+            fileName: document.fileName,
+            fileType: document.fileType,
+            fileSize: document.fileSize,
+            confidence: document.confidence,
+          },
+          documentsCount: 1,
+          processingHistory: [], // Documents don't have separate processing history
+        });
+      }
+
+      // Fallback to legacy Job table
       const job = await prisma.job.findFirst({
         where: {
           id: jobId,
