@@ -93,12 +93,10 @@ export function SmartUploadZone({ className, onFilesReady }: SmartUploadZoneProp
 
       try {
         // Call detect-types API
+        // Don't set Content-Type manually - axios will set it with correct boundary for FormData
         const response = await api.post<DetectTypesResponse>(
           '/smart-profile/detect-types',
-          formData,
-          {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          }
+          formData
         );
 
         if (response.data.success) {

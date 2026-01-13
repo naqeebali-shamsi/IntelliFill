@@ -64,11 +64,8 @@ export async function detectTypes(files: File[]): Promise<DetectTypesResponse> {
     formData.append('files', file);
   });
 
-  const response = await api.post<DetectTypesResponse>('/smart-profile/detect-types', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  // Don't set Content-Type manually - axios will set it with correct boundary for FormData
+  const response = await api.post<DetectTypesResponse>('/smart-profile/detect-types', formData);
 
   return response.data;
 }
@@ -94,11 +91,8 @@ export async function extractBatch(
     formData.append('documentTypes', type);
   });
 
-  const response = await api.post<ExtractBatchResponse>('/smart-profile/extract-batch', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  // Don't set Content-Type manually - axios will set it with correct boundary for FormData
+  const response = await api.post<ExtractBatchResponse>('/smart-profile/extract-batch', formData);
 
   return response.data;
 }
