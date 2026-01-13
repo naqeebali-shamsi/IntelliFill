@@ -61,7 +61,7 @@ export async function detectTypes(files: File[]): Promise<DetectTypesResponse> {
   const formData = new FormData();
 
   files.forEach((file) => {
-    formData.append('files[]', file);
+    formData.append('files', file);
   });
 
   const response = await api.post<DetectTypesResponse>('/smart-profile/detect-types', formData, {
@@ -87,11 +87,11 @@ export async function extractBatch(
   const formData = new FormData();
 
   files.forEach((file) => {
-    formData.append('files[]', file);
+    formData.append('files', file);
   });
 
   documentTypes.forEach((type) => {
-    formData.append('documentTypes[]', type);
+    formData.append('documentTypes', type);
   });
 
   const response = await api.post<ExtractBatchResponse>('/smart-profile/extract-batch', formData, {
