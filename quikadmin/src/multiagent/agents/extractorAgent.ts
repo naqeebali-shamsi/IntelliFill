@@ -15,6 +15,7 @@
  */
 
 import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai';
+import { z, ZodError } from 'zod';
 import { DocumentCategory } from '../types/state';
 import { piiSafeLogger as logger } from '../../utils/piiSafeLogger';
 import { ExtractedFieldResult, ExtractedDataWithConfidence } from '../../types/extractedData';
@@ -897,23 +898,88 @@ Expected fields to extract:
 ${fieldsDescription}`;
 }
 
+// ============================================================================
+// Zod Schema for Gemini Response Validation
+// ============================================================================
+
 /**
- * Parse Gemini extraction response
+ * Schema for a single extracted field from Gemini
+ */
+const ExtractedFieldSchema = z.object({
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  confidence: z.number().min(0).max(100).optional(),
+  rawText: z.string().optional(),
+});
+
+/**
+ * Schema for the full Gemini extraction response
+ * A record of field names to extracted field objects
+ */
+const GeminiExtractionSchema = z.record(z.string(), ExtractedFieldSchema);
+
+/**
+ * Parse and validate Gemini extraction response with Zod schema
+ *
+ * @param responseText - Raw text response from Gemini
+ * @returns Validated GeminiExtractionResponse
+ * @throws Error on JSON parse failure or schema validation failure
  */
 function parseGeminiResponse(responseText: string): GeminiExtractionResponse {
-  // Try to extract JSON from the response
-  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  // Try to extract JSON from the response (handles markdown code blocks)
+  const jsonMatch =
+    responseText.match(/```(?:json)?\s*([\s\S]*?)```/) || responseText.match(/\{[\s\S]*\}/);
 
+  let jsonStr: string;
   if (!jsonMatch) {
+    logger.warn('No JSON found in Gemini response', {
+      responseLength: responseText.length,
+      responsePreview: responseText.substring(0, 200),
+    });
     throw new Error('No JSON object found in Gemini response');
   }
 
+  // Extract JSON string (handle markdown code block format)
+  if (jsonMatch[1]) {
+    // From markdown code block ```json ... ```
+    jsonStr = jsonMatch[1].trim();
+  } else {
+    // Direct JSON object match
+    jsonStr = jsonMatch[0].trim();
+  }
+
+  // Step 1: Parse as JSON
+  let parsed: unknown;
   try {
-    return JSON.parse(jsonMatch[0]) as GeminiExtractionResponse;
+    parsed = JSON.parse(jsonStr);
   } catch (parseError) {
+    logger.warn('Malformed JSON in Gemini response', {
+      error: parseError instanceof Error ? parseError.message : 'Unknown error',
+      jsonPreview: jsonStr.substring(0, 200),
+    });
     throw new Error(
-      `Failed to parse Gemini JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+      `Malformed JSON response from Gemini: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
     );
+  }
+
+  // Step 2: Validate with Zod schema
+  try {
+    const validated = GeminiExtractionSchema.parse(parsed);
+    return validated as GeminiExtractionResponse;
+  } catch (validationError) {
+    if (validationError instanceof ZodError) {
+      const fieldErrors = validationError.errors.map((e) => ({
+        path: e.path.join('.'),
+        message: e.message,
+      }));
+      logger.warn('Schema validation failed for Gemini response', {
+        fieldErrors,
+        errorCount: fieldErrors.length,
+      });
+      throw new Error(
+        `Schema validation failed for Gemini response: ${fieldErrors.map((e) => `${e.path}: ${e.message}`).join(', ')}`
+      );
+    }
+    throw validationError;
   }
 }
 
