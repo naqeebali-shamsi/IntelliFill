@@ -216,40 +216,8 @@ export function createStatsRoutes(): Router {
     }
   });
 
-  // Get job status
-  router.get('/jobs/:jobId/status', optionalAuthSupabase, async (req: Request, res: Response) => {
-    try {
-      const { jobId } = req.params;
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-
-      const job = await prisma.job.findFirst({
-        where: {
-          id: jobId,
-          ...(userId ? { userId } : {}),
-        },
-        select: {
-          status: true,
-          result: true,
-          error: true,
-          completedAt: true,
-        },
-      });
-
-      if (!job) {
-        return res.status(404).json({ error: 'Job not found' });
-      }
-
-      res.json({
-        status: job.status,
-        progress: job.status === 'completed' ? 100 : job.status === 'processing' ? 50 : 0,
-        result: job.result,
-        error: job.error,
-      });
-    } catch (error) {
-      logger.error('Error fetching job status:', error);
-      res.status(500).json({ error: 'Failed to fetch job status' });
-    }
-  });
+  // NOTE: Job status endpoint moved to jobs.routes.ts which properly checks
+  // both Prisma jobs and Bull queues (OCR, document processing, batch)
 
   // Get templates (real data from database)
   router.get('/templates', optionalAuthSupabase, async (req: Request, res: Response) => {
