@@ -17,10 +17,7 @@
 import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai';
 import { DocumentCategory } from '../types/state';
 import { piiSafeLogger as logger } from '../../utils/piiSafeLogger';
-import {
-  ExtractedFieldResult,
-  ExtractedDataWithConfidence,
-} from '../../types/extractedData';
+import { ExtractedFieldResult, ExtractedDataWithConfidence } from '../../types/extractedData';
 
 // ============================================================================
 // Types & Interfaces
@@ -117,16 +114,71 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
   PASSPORT: {
     fields: [
       { name: 'full_name', description: 'Full name as shown on passport', required: true },
-      { name: 'surname', description: 'Family name / Surname', required: false, aliases: ['family_name', 'last_name'] },
-      { name: 'given_names', description: 'Given names / First name(s)', required: false, aliases: ['first_name', 'first_names'] },
-      { name: 'passport_number', description: 'Passport number', required: true, pattern: /^[A-Z]{0,2}[0-9]{6,9}$/i, aliases: ['passport_no', 'document_number'] },
-      { name: 'nationality', description: 'Nationality / Citizenship', required: true, aliases: ['citizenship'] },
-      { name: 'date_of_birth', description: 'Date of birth (DD/MM/YYYY or YYYY-MM-DD)', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['dob', 'birth_date'] },
-      { name: 'place_of_birth', description: 'Place of birth', required: false, aliases: ['birth_place'] },
-      { name: 'date_of_issue', description: 'Date of issue', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['issue_date'] },
-      { name: 'date_of_expiry', description: 'Date of expiry / Expiration date', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['expiry_date', 'expiration_date', 'valid_until'] },
-      { name: 'issuing_authority', description: 'Issuing authority / Country', required: false, aliases: ['issuing_country'] },
-      { name: 'sex', description: 'Sex / Gender (M/F)', required: false, pattern: /^[MF]$/i, aliases: ['gender'] },
+      {
+        name: 'surname',
+        description: 'Family name / Surname',
+        required: false,
+        aliases: ['family_name', 'last_name'],
+      },
+      {
+        name: 'given_names',
+        description: 'Given names / First name(s)',
+        required: false,
+        aliases: ['first_name', 'first_names'],
+      },
+      {
+        name: 'passport_number',
+        description: 'Passport number',
+        required: true,
+        pattern: /^[A-Z]{0,2}[0-9]{6,9}$/i,
+        aliases: ['passport_no', 'document_number'],
+      },
+      {
+        name: 'nationality',
+        description: 'Nationality / Citizenship',
+        required: true,
+        aliases: ['citizenship'],
+      },
+      {
+        name: 'date_of_birth',
+        description: 'Date of birth (DD/MM/YYYY or YYYY-MM-DD)',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['dob', 'birth_date'],
+      },
+      {
+        name: 'place_of_birth',
+        description: 'Place of birth',
+        required: false,
+        aliases: ['birth_place'],
+      },
+      {
+        name: 'date_of_issue',
+        description: 'Date of issue',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['issue_date'],
+      },
+      {
+        name: 'date_of_expiry',
+        description: 'Date of expiry / Expiration date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date', 'expiration_date', 'valid_until'],
+      },
+      {
+        name: 'issuing_authority',
+        description: 'Issuing authority / Country',
+        required: false,
+        aliases: ['issuing_country'],
+      },
+      {
+        name: 'sex',
+        description: 'Sex / Gender (M/F)',
+        required: false,
+        pattern: /^[MF]$/i,
+        aliases: ['gender'],
+      },
       { name: 'mrz_line1', description: 'Machine Readable Zone line 1', required: false },
       { name: 'mrz_line2', description: 'Machine Readable Zone line 2', required: false },
     ],
@@ -145,12 +197,40 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
     fields: [
       { name: 'full_name', description: 'Full name in English', required: true },
       { name: 'full_name_arabic', description: 'Full name in Arabic', required: false },
-      { name: 'emirates_id', description: 'Emirates ID number (784-YYYY-XXXXXXX-X)', required: true, pattern: /^784-\d{4}-\d{7}-\d$/, aliases: ['id_number', 'eid'] },
+      {
+        name: 'emirates_id',
+        description: 'Emirates ID number (784-YYYY-XXXXXXX-X)',
+        required: true,
+        pattern: /^784-\d{4}-\d{7}-\d$/,
+        aliases: ['id_number', 'eid'],
+      },
       { name: 'nationality', description: 'Nationality', required: true },
-      { name: 'date_of_birth', description: 'Date of birth', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['dob'] },
-      { name: 'date_of_expiry', description: 'Card expiry date', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['expiry_date'] },
-      { name: 'sex', description: 'Sex / Gender', required: false, pattern: /^[MF]$/i, aliases: ['gender'] },
-      { name: 'card_number', description: 'Card number (if different from Emirates ID)', required: false },
+      {
+        name: 'date_of_birth',
+        description: 'Date of birth',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['dob'],
+      },
+      {
+        name: 'date_of_expiry',
+        description: 'Card expiry date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date'],
+      },
+      {
+        name: 'sex',
+        description: 'Sex / Gender',
+        required: false,
+        pattern: /^[MF]$/i,
+        aliases: ['gender'],
+      },
+      {
+        name: 'card_number',
+        description: 'Card number (if different from Emirates ID)',
+        required: false,
+      },
     ],
     prompt: `Extract Emirates ID card information. Focus on:
 - Full name (in both English and Arabic if available)
@@ -164,17 +244,49 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
   VISA: {
     fields: [
       { name: 'full_name', description: 'Visa holder full name', required: true },
-      { name: 'visa_number', description: 'Visa number', required: true, aliases: ['visa_no', 'permit_number'] },
-      { name: 'visa_type', description: 'Type of visa (Employment, Tourist, Residence, etc.)', required: true, aliases: ['type', 'permit_type'] },
+      {
+        name: 'visa_number',
+        description: 'Visa number',
+        required: true,
+        aliases: ['visa_no', 'permit_number'],
+      },
+      {
+        name: 'visa_type',
+        description: 'Type of visa (Employment, Tourist, Residence, etc.)',
+        required: true,
+        aliases: ['type', 'permit_type'],
+      },
       { name: 'nationality', description: 'Nationality of visa holder', required: false },
       { name: 'passport_number', description: 'Passport number', required: false },
-      { name: 'date_of_issue', description: 'Visa issue date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['issue_date'] },
-      { name: 'date_of_expiry', description: 'Visa expiry date', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['expiry_date', 'valid_until'] },
-      { name: 'sponsor', description: 'Sponsor name / Company', required: false, aliases: ['sponsor_name', 'employer'] },
+      {
+        name: 'date_of_issue',
+        description: 'Visa issue date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['issue_date'],
+      },
+      {
+        name: 'date_of_expiry',
+        description: 'Visa expiry date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date', 'valid_until'],
+      },
+      {
+        name: 'sponsor',
+        description: 'Sponsor name / Company',
+        required: false,
+        aliases: ['sponsor_name', 'employer'],
+      },
       { name: 'uid', description: 'Unified ID Number', required: false },
       { name: 'file_number', description: 'File number', required: false },
       { name: 'place_of_issue', description: 'Place of issue', required: false },
-      { name: 'profession', description: 'Profession / Occupation', required: false, aliases: ['occupation', 'job_title'] },
+      {
+        name: 'profession',
+        description: 'Profession / Occupation',
+        required: false,
+        aliases: ['occupation', 'job_title'],
+      },
     ],
     prompt: `Extract visa/entry permit information. Focus on:
 - Visa holder name
@@ -187,16 +299,51 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
 
   TRADE_LICENSE: {
     fields: [
-      { name: 'license_number', description: 'Trade license number', required: true, aliases: ['license_no'] },
-      { name: 'company_name', description: 'Company/Business name', required: true, aliases: ['business_name', 'trade_name'] },
+      {
+        name: 'license_number',
+        description: 'Trade license number',
+        required: true,
+        aliases: ['license_no'],
+      },
+      {
+        name: 'company_name',
+        description: 'Company/Business name',
+        required: true,
+        aliases: ['business_name', 'trade_name'],
+      },
       { name: 'company_name_arabic', description: 'Company name in Arabic', required: false },
       { name: 'license_type', description: 'Type of license', required: false, aliases: ['type'] },
-      { name: 'activities', description: 'Business activities', required: false, aliases: ['business_activities'] },
-      { name: 'date_of_issue', description: 'License issue date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['issue_date'] },
-      { name: 'date_of_expiry', description: 'License expiry date', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['expiry_date'] },
-      { name: 'legal_form', description: 'Legal form (LLC, Sole Proprietor, etc.)', required: false },
+      {
+        name: 'activities',
+        description: 'Business activities',
+        required: false,
+        aliases: ['business_activities'],
+      },
+      {
+        name: 'date_of_issue',
+        description: 'License issue date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['issue_date'],
+      },
+      {
+        name: 'date_of_expiry',
+        description: 'License expiry date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date'],
+      },
+      {
+        name: 'legal_form',
+        description: 'Legal form (LLC, Sole Proprietor, etc.)',
+        required: false,
+      },
       { name: 'address', description: 'Business address', required: false },
-      { name: 'issuing_authority', description: 'Issuing authority (DED, Free Zone, etc.)', required: false },
+      {
+        name: 'issuing_authority',
+        description: 'Issuing authority (DED, Free Zone, etc.)',
+        required: false,
+      },
     ],
     prompt: `Extract trade license information. Focus on:
 - License number
@@ -210,13 +357,40 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
   LABOR_CARD: {
     fields: [
       { name: 'full_name', description: 'Employee full name', required: true },
-      { name: 'card_number', description: 'Labor card number', required: true, aliases: ['work_card_number'] },
+      {
+        name: 'card_number',
+        description: 'Labor card number',
+        required: true,
+        aliases: ['work_card_number'],
+      },
       { name: 'person_code', description: 'Person code', required: false },
       { name: 'nationality', description: 'Nationality', required: false },
-      { name: 'occupation', description: 'Occupation / Job title', required: true, aliases: ['profession', 'job_title'] },
-      { name: 'employer', description: 'Employer name', required: true, aliases: ['company', 'sponsor'] },
-      { name: 'date_of_issue', description: 'Card issue date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['issue_date'] },
-      { name: 'date_of_expiry', description: 'Card expiry date', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['expiry_date'] },
+      {
+        name: 'occupation',
+        description: 'Occupation / Job title',
+        required: true,
+        aliases: ['profession', 'job_title'],
+      },
+      {
+        name: 'employer',
+        description: 'Employer name',
+        required: true,
+        aliases: ['company', 'sponsor'],
+      },
+      {
+        name: 'date_of_issue',
+        description: 'Card issue date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['issue_date'],
+      },
+      {
+        name: 'date_of_expiry',
+        description: 'Card expiry date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date'],
+      },
     ],
     prompt: `Extract labor card/work permit information. Focus on:
 - Employee name
@@ -228,9 +402,19 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
 
   BANK_STATEMENT: {
     fields: [
-      { name: 'account_holder', description: 'Account holder name', required: true, aliases: ['customer_name', 'name'] },
+      {
+        name: 'account_holder',
+        description: 'Account holder name',
+        required: true,
+        aliases: ['customer_name', 'name'],
+      },
       { name: 'account_number', description: 'Account number', required: true },
-      { name: 'iban', description: 'IBAN', required: false, pattern: /^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/i },
+      {
+        name: 'iban',
+        description: 'IBAN',
+        required: false,
+        pattern: /^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/i,
+      },
       { name: 'bank_name', description: 'Bank name', required: true },
       { name: 'statement_period', description: 'Statement period', required: false },
       { name: 'opening_balance', description: 'Opening balance', required: false },
@@ -247,14 +431,159 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
 - Currency`,
   },
 
+  ID_CARD: {
+    fields: [
+      {
+        name: 'full_name',
+        description: 'Full name on the card',
+        required: true,
+        aliases: ['name', 'holder_name'],
+      },
+      {
+        name: 'surname',
+        description: 'Family name / Surname / Last name',
+        required: false,
+        aliases: ['family_name', 'last_name'],
+      },
+      {
+        name: 'given_names',
+        description: 'Given names / First name(s)',
+        required: false,
+        aliases: ['first_name', 'first_names'],
+      },
+      {
+        name: 'license_number',
+        description: 'License or ID number',
+        required: true,
+        pattern: /^[A-Z0-9-]{5,20}$/i,
+        aliases: ['id_number', 'card_number', 'dl_number', 'driver_license_number'],
+      },
+      {
+        name: 'date_of_birth',
+        description: 'Date of birth',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['dob', 'birth_date'],
+      },
+      {
+        name: 'date_of_expiry',
+        description: 'Expiry date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date', 'expiration_date', 'exp'],
+      },
+      {
+        name: 'date_of_issue',
+        description: 'Issue date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['issue_date', 'iss'],
+      },
+      {
+        name: 'sex',
+        description: 'Sex / Gender (M/F)',
+        required: false,
+        pattern: /^[MF]$/i,
+        aliases: ['gender'],
+      },
+      {
+        name: 'height',
+        description: 'Height (cm or ft/in)',
+        required: false,
+        aliases: ['hgt', 'haut'],
+      },
+      {
+        name: 'address',
+        description: 'Address on the card',
+        required: false,
+        aliases: ['street_address', 'residence'],
+      },
+      { name: 'city', description: 'City', required: false },
+      { name: 'province', description: 'Province / State', required: false, aliases: ['state'] },
+      {
+        name: 'postal_code',
+        description: 'Postal / Zip code',
+        required: false,
+        aliases: ['zip_code', 'zip'],
+      },
+      {
+        name: 'license_class',
+        description: 'License class (G, G1, G2, A, B, C, etc.)',
+        required: false,
+        aliases: ['class', 'category', 'categ'],
+      },
+      {
+        name: 'restrictions',
+        description: 'Restrictions / Conditions',
+        required: false,
+        aliases: ['conditions', 'cond', 'rest'],
+      },
+      {
+        name: 'issuing_authority',
+        description: 'Issuing authority or jurisdiction',
+        required: false,
+        aliases: ['issuer', 'issued_by'],
+      },
+    ],
+    prompt: `Extract driver's license or ID card information. This is a government-issued identification document.
+
+IMPORTANT: Look at the IMAGE directly - the OCR text may be incomplete or garbled due to security patterns.
+
+Focus on extracting these fields from the card:
+- Full name (usually "NAME" or "NOM" field) - extract surname and given names separately if labeled
+- License/ID number (typically a long alphanumeric code, often with dashes)
+- Date of birth (DOB/DDN)
+- Issue date (ISS)
+- Expiry date (EXP)
+- Sex/Gender (SEX)
+- Height (HGT/HAUT)
+- Address including city, province/state, postal code
+- License class (CLASS/CATEG)
+- Any restrictions or conditions
+
+Common date formats: YYYY/MM/DD, DD/MM/YYYY, MM/DD/YYYY
+Extract dates exactly as shown, preserving the format.`,
+  },
+
   INVOICE: {
     fields: [
-      { name: 'invoice_number', description: 'Invoice number', required: true, aliases: ['invoice_no', 'bill_number'] },
-      { name: 'vendor_name', description: 'Vendor/Company name', required: true, aliases: ['company_name', 'from'] },
-      { name: 'customer_name', description: 'Customer/Bill to name', required: false, aliases: ['bill_to', 'to'] },
-      { name: 'invoice_date', description: 'Invoice date', required: true, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['date'] },
-      { name: 'due_date', description: 'Due date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/ },
-      { name: 'total_amount', description: 'Total amount', required: true, aliases: ['total', 'amount_due'] },
+      {
+        name: 'invoice_number',
+        description: 'Invoice number',
+        required: true,
+        aliases: ['invoice_no', 'bill_number'],
+      },
+      {
+        name: 'vendor_name',
+        description: 'Vendor/Company name',
+        required: true,
+        aliases: ['company_name', 'from'],
+      },
+      {
+        name: 'customer_name',
+        description: 'Customer/Bill to name',
+        required: false,
+        aliases: ['bill_to', 'to'],
+      },
+      {
+        name: 'invoice_date',
+        description: 'Invoice date',
+        required: true,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['date'],
+      },
+      {
+        name: 'due_date',
+        description: 'Due date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+      },
+      {
+        name: 'total_amount',
+        description: 'Total amount',
+        required: true,
+        aliases: ['total', 'amount_due'],
+      },
       { name: 'tax_amount', description: 'Tax/VAT amount', required: false, aliases: ['vat'] },
       { name: 'currency', description: 'Currency', required: false },
       { name: 'account_number', description: 'Account/Customer number', required: false },
@@ -270,14 +599,56 @@ const EXTRACTION_CONFIGS: Partial<Record<DocumentCategory, CategoryExtractionCon
 
   CONTRACT: {
     fields: [
-      { name: 'contract_type', description: 'Type of contract', required: false, aliases: ['type'] },
-      { name: 'party1_name', description: 'First party name', required: true, aliases: ['landlord', 'employer', 'seller'] },
-      { name: 'party2_name', description: 'Second party name', required: true, aliases: ['tenant', 'employee', 'buyer'] },
-      { name: 'contract_date', description: 'Contract date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['date', 'effective_date'] },
-      { name: 'start_date', description: 'Start date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/ },
-      { name: 'end_date', description: 'End date', required: false, pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/, aliases: ['expiry_date'] },
-      { name: 'contract_value', description: 'Contract value/Amount', required: false, aliases: ['rent', 'salary', 'amount'] },
-      { name: 'property_address', description: 'Property address (for tenancy)', required: false, aliases: ['address'] },
+      {
+        name: 'contract_type',
+        description: 'Type of contract',
+        required: false,
+        aliases: ['type'],
+      },
+      {
+        name: 'party1_name',
+        description: 'First party name',
+        required: true,
+        aliases: ['landlord', 'employer', 'seller'],
+      },
+      {
+        name: 'party2_name',
+        description: 'Second party name',
+        required: true,
+        aliases: ['tenant', 'employee', 'buyer'],
+      },
+      {
+        name: 'contract_date',
+        description: 'Contract date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['date', 'effective_date'],
+      },
+      {
+        name: 'start_date',
+        description: 'Start date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+      },
+      {
+        name: 'end_date',
+        description: 'End date',
+        required: false,
+        pattern: /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
+        aliases: ['expiry_date'],
+      },
+      {
+        name: 'contract_value',
+        description: 'Contract value/Amount',
+        required: false,
+        aliases: ['rent', 'salary', 'amount'],
+      },
+      {
+        name: 'property_address',
+        description: 'Property address (for tenancy)',
+        required: false,
+        aliases: ['address'],
+      },
     ],
     prompt: `Extract contract information. Focus on:
 - Contract type (Employment, Tenancy, Service, etc.)
@@ -330,9 +701,12 @@ const EXTRACTION_PATTERNS: Record<string, RegExp> = {
   license_number: /(?:license\s*(?:no|number)?[:\s]*)?([\w-]{5,20})/i,
 
   // Date Patterns
-  date_of_birth: /(?:d\.?o\.?b\.?|date\s*of\s*birth|birth\s*date)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
-  date_of_expiry: /(?:expir(?:y|es?|ation)|valid\s*until)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
-  date_of_issue: /(?:issue\s*date|date\s*of\s*issue|issued)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
+  date_of_birth:
+    /(?:d\.?o\.?b\.?|date\s*of\s*birth|birth\s*date)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
+  date_of_expiry:
+    /(?:expir(?:y|es?|ation)|valid\s*until)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
+  date_of_issue:
+    /(?:issue\s*date|date\s*of\s*issue|issued)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
 
   // Name Patterns
   full_name: /(?:name|holder|applicant)[:\s]*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
@@ -341,13 +715,15 @@ const EXTRACTION_PATTERNS: Record<string, RegExp> = {
 
   // Location/Nationality
   nationality: /(?:nationality|citizenship)[:\s]*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
-  place_of_birth: /(?:place\s*of\s*birth|birth\s*place|born\s*in)[:\s]*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
+  place_of_birth:
+    /(?:place\s*of\s*birth|birth\s*place|born\s*in)[:\s]*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
 
   // Business/Financial
   company_name: /(?:company|business|trade)\s*name[:\s]*([^\n]+)/i,
   account_number: /(?:account\s*(?:no|number)?)[:\s]*(\d{8,16})/i,
   iban: /\b([A-Z]{2}\d{2}[A-Z0-9]{10,30})\b/i,
-  total_amount: /(?:total|amount\s*due|grand\s*total)[:\s]*([A-Z]{3}\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
+  total_amount:
+    /(?:total|amount\s*due|grand\s*total)[:\s]*([A-Z]{3}\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/i,
 
   // Gender
   sex: /(?:sex|gender)[:\s]*([MF]|male|female)/i,
@@ -368,9 +744,7 @@ function getGeminiApiKey(): string {
   ].filter((k): k is string => !!k && k.length > 0);
 
   if (keys.length === 0) {
-    throw new Error(
-      'No Gemini API key configured. Set GEMINI_API_KEY environment variable.'
-    );
+    throw new Error('No Gemini API key configured. Set GEMINI_API_KEY environment variable.');
   }
 
   return keys[0];
@@ -392,7 +766,7 @@ function truncateText(text: string, maxLength: number): string {
  * Sleep for specified milliseconds
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -441,7 +815,7 @@ Extract any identifiable information from this document including:
   }
 
   const fieldsDescription = config.fields
-    .map(f => `- ${f.name}: ${f.description}${f.required ? ' (REQUIRED)' : ''}`)
+    .map((f) => `- ${f.name}: ${f.description}${f.required ? ' (REQUIRED)' : ''}`)
     .join('\n');
 
   return `${BASE_EXTRACTION_PROMPT}
@@ -487,8 +861,8 @@ function validateWithPattern(
 
   if (!config) return 0;
 
-  const fieldConfig = config.fields.find(f =>
-    f.name === fieldName || f.aliases?.includes(fieldName)
+  const fieldConfig = config.fields.find(
+    (f) => f.name === fieldName || f.aliases?.includes(fieldName)
   );
 
   if (!fieldConfig?.pattern) return 0;
@@ -544,7 +918,7 @@ function extractWithPatterns(
   const config = EXTRACTION_CONFIGS[category];
 
   // Use category-specific fields if available
-  const fieldsToExtract = config?.fields.map(f => f.name) ?? Object.keys(EXTRACTION_PATTERNS);
+  const fieldsToExtract = config?.fields.map((f) => f.name) ?? Object.keys(EXTRACTION_PATTERNS);
 
   for (const fieldName of fieldsToExtract) {
     // Check if we have a pattern for this field
@@ -630,10 +1004,7 @@ function mergeExtractionResults(
     } else if (patternField.confidence > existingField.confidence) {
       // Pattern result has higher confidence
       merged[fieldName] = patternField;
-    } else if (
-      existingField.value === null &&
-      patternField.value !== null
-    ) {
+    } else if (existingField.value === null && patternField.value !== null) {
       // LLM couldn't extract but pattern did
       merged[fieldName] = patternField;
     }
@@ -709,8 +1080,9 @@ export async function extractDocumentData(
 
   // Count statistics
   const totalFields = Object.keys(mergedFields).length;
-  const highConfidenceFields = Object.values(mergedFields)
-    .filter(f => f.confidence >= LOW_CONFIDENCE_THRESHOLD).length;
+  const highConfidenceFields = Object.values(mergedFields).filter(
+    (f) => f.confidence >= LOW_CONFIDENCE_THRESHOLD
+  ).length;
   const lowConfidenceFields = totalFields - highConfidenceFields;
 
   const processingTime = Date.now() - startTime;
@@ -747,15 +1119,28 @@ async function extractWithGemini(
 
   let lastError: Error | null = null;
 
+  // For ID cards and visual documents, prioritize image-based extraction
+  const isVisualDocument = ['ID_CARD', 'PASSPORT', 'EMIRATES_ID', 'VISA', 'LABOR_CARD'].includes(
+    category
+  );
+
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       // Build content parts
       const parts: Part[] = [];
 
-      // Add prompt and text
+      // Add prompt and text - for visual documents, emphasize image over OCR
       const prompt = buildExtractionPrompt(category);
       const truncatedText = truncateText(text, MAX_TEXT_LENGTH);
-      parts.push({ text: `${prompt}\n\nDocument Text:\n${truncatedText}` });
+
+      if (isVisualDocument && imageBase64) {
+        // For ID cards with images, tell Gemini to prioritize visual extraction
+        parts.push({
+          text: `${prompt}\n\nNOTE: For ID cards and government documents, PRIMARILY use the attached IMAGE for extraction. The OCR text below may be garbled due to security patterns and watermarks. Trust the image over the text.\n\nOCR Text (may be incomplete/inaccurate):\n${truncatedText}`,
+        });
+      } else {
+        parts.push({ text: `${prompt}\n\nDocument Text:\n${truncatedText}` });
+      }
 
       // Add image if provided
       if (imageBase64) {
@@ -777,7 +1162,6 @@ async function extractWithGemini(
       // Parse and convert response
       const parsed = parseGeminiResponse(responseText);
       return convertToExtractedFields(parsed, category);
-
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
 

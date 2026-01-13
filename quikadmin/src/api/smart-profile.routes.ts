@@ -431,6 +431,18 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
         let ocrText = '';
         let imageBase64: string | undefined;
 
+        // Map frontend type to backend category
+        const category = mapFrontendTypeToCategory(documentType);
+
+        // For ID cards/visual documents, skip aggressive OCR preprocessing and use Gemini vision directly
+        const isVisualDocument = [
+          'ID_CARD',
+          'PASSPORT',
+          'EMIRATES_ID',
+          'VISA',
+          'LABOR_CARD',
+        ].includes(category);
+
         // Extract text from document
         if (ext === '.pdf') {
           // Process PDF with OCR service
@@ -440,20 +452,28 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
             `PDF OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
           );
         } else {
-          // Process image with OCR service
-          const ocrResult = await ocrService.processImage(file.path);
-          ocrText = ocrResult.text;
-          // Also provide image for multi-modal extraction
+          // For visual documents (IDs, passports), use the ORIGINAL image for Gemini
+          // Tesseract's preprocessing (threshold, greyscale) destroys ID card readability
           imageBase64 = await fileToBase64(file.path);
-          logger.debug(
-            `Image OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
-          );
+
+          if (isVisualDocument) {
+            // Skip heavy OCR for ID cards - let Gemini vision handle it directly
+            // Just provide minimal context
+            ocrText = `[Image document: ${file.originalname}]`;
+            logger.debug(
+              `Visual document detected (${category}), using Gemini vision-first extraction`
+            );
+          } else {
+            // For non-ID documents, run OCR as normal
+            const ocrResult = await ocrService.processImage(file.path);
+            ocrText = ocrResult.text;
+            logger.debug(
+              `Image OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
+            );
+          }
         }
 
-        // Map frontend type to backend category
-        const category = mapFrontendTypeToCategory(documentType);
-
-        // Extract structured data using the extractor agent
+        // Extract structured data using the extractor agent (category already set above)
         const extractionResult = await extractDocumentData(ocrText, category, imageBase64);
 
         logger.debug(`Extraction completed for ${file.originalname}`, {
