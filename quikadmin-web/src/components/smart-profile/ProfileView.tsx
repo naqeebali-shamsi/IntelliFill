@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, User, FileText, Phone, Settings } from 'lucide-react';
 import { FieldSourcePill } from './FieldSourcePill';
 import { ConfidenceBadge, CONFIDENCE_THRESHOLDS } from './ConfidenceBadge';
+import { EditableField, detectFieldType } from './EditableField';
 import type { FieldSource } from '@/stores/smartProfileStore';
 
 // ============================================================================
@@ -160,6 +161,12 @@ function FieldRow({
   onEditComplete,
 }: FieldRowProps) {
   const isLowConfidence = source?.confidence && source.confidence < CONFIDENCE_THRESHOLDS.HIGH;
+  const { type: fieldType, options } = detectFieldType(fieldKey);
+
+  const handleSave = (newValue: string) => {
+    onValueChange?.(newValue);
+    onEditComplete?.();
+  };
 
   return (
     <div className="flex items-start justify-between gap-4 py-3 px-4 hover:bg-muted/50 transition-colors">
@@ -168,7 +175,19 @@ function FieldRow({
         <div className="text-sm font-medium text-muted-foreground">
           {formatFieldLabel(fieldKey)}
         </div>
-        <div className="text-base font-medium mt-0.5 break-words">{formatFieldValue(value)}</div>
+        <div className="mt-0.5">
+          {editable ? (
+            <EditableField
+              value={formatFieldValue(value)}
+              fieldType={fieldType}
+              options={options}
+              onSave={handleSave}
+              placeholder={`Enter ${formatFieldLabel(fieldKey).toLowerCase()}`}
+            />
+          ) : (
+            <div className="text-base font-medium break-words">{formatFieldValue(value)}</div>
+          )}
+        </div>
       </div>
 
       {/* Source and confidence indicators */}

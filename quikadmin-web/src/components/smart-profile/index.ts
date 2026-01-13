@@ -20,3 +20,9 @@ export {
 } from './ConfidenceBadge';
 export { FieldSourcePill, type FieldSourcePillProps } from './FieldSourcePill';
 export { ProfileView, type ProfileViewProps } from './ProfileView';
+export {
+  EditableField,
+  type EditableFieldProps,
+  type FieldType,
+  detectFieldType,
+} from './EditableField';
