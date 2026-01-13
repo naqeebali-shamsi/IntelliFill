@@ -27,8 +27,11 @@ import {
   RotateCcw,
   Check,
   Loader2,
+  Save,
 } from 'lucide-react';
-import { SmartUploadZone } from '@/components/smart-profile';
+import { toast } from 'sonner';
+import { SmartUploadZone, ProfileView } from '@/components/smart-profile';
+import { profilesService } from '@/services/profilesService';
 
 // =================== STEP CONFIGURATION ===================
 
@@ -214,30 +217,63 @@ function ReviewStepContent() {
   );
 }
 
-function ProfileStepContent() {
+interface ProfileStepContentProps {
+  onSaveProfile: () => Promise<void>;
+  isSaving: boolean;
+}
+
+function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps) {
   const profileData = useSmartProfileStore((state) => state.profileData);
-  const fieldCount = Object.keys(profileData).length;
+  const fieldSources = useSmartProfileStore((state) => state.fieldSources);
+  const updateProfileField = useSmartProfileStore((state) => state.updateProfileField);
+  const markFieldAsEdited = useSmartProfileStore((state) => state.markFieldAsEdited);
+  const clientId = useSmartProfileStore((state) => state.clientId);
+
+  const handleFieldChange = (fieldName: string, newValue: unknown) => {
+    updateProfileField(fieldName, newValue);
+  };
+
+  const handleFieldEdited = (fieldName: string) => {
+    markFieldAsEdited(fieldName);
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Profile View</CardTitle>
-        <CardDescription>Your extracted profile data organized by category</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
-          <User className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-muted-foreground">
-            {fieldCount > 0
-              ? `${fieldCount} field(s) extracted`
-              : 'Profile data will appear here after extraction'}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground/70">
-            ProfileView component will replace this placeholder in Plan 01-04
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Your Profile</CardTitle>
+              <CardDescription>
+                Review and edit your extracted profile data. Click any field to edit.
+              </CardDescription>
+            </div>
+            <Button onClick={onSaveProfile} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  {clientId ? 'Update Profile' : 'Save Profile'}
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ProfileView
+            profileData={profileData as Record<string, unknown>}
+            fieldSources={fieldSources}
+            onFieldChange={handleFieldChange}
+            onFieldEdited={handleFieldEdited}
+            editable
+          />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -272,12 +308,16 @@ export default function SmartProfile() {
   const [completedSteps, setCompletedSteps] = React.useState<Set<WizardStep>>(new Set());
   const [isExtracting, setIsExtracting] = React.useState(false);
   const [extractionError, setExtractionError] = React.useState<string | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
 
   // Get store actions for updating extraction results
   const setProfileData = useSmartProfileStore((state) => state.setProfileData);
   const setFieldSources = useSmartProfileStore((state) => state.setFieldSources);
   const setLowConfidenceFields = useSmartProfileStore((state) => state.setLowConfidenceFields);
   const uploadedFiles = useSmartProfileStore((state) => state.uploadedFiles);
+  const profileData = useSmartProfileStore((state) => state.profileData);
+  const clientId = useSmartProfileStore((state) => state.clientId);
+  const setClientId = useSmartProfileStore((state) => state.setClientId);
 
   // Mark steps as completed when moving forward
   const handleNext = async () => {
@@ -347,6 +387,40 @@ export default function SmartProfile() {
     fileObjectStore.clear();
   };
 
+  // Save profile to backend
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      // Generate a name from profile data
+      const firstName = (profileData.firstName as string) || '';
+      const lastName = (profileData.lastName as string) || '';
+      const fullName = (profileData.fullName as string) || `${firstName} ${lastName}`.trim();
+      const profileName = fullName || 'Extracted Profile';
+
+      if (clientId) {
+        // Update existing profile
+        await profilesService.updateProfileData(clientId, profileData);
+        toast.success('Profile updated successfully');
+      } else {
+        // Create new profile
+        const newProfile = await profilesService.create({
+          name: profileName,
+          type: 'PERSONAL',
+        });
+        // Update profile data
+        await profilesService.updateProfileData(newProfile.id, profileData);
+        // Store the client ID for future updates
+        setClientId(newProfile.id);
+        toast.success('Profile saved successfully');
+      }
+    } catch (error) {
+      console.error('Save profile error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Render step content based on current step
   const renderStepContent = () => {
     switch (step) {
@@ -357,7 +431,7 @@ export default function SmartProfile() {
       case 'review':
         return <ReviewStepContent />;
       case 'profile':
-        return <ProfileStepContent />;
+        return <ProfileStepContent onSaveProfile={handleSaveProfile} isSaving={isSaving} />;
       case 'form-select':
         return <FormSelectStepContent />;
       default:
@@ -375,7 +449,11 @@ export default function SmartProfile() {
       <PageHeader
         title="Smart Profile"
         description="Upload documents and create client profiles in seconds"
-        breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Smart Profile' }]}
+        breadcrumbs={[
+          { label: 'Home', href: '/' },
+          { label: 'Smart Profile', href: '/smart-profile' },
+          { label: currentStepConfig?.label || 'Upload' },
+        ]}
         actions={
           <Button variant="outline" size="sm" onClick={handleReset}>
             <RotateCcw className="mr-2 h-4 w-4" />
