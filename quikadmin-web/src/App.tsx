@@ -43,6 +43,9 @@ const FormFillDemo = lazy(() => import('./pages/FormFillDemo'));
 const FilledFormHistory = lazy(() => import('./pages/FilledFormHistory'));
 const BatchFillForm = lazy(() => import('./pages/BatchFillForm'));
 
+// Smart profile wizard - lazy loaded
+const SmartProfile = lazy(() => import('./pages/SmartProfile'));
+
 // Profile pages - lazy loaded
 const ProfileList = lazy(() => import('./pages/ProfileList'));
 const ProfileDetail = lazy(() => import('./pages/ProfileDetail'));
@@ -177,6 +180,7 @@ function App() {
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="dashboard" element={<ConnectedDashboard />} />
                   <Route path="upload" element={<ConnectedUpload />} />
+                  <Route path="smart-profile" element={<SmartProfile />} />
                   <Route path="history" element={<History />} />
                   <Route path="documents" element={<DocumentLibrary />} />
                   <Route path="knowledge" element={<KnowledgeBase />} />

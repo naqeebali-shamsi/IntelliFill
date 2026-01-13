@@ -19,6 +19,7 @@ import { createInvitationRoutes } from './invitation.routes';
 import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
 import { createNotificationRoutes } from './notifications.routes';
 import { createSharedRoutes } from './shared.routes';
+import { createSmartProfileRoutes } from './smart-profile.routes';
 import { jobsRouter } from './jobs.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
@@ -152,6 +153,11 @@ export function setupRoutes(
   // Mounted at /api/shared - NO authentication required
   const sharedRoutes = createSharedRoutes();
   app.use('/api/shared', sharedRoutes);
+
+  // Setup Smart Profile routes (Smart Profile UX)
+  // Mounted at /api/smart-profile for document type detection and batch extraction
+  const smartProfileRoutes = createSmartProfileRoutes();
+  app.use('/api/smart-profile', smartProfileRoutes);
 
   // Setup jobs routes for queue status polling
   // Mounted at /api for job status, cancel, retry endpoints
