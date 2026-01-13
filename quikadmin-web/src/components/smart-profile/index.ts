@@ -18,3 +18,5 @@ export {
   getConfidenceDisplay,
   CONFIDENCE_THRESHOLDS,
 } from './ConfidenceBadge';
+export { FieldSourcePill, type FieldSourcePillProps } from './FieldSourcePill';
+export { ProfileView, type ProfileViewProps } from './ProfileView';
