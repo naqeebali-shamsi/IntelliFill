@@ -103,6 +103,16 @@ const PATTERN_VALIDATION_BOOST = 10;
  */
 const LOW_CONFIDENCE_THRESHOLD = 70;
 
+/**
+ * Timeout for Gemini API calls (30 seconds)
+ */
+const GEMINI_TIMEOUT_MS = 30000;
+
+/**
+ * Maximum concurrent Gemini API calls (rate limiting)
+ */
+const MAX_CONCURRENT_GEMINI_CALLS = 5;
+
 // ============================================================================
 // Category-Specific Extraction Configurations
 // ============================================================================
@@ -777,6 +787,67 @@ function getBackoffDelay(attempt: number): number {
 }
 
 /**
+ * Execute a promise with timeout
+ * @throws Error if the promise doesn't resolve within the timeout
+ */
+async function withTimeout<T>(promise: Promise<T>, ms: number, operation: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`${operation} timed out after ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+// ============================================================================
+// Rate Limiting (Simple Semaphore)
+// ============================================================================
+
+/**
+ * Simple semaphore for rate limiting concurrent operations
+ */
+class Semaphore {
+  private permits: number;
+  private queue: Array<() => void> = [];
+
+  constructor(permits: number) {
+    this.permits = permits;
+  }
+
+  async acquire(): Promise<void> {
+    if (this.permits > 0) {
+      this.permits--;
+      return;
+    }
+    return new Promise((resolve) => {
+      this.queue.push(resolve);
+    });
+  }
+
+  release(): void {
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    } else {
+      this.permits++;
+    }
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await fn();
+    } finally {
+      this.release();
+    }
+  }
+}
+
+/**
+ * Global semaphore for rate limiting Gemini API calls
+ * Max 5 concurrent calls to prevent cost spikes
+ */
+const geminiSemaphore = new Semaphore(MAX_CONCURRENT_GEMINI_CALLS);
+
+/**
  * Detect image MIME type from base64 string
  */
 function detectImageMimeType(base64: string): string {
@@ -1106,79 +1177,95 @@ export async function extractDocumentData(
 }
 
 /**
- * Extract data using Gemini API with retry logic
+ * Extract data using Gemini API with retry logic, timeout, and rate limiting
  */
 async function extractWithGemini(
   text: string,
   category: DocumentCategory,
   imageBase64?: string
 ): Promise<Record<string, ExtractedFieldResult>> {
-  const apiKey = getGeminiApiKey();
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model: GenerativeModel = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
+  // Use semaphore for rate limiting (max 5 concurrent calls)
+  return geminiSemaphore.run(async () => {
+    const apiKey = getGeminiApiKey();
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model: GenerativeModel = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
 
-  let lastError: Error | null = null;
+    let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      // Build content parts
-      const parts: Part[] = [];
-      const prompt = buildExtractionPrompt(category);
-      const truncatedText = truncateText(text, MAX_TEXT_LENGTH);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        // Build content parts
+        const parts: Part[] = [];
+        const prompt = buildExtractionPrompt(category);
+        const truncatedText = truncateText(text, MAX_TEXT_LENGTH);
 
-      // If image provided, prioritize visual extraction (Gemini vision is better than OCR)
-      if (imageBase64) {
-        parts.push({
-          text: `${prompt}\n\nPRIMARILY use the attached IMAGE for extraction. The text below may be incomplete.\n\nContext: ${truncatedText}`,
+        // If image provided, prioritize visual extraction (Gemini vision is better than OCR)
+        if (imageBase64) {
+          parts.push({
+            text: `${prompt}\n\nPRIMARILY use the attached IMAGE for extraction. The text below may be incomplete.\n\nContext: ${truncatedText}`,
+          });
+        } else {
+          parts.push({ text: `${prompt}\n\nDocument Text:\n${truncatedText}` });
+        }
+
+        // Add image if provided
+        if (imageBase64) {
+          const mimeType = detectImageMimeType(imageBase64);
+          const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+          parts.push({
+            inlineData: {
+              mimeType,
+              data: cleanBase64,
+            },
+          });
+        }
+
+        // Generate extraction with timeout (30 seconds)
+        logger.debug('Starting Gemini extraction with timeout', {
+          timeoutMs: GEMINI_TIMEOUT_MS,
+          attempt: attempt + 1,
+          category,
         });
-      } else {
-        parts.push({ text: `${prompt}\n\nDocument Text:\n${truncatedText}` });
-      }
 
-      // Add image if provided
-      if (imageBase64) {
-        const mimeType = detectImageMimeType(imageBase64);
-        const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        parts.push({
-          inlineData: {
-            mimeType,
-            data: cleanBase64,
-          },
+        const result = await withTimeout(
+          model.generateContent(parts),
+          GEMINI_TIMEOUT_MS,
+          'Gemini extraction'
+        );
+        const response = result.response;
+        const responseText = response.text();
+
+        // Parse and convert response
+        const parsed = parseGeminiResponse(responseText);
+        return convertToExtractedFields(parsed, category);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+
+        // Check if this was a timeout error
+        const isTimeout = lastError.message.includes('timed out');
+        logger.warn(`Gemini extraction attempt ${attempt + 1} failed`, {
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES,
+          error: lastError.message,
+          isTimeout,
         });
-      }
 
-      // Generate extraction
-      const result = await model.generateContent(parts);
-      const response = result.response;
-      const responseText = response.text();
+        // Don't retry on certain errors
+        if (lastError.message.includes('API key')) {
+          throw lastError;
+        }
 
-      // Parse and convert response
-      const parsed = parseGeminiResponse(responseText);
-      return convertToExtractedFields(parsed, category);
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error('Unknown error');
-
-      logger.warn(`Gemini extraction attempt ${attempt + 1} failed`, {
-        attempt: attempt + 1,
-        maxRetries: MAX_RETRIES,
-        error: lastError.message,
-      });
-
-      // Don't retry on certain errors
-      if (lastError.message.includes('API key')) {
-        throw lastError;
-      }
-
-      // Wait before retry with exponential backoff
-      if (attempt < MAX_RETRIES - 1) {
-        const delay = getBackoffDelay(attempt);
-        logger.debug(`Waiting ${delay}ms before retry`);
-        await sleep(delay);
+        // Wait before retry with exponential backoff
+        if (attempt < MAX_RETRIES - 1) {
+          const delay = getBackoffDelay(attempt);
+          logger.debug(`Waiting ${delay}ms before retry`);
+          await sleep(delay);
+        }
       }
     }
-  }
 
-  throw lastError ?? new Error('Gemini extraction failed after all retries');
+    throw lastError ?? new Error('Gemini extraction failed after all retries');
+  });
 }
 
 // ============================================================================
