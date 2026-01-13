@@ -59,13 +59,25 @@ interface LowConfidenceField {
   documentName: string;
 }
 
+/**
+ * Per-file error tracking for batch extraction
+ */
+interface FileError {
+  fileId: string;
+  fileName: string;
+  error: string;
+  stage: 'ocr' | 'extraction' | 'merge';
+}
+
 interface ExtractBatchResponse {
   success: boolean;
   profileData: Record<string, unknown>;
   fieldSources: Record<string, FieldSource>;
   lowConfidenceFields: LowConfidenceField[];
+  errors: FileError[];
   processingTime: number;
   documentsProcessed: number;
+  successfulDocuments: number;
   totalFieldsExtracted: number;
 }
 
@@ -415,6 +427,8 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
     const profileData: Record<string, unknown> = {};
     const fieldSources: Record<string, FieldSource> = {};
     const lowConfidenceFields: LowConfidenceField[] = [];
+    const errors: FileError[] = [];
+    let successfulDocuments = 0;
 
     // Low confidence threshold (85% = 0.85)
     const LOW_CONF_THRESHOLD = 85;
@@ -434,23 +448,55 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
         // Map frontend type to backend category
         const category = mapFrontendTypeToCategory(documentType);
 
-        // Extract text from document
-        if (ext === '.pdf') {
-          // Process PDF with OCR service (needed for multi-page docs)
-          const ocrResult = await ocrService.processPDF(file.path);
-          ocrText = ocrResult.text;
-          logger.debug(
-            `PDF OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
-          );
-        } else {
-          // For ALL images: use Gemini vision directly - it's better than Tesseract
-          imageBase64 = await fileToBase64(file.path);
-          ocrText = `[Image: ${file.originalname}]`;
-          logger.debug(`Image file - using Gemini vision for extraction`);
+        // Extract text from document (OCR stage)
+        try {
+          if (ext === '.pdf') {
+            // Process PDF with OCR service (needed for multi-page docs)
+            const ocrResult = await ocrService.processPDF(file.path);
+            ocrText = ocrResult.text;
+            logger.debug(
+              `PDF OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
+            );
+          } else {
+            // For ALL images: use Gemini vision directly - it's better than Tesseract
+            imageBase64 = await fileToBase64(file.path);
+            ocrText = `[Image: ${file.originalname}]`;
+            logger.debug(`Image file - using Gemini vision for extraction`);
+          }
+        } catch (ocrError) {
+          errors.push({
+            fileId,
+            fileName: file.originalname,
+            error: ocrError instanceof Error ? ocrError.message : 'OCR processing failed',
+            stage: 'ocr',
+          });
+          logger.warn('OCR processing failed', {
+            fileId,
+            fileName: file.originalname,
+            error: ocrError instanceof Error ? ocrError.message : 'Unknown error',
+          });
+          continue; // Skip to next file
         }
 
-        // Extract structured data using the extractor agent (category already set above)
-        const extractionResult = await extractDocumentData(ocrText, category, imageBase64);
+        // Extract structured data using the extractor agent (extraction stage)
+        let extractionResult;
+        try {
+          extractionResult = await extractDocumentData(ocrText, category, imageBase64);
+        } catch (extractionError) {
+          errors.push({
+            fileId,
+            fileName: file.originalname,
+            error:
+              extractionError instanceof Error ? extractionError.message : 'Data extraction failed',
+            stage: 'extraction',
+          });
+          logger.warn('Data extraction failed', {
+            fileId,
+            fileName: file.originalname,
+            error: extractionError instanceof Error ? extractionError.message : 'Unknown error',
+          });
+          continue; // Skip to next file
+        }
 
         logger.debug(`Extraction completed for ${file.originalname}`, {
           fieldsExtracted: Object.keys(extractionResult.fields).length,
@@ -458,54 +504,79 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
           processingTime: extractionResult.processingTime,
         });
 
-        // Merge extracted fields into profile
-        const extractedAt = new Date().toISOString();
-        for (const [fieldName, fieldResult] of Object.entries(extractionResult.fields)) {
-          const profileKey = mapFieldToProfileKey(fieldName);
-          const confidence = fieldResult.confidence;
+        // Merge extracted fields into profile (merge stage)
+        try {
+          const extractedAt = new Date().toISOString();
+          for (const [fieldName, fieldResult] of Object.entries(extractionResult.fields)) {
+            const profileKey = mapFieldToProfileKey(fieldName);
+            const confidence = fieldResult.confidence;
 
-          // Check if this field already exists with higher confidence
-          const existingSource = fieldSources[profileKey];
-          if (existingSource && existingSource.confidence >= confidence) {
-            // Existing value has higher or equal confidence, skip
-            continue;
-          }
-
-          // Store this value (it has higher confidence or is new)
-          profileData[profileKey] = fieldResult.value;
-          fieldSources[profileKey] = {
-            documentId: fileId,
-            documentName: file.originalname,
-            confidence,
-            extractedAt,
-          };
-
-          // Track low confidence fields for review
-          if (confidence < LOW_CONF_THRESHOLD && fieldResult.value !== null) {
-            // Remove any existing low-confidence entry for this field (if being replaced)
-            const existingLowConfIdx = lowConfidenceFields.findIndex(
-              (f) => f.fieldName === profileKey
-            );
-            if (existingLowConfIdx >= 0) {
-              lowConfidenceFields.splice(existingLowConfIdx, 1);
+            // Check if this field already exists with higher confidence
+            const existingSource = fieldSources[profileKey];
+            if (existingSource && existingSource.confidence >= confidence) {
+              // Existing value has higher or equal confidence, skip
+              continue;
             }
 
-            lowConfidenceFields.push({
-              fieldName: profileKey,
-              value: fieldResult.value,
-              confidence,
+            // Store this value (it has higher confidence or is new)
+            profileData[profileKey] = fieldResult.value;
+            fieldSources[profileKey] = {
               documentId: fileId,
               documentName: file.originalname,
-            });
+              confidence,
+              extractedAt,
+            };
+
+            // Track low confidence fields for review
+            if (confidence < LOW_CONF_THRESHOLD && fieldResult.value !== null) {
+              // Remove any existing low-confidence entry for this field (if being replaced)
+              const existingLowConfIdx = lowConfidenceFields.findIndex(
+                (f) => f.fieldName === profileKey
+              );
+              if (existingLowConfIdx >= 0) {
+                lowConfidenceFields.splice(existingLowConfIdx, 1);
+              }
+
+              lowConfidenceFields.push({
+                fieldName: profileKey,
+                value: fieldResult.value,
+                confidence,
+                documentId: fileId,
+                documentName: file.originalname,
+              });
+            }
           }
+        } catch (mergeError) {
+          errors.push({
+            fileId,
+            fileName: file.originalname,
+            error: mergeError instanceof Error ? mergeError.message : 'Field merge failed',
+            stage: 'merge',
+          });
+          logger.warn('Field merge failed', {
+            fileId,
+            fileName: file.originalname,
+            error: mergeError instanceof Error ? mergeError.message : 'Unknown error',
+          });
+          continue; // Skip to next file
         }
+
+        // File processed successfully
+        successfulDocuments++;
 
         logger.debug(`Merged fields from ${file.originalname}`, {
           totalProfileFields: Object.keys(profileData).length,
           lowConfidenceCount: lowConfidenceFields.length,
         });
       } catch (fileError) {
-        logger.warn('File extraction failed', {
+        // Catch-all for unexpected errors
+        errors.push({
+          fileId,
+          fileName: file.originalname,
+          error: fileError instanceof Error ? fileError.message : 'Unknown error',
+          stage: 'extraction',
+        });
+        logger.warn('File extraction failed (unexpected)', {
           fileId,
           fileName: file.originalname,
           error: fileError instanceof Error ? fileError.message : 'Unknown error',
@@ -521,18 +592,23 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
 
     logger.info('Batch extraction completed', {
       documentsProcessed: files.length,
+      successfulDocuments,
+      errorCount: errors.length,
       totalFieldsExtracted: Object.keys(profileData).length,
       lowConfidenceFieldCount: lowConfidenceFields.length,
       processingTimeMs: processingTime,
     });
 
+    // success is true ONLY if all files processed without errors
     const response: ExtractBatchResponse = {
-      success: true,
+      success: errors.length === 0,
       profileData,
       fieldSources,
       lowConfidenceFields,
+      errors,
       processingTime,
       documentsProcessed: files.length,
+      successfulDocuments,
       totalFieldsExtracted: Object.keys(profileData).length,
     };
 
