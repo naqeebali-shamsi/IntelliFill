@@ -28,7 +28,7 @@ Transform IntelliFill's 6-step document-to-form flow into a streamlined 3-step "
 **Goal**: Working wizard that uploads documents, extracts data, and displays profile
 **Depends on**: Nothing (first phase)
 **Research**: Unlikely (patterns established in 01-RESEARCH.md)
-**Plans**: 4 plans
+**Plans**: 6 plans
 
 Key deliverables:
 
@@ -36,13 +36,17 @@ Key deliverables:
 - SmartUploadZone with react-dropzone and auto-detection
 - Backend `/api/smart-profile/detect-types` and `/api/smart-profile/extract-batch`
 - Basic ProfileView showing extracted data
+- Pipeline hardening (error handling, timeouts, rate limiting, validation)
+- Honest confidence UI and extraction progress
 
 Plans:
 
 - [x] 01-01: Infrastructure & Routing (store, page shell, route) ✓
 - [x] 01-02: Smart Upload Zone (react-dropzone, detect-types API) ✓
 - [x] 01-03: Batch Extraction (extract-batch API, service integration) ✓
-- [ ] 01-04: Profile View (display, inline editing, save to client)
+- [x] 01-04: Profile View (display, inline editing, save to client) ✓
+- [ ] 01-05: Pipeline Hardening (error handling, timeouts, rate limiting, JSON validation)
+- [ ] 01-06: Confidence UX (honest badges, extraction progress)
 
 ### Phase 2: Intelligence
 
@@ -94,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase           | Plans Complete | Status      | Completed |
 | --------------- | -------------- | ----------- | --------- |
-| 1. Foundation   | 3/4            | In Progress | -         |
+| 1. Foundation   | 4/6            | In Progress | -         |
 | 2. Intelligence | 0/TBD          | Not started | -         |
 | 3. Polish       | 0/TBD          | Not started | -         |
 | 4. PRO Features | 0/TBD          | Not started | -         |

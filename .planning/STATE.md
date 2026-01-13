@@ -10,11 +10,17 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 4 of 4 (01-04: Profile View)
+Plan: 5 of 6 (01-05: Pipeline Hardening)
 Status: Ready to execute
-Last activity: 2026-01-13 — Completed 01-03: Batch Extraction
+Last activity: 2026-01-13 — Completed 01-04: Profile View, added 01-05 & 01-06 plans
 
-Progress: ███████░░░ 75%
+Progress: ██████░░░░ 67%
+
+**Expert Review Response:**
+Plans 01-05 and 01-06 added to address P0 critical issues identified by expert review:
+
+- 01-05: Backend hardening (error handling, timeouts, rate limiting, JSON validation)
+- 01-06: Frontend UX (honest confidence badges, extraction progress)
 
 ## Performance Metrics
 
