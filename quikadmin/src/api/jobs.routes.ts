@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { documentQueue, batchQueue, getJobStatus, getQueueHealth } from '../queues/documentQueue';
+import { getOCRJobStatus } from '../queues/ocrQueue';
 import { logger } from '../utils/logger';
 import { toJobStatusDTO } from '../dto/DocumentDTO';
 import Joi from 'joi';
 import { validate } from '../middleware/validation';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
 
 const router: Router = Router();
 
@@ -14,10 +15,35 @@ const jobIdSchema = Joi.object({
 });
 
 // Get job status (polling endpoint)
-router.get('/jobs/:id/status', async (req: Request, res: Response) => {
+// Uses optional auth - OCR jobs require authentication, document/batch jobs don't
+router.get('/jobs/:id/status', optionalAuthSupabase, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const user = (req as unknown as { user?: { id: string } }).user;
 
+    // Check if this is an OCR job (starts with 'ocr-')
+    if (id.startsWith('ocr-') || id.startsWith('ocr-reprocess-')) {
+      // OCR jobs require authentication for IDOR protection
+      if (!user) {
+        return res.status(401).json({ error: 'Authentication required for OCR job status' });
+      }
+
+      const ocrStatus = await getOCRJobStatus(id, user.id);
+
+      if (!ocrStatus) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      // Add cache headers for polling efficiency
+      res.set({
+        'Cache-Control': 'no-cache',
+        'X-Job-Status': ocrStatus.status,
+      });
+
+      return res.json(ocrStatus);
+    }
+
+    // For document/batch jobs, use existing logic
     const status = await getJobStatus(id);
 
     if (!status) {
