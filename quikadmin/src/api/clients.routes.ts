@@ -20,7 +20,7 @@ import { createClientDocumentRoutes } from './client-documents.routes';
 const createClientSchema = z.object({
   name: z.string().min(1, 'Client name is required').max(255),
   type: z.enum(['COMPANY', 'INDIVIDUAL']).default('INDIVIDUAL'),
-  notes: z.string().max(1000).optional(),
+  notes: z.string().max(1000).optional().nullable(),
 });
 
 const updateClientSchema = z.object({
