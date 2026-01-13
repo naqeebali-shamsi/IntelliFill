@@ -45,7 +45,7 @@ Plans:
 - [x] 01-02: Smart Upload Zone (react-dropzone, detect-types API) ✓
 - [x] 01-03: Batch Extraction (extract-batch API, service integration) ✓
 - [x] 01-04: Profile View (display, inline editing, save to client) ✓
-- [ ] 01-05: Pipeline Hardening (error handling, timeouts, rate limiting, JSON validation)
+- [x] 01-05: Pipeline Hardening (error handling, timeouts, rate limiting, JSON validation) ✓
 - [ ] 01-06: Confidence UX (honest badges, extraction progress)
 
 ### Phase 2: Intelligence
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase           | Plans Complete | Status      | Completed |
 | --------------- | -------------- | ----------- | --------- |
-| 1. Foundation   | 4/6            | In Progress | -         |
+| 1. Foundation   | 5/6            | In Progress | -         |
 | 2. Intelligence | 0/TBD          | Not started | -         |
 | 3. Polish       | 0/TBD          | Not started | -         |
 | 4. PRO Features | 0/TBD          | Not started | -         |

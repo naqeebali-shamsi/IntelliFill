@@ -10,35 +10,35 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 1 of 4 (Foundation)
-Plan: 5 of 6 (01-05: Pipeline Hardening)
-Status: Ready to execute
-Last activity: 2026-01-13 — Completed 01-04: Profile View, added 01-05 & 01-06 plans
+Plan: 5 of 6 complete
+Status: In progress
+Last activity: 2026-01-13 — Completed 01-05: Pipeline Hardening
 
-Progress: ██████░░░░ 67%
+Progress: ████████░░ 83%
 
 **Expert Review Response:**
 Plans 01-05 and 01-06 added to address P0 critical issues identified by expert review:
 
-- 01-05: Backend hardening (error handling, timeouts, rate limiting, JSON validation)
-- 01-06: Frontend UX (honest confidence badges, extraction progress)
+- 01-05: Backend hardening (error handling, timeouts, rate limiting, JSON validation) ✓ COMPLETE
+- 01-06: Frontend UX (honest confidence badges, extraction progress) - NEXT
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 3
-- Average duration: ~20 min
-- Total execution time: 1 hour
+- Total plans completed: 5
+- Average duration: ~18 min
+- Total execution time: ~90 min
 
 **By Phase:**
 
 | Phase        | Plans | Total   | Avg/Plan |
 | ------------ | ----- | ------- | -------- |
-| 1-Foundation | 3/4   | ~60 min | ~20 min  |
+| 1-Foundation | 5/6   | ~90 min | ~18 min  |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (~15 min), 01-02 (~20 min), 01-03 (~25 min)
+- Last 5 plans: 01-01 (~15 min), 01-02 (~20 min), 01-03 (~25 min), 01-04 (~18 min), 01-05 (~12 min)
 - Trend: Stable
 
 ## Accumulated Context
@@ -52,6 +52,9 @@ Recent decisions affecting current work:
 - Person grouping defaults to separate (safer to let users merge)
 - Confidence thresholds start at 85% (conservative, tune based on corrections)
 - Confidence badges show semantic labels, not raw percentages
+- 30-second timeout for Gemini API calls
+- Max 5 concurrent Gemini calls (rate limiting)
+- Native Semaphore implementation for rate limiting
 
 ### Deferred Issues
 
@@ -64,5 +67,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-13
-Stopped at: Plan 01-03 complete, ready for 01-04
+Stopped at: Completed 01-05-PLAN.md
 Resume file: None
