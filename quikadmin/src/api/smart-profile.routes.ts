@@ -434,43 +434,19 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
         // Map frontend type to backend category
         const category = mapFrontendTypeToCategory(documentType);
 
-        // For ID cards/visual documents, skip aggressive OCR preprocessing and use Gemini vision directly
-        const isVisualDocument = [
-          'ID_CARD',
-          'PASSPORT',
-          'EMIRATES_ID',
-          'VISA',
-          'LABOR_CARD',
-        ].includes(category);
-
         // Extract text from document
         if (ext === '.pdf') {
-          // Process PDF with OCR service
+          // Process PDF with OCR service (needed for multi-page docs)
           const ocrResult = await ocrService.processPDF(file.path);
           ocrText = ocrResult.text;
           logger.debug(
             `PDF OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
           );
         } else {
-          // For visual documents (IDs, passports), use the ORIGINAL image for Gemini
-          // Tesseract's preprocessing (threshold, greyscale) destroys ID card readability
+          // For ALL images: use Gemini vision directly - it's better than Tesseract
           imageBase64 = await fileToBase64(file.path);
-
-          if (isVisualDocument) {
-            // Skip heavy OCR for ID cards - let Gemini vision handle it directly
-            // Just provide minimal context
-            ocrText = `[Image document: ${file.originalname}]`;
-            logger.debug(
-              `Visual document detected (${category}), using Gemini vision-first extraction`
-            );
-          } else {
-            // For non-ID documents, run OCR as normal
-            const ocrResult = await ocrService.processImage(file.path);
-            ocrText = ocrResult.text;
-            logger.debug(
-              `Image OCR completed: ${ocrText.length} chars, ${ocrResult.confidence}% confidence`
-            );
-          }
+          ocrText = `[Image: ${file.originalname}]`;
+          logger.debug(`Image file - using Gemini vision for extraction`);
         }
 
         // Extract structured data using the extractor agent (category already set above)

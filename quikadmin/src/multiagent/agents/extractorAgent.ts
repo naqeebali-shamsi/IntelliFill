@@ -1119,24 +1119,17 @@ async function extractWithGemini(
 
   let lastError: Error | null = null;
 
-  // For ID cards and visual documents, prioritize image-based extraction
-  const isVisualDocument = ['ID_CARD', 'PASSPORT', 'EMIRATES_ID', 'VISA', 'LABOR_CARD'].includes(
-    category
-  );
-
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       // Build content parts
       const parts: Part[] = [];
-
-      // Add prompt and text - for visual documents, emphasize image over OCR
       const prompt = buildExtractionPrompt(category);
       const truncatedText = truncateText(text, MAX_TEXT_LENGTH);
 
-      if (isVisualDocument && imageBase64) {
-        // For ID cards with images, tell Gemini to prioritize visual extraction
+      // If image provided, prioritize visual extraction (Gemini vision is better than OCR)
+      if (imageBase64) {
         parts.push({
-          text: `${prompt}\n\nNOTE: For ID cards and government documents, PRIMARILY use the attached IMAGE for extraction. The OCR text below may be garbled due to security patterns and watermarks. Trust the image over the text.\n\nOCR Text (may be incomplete/inaccurate):\n${truncatedText}`,
+          text: `${prompt}\n\nPRIMARILY use the attached IMAGE for extraction. The text below may be incomplete.\n\nContext: ${truncatedText}`,
         });
       } else {
         parts.push({ text: `${prompt}\n\nDocument Text:\n${truncatedText}` });
