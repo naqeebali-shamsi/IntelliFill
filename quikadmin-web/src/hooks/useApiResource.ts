@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_BASE_URL } from '@/services/api';
-import { tokenManager } from '@/lib/tokenManager';
 
 /** SSE event types for real-time updates */
 export type RealtimeEventType =
@@ -115,10 +114,10 @@ export function useApiResource<T>(
       return;
     }
 
-    // EventSource cannot send Authorization headers, so pass token via query param
-    const accessToken = tokenManager.getToken();
-    const baseUrl = `${API_BASE_URL}/realtime`.replace('/api/api', '/api');
-    const sseUrl = accessToken ? `${baseUrl}?token=${encodeURIComponent(accessToken)}` : baseUrl;
+    // Connect to SSE endpoint with credentials (cookies)
+    // Backend authenticates via httpOnly refresh token cookie (SameSite=None)
+    // No token in URL = more secure (no exposure in logs/history)
+    const sseUrl = `${API_BASE_URL}/realtime`.replace('/api/api', '/api');
     const eventSource = new EventSource(sseUrl, { withCredentials: true });
 
     eventSource.onmessage = (event) => {

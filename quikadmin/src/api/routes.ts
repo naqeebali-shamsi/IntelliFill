@@ -174,45 +174,66 @@ export function setupRoutes(
   // SSE Realtime endpoint
   // Protected with rate limiting and authentication
   // Only authenticated users can receive realtime updates
-  // NOTE: EventSource cannot send Authorization headers, so we accept token via query param
+  // Uses cookie-based auth (preferred) or token query param (fallback)
   router.get('/realtime', sseConnectionLimiter, async (req: Request, res: Response) => {
-    // EventSource cannot send custom headers, so we accept token via query param
-    const queryToken = req.query.token as string | undefined;
-    const headerToken = req.headers.authorization?.replace('Bearer ', '');
-    const token = queryToken || headerToken;
+    let userId: string | null = null;
 
-    if (!token) {
-      res.status(401).json({ error: 'Unauthorized', message: 'Token required' });
+    // Method 1: Cookie-based auth using refresh token (preferred - no token in URL)
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+
+        const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+        if (!error && data.user) {
+          const dbUser = await prisma.user.findUnique({
+            where: { supabaseUserId: data.user.id },
+            select: { id: true, isActive: true },
+          });
+          if (dbUser?.isActive) {
+            userId = dbUser.id;
+          }
+        }
+      } catch {
+        // Cookie auth failed, try token method
+      }
+    }
+
+    // Method 2: Token via query param or Authorization header (fallback)
+    if (!userId) {
+      const queryToken = req.query.token as string | undefined;
+      const headerToken = req.headers.authorization?.replace('Bearer ', '');
+      const token = queryToken || headerToken;
+
+      if (token) {
+        const { verifySupabaseToken } = await import('../utils/supabase');
+        const supabaseUser = await verifySupabaseToken(token);
+
+        if (supabaseUser) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: supabaseUser.id },
+            select: { id: true, isActive: true },
+          });
+          if (dbUser?.isActive) {
+            userId = dbUser.id;
+          }
+        }
+      }
+    }
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized', message: 'Authentication required' });
       return;
     }
 
-    // Verify token with Supabase
-    const { verifySupabaseToken } = await import('../utils/supabase');
-    const supabaseUser = await verifySupabaseToken(token);
-
-    if (!supabaseUser) {
-      res.status(401).json({ error: 'Unauthorized', message: 'Invalid token' });
+    // Register SSE client with better-sse (async)
+    const sessionId = await realtimeService.registerClient(req, res, userId);
+    if (!sessionId) {
+      res.status(429).json({ error: 'Too many connections', message: 'Connection limit reached' });
       return;
     }
-
-    // Get user from database
-    const dbUser = await prisma.user.findUnique({
-      where: { id: supabaseUser.id },
-      select: { id: true, isActive: true },
-    });
-
-    if (!dbUser || !dbUser.isActive) {
-      res.status(401).json({ error: 'Unauthorized', message: 'User not found or inactive' });
-      return;
-    }
-
-    const userId = dbUser.id;
-    const clientId = realtimeService.registerClient(res, userId);
-    if (!clientId) return; // Response already sent by registerClient (connection limit reached)
-
-    req.on('close', () => {
-      realtimeService.removeClient(clientId);
-    });
+    // Cleanup handled automatically by better-sse and RealtimeService
   });
 
   // Ready check - verifies all services are operational

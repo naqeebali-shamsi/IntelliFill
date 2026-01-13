@@ -1,23 +1,52 @@
-import { Response } from 'express';
+/**
+ * RealtimeService - Server-Sent Events using better-sse
+ *
+ * Provides real-time updates to connected clients via SSE.
+ * Uses better-sse for robust session/channel management.
+ *
+ * Architecture:
+ * - Each user gets their own Channel for targeted messaging
+ * - Sessions track individual client connections with state
+ * - Automatic heartbeat and reconnection handling via better-sse
+ */
+
+import { Request, Response } from 'express';
+import { createSession, createChannel, Session, Channel } from 'better-sse';
 import { logger } from '../utils/logger';
 
 // Connection limits to prevent DoS
 const MAX_TOTAL_CLIENTS = 10000;
 const MAX_CLIENTS_PER_USER = 5;
 
-interface SSEClient {
-  id: string;
-  userId?: string;
-  res: Response;
+/** Session state for tracking user info */
+interface SessionState {
+  userId: string;
   connectedAt: number;
+}
+
+/** Channel state for user channels */
+interface UserChannelState {
+  userId: string;
+  createdAt: number;
 }
 
 export class RealtimeService {
   private static instance: RealtimeService;
-  private clients: Map<string, SSEClient> = new Map();
-  private clientsByUser: Map<string, Set<string>> = new Map(); // O(1) user lookups
+
+  /** All active sessions indexed by session ID */
+  private sessions: Map<string, Session<SessionState>> = new Map();
+
+  /** Per-user channels for targeted messaging */
+  private userChannels: Map<string, Channel<UserChannelState, SessionState>> = new Map();
+
+  /** Track session count per user for connection limits */
+  private sessionCountByUser: Map<string, number> = new Map();
+
+  /** Global event counter for SSE event IDs */
   private eventCounter = 0;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
+
+  /** Total session count */
+  private totalSessions = 0;
 
   private constructor() {}
 
@@ -29,91 +58,135 @@ export class RealtimeService {
   }
 
   /**
-   * Register a new SSE client
-   * Returns null if connection limits are exceeded
+   * Get or create a channel for a specific user
    */
-  public registerClient(res: Response, userId?: string): string | null {
+  private getOrCreateUserChannel(userId: string): Channel<UserChannelState, SessionState> {
+    if (!this.userChannels.has(userId)) {
+      const channel = createChannel<UserChannelState, SessionState>();
+      channel.state = {
+        userId,
+        createdAt: Date.now(),
+      };
+
+      // Clean up channel when last session disconnects
+      channel.on('session-disconnected', () => {
+        if (channel.sessionCount === 0) {
+          this.userChannels.delete(userId);
+          logger.debug(`User channel removed: ${userId}`);
+        }
+      });
+
+      this.userChannels.set(userId, channel);
+      logger.debug(`User channel created: ${userId}`);
+    }
+    return this.userChannels.get(userId)!;
+  }
+
+  /**
+   * Register a new SSE client connection
+   * Returns session ID if successful, null if limits exceeded
+   */
+  public async registerClient(req: Request, res: Response, userId: string): Promise<string | null> {
     // Check global connection limit
-    if (this.clients.size >= MAX_TOTAL_CLIENTS) {
+    if (this.totalSessions >= MAX_TOTAL_CLIENTS) {
       logger.warn('SSE global connection limit reached', { limit: MAX_TOTAL_CLIENTS });
       return null;
     }
 
     // Check per-user connection limit
-    if (userId) {
-      const userClients = this.clientsByUser.get(userId);
-      if (userClients && userClients.size >= MAX_CLIENTS_PER_USER) {
-        logger.warn('SSE per-user connection limit reached', {
-          userId,
-          limit: MAX_CLIENTS_PER_USER,
-        });
-        return null;
-      }
-    }
-
-    const id = Date.now().toString(36) + Math.random().toString(36).substring(2);
-
-    // Get CORS origin from environment or use restrictive default
-    const corsOrigin =
-      process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:8080';
-
-    // Set headers for SSE
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no', // Disable nginx buffering
-      'Access-Control-Allow-Origin': corsOrigin,
-      'Access-Control-Allow-Credentials': 'true',
-    });
-
-    // Send initial connection event with event ID
-    const eventId = ++this.eventCounter;
-    try {
-      res.write(`id: ${eventId}\n`);
-      res.write('retry: 10000\n');
-      res.write(`data: ${JSON.stringify({ type: 'connected', id })}\n\n`);
-    } catch (error) {
-      logger.error('Failed to send initial SSE data', { error, clientId: id });
+    const userSessionCount = this.sessionCountByUser.get(userId) || 0;
+    if (userSessionCount >= MAX_CLIENTS_PER_USER) {
+      logger.warn('SSE per-user connection limit reached', {
+        userId,
+        limit: MAX_CLIENTS_PER_USER,
+      });
       return null;
     }
 
-    this.clients.set(id, { id, userId, res, connectedAt: Date.now() });
+    try {
+      // Create session with better-sse
+      const session = await createSession<SessionState>(req, res, {
+        headers: {
+          'X-Accel-Buffering': 'no', // Disable nginx buffering
+        },
+      });
 
-    // Track by user for O(1) lookups
-    if (userId) {
-      if (!this.clientsByUser.has(userId)) {
-        this.clientsByUser.set(userId, new Set());
-      }
-      this.clientsByUser.get(userId)!.add(id);
+      // Generate session ID
+      const sessionId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+
+      // Set session state
+      session.state = {
+        userId,
+        connectedAt: Date.now(),
+      };
+
+      // Register to user's channel
+      const userChannel = this.getOrCreateUserChannel(userId);
+      userChannel.register(session);
+
+      // Track session
+      this.sessions.set(sessionId, session);
+      this.totalSessions++;
+      this.sessionCountByUser.set(userId, userSessionCount + 1);
+
+      // Send initial connection event
+      session.push({ type: 'connected', sessionId }, 'connected');
+
+      logger.debug(
+        `SSE Client connected: ${sessionId} (User: ${userId}). Total: ${this.totalSessions}`
+      );
+
+      // Handle disconnect
+      res.on('close', () => {
+        this.removeSession(sessionId, userId);
+      });
+
+      return sessionId;
+    } catch (error) {
+      logger.error('Failed to create SSE session', { error, userId });
+      return null;
     }
-
-    logger.debug(
-      `SSE Client connected: ${id}${userId ? ` (User: ${userId})` : ''}. Total clients: ${this.clients.size}`
-    );
-
-    return id;
   }
 
   /**
-   * Remove an SSE client
+   * Remove a session and clean up
    */
-  public removeClient(id: string): void {
-    const client = this.clients.get(id);
-    if (client) {
-      // Remove from user index
-      if (client.userId) {
-        const userClients = this.clientsByUser.get(client.userId);
-        if (userClients) {
-          userClients.delete(id);
-          if (userClients.size === 0) {
-            this.clientsByUser.delete(client.userId);
-          }
-        }
+  private removeSession(sessionId: string, userId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      this.sessions.delete(sessionId);
+      this.totalSessions--;
+
+      const userCount = (this.sessionCountByUser.get(userId) || 1) - 1;
+      if (userCount <= 0) {
+        this.sessionCountByUser.delete(userId);
+      } else {
+        this.sessionCountByUser.set(userId, userCount);
       }
 
-      this.clients.delete(id);
-      logger.debug(`SSE Client disconnected: ${id}. Total clients: ${this.clients.size}`);
+      logger.debug(
+        `SSE Client disconnected: ${sessionId} (User: ${userId}). Total: ${this.totalSessions}`
+      );
+    }
+  }
+
+  /**
+   * Send an event to a specific user (all their connected clients)
+   * Maintains backward compatibility with existing queue code
+   */
+  public sendToUser(userId: string, type: string, data: unknown): void {
+    const channel = this.userChannels.get(userId);
+    if (!channel || channel.sessionCount === 0) {
+      return;
+    }
+
+    const eventId = String(++this.eventCounter);
+    const payload = { type, data, timestamp: new Date().toISOString() };
+
+    try {
+      channel.broadcast(payload, type, { eventId });
+    } catch (error) {
+      logger.warn('Failed to send to user channel', { userId, error });
     }
   }
 
@@ -122,135 +195,71 @@ export class RealtimeService {
    * Use sparingly - prefer sendToUser for user-specific data
    */
   public broadcast(type: string, data: unknown): void {
-    const eventId = ++this.eventCounter;
-    const payload = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
-    const deadClients: string[] = [];
+    const eventId = String(++this.eventCounter);
+    const payload = { type, data, timestamp: new Date().toISOString() };
 
-    this.clients.forEach((client) => {
+    this.userChannels.forEach((channel, userId) => {
       try {
-        client.res.write(`id: ${eventId}\n`);
-        client.res.write(`data: ${payload}\n\n`);
+        channel.broadcast(payload, type, { eventId });
       } catch (error) {
-        logger.warn('Failed to broadcast to client, marking for removal', { clientId: client.id });
-        deadClients.push(client.id);
+        logger.warn('Failed to broadcast to channel', { userId, error });
       }
     });
-
-    // Clean up dead clients
-    deadClients.forEach((id) => this.removeClient(id));
   }
 
   /**
-   * Send an event to a specific user (all their connected clients)
+   * Send an event to a specific session
    */
-  public sendToUser(userId: string, type: string, data: unknown): void {
-    const clientIds = this.clientsByUser.get(userId);
-    if (!clientIds || clientIds.size === 0) {
-      return;
-    }
+  public sendToSession(sessionId: string, type: string, data: unknown): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      const eventId = String(++this.eventCounter);
+      const payload = { type, data, timestamp: new Date().toISOString() };
 
-    const eventId = ++this.eventCounter;
-    const payload = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
-    const deadClients: string[] = [];
-
-    clientIds.forEach((clientId) => {
-      const client = this.clients.get(clientId);
-      if (client) {
-        try {
-          client.res.write(`id: ${eventId}\n`);
-          client.res.write(`data: ${payload}\n\n`);
-        } catch (error) {
-          logger.warn('Failed to send to user client, marking for removal', { clientId, userId });
-          deadClients.push(clientId);
-        }
-      }
-    });
-
-    // Clean up dead clients
-    deadClients.forEach((id) => this.removeClient(id));
-  }
-
-  /**
-   * Send an event to a specific client ID
-   */
-  public sendToClient(clientId: string, type: string, data: unknown): void {
-    const client = this.clients.get(clientId);
-    if (client) {
-      const eventId = ++this.eventCounter;
-      const payload = JSON.stringify({ type, data, timestamp: new Date().toISOString() });
       try {
-        client.res.write(`id: ${eventId}\n`);
-        client.res.write(`data: ${payload}\n\n`);
+        session.push(payload, type, eventId);
       } catch (error) {
-        logger.warn('Failed to send to client, removing', { clientId });
-        this.removeClient(clientId);
+        logger.warn('Failed to send to session', { sessionId, error });
       }
     }
   }
 
   /**
-   * Start heartbeat to keep connections alive
+   * Start heartbeat - better-sse handles keep-alive automatically
+   * This method is kept for backward compatibility but is now a no-op
    */
-  public startHeartbeat(intervalMs: number = 30000): void {
-    if (this.heartbeatInterval) {
-      return;
-    }
-
-    this.heartbeatInterval = setInterval(() => {
-      const deadClients: string[] = [];
-
-      this.clients.forEach((client) => {
-        try {
-          client.res.write(': heartbeat\n\n');
-        } catch (error) {
-          deadClients.push(client.id);
-        }
-      });
-
-      // Clean up dead clients
-      deadClients.forEach((id) => this.removeClient(id));
-
-      if (deadClients.length > 0) {
-        logger.debug(`Heartbeat removed ${deadClients.length} dead clients`);
-      }
-    }, intervalMs);
-
-    // Prevent interval from keeping process alive
-    if (this.heartbeatInterval.unref) {
-      this.heartbeatInterval.unref();
-    }
-
-    logger.info('SSE heartbeat started', { intervalMs });
+  public startHeartbeat(_intervalMs: number = 30000): void {
+    // better-sse handles keep-alive automatically via its internal ping mechanism
+    logger.info('SSE service started (better-sse handles heartbeat automatically)');
   }
 
   /**
-   * Stop heartbeat
+   * Stop heartbeat - no-op for better-sse
    */
   public stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-      logger.info('SSE heartbeat stopped');
-    }
+    // No-op for better-sse
+    logger.info('SSE service heartbeat stopped');
   }
 
   /**
    * Graceful shutdown - close all connections
    */
   public shutdown(): void {
-    this.stopHeartbeat();
-
-    this.clients.forEach((client) => {
+    // Notify all clients of shutdown
+    this.userChannels.forEach((channel) => {
       try {
-        client.res.write(`data: ${JSON.stringify({ type: 'shutdown' })}\n\n`);
-        client.res.end();
+        channel.broadcast({ type: 'shutdown' }, 'shutdown');
       } catch {
         // Ignore errors during shutdown
       }
     });
 
-    this.clients.clear();
-    this.clientsByUser.clear();
+    // Clear all tracking
+    this.sessions.clear();
+    this.userChannels.clear();
+    this.sessionCountByUser.clear();
+    this.totalSessions = 0;
+
     logger.info('SSE service shut down, all clients disconnected');
   }
 
@@ -264,17 +273,37 @@ export class RealtimeService {
   } {
     let oldestConnection: number | null = null;
 
-    this.clients.forEach((client) => {
-      if (oldestConnection === null || client.connectedAt < oldestConnection) {
-        oldestConnection = client.connectedAt;
+    this.sessions.forEach((session) => {
+      const connectedAt = session.state?.connectedAt;
+      if (connectedAt && (oldestConnection === null || connectedAt < oldestConnection)) {
+        oldestConnection = connectedAt;
       }
     });
 
     return {
-      totalClients: this.clients.size,
-      uniqueUsers: this.clientsByUser.size,
+      totalClients: this.totalSessions,
+      uniqueUsers: this.userChannels.size,
       oldestConnection,
     };
+  }
+
+  // ========== Backward Compatibility Methods ==========
+
+  /**
+   * @deprecated Use registerClient instead
+   * Kept for backward compatibility with old route code
+   */
+  public registerClientLegacy(res: Response, userId?: string): string | null {
+    logger.warn('Using deprecated registerClientLegacy - migrate to registerClient');
+    // Return null to indicate this method shouldn't be used
+    return null;
+  }
+
+  /**
+   * @deprecated No longer needed - handled automatically
+   */
+  public removeClient(_id: string): void {
+    // No-op - sessions are cleaned up automatically via res.on('close')
   }
 }
 

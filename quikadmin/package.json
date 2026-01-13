@@ -61,6 +61,7 @@
     "archiver": "^7.0.0",
     "axios": "^1.6.2",
     "bcrypt": "^6.0.0",
+    "better-sse": "^0.14.0",
     "bull": "^4.11.5",
     "bullmq": "^5.0.0",
     "commander": "^11.1.0",
