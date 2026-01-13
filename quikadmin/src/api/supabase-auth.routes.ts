@@ -31,14 +31,15 @@ import { lockoutService } from '../services/lockout.service';
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
 
 // Cookie configuration for httpOnly refreshToken
-// Production: secure, none sameSite (required for cross-origin fetch), /api/auth path
-// Test: not secure, lax sameSite, /api path (allows cross-port requests)
+// Production: secure, none sameSite (required for cross-origin fetch)
+// Test: not secure, lax sameSite (allows cross-port requests)
 // COOKIE_DOMAIN: Set to '.parentdomain.com' for cross-subdomain cookie sharing
 //
 // IMPORTANT: SameSite=None is required when frontend (Vercel) and backend (AWS)
 // are on different subdomains. SameSite=Lax only sends cookies for top-level
 // navigations, NOT for programmatic fetch/XHR requests (like axios POST).
-// This is why refreshToken was not being sent on page refresh!
+//
+// Path must be '/api' (not '/api/auth') to cover SSE endpoint at /api/realtime
 const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const REFRESH_TOKEN_COOKIE_OPTIONS: {
   httpOnly: boolean;
@@ -54,7 +55,7 @@ const REFRESH_TOKEN_COOKIE_OPTIONS: {
   // In test mode, use 'lax' since same-origin requests work fine
   sameSite: isTestMode ? 'lax' : 'none',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: isTestMode ? '/api' : '/api/auth',
+  path: '/api', // Must cover all API endpoints including /api/realtime for SSE
   ...(cookieDomain && { domain: cookieDomain }),
 };
 
@@ -69,7 +70,7 @@ function clearRefreshTokenCookie(res: Response): void {
     httpOnly: true,
     secure: process.env.NODE_ENV !== 'test',
     sameSite: isTestMode ? 'lax' : 'none',
-    path: isTestMode ? '/api' : '/api/auth',
+    path: '/api', // Must match REFRESH_TOKEN_COOKIE_OPTIONS.path
     ...(cookieDomain && { domain: cookieDomain }),
   });
 }

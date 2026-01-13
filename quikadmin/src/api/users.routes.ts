@@ -737,7 +737,7 @@ export function createUserRoutes(): Router {
           secure: !isTestMode,
           // SameSite=None required for cross-origin cookie clearing (frontend on different subdomain)
           sameSite: isTestMode ? 'lax' : 'none',
-          path: isTestMode ? '/api' : '/api/auth',
+          path: '/api', // Must match cookie path from supabase-auth.routes.ts
           ...(cookieDomain && { domain: cookieDomain }),
         });
 
