@@ -73,15 +73,22 @@ Plans:
 
 **Goal**: UX refinements and smart form selection
 **Depends on**: Phase 2
-**Research**: Unlikely (internal patterns, Framer Motion known)
-**Plans**: TBD (estimate 2-3 plans)
+**Research**: Complete (03-RESEARCH.md)
+**Plans**: 4 plans
 
 Key deliverables:
 
 - FormSuggester with document-to-form mapping
 - Framer Motion animations for wizard transitions
 - Assisted vs Express mode toggle
-- Performance optimization (<3s detection, <10s extraction)
+- Performance measurement (<3s detection, <10s extraction)
+
+Plans:
+
+- [ ] 03-01: FormSuggester (form mapping utilities, FormSuggester UI, wizard integration)
+- [ ] 03-02: Wizard Animations (wizard-variants.ts, direction-aware transitions, reduced motion)
+- [ ] 03-03: Assisted/Express Mode (userPreferencesStore, ModeToggle, step-skipping logic)
+- [ ] 03-04: UI Polish & Verification (performance logging, visual consistency, user checkpoint)
 
 ### Phase 4: PRO Features
 
@@ -106,7 +113,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | --------------- | -------------- | ----------- | ---------- |
 | 1. Foundation   | 6/6            | Complete    | 2026-01-15 |
 | 2. Intelligence | 4/4            | Complete    | 2026-01-15 |
-| 3. Polish       | 0/TBD          | Not started | -          |
+| 3. Polish       | 0/4            | Planned     | -          |
 | 4. PRO Features | 0/TBD          | Not started | -          |
 
 ---
