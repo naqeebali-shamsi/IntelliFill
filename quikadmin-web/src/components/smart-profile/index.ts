@@ -19,6 +19,12 @@ export {
   CONFIDENCE_THRESHOLDS,
 } from './ConfidenceBadge';
 export { FieldSourcePill, type FieldSourcePillProps } from './FieldSourcePill';
+export {
+  FieldSourceBadge,
+  type FieldSourceBadgeProps,
+  type FieldSourceBadgeSource,
+} from './FieldSourceBadge';
+export { MissingFieldsAlert, type MissingFieldsAlertProps } from './MissingFieldsAlert';
 export { ProfileView, type ProfileViewProps } from './ProfileView';
 export {
   EditableField,

@@ -35,10 +35,12 @@ import {
   ProfileView,
   PersonGrouper,
   ConfidenceReview,
+  MissingFieldsAlert,
 } from '@/components/smart-profile';
 import type { SuggestedMerge } from '@/services/smartProfileService';
 import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-profile';
 import { profilesService } from '@/services/profilesService';
+import { getMissingFields, getSuggestedDocuments } from '@/lib/form-fields';
 
 // =================== STEP CONFIGURATION ===================
 
@@ -321,6 +323,22 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
   const updateProfileField = useSmartProfileStore((state) => state.updateProfileField);
   const markFieldAsEdited = useSmartProfileStore((state) => state.markFieldAsEdited);
   const clientId = useSmartProfileStore((state) => state.clientId);
+  const selectedFormId = useSmartProfileStore((state) => state.selectedFormId);
+
+  // Track whether user has dismissed the missing fields alert
+  const [alertDismissed, setAlertDismissed] = React.useState(false);
+
+  // Calculate missing fields for default form type (visa-application)
+  // Phase 3 will add FormSuggester for proper form selection
+  const formType = selectedFormId || 'visa-application';
+  const missingFields = React.useMemo(
+    () => getMissingFields(profileData as Record<string, unknown>, formType),
+    [profileData, formType]
+  );
+  const suggestedDocuments = React.useMemo(
+    () => getSuggestedDocuments(missingFields),
+    [missingFields]
+  );
 
   const handleFieldChange = (fieldName: string, newValue: unknown) => {
     updateProfileField(fieldName, newValue);
@@ -330,8 +348,21 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
     markFieldAsEdited(fieldName);
   };
 
+  const handleDismissAlert = () => {
+    setAlertDismissed(true);
+  };
+
   return (
     <div className="space-y-4">
+      {/* Missing fields alert - shown before ProfileView */}
+      {!alertDismissed && missingFields.length > 0 && (
+        <MissingFieldsAlert
+          missingFields={missingFields}
+          suggestedDocuments={suggestedDocuments}
+          onDismiss={handleDismissAlert}
+        />
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
