@@ -106,12 +106,15 @@ function StepIndicator({ currentStep, completedSteps }: StepIndicatorProps) {
   const currentIndex = steps.findIndex((s) => s.id === currentStep);
 
   return (
-    <div className="flex items-center justify-center gap-2 py-4">
+    <nav aria-label="Wizard progress" className="flex items-center justify-center gap-2 py-4">
       {steps.map((step, index) => {
         const isActive = step.id === currentStep;
         const isCompleted = completedSteps.has(step.id);
         const isPast = index < currentIndex;
         const Icon = step.icon;
+
+        // Determine step status for accessibility
+        const stepStatus = isActive ? 'current' : isCompleted ? 'completed' : 'upcoming';
 
         return (
           <React.Fragment key={step.id}>
@@ -121,9 +124,13 @@ function StepIndicator({ currentStep, completedSteps }: StepIndicatorProps) {
                   'h-0.5 w-8 transition-colors',
                   isPast || isCompleted ? 'bg-primary' : 'bg-border'
                 )}
+                aria-hidden="true"
               />
             )}
             <div
+              role="listitem"
+              aria-current={isActive ? 'step' : undefined}
+              aria-label={`Step ${index + 1}: ${step.label} - ${stepStatus}`}
               className={cn(
                 'flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-all',
                 isActive && 'bg-primary text-primary-foreground shadow-md',
@@ -137,6 +144,7 @@ function StepIndicator({ currentStep, completedSteps }: StepIndicatorProps) {
                   isActive && 'bg-primary-foreground/20',
                   isCompleted && !isActive && 'bg-primary/20'
                 )}
+                aria-hidden="true"
               >
                 {isCompleted && !isActive ? (
                   <Check className="h-3.5 w-3.5" />
@@ -149,7 +157,7 @@ function StepIndicator({ currentStep, completedSteps }: StepIndicatorProps) {
           </React.Fragment>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
