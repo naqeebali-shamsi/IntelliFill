@@ -80,6 +80,21 @@ export interface LowConfidenceField {
   documentName: string;
 }
 
+export type ExtractionStatus = 'idle' | 'extracting' | 'merging' | 'complete' | 'error';
+
+export interface ExtractionProgress {
+  /** Current extraction status */
+  status: ExtractionStatus;
+  /** Name of the file currently being processed */
+  currentFile: string | null;
+  /** Number of documents processed so far */
+  processedCount: number;
+  /** Total number of documents to process */
+  totalCount: number;
+  /** Error message if extraction failed */
+  errorMessage: string | null;
+}
+
 // =================== STORE INTERFACES ===================
 
 interface SmartProfileState {
@@ -101,6 +116,8 @@ interface SmartProfileState {
   clientId: string | null;
   /** Processing timestamp */
   processingStartedAt: number | null;
+  /** Extraction progress for UI feedback */
+  extractionProgress: ExtractionProgress;
 }
 
 interface SmartProfileActions {
@@ -136,6 +153,10 @@ interface SmartProfileActions {
   setClientId: (clientId: string | null) => void;
   /** Set processing start time */
   setProcessingStartedAt: (timestamp: number | null) => void;
+  /** Update extraction progress for UI feedback */
+  setExtractionProgress: (progress: Partial<ExtractionProgress>) => void;
+  /** Reset extraction progress to idle */
+  resetExtractionProgress: () => void;
   /** Reset wizard to initial state */
   reset: () => void;
   /** Check if can proceed to next step */
@@ -150,6 +171,14 @@ type SmartProfileStore = SmartProfileState & SmartProfileActions;
 
 // =================== INITIAL STATE ===================
 
+const initialExtractionProgress: ExtractionProgress = {
+  status: 'idle',
+  currentFile: null,
+  processedCount: 0,
+  totalCount: 0,
+  errorMessage: null,
+};
+
 const initialState: SmartProfileState = {
   step: 'upload',
   uploadedFiles: [],
@@ -160,6 +189,7 @@ const initialState: SmartProfileState = {
   selectedFormId: null,
   clientId: null,
   processingStartedAt: null,
+  extractionProgress: initialExtractionProgress,
 };
 
 // =================== STEP NAVIGATION HELPERS ===================
@@ -384,6 +414,23 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
           });
         },
 
+        // =================== EXTRACTION PROGRESS ===================
+
+        setExtractionProgress: (progress) => {
+          set((state) => {
+            state.extractionProgress = {
+              ...state.extractionProgress,
+              ...progress,
+            };
+          });
+        },
+
+        resetExtractionProgress: () => {
+          set((state) => {
+            state.extractionProgress = initialExtractionProgress;
+          });
+        },
+
         // =================== RESET ===================
 
         reset: () => {
@@ -431,6 +478,10 @@ export const smartProfileSelectors = {
   fileCount: (state: SmartProfileStore) => state.uploadedFiles.length,
   detectedFileCount: (state: SmartProfileStore) =>
     state.uploadedFiles.filter((f) => f.status === 'detected').length,
+  extractionProgress: (state: SmartProfileStore) => state.extractionProgress,
+  isExtracting: (state: SmartProfileStore) =>
+    state.extractionProgress.status === 'extracting' ||
+    state.extractionProgress.status === 'merging',
 };
 
 // =================== HOOKS ===================
@@ -490,5 +541,21 @@ export const useExtractionResults = () =>
       lowConfidenceFields: state.lowConfidenceFields,
       setDetectedPeople: state.setDetectedPeople,
       setLowConfidenceFields: state.setLowConfidenceFields,
+    }))
+  );
+
+/**
+ * Hook for extraction progress tracking
+ * Provides progress state and actions for UI feedback during extraction
+ */
+export const useExtractionProgress = () =>
+  useSmartProfileStore(
+    useShallow((state) => ({
+      progress: state.extractionProgress,
+      setProgress: state.setExtractionProgress,
+      resetProgress: state.resetExtractionProgress,
+      isExtracting:
+        state.extractionProgress.status === 'extracting' ||
+        state.extractionProgress.status === 'merging',
     }))
   );
