@@ -92,7 +92,8 @@
     "tesseract.js": "^7.0.0",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "fuzzball": "^2.2.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
