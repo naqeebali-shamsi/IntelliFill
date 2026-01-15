@@ -2,7 +2,7 @@
  * Form field definitions and utilities
  *
  * Defines required fields for common form types and provides
- * utilities for detecting missing fields.
+ * utilities for detecting missing fields and suggesting forms.
  *
  * @module lib/form-fields
  */
@@ -60,6 +60,47 @@ export const DOCUMENT_FIELD_SOURCES: Record<string, string[]> = {
   'Bank Statement': ['address', 'accountNumber', 'bankName'],
   'Utility Bill': ['address', 'fullName'],
 };
+
+// ============================================================================
+// Document to Form Mapping
+// ============================================================================
+
+/**
+ * Maps which document types help complete which forms.
+ * Used for suggesting forms based on uploaded documents.
+ *
+ * Key: document type (matches DOCUMENT_FIELD_SOURCES keys)
+ * Value: array of form IDs this document helps complete
+ */
+export const DOCUMENT_TO_FORM_MAPPING: Record<string, string[]> = {
+  Passport: ['visa-application', 'residence-permit'],
+  'Emirates ID': ['emirates-id', 'bank-account', 'drivers-license', 'insurance-application'],
+  "Driver's License": ['drivers-license'],
+  'Bank Statement': ['bank-account'],
+  'Utility Bill': ['bank-account', 'residence-permit', 'insurance-application'],
+};
+
+// ============================================================================
+// Form Suggestion Types
+// ============================================================================
+
+/**
+ * A form suggestion based on uploaded documents.
+ */
+export interface FormSuggestion {
+  /** Form type ID */
+  formId: string;
+  /** Confidence score (0-1) based on document coverage */
+  confidence: number;
+  /** Document types that matched this form */
+  matchedDocuments: string[];
+  /** Document types still needed for complete coverage */
+  missingDocuments: string[];
+  /** Number of required fields that can be filled */
+  matchedFieldCount: number;
+  /** Total required fields for this form */
+  totalFieldCount: number;
+}
 
 // ============================================================================
 // Utility Functions
@@ -173,4 +214,105 @@ export function hasAllRequiredFields(
   formType: string
 ): boolean {
   return getMissingFields(profileData, formType).length === 0;
+}
+
+// ============================================================================
+// Form Suggestion Functions
+// ============================================================================
+
+/**
+ * Get documents needed to complete a form.
+ *
+ * @param formType - The form type to check
+ * @returns Array of document type names that can help complete this form
+ */
+export function getDocumentsForForm(formType: string): string[] {
+  const documents = new Set<string>();
+
+  for (const [docType, forms] of Object.entries(DOCUMENT_TO_FORM_MAPPING)) {
+    if (forms.includes(formType)) {
+      documents.add(docType);
+    }
+  }
+
+  return Array.from(documents);
+}
+
+/**
+ * Suggest forms based on uploaded document types.
+ * Scores forms by how many required fields can be filled with available documents.
+ *
+ * @param documentTypes - Array of uploaded document type names
+ * @returns Sorted array of form suggestions (highest confidence first)
+ *
+ * @example
+ * ```ts
+ * const suggestions = suggestForms(['Passport', 'Emirates ID']);
+ * // Returns ranked suggestions like:
+ * // [
+ * //   { formId: 'visa-application', confidence: 1.0, matchedDocuments: ['Passport'], ... },
+ * //   { formId: 'emirates-id', confidence: 0.75, matchedDocuments: ['Emirates ID'], ... },
+ * //   ...
+ * // ]
+ * ```
+ */
+export function suggestForms(documentTypes: string[]): FormSuggestion[] {
+  const suggestions: FormSuggestion[] = [];
+  const uploadedDocSet = new Set(documentTypes);
+
+  // Check each form type
+  for (const formId of Object.keys(FORM_REQUIRED_FIELDS)) {
+    const requiredFields = FORM_REQUIRED_FIELDS[formId];
+    const totalFieldCount = requiredFields.length;
+
+    // Find which documents help with this form
+    const documentsForThisForm = getDocumentsForForm(formId);
+    const matchedDocuments: string[] = [];
+    const missingDocuments: string[] = [];
+
+    for (const doc of documentsForThisForm) {
+      if (uploadedDocSet.has(doc)) {
+        matchedDocuments.push(doc);
+      } else {
+        missingDocuments.push(doc);
+      }
+    }
+
+    // Calculate how many fields can be filled by matched documents
+    const fieldsCoverable = new Set<string>();
+    for (const doc of matchedDocuments) {
+      const docFields = DOCUMENT_FIELD_SOURCES[doc] || [];
+      for (const field of docFields) {
+        if (requiredFields.includes(field)) {
+          fieldsCoverable.add(field);
+        }
+      }
+    }
+    const matchedFieldCount = fieldsCoverable.size;
+
+    // Calculate confidence as ratio of coverable fields to total required
+    const confidence = totalFieldCount > 0 ? matchedFieldCount / totalFieldCount : 0;
+
+    // Only include forms with at least some document coverage
+    if (matchedDocuments.length > 0) {
+      suggestions.push({
+        formId,
+        confidence,
+        matchedDocuments,
+        missingDocuments,
+        matchedFieldCount,
+        totalFieldCount,
+      });
+    }
+  }
+
+  // Sort by confidence descending, then by form ID for stable order
+  suggestions.sort((a, b) => {
+    if (b.confidence !== a.confidence) {
+      return b.confidence - a.confidence;
+    }
+    return a.formId.localeCompare(b.formId);
+  });
+
+  return suggestions;
 }
