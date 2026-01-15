@@ -10,31 +10,31 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 ## Current Position
 
 Phase: 2 of 4 (Intelligence)
-Plan: 1 of N complete
-Status: Plan 02-01 complete
-Last activity: 2026-01-15 — Completed 02-01: Entity Resolution Backend
+Plan: 2 of N complete
+Status: Plan 02-02 complete
+Last activity: 2026-01-15 — Completed 02-02: PersonGrouper UI
 
-Progress: ████░░░░░░ 40% (Phase 2)
+Progress: █████░░░░░ 50% (Phase 2)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 7
-- Average duration: ~17 min
-- Total execution time: ~123 min
+- Total plans completed: 8
+- Average duration: ~18 min
+- Total execution time: ~141 min
 
 **By Phase:**
 
 | Phase          | Plans | Total   | Avg/Plan |
 | -------------- | ----- | ------- | -------- |
 | 1-Foundation   | 6/6   | ~98 min | ~16 min  |
-| 2-Intelligence | 1/N   | ~25 min | ~25 min  |
+| 2-Intelligence | 2/N   | ~43 min | ~21 min  |
 
 **Recent Trend:**
 
-- Last 3 plans: 01-05 (~12 min), 01-06 (~8 min), 02-01 (~25 min)
-- Trend: 02-01 took longer due to new library integration
+- Last 3 plans: 01-06 (~8 min), 02-01 (~25 min), 02-02 (~18 min)
+- Trend: Phase 2 plans averaging slightly longer due to new UI patterns
 
 ## Accumulated Context
 
@@ -52,9 +52,12 @@ Recent decisions affecting current work:
 - Native Semaphore implementation for rate limiting
 - Removed "Verified" label - overstated AI certainty
 - Four-tier confidence: High (95%+), Good (85-94%), Review (70-84%), Low (<70%)
-- **NEW:** Entity resolution thresholds: AUTO_GROUP=0.95, SUGGEST=0.85, REVIEW=0.70
-- **NEW:** Use fuzzball token_sort_ratio for name matching (handles name reordering)
-- **NEW:** Union-Find algorithm for grouping efficiency
+- Entity resolution thresholds: AUTO_GROUP=0.95, SUGGEST=0.85, REVIEW=0.70
+- Use fuzzball token_sort_ratio for name matching (handles name reordering)
+- Union-Find algorithm for grouping efficiency
+- **NEW:** PointerSensor with 8px activation distance (prevents accidental drags)
+- **NEW:** Inline edit pattern for person names (not modal)
+- **NEW:** Show grouping step only when >1 person detected
 
 ### Deferred Issues
 
@@ -67,9 +70,26 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-15
-Stopped at: Completed 02-01-PLAN.md - Entity Resolution Backend
+Stopped at: Completed 02-02-PLAN.md - PersonGrouper UI
 Resume file: None
-Next: 02-02-PLAN.md (PersonGrouper UI)
+Next: 02-03-PLAN.md (ConfidenceReview UI)
+
+## Plan 02-02 Summary
+
+**PersonGrouper UI with drag-drop document reassignment:**
+
+- Created DocumentItem draggable component with useSortable hook
+- Built PersonCard droppable container with inline name editing
+- Implemented PersonGrouper with DndContext and DragOverlay
+- Integrated into SmartProfile wizard grouping step
+- Added MergeSuggestion component for backend suggestions
+
+**Commits:**
+
+- `940d629`: DocumentItem draggable component
+- `76c9419`: PersonCard droppable container
+- `d63c22a`: PersonGrouper main component with DndContext
+- `815cbd7`: Wire PersonGrouper into SmartProfile wizard
 
 ## Plan 02-01 Summary
 
