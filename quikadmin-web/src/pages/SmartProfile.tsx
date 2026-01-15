@@ -448,6 +448,10 @@ export default function SmartProfile() {
   const [direction, setDirection] = React.useState(1);
   const shouldReduceMotion = useReducedMotion();
 
+  // User preferences for wizard behavior (assisted vs express mode)
+  const wizardMode = useUserPreferencesStore((s) => s.wizardMode);
+  const confidenceThreshold = MODE_CONFIDENCE_THRESHOLDS[wizardMode];
+
   // Get store actions for updating extraction results
   const setProfileData = useSmartProfileStore((state) => state.setProfileData);
   const setFieldSources = useSmartProfileStore((state) => state.setFieldSources);
@@ -502,17 +506,29 @@ export default function SmartProfile() {
 
           // Check if we should show the grouping step (more than 1 person detected)
           const hasMultiplePeople = result.detectedPeople && result.detectedPeople.length > 1;
-          const needsReview =
-            result.lowConfidenceFields.length > 0 || extractedConflicts.length > 0;
+
+          // Calculate minimum confidence from field sources for auto-skip decision
+          // Mode-dependent threshold: Express = 90%, Assisted = 85%
+          const fieldConfidences = Object.values(result.fieldSources || {}).map(
+            (source) => source.confidence
+          );
+          const minConfidence = fieldConfidences.length > 0 ? Math.min(...fieldConfidences) : 0;
+
+          // Determine if review is needed based on mode-specific threshold
+          // Review needed if: has low confidence fields, has conflicts, OR min confidence below threshold
+          const shouldSkipReview =
+            result.lowConfidenceFields.length === 0 &&
+            extractedConflicts.length === 0 &&
+            minConfidence >= confidenceThreshold;
 
           if (hasMultiplePeople) {
             // Multiple people detected - go to grouping step
             targetStep = 'grouping';
-          } else if (!needsReview) {
-            // Single person, no low confidence fields and no conflicts - skip to profile
+          } else if (shouldSkipReview) {
+            // Single person, all fields high confidence - skip to profile
             targetStep = 'profile';
           } else {
-            // Single person, has low confidence fields or conflicts - go to review
+            // Single person, needs review due to low confidence or conflicts
             targetStep = 'review';
           }
 
@@ -644,9 +660,17 @@ export default function SmartProfile() {
         }
       />
 
-      {/* Step Indicator */}
+      {/* Step Indicator with Mode Toggle */}
       <Card className="overflow-hidden">
-        <StepIndicator currentStep={step} completedSteps={completedSteps} />
+        <div className="flex items-center justify-between px-4 pt-2">
+          <div className="flex-1" />
+          <div className="flex-1">
+            <StepIndicator currentStep={step} completedSteps={completedSteps} />
+          </div>
+          <div className="flex flex-1 justify-end">
+            <ModeToggle />
+          </div>
+        </div>
       </Card>
 
       {/* Step Content */}
