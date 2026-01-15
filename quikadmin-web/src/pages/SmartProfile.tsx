@@ -4,8 +4,14 @@
  */
 
 import * as React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { PageHeader } from '@/components/layout/page-header';
+import {
+  stepVariants,
+  fadeStepVariants,
+  stepTransition,
+  reducedMotionTransition,
+} from '@/components/smart-profile/animations/wizard-variants';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,11 +43,13 @@ import {
   PersonGrouper,
   ConfidenceReview,
   MissingFieldsAlert,
+  ModeToggle,
 } from '@/components/smart-profile';
 import type { SuggestedMerge } from '@/services/smartProfileService';
 import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-profile';
 import { profilesService } from '@/services/profilesService';
 import { getMissingFields, getSuggestedDocuments } from '@/lib/form-fields';
+import { useUserPreferencesStore, MODE_CONFIDENCE_THRESHOLDS } from '@/stores/userPreferencesStore';
 
 // =================== STEP CONFIGURATION ===================
 
@@ -436,6 +444,10 @@ export default function SmartProfile() {
   const [isSaving, setIsSaving] = React.useState(false);
   const [suggestedMerges, setSuggestedMerges] = React.useState<SuggestedMerge[]>([]);
 
+  // Animation: track direction (1 = forward, -1 = backward)
+  const [direction, setDirection] = React.useState(1);
+  const shouldReduceMotion = useReducedMotion();
+
   // Get store actions for updating extraction results
   const setProfileData = useSmartProfileStore((state) => state.setProfileData);
   const setFieldSources = useSmartProfileStore((state) => state.setFieldSources);
@@ -505,6 +517,7 @@ export default function SmartProfile() {
           }
 
           setCompletedSteps((prev) => new Set([...prev, step]));
+          setDirection(1); // Forward navigation
           setStep(targetStep);
         } else {
           const message = 'Extraction failed. Please try again.';
@@ -530,12 +543,14 @@ export default function SmartProfile() {
 
     // For other steps, just navigate
     setCompletedSteps((prev) => new Set([...prev, step]));
+    setDirection(1); // Forward navigation
     setStep(nextStep);
   };
 
   const handleBack = () => {
     const prevStep = getPreviousStep();
     if (prevStep) {
+      setDirection(-1); // Backward navigation
       setStep(prevStep);
     }
   };
@@ -635,13 +650,15 @@ export default function SmartProfile() {
       </Card>
 
       {/* Step Content */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" custom={direction}>
         <motion.div
           key={step}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.2 }}
+          custom={direction}
+          variants={shouldReduceMotion ? fadeStepVariants : stepVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={shouldReduceMotion ? reducedMotionTransition : stepTransition}
         >
           {renderStepContent()}
         </motion.div>
