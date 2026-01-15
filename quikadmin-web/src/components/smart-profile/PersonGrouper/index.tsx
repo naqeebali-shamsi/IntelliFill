@@ -8,6 +8,7 @@
  */
 
 import * as React from 'react';
+import { motion } from 'framer-motion';
 import {
   DndContext,
   DragOverlay,
@@ -23,6 +24,7 @@ import {
 import { Plus, Combine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { staggerContainer, fadeInUp } from '@/lib/animations';
 import { PersonCard, type PersonGroup } from './PersonCard';
 import { DocumentItem, type DocumentItemDocument } from './DocumentItem';
 import { MergeSuggestion } from './MergeSuggestion';
@@ -371,17 +373,23 @@ export function PersonGrouper({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        {/* Responsive grid of PersonCards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Responsive grid of PersonCards with staggered animation */}
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+        >
           {groups.map((group) => (
-            <PersonCard
-              key={group.id}
-              group={group}
-              documents={getGroupDocuments(group)}
-              onRename={handleRename}
-            />
+            <motion.div key={group.id} variants={fadeInUp}>
+              <PersonCard
+                group={group}
+                documents={getGroupDocuments(group)}
+                onRename={handleRename}
+              />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
 
         {/* Drag overlay - shows document being dragged */}
         <DragOverlay>
