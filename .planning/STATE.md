@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-01-13)
 
 ## Current Position
 
-Phase: 3 of 4 (Polish) - PLANNED
-Plan: 0 of 4 complete
-Status: Phase 3 planned, ready for execution
-Last activity: 2026-01-16 — Created 4 plans for Phase 3
+Phase: 3 of 4 (Polish) - COMPLETE
+Plan: 03-04 complete (all tasks)
+Status: Phase 3 finished, ready for Phase 4
+Last activity: 2026-01-16 — Plan 03-04 verified via E2E tests (62 passed)
 
-Progress: ██████████ 100% (Phase 2)
+Progress: ██████████ 100% (Phase 3 complete)
 
 ## Performance Metrics
 
@@ -64,6 +64,10 @@ Recent decisions affecting current work:
 - **NEW:** FieldSourceBadge shows icon-only with detailed tooltip
 - **NEW:** Default form type "visa-application" for missing field detection
 - **NEW:** MissingFieldsAlert dismissable for power users
+- **NEW:** Assisted/Express mode toggle (85% vs 90% threshold)
+- **NEW:** Default to 'assisted' mode for new users (safer)
+- **NEW:** Dev-mode performance timing for wizard flow
+- **NEW:** Step indicator uses semantic nav with aria-labels
 
 ### Deferred Issues
 
@@ -76,9 +80,76 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-16
-Stopped at: Phase 3 planning complete
+Stopped at: Plan 03-04 complete
 Resume file: None
-Next: Execute Phase 3 (4 plans, Wave 1 parallel → Wave 2 sequential)
+Next: Phase 4 planning (Testing/Quality)
+
+## Plan 03-01 Summary (Complete)
+
+**FormSuggester - Smart form suggestions based on uploaded documents:**
+
+- Extended form-fields.ts with DOCUMENT_TO_FORM_MAPPING and suggestForms()
+- Created FormCard component with confidence badge and matched docs display
+- Built FormSuggester main component with ranked suggestions
+- Integrated into SmartProfile wizard form-select step
+- MissingFieldsAlert now uses selected form ID
+- 22 unit tests for form suggestion functionality
+
+**Commits:**
+
+- `9860d04`: Add form mapping utilities to form-fields
+- `b4cd6e7`: Build FormSuggester UI components
+- `ddaa1dd`: Integrate FormSuggester into wizard
+
+## Plan 03-02 Summary (Complete)
+
+**Wizard animations with direction-awareness and accessibility:**
+
+- Created wizard-variants.ts with stepVariants and fadeStepVariants
+- Added direction state tracking (1=forward, -1=backward)
+- Integrated useReducedMotion for accessibility compliance
+- Replaced inline animation objects with variant references
+- Added staggered animations to PersonGrouper grid
+
+**Commits:**
+
+- `3de714d`: Create wizard animation variants
+- `1f5b9dd`: Enhance SmartProfile with variants and reduced motion
+- `751e38e`: Add staggered animations for PersonGrouper lists
+
+## Plan 03-03 Summary (Complete)
+
+**Assisted/Express Mode toggle:**
+
+- Created userPreferencesStore with localStorage persistence
+- Built ModeToggle component with Switch and tooltips
+- Integrated mode-aware auto-skip logic into SmartProfile
+- Express mode: 90% threshold, Assisted mode: 85% threshold
+- Default to 'assisted' for new users
+
+**Commits:**
+
+- `fa82594`: userPreferencesStore with persist
+- `fa55ecb`: ModeToggle component
+- `34fe81a`: Integrate mode logic into SmartProfile wizard
+
+## Plan 03-04 Summary (Complete)
+
+**UI Polish & Verification:**
+
+- Created lib/performance.ts with timing utilities
+- Added detection timing to SmartUploadZone
+- Added extraction and total wizard timing to SmartProfile
+- Improved step indicator accessibility (aria-labels, nav element)
+- Audited all components - existing states are complete
+- User verification via E2E tests: 62 passed, 3 skipped
+
+**Commits:**
+
+- `dcc8e51`: Performance logging utility
+- `da94c09`: Step indicator accessibility
+
+**Phase 3 Polish - COMPLETE**
 
 ## Plan 02-04 Summary (Complete)
 
