@@ -1,14 +1,21 @@
 /**
  * ConfidenceBadge Component
  *
- * Displays confidence level with semantic labels instead of raw percentages.
- * Uses color-coded badges based on thresholds.
+ * Displays confidence level with honest semantic labels (not misleading "Verified").
+ * Uses color-coded badges based on thresholds with tooltip showing actual percentage.
+ *
+ * Labels are intentionally transparent about AI uncertainty:
+ * - "High confidence" (95%+) - Very likely correct but still AI-extracted
+ * - "Good confidence" (85-94%) - Probably correct, worth a quick check
+ * - "Review suggested" (70-84%) - Check this field before submission
+ * - "Low confidence" (<70%) - Definitely needs manual verification
  *
  * @module components/smart-profile/ConfidenceBadge
  */
 
 import { cn } from '@/lib/utils';
 import { CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // ============================================================================
 // Types
@@ -31,10 +38,15 @@ export interface ConfidenceBadgeProps {
 // Constants
 // ============================================================================
 
+/**
+ * Confidence thresholds with honest semantic meaning.
+ * Never use "Verified" - implies human verification which didn't happen.
+ */
 const CONFIDENCE_THRESHOLDS = {
-  HIGH: 0.85, // >= 85% - Verified
-  MEDIUM: 0.6, // >= 60% - Review suggested
-  // < 60% - Please verify
+  VERY_HIGH: 0.95, // >= 95% - High confidence (very likely correct)
+  HIGH: 0.85, // >= 85% - Good confidence (probably correct)
+  MEDIUM: 0.7, // >= 70% - Review suggested (check before submission)
+  // < 70% - Low confidence (definitely verify)
 };
 
 interface ConfidenceDisplay {
@@ -48,11 +60,18 @@ interface ConfidenceDisplay {
   };
 }
 
+/**
+ * Get confidence display with honest, non-misleading labels.
+ *
+ * NEVER use: "Verified", "Confirmed", "Accurate" - these overstate certainty
+ * and cause users to skip review, leading to form errors.
+ */
 function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
-  if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) {
+  // 95%+ - High confidence (very likely correct, but still AI-extracted)
+  if (confidence >= CONFIDENCE_THRESHOLDS.VERY_HIGH) {
     return {
       level: 'high',
-      label: 'Verified',
+      label: 'High confidence',
       icon: CheckCircle2,
       colors: {
         bg: 'bg-status-success/10',
@@ -62,6 +81,21 @@ function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
     };
   }
 
+  // 85-94% - Good confidence (probably correct, worth a quick check)
+  if (confidence >= CONFIDENCE_THRESHOLDS.HIGH) {
+    return {
+      level: 'high',
+      label: 'Good confidence',
+      icon: CheckCircle2,
+      colors: {
+        bg: 'bg-status-success/10',
+        text: 'text-status-success-foreground',
+        border: 'border-status-success/30',
+      },
+    };
+  }
+
+  // 70-84% - Review suggested (check this field before submission)
   if (confidence >= CONFIDENCE_THRESHOLDS.MEDIUM) {
     return {
       level: 'medium',
@@ -75,9 +109,10 @@ function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
     };
   }
 
+  // <70% - Low confidence (definitely needs manual verification)
   return {
     level: 'low',
-    label: 'Please verify',
+    label: 'Low confidence',
     icon: AlertCircle,
     colors: {
       bg: 'bg-status-error/10',
@@ -104,17 +139,21 @@ const iconSizes = {
 };
 
 /**
- * ConfidenceBadge displays AI/ML confidence levels with semantic labels.
+ * ConfidenceBadge displays AI extraction confidence with honest semantic labels.
+ * Includes tooltip showing actual percentage for transparency.
  *
  * @example
  * ```tsx
- * // High confidence - shows green "Verified"
+ * // Very high confidence - shows green "High confidence" (95%+)
+ * <ConfidenceBadge confidence={0.97} />
+ *
+ * // High confidence - shows green "Good confidence" (85-94%)
  * <ConfidenceBadge confidence={0.92} />
  *
- * // Medium confidence - shows yellow "Review suggested"
+ * // Medium confidence - shows yellow "Review suggested" (70-84%)
  * <ConfidenceBadge confidence={0.75} showIcon />
  *
- * // Low confidence - shows red "Please verify"
+ * // Low confidence - shows red "Low confidence" (<70%)
  * <ConfidenceBadge confidence={0.45} size="lg" />
  * ```
  */
@@ -126,21 +165,31 @@ export function ConfidenceBadge({
 }: ConfidenceBadgeProps) {
   const display = getConfidenceDisplay(confidence);
   const Icon = display.icon;
+  const percentageText = `${Math.round(confidence * 100)}% extraction confidence`;
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full border font-medium',
-        sizeClasses[size],
-        display.colors.bg,
-        display.colors.text,
-        display.colors.border,
-        className
-      )}
-    >
-      {showIcon && <Icon size={iconSizes[size]} className="shrink-0" />}
-      <span>{display.label}</span>
-    </span>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              'inline-flex items-center rounded-full border font-medium cursor-help',
+              sizeClasses[size],
+              display.colors.bg,
+              display.colors.text,
+              display.colors.border,
+              className
+            )}
+          >
+            {showIcon && <Icon size={iconSizes[size]} className="shrink-0" />}
+            <span>{display.label}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{percentageText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
