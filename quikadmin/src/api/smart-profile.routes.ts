@@ -18,6 +18,12 @@ import { DocumentCategory } from '../multiagent/types/state';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { validateFilePath } from '../utils/encryption';
 import { OCRService } from '../services/OCRService';
+import {
+  personGroupingService,
+  DocumentExtraction,
+  PersonGroup,
+  SuggestedMerge,
+} from '../services/PersonGroupingService';
 
 // ============================================================================
 // Types
@@ -69,6 +75,13 @@ interface FileError {
   stage: 'ocr' | 'extraction' | 'merge';
 }
 
+interface DetectedPerson {
+  id: string;
+  name: string | null;
+  confidence: number;
+  documentIds: string[];
+}
+
 interface ExtractBatchResponse {
   success: boolean;
   profileData: Record<string, unknown>;
@@ -79,6 +92,13 @@ interface ExtractBatchResponse {
   documentsProcessed: number;
   successfulDocuments: number;
   totalFieldsExtracted: number;
+  // Person grouping data
+  detectedPeople: DetectedPerson[];
+  suggestedMerges?: Array<{
+    groupIds: [string, string];
+    confidence: number;
+    reason: string;
+  }>;
 }
 
 // ============================================================================
@@ -430,6 +450,9 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
     const errors: FileError[] = [];
     let successfulDocuments = 0;
 
+    // Document extractions for person grouping
+    const documentExtractions: DocumentExtraction[] = [];
+
     // Low confidence threshold (85% = 0.85)
     const LOW_CONF_THRESHOLD = 85;
 
@@ -564,6 +587,28 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
         // File processed successfully
         successfulDocuments++;
 
+        // Collect extraction data for person grouping
+        // Extract name and ID fields for grouping
+        const nameField =
+          extractionResult.fields['full_name'] ||
+          extractionResult.fields['fullName'] ||
+          extractionResult.fields['name'];
+        const idField =
+          extractionResult.fields['emirates_id'] ||
+          extractionResult.fields['emiratesId'] ||
+          extractionResult.fields['passport_number'] ||
+          extractionResult.fields['passportNumber'] ||
+          extractionResult.fields['id_number'] ||
+          extractionResult.fields['idNumber'];
+
+        documentExtractions.push({
+          documentId: fileId,
+          fileName: file.originalname,
+          extractedName: nameField?.value as string | null,
+          extractedIdNumber: idField?.value as string | null,
+          fields: extractionResult.fields,
+        });
+
         logger.debug(`Merged fields from ${file.originalname}`, {
           totalProfileFields: Object.keys(profileData).length,
           lowConfidenceCount: lowConfidenceFields.length,
@@ -590,12 +635,25 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
 
     const processingTime = Date.now() - startTime;
 
+    // Perform person grouping on successful extractions
+    const groupingResult = personGroupingService.groupDocuments(documentExtractions);
+
+    // Convert PersonGroups to DetectedPerson format for response
+    const detectedPeople: DetectedPerson[] = groupingResult.groups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      confidence: group.confidence,
+      documentIds: group.documentIds,
+    }));
+
     logger.info('Batch extraction completed', {
       documentsProcessed: files.length,
       successfulDocuments,
       errorCount: errors.length,
       totalFieldsExtracted: Object.keys(profileData).length,
       lowConfidenceFieldCount: lowConfidenceFields.length,
+      detectedPeopleCount: detectedPeople.length,
+      suggestedMergeCount: groupingResult.suggestedMerges.length,
       processingTimeMs: processingTime,
     });
 
@@ -610,6 +668,9 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
       documentsProcessed: files.length,
       successfulDocuments,
       totalFieldsExtracted: Object.keys(profileData).length,
+      detectedPeople,
+      suggestedMerges:
+        groupingResult.suggestedMerges.length > 0 ? groupingResult.suggestedMerges : undefined,
     };
 
     res.json(response);
