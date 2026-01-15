@@ -44,6 +44,7 @@ import {
   ConfidenceReview,
   MissingFieldsAlert,
   ModeToggle,
+  FormSuggester,
 } from '@/components/smart-profile';
 import type { SuggestedMerge } from '@/services/smartProfileService';
 import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-profile';
@@ -337,8 +338,8 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
   // Track whether user has dismissed the missing fields alert
   const [alertDismissed, setAlertDismissed] = React.useState(false);
 
-  // Calculate missing fields for default form type (visa-application)
-  // Phase 3 will add FormSuggester for proper form selection
+  // Calculate missing fields for selected form (or default to visa-application)
+  // Uses FormSuggester selection from form-select step
   const formType = selectedFormId || 'visa-application';
   const missingFields = React.useMemo(
     () => getMissingFields(profileData as Record<string, unknown>, formType),
@@ -412,23 +413,44 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
 
 function FormSelectStepContent() {
   const selectedFormId = useSmartProfileStore((state) => state.selectedFormId);
+  const selectForm = useSmartProfileStore((state) => state.selectForm);
+  const uploadedFiles = useSmartProfileStore((state) => state.uploadedFiles);
+
+  // Convert detected file types to document type names for FormSuggester
+  // Map internal types (PASSPORT, EMIRATES_ID) to display names (Passport, Emirates ID)
+  const documentTypes = React.useMemo(() => {
+    const typeMap: Record<string, string> = {
+      PASSPORT: 'Passport',
+      EMIRATES_ID: 'Emirates ID',
+      DRIVERS_LICENSE: "Driver's License",
+      BANK_STATEMENT: 'Bank Statement',
+      OTHER: 'Other',
+    };
+
+    return uploadedFiles
+      .filter((f) => f.status === 'detected' && f.detectedType)
+      .map((f) => typeMap[f.detectedType!] || 'Other')
+      .filter((type, index, arr) => arr.indexOf(type) === index); // dedupe
+  }, [uploadedFiles]);
+
+  const handleSelectForm = (formId: string) => {
+    selectForm(formId);
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Form Selection</CardTitle>
-        <CardDescription>Choose forms to fill with your extracted profile data</CardDescription>
+        <CardTitle>Select a Form</CardTitle>
+        <CardDescription>
+          Based on your uploaded documents, we suggest forms you can fill. Select one to proceed.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
-          <FileText className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-muted-foreground">
-            {selectedFormId ? 'Form selected' : 'Form selection coming in Phase 3'}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground/70">
-            FormSuggester component will replace this placeholder in Phase 3
-          </p>
-        </div>
+        <FormSuggester
+          documentTypes={documentTypes}
+          selectedFormId={selectedFormId}
+          onSelectForm={handleSelectForm}
+        />
       </CardContent>
     </Card>
   );

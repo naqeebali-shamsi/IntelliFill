@@ -47,4 +47,10 @@ export {
   type LowConfidenceFieldData,
   type ConflictData,
 } from './ConfidenceReview';
+export {
+  FormSuggester,
+  FormCard,
+  type FormSuggesterProps,
+  type FormCardProps,
+} from './FormSuggester';
 export { ModeToggle, type ModeToggleProps } from './ModeToggle';
