@@ -47,3 +47,4 @@ export {
   type LowConfidenceFieldData,
   type ConflictData,
 } from './ConfidenceReview';
+export { ModeToggle, type ModeToggleProps } from './ModeToggle';
