@@ -105,7 +105,7 @@ async function classifyNode(
     startTime: new Date(startTime),
     endTime: new Date(),
     status,
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.5-flash',
     tokenCount: 0,
     retryCount: 0,
     error,
@@ -115,10 +115,11 @@ async function classifyNode(
     classification: {
       category: classificationResult.documentType,
       confidence: classificationResult.confidence,
-      alternativeCategories: classificationResult.alternativeTypes?.map((alt) => ({
-        category: alt.type,
-        confidence: alt.confidence,
-      })) || [],
+      alternativeCategories:
+        classificationResult.alternativeTypes?.map((alt) => ({
+          category: alt.type,
+          confidence: alt.confidence,
+        })) || [],
       classifiedAt: new Date(),
     },
     agentHistory: [...state.agentHistory, execution],

@@ -1,7 +1,7 @@
 import Bull from 'bull';
 import * as path from 'path';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
-import { OCRService, OCRProgress } from '../services/OCRService';
+import { OCRService, OCRProgress, StructuredDataResult } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 import { realtimeService } from '../services/RealtimeService';
@@ -9,6 +9,12 @@ import { prisma } from '../utils/prisma';
 import { getRedisConfig, defaultBullSettings, ocrJobOptions } from '../utils/redisConfig';
 import { isRedisHealthy } from '../utils/redisHealth';
 import { validateOcrJobDataOrThrow, OCRValidationError } from '../utils/ocrJobValidation';
+import { encryptExtractedData } from '../middleware/encryptionMiddleware';
+import { ExtractedDataWithConfidence, ExtractedFieldResult } from '../types/extractedData';
+import { sanitizeLLMInput } from '../utils/sanitizeLLMInput';
+import { classifyDocument } from '../multiagent/agents/classifierAgent';
+import { extractDocumentData, mergeExtractionResults } from '../multiagent/agents/extractorAgent';
+import { getFileBuffer } from '../utils/fileReader';
 
 // Supported image extensions for OCR
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.tiff', '.tif', '.bmp', '.gif'];
@@ -80,6 +86,15 @@ export const OCR_QUEUE_CONFIG = {
    */
   LOW_CONFIDENCE_THRESHOLD: parseConfidenceThreshold(process.env.OCR_LOW_CONFIDENCE_THRESHOLD, 40),
 
+  /**
+   * LLM extraction fallback threshold (0-100)
+   * If OCR confidence is below this and LLM is enabled, run LLM extraction.
+   */
+  LLM_FALLBACK_THRESHOLD: parseConfidenceThreshold(
+    process.env.LLM_EXTRACTION_CONFIDENCE_THRESHOLD,
+    70
+  ),
+
   /** Health check thresholds */
   HEALTH: {
     /** Max active jobs before queue is considered unhealthy */
@@ -88,6 +103,81 @@ export const OCR_QUEUE_CONFIG = {
     MAX_WAITING_JOBS: 500,
   },
 } as const;
+
+/**
+ * Feature flag for LLM extraction fallback
+ */
+const LLM_EXTRACTION_ENABLED = process.env.ENABLE_LLM_EXTRACTION === 'true';
+
+/**
+ * Map file extension to image mime type
+ */
+function getImageMimeTypeFromExtension(ext: string): string {
+  switch (ext) {
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.tiff':
+    case '.tif':
+      return 'image/tiff';
+    case '.jpg':
+    case '.jpeg':
+    default:
+      return 'image/jpeg';
+  }
+}
+
+/**
+ * Convert OCR structured data into extracted fields with confidence.
+ * Flattens arrays (email, phone, etc.) into indexed fields.
+ */
+function buildExtractedFieldsFromOCR(
+  structuredData: StructuredDataResult
+): ExtractedDataWithConfidence {
+  const extractedFields: ExtractedDataWithConfidence = {};
+
+  const addField = (key: string, field: ExtractedFieldResult): void => {
+    extractedFields[key] = {
+      value: field.value,
+      confidence: field.confidence,
+      source: field.source,
+      rawText: field.rawText,
+    };
+  };
+
+  if (structuredData.fields) {
+    for (const [key, value] of Object.entries(structuredData.fields)) {
+      addField(key, value as ExtractedFieldResult);
+    }
+  }
+
+  const listFieldKeys: Array<keyof StructuredDataResult> = [
+    'email',
+    'phone',
+    'date',
+    'ssn',
+    'zipCode',
+    'currency',
+    'percentage',
+    'passport',
+    'emiratesId',
+  ];
+
+  for (const fieldKey of listFieldKeys) {
+    const entries = structuredData[fieldKey] as ExtractedFieldResult[] | undefined;
+    if (!entries || entries.length === 0) continue;
+
+    entries.forEach((entry, index) => {
+      const suffix = index === 0 ? '' : `_${index + 1}`;
+      addField(`${String(fieldKey)}${suffix}`, entry);
+    });
+  }
+
+  return extractedFields;
+}
 
 /**
  * Job states that indicate the job is still pending or in-progress
@@ -380,7 +470,70 @@ if (ocrQueue) {
         ocrResult.confidence
       );
 
+      let extractedFields = buildExtractedFieldsFromOCR(structuredData);
+      const extractedFieldCount = Object.keys(extractedFields).length;
+      const shouldFallbackToLLM =
+        LLM_EXTRACTION_ENABLED &&
+        (extractedFieldCount === 0 ||
+          ocrResult.confidence < OCR_QUEUE_CONFIG.LLM_FALLBACK_THRESHOLD);
+
+      let llmSummary: Record<string, unknown> | null = null;
+      if (shouldFallbackToLLM) {
+        try {
+          const sanitizedText = sanitizeLLMInput(ocrResult.text || '');
+          let imageBase64: string | undefined;
+
+          if (isImage) {
+            const imageBuffer = await getFileBuffer(filePath);
+            const mimeType = getImageMimeTypeFromExtension(fileExt);
+            imageBase64 = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+          }
+
+          const classification = await classifyDocument(sanitizedText, imageBase64);
+          const llmResult = await extractDocumentData(
+            sanitizedText,
+            classification.documentType,
+            imageBase64
+          );
+
+          extractedFields = mergeExtractionResults(llmResult.fields, extractedFields);
+
+          llmSummary = {
+            used: true,
+            fallbackReason: extractedFieldCount === 0 ? 'empty_extraction' : 'low_confidence',
+            classification: {
+              category: classification.documentType,
+              confidence: classification.confidence,
+            },
+            extraction: {
+              modelUsed: llmResult.modelUsed,
+              processingTimeMs: llmResult.processingTime,
+              totalFields: Object.keys(llmResult.fields).length,
+            },
+          };
+        } catch (llmError) {
+          logger.warn('LLM extraction fallback failed', {
+            documentId,
+            error: llmError instanceof Error ? llmError.message : 'Unknown error',
+          });
+          llmSummary = {
+            used: true,
+            failed: true,
+            error: llmError instanceof Error ? llmError.message : 'Unknown error',
+          };
+        }
+      }
+
       await job.progress(95);
+
+      const extractedDataPayload: Record<string, unknown> = {
+        ...extractedFields,
+        _meta: {
+          ocrMetadata: ocrResult.metadata,
+          pages: ocrResult.pages,
+        },
+      };
+      const encryptedExtractedData = encryptExtractedData(extractedDataPayload);
 
       // Update document with OCR results
       await prisma.document.update({
@@ -388,13 +541,10 @@ if (ocrQueue) {
         data: {
           status: 'COMPLETED',
           extractedText: ocrResult.text,
-          extractedData: JSON.parse(JSON.stringify({
-            ...structuredData,
-            ocrMetadata: ocrResult.metadata,
-            pages: ocrResult.pages,
-          })),
+          extractedData: encryptedExtractedData,
           confidence: ocrResult.confidence / 100, // Convert to 0-1 scale
           processedAt: new Date(),
+          ...(llmSummary ? { multiAgentResult: llmSummary } : {}),
         },
       });
 

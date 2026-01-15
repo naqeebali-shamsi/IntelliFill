@@ -74,9 +74,9 @@ function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
       label: 'High confidence',
       icon: CheckCircle2,
       colors: {
-        bg: 'bg-status-success/10',
+        bg: 'bg-status-success/20',
         text: 'text-status-success-foreground',
-        border: 'border-status-success/30',
+        border: 'border-status-success/50',
       },
     };
   }
@@ -88,9 +88,9 @@ function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
       label: 'Good confidence',
       icon: CheckCircle2,
       colors: {
-        bg: 'bg-status-success/10',
+        bg: 'bg-status-success/20',
         text: 'text-status-success-foreground',
-        border: 'border-status-success/30',
+        border: 'border-status-success/50',
       },
     };
   }
@@ -102,9 +102,9 @@ function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
       label: 'Review suggested',
       icon: AlertTriangle,
       colors: {
-        bg: 'bg-status-warning/10',
+        bg: 'bg-status-warning/20',
         text: 'text-status-warning-foreground',
-        border: 'border-status-warning/30',
+        border: 'border-status-warning/50',
       },
     };
   }
@@ -115,9 +115,9 @@ function getConfidenceDisplay(confidence: number): ConfidenceDisplay {
     label: 'Low confidence',
     icon: AlertCircle,
     colors: {
-      bg: 'bg-status-error/10',
+      bg: 'bg-status-error/20',
       text: 'text-status-error-foreground',
-      border: 'border-status-error/30',
+      border: 'border-status-error/50',
     },
   };
 }
@@ -173,7 +173,7 @@ export function ConfidenceBadge({
         <TooltipTrigger asChild>
           <span
             className={cn(
-              'inline-flex items-center rounded-full border font-medium cursor-help',
+              'inline-flex max-w-full min-w-0 items-center rounded-full border font-medium cursor-help',
               sizeClasses[size],
               display.colors.bg,
               display.colors.text,
@@ -182,7 +182,7 @@ export function ConfidenceBadge({
             )}
           >
             {showIcon && <Icon size={iconSizes[size]} className="shrink-0" />}
-            <span>{display.label}</span>
+            <span className="truncate whitespace-nowrap leading-none">{display.label}</span>
           </span>
         </TooltipTrigger>
         <TooltipContent>

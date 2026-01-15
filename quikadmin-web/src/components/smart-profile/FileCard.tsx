@@ -7,7 +7,7 @@
  * @module components/smart-profile/FileCard
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { forwardRef, useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { formatFileSize } from '@/utils/fileValidation';
@@ -100,7 +100,10 @@ function StatusIndicator({ status }: { status: UploadStatus }) {
  * />
  * ```
  */
-export function FileCard({ file, onTypeChange, onRemove, className }: FileCardProps) {
+const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileCard(
+  { file, onTypeChange, onRemove, className },
+  ref
+): JSX.Element {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleTypeChange = useCallback(
@@ -127,6 +130,7 @@ export function FileCard({ file, onTypeChange, onRemove, className }: FileCardPr
 
   return (
     <motion.div
+      ref={ref}
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -159,7 +163,7 @@ export function FileCard({ file, onTypeChange, onRemove, className }: FileCardPr
         </div>
 
         {/* Status or Detection Result */}
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-1 flex flex-wrap items-center gap-2">
           {isProcessing && <StatusIndicator status={file.status} />}
           {hasError && (
             <span className="text-sm text-status-error-foreground">
@@ -174,9 +178,11 @@ export function FileCard({ file, onTypeChange, onRemove, className }: FileCardPr
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-auto gap-1 px-2 py-0.5 text-sm font-normal"
+                    className="h-auto min-w-0 max-w-full gap-1 px-2 py-0.5 text-sm font-normal"
                   >
-                    <span className="text-muted-foreground">{displayType}</span>
+                    <span className="max-w-40 truncate text-muted-foreground sm:max-w-none">
+                      {displayType}
+                    </span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -215,11 +221,13 @@ export function FileCard({ file, onTypeChange, onRemove, className }: FileCardPr
       </Button>
     </motion.div>
   );
-}
+});
+
+FileCard.displayName = 'FileCard';
 
 // ============================================================================
 // Exports
 // ============================================================================
 
-export { DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_OPTIONS };
+export { DOCUMENT_TYPE_LABELS, DOCUMENT_TYPE_OPTIONS, FileCard };
 export default FileCard;

@@ -6,11 +6,7 @@
  */
 
 import { DocumentState, createInitialState } from '../types/state';
-import {
-  NODE_NAMES,
-  createDocumentProcessingGraph,
-  __test__,
-} from '../workflow';
+import { NODE_NAMES, createDocumentProcessingGraph, __test__ } from '../workflow';
 
 // Extract test utilities from workflow
 const {
@@ -102,7 +98,7 @@ describe('MultiAgent Workflow', () => {
       expect(result.agentHistory?.length).toBe(1);
       expect(result.agentHistory?.[0].agent).toBe('classifier');
       expect(result.agentHistory?.[0].status).toBe('completed');
-      expect(result.agentHistory?.[0].model).toBe('gemini-1.5-flash');
+      expect(result.agentHistory?.[0].model).toBe('gemini-2.5-flash');
     });
 
     it('should advance to extract node', async () => {
@@ -159,9 +155,7 @@ describe('MultiAgent Workflow', () => {
 
       const result = await extractNode(state);
 
-      const executionRecord = result.agentHistory?.find(
-        (h) => h.agent === 'extractor'
-      );
+      const executionRecord = result.agentHistory?.find((h) => h.agent === 'extractor');
       expect(executionRecord).toBeDefined();
       expect(executionRecord?.status).toBe('completed');
     });
@@ -219,9 +213,7 @@ describe('MultiAgent Workflow', () => {
 
       const result = await mapNode(state);
 
-      const executionRecord = result.agentHistory?.find(
-        (h) => h.agent === 'mapper'
-      );
+      const executionRecord = result.agentHistory?.find((h) => h.agent === 'mapper');
       expect(executionRecord).toBeDefined();
       expect(executionRecord?.model).toBe('mistral:7b');
     });
@@ -352,16 +344,12 @@ describe('MultiAgent Workflow', () => {
 
       const result = await errorRecoverNode(state);
 
-      const executionRecord = result.agentHistory?.find(
-        (h) => h.agent === 'errorRecovery'
-      );
+      const executionRecord = result.agentHistory?.find((h) => h.agent === 'errorRecovery');
       expect(executionRecord).toBeDefined();
     });
 
     it('should preserve existing errors on retry', async () => {
-      const existingErrors = [
-        { node: 'qa', error: 'Previous error', timestamp: new Date() },
-      ];
+      const existingErrors = [{ node: 'qa', error: 'Previous error', timestamp: new Date() }];
       const state = createTestState({
         processingControl: {
           ...createTestState().processingControl,
@@ -513,10 +501,7 @@ describe('MultiAgent Workflow', () => {
 
       const result = await finalizeNode(state);
 
-      expect(result.results?.reviewReasons).toEqual([
-        'Name is required',
-        'Date format invalid',
-      ]);
+      expect(result.results?.reviewReasons).toEqual(['Name is required', 'Date format invalid']);
     });
 
     it('should calculate processing time', async () => {

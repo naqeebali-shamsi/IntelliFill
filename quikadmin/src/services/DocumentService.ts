@@ -8,6 +8,18 @@ import {
   flattenExtractedData,
   isExtractedDataWithConfidence,
 } from '../types/extractedData';
+import { decryptExtractedData } from '../middleware/encryptionMiddleware';
+
+function decodeExtractedData(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    return decryptExtractedData(raw) as Record<string, unknown> | null;
+  }
+  if (typeof raw === 'object') {
+    return raw as Record<string, unknown>;
+  }
+  return null;
+}
 
 export class DocumentService {
   /**
@@ -233,7 +245,7 @@ export class DocumentService {
         throw new Error('Document not found or access denied');
       }
 
-      let extractedData = document.extractedData as any;
+      let extractedData = decodeExtractedData(document.extractedData);
 
       if (extractedData) {
         if (includeConfidence) {
@@ -279,7 +291,8 @@ export class DocumentService {
         return false;
       }
 
-      return isExtractedDataWithConfidence(document.extractedData);
+      const decoded = decodeExtractedData(document.extractedData);
+      return isExtractedDataWithConfidence(decoded);
     } catch (error) {
       logger.error('Failed to check confidence format', { documentId, userId, error });
       throw error;

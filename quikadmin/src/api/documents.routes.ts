@@ -27,6 +27,17 @@ import { SharePermission } from '@prisma/client';
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
 const ALLOWED_MIMETYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/tiff'];
 
+function decodeExtractedData(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    return decryptExtractedData(raw) as Record<string, unknown> | null;
+  }
+  if (typeof raw === 'object') {
+    return raw as Record<string, unknown>;
+  }
+  return null;
+}
+
 /**
  * Create a custom error class for file validation failures
  * This allows the error handler to identify and return appropriate HTTP status codes
@@ -520,15 +531,15 @@ export function createDocumentRoutes(): Router {
         // Decrypt extractedData if it exists
         let extractedData = null;
         if (document.extractedData) {
-          const decrypted = decryptExtractedData(document.extractedData as string);
+          const decoded = decodeExtractedData(document.extractedData);
 
           if (includeConfidence) {
             // Normalize to new format with confidence scores
             // Legacy data gets default confidence: 0, source: 'pattern'
-            extractedData = normalizeExtractedData(decrypted, 0, 'pattern');
+            extractedData = normalizeExtractedData(decoded, 0, 'pattern');
           } else {
             // Flatten to simple key-value pairs for backward compatibility
-            extractedData = flattenExtractedData(decrypted);
+            extractedData = flattenExtractedData(decoded);
           }
         }
 
@@ -576,12 +587,12 @@ export function createDocumentRoutes(): Router {
 
         let extractedData = null;
         if (document.extractedData) {
-          const decrypted = decryptExtractedData(document.extractedData as string);
+          const decoded = decodeExtractedData(document.extractedData);
 
           if (includeConfidence) {
-            extractedData = normalizeExtractedData(decrypted, 0, 'pattern');
+            extractedData = normalizeExtractedData(decoded, 0, 'pattern');
           } else {
-            extractedData = flattenExtractedData(decrypted);
+            extractedData = flattenExtractedData(decoded);
           }
         }
 

@@ -68,7 +68,7 @@ describe('ExtractorAgent', () => {
       expect(EXTRACTION_CONFIGS.PASSPORT!.prompt).toBeTruthy();
 
       // Check required fields
-      const fieldNames = EXTRACTION_CONFIGS.PASSPORT!.fields.map(f => f.name);
+      const fieldNames = EXTRACTION_CONFIGS.PASSPORT!.fields.map((f) => f.name);
       expect(fieldNames).toContain('full_name');
       expect(fieldNames).toContain('passport_number');
       expect(fieldNames).toContain('nationality');
@@ -78,7 +78,7 @@ describe('ExtractorAgent', () => {
 
     it('should have configuration for EMIRATES_ID category', () => {
       expect(EXTRACTION_CONFIGS.EMIRATES_ID).toBeDefined();
-      const fieldNames = EXTRACTION_CONFIGS.EMIRATES_ID!.fields.map(f => f.name);
+      const fieldNames = EXTRACTION_CONFIGS.EMIRATES_ID!.fields.map((f) => f.name);
       expect(fieldNames).toContain('emirates_id');
       expect(fieldNames).toContain('full_name');
       expect(fieldNames).toContain('nationality');
@@ -87,7 +87,7 @@ describe('ExtractorAgent', () => {
 
     it('should have configuration for VISA category', () => {
       expect(EXTRACTION_CONFIGS.VISA).toBeDefined();
-      const fieldNames = EXTRACTION_CONFIGS.VISA!.fields.map(f => f.name);
+      const fieldNames = EXTRACTION_CONFIGS.VISA!.fields.map((f) => f.name);
       expect(fieldNames).toContain('visa_number');
       expect(fieldNames).toContain('visa_type');
       expect(fieldNames).toContain('date_of_expiry');
@@ -96,20 +96,20 @@ describe('ExtractorAgent', () => {
 
     it('should have required field markers', () => {
       const passportFields = EXTRACTION_CONFIGS.PASSPORT!.fields;
-      const requiredFields = passportFields.filter(f => f.required);
-      const optionalFields = passportFields.filter(f => !f.required);
+      const requiredFields = passportFields.filter((f) => f.required);
+      const optionalFields = passportFields.filter((f) => !f.required);
 
       expect(requiredFields.length).toBeGreaterThan(0);
       expect(optionalFields.length).toBeGreaterThan(0);
 
       // Passport number should be required
-      expect(passportFields.find(f => f.name === 'passport_number')?.required).toBe(true);
+      expect(passportFields.find((f) => f.name === 'passport_number')?.required).toBe(true);
     });
 
     it('should have pattern validators for ID fields', () => {
       // Emirates ID pattern
       const emiratesIdField = EXTRACTION_CONFIGS.EMIRATES_ID!.fields.find(
-        f => f.name === 'emirates_id'
+        (f) => f.name === 'emirates_id'
       );
       expect(emiratesIdField?.pattern).toBeDefined();
       expect(emiratesIdField?.pattern?.test('784-1990-1234567-1')).toBe(true);
@@ -117,7 +117,7 @@ describe('ExtractorAgent', () => {
 
       // Passport number pattern
       const passportField = EXTRACTION_CONFIGS.PASSPORT!.fields.find(
-        f => f.name === 'passport_number'
+        (f) => f.name === 'passport_number'
       );
       expect(passportField?.pattern).toBeDefined();
     });
@@ -335,7 +335,7 @@ describe('ExtractorAgent', () => {
       expect(result.fields.full_name.source).toBe('llm');
       expect(result.fields.passport_number.value).toBe('A12345678');
       expect(result.documentCategory).toBe('PASSPORT');
-      expect(result.modelUsed).toBe('gemini-1.5-flash');
+      expect(result.modelUsed).toBe('gemini-2.5-flash');
       expect(result.processingTime).toBeGreaterThanOrEqual(0);
     });
 
@@ -681,12 +681,11 @@ describe('ExtractorAgent', () => {
     });
 
     it('should handle special characters', async () => {
-      const specialText = 'Name: O\'Brien-Smith <test@email.com>';
+      const specialText = "Name: O'Brien-Smith <test@email.com>";
 
       const mockGenerateContent = jest.fn().mockResolvedValue({
         response: {
-          text: () =>
-            JSON.stringify({ full_name: { value: "O'Brien-Smith", confidence: 85 } }),
+          text: () => JSON.stringify({ full_name: { value: "O'Brien-Smith", confidence: 85 } }),
         },
       });
 

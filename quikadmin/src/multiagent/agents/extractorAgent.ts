@@ -77,7 +77,7 @@ interface GeminiExtractionResponse {
 /**
  * Model to use for extraction
  */
-const EXTRACTION_MODEL = 'gemini-1.5-flash';
+const EXTRACTION_MODEL = 'gemini-2.5-flash';
 
 /**
  * Maximum retry attempts for Gemini API calls

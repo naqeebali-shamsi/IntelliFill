@@ -49,11 +49,7 @@ export {
 } from './types/state';
 
 // Workflow
-export {
-  createDocumentProcessingGraph,
-  processDocument,
-  NODE_NAMES,
-} from './workflow';
+export { createDocumentProcessingGraph, processDocument, NODE_NAMES } from './workflow';
 
 // Agents
 export {
@@ -68,7 +64,7 @@ export {
 // Version info
 export const PIPELINE_VERSION = '1.0.0';
 export const SUPPORTED_MODELS = {
-  classifier: ['gemini-1.5-flash', 'gemini-1.5-pro'],
+  classifier: ['gemini-2.5-flash', 'gemini-2.5-pro'],
   extractor: ['llama3.2:8b', 'llama3:8b'],
   mapper: ['mistral:7b', 'mistral:7b-instruct'],
   qa: ['llama3.2:8b', 'llama3:8b'],

@@ -293,7 +293,9 @@ function ExtractedDataSection({ document }: { document: Document }) {
     );
   }
 
-  if (!document.extractedData || Object.keys(document.extractedData).length === 0) {
+  const extractedFields = getDisplayFields(document.extractedData);
+
+  if (extractedFields.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <FileText className="h-12 w-12 text-muted-foreground mb-3" />
@@ -304,21 +306,81 @@ function ExtractedDataSection({ document }: { document: Document }) {
 
   return (
     <div className="space-y-3">
-      {Object.entries(document.extractedData).map(([key, value]) => (
+      {extractedFields.map((field) => (
         <div
-          key={key}
+          key={field.key}
           className="flex justify-between items-start gap-4 p-3 rounded-lg border bg-muted/50"
         >
           <span className="text-sm font-medium text-muted-foreground capitalize">
-            {key.replace(/_/g, ' ')}:
+            {field.key.replace(/_/g, ' ')}:
           </span>
-          <span className="text-sm text-right max-w-md truncate" title={String(value)}>
-            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-          </span>
+          <div className="text-sm text-right max-w-md">
+            <div className="truncate" title={field.displayValue}>
+              {field.displayValue}
+            </div>
+            {field.confidence !== undefined && (
+              <div className="text-xs text-muted-foreground">{field.confidence}% confidence</div>
+            )}
+          </div>
         </div>
       ))}
     </div>
   );
+}
+
+type DisplayField = {
+  key: string;
+  displayValue: string;
+  confidence?: number;
+};
+
+function getDisplayFields(extractedData: Document['extractedData']): DisplayField[] {
+  if (!extractedData || typeof extractedData !== 'object') {
+    return [];
+  }
+
+  const fields: DisplayField[] = [];
+
+  const addField = (key: string, value: unknown) => {
+    if (value === null || value === undefined) return;
+
+    if (typeof value === 'object' && value !== null) {
+      const maybeField = value as { value?: unknown; confidence?: number };
+      if ('value' in maybeField && 'confidence' in maybeField) {
+        const confidence =
+          typeof maybeField.confidence === 'number'
+            ? maybeField.confidence <= 1
+              ? Math.round(maybeField.confidence * 100)
+              : Math.round(maybeField.confidence)
+            : undefined;
+        fields.push({
+          key,
+          displayValue: String(maybeField.value ?? ''),
+          confidence,
+        });
+        return;
+      }
+    }
+
+    fields.push({
+      key,
+      displayValue: typeof value === 'string' ? value : JSON.stringify(value),
+    });
+  };
+
+  const dataEntries = Object.entries(extractedData);
+  for (const [key, value] of dataEntries) {
+    if (key === '_meta' || key === 'ocrMetadata' || key === 'pages') continue;
+    if (key === 'fields' && typeof value === 'object' && value !== null) {
+      for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+        addField(nestedKey, nestedValue);
+      }
+      continue;
+    }
+    addField(key, value);
+  }
+
+  return fields;
 }
 
 /**

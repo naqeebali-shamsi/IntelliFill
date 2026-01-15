@@ -30,6 +30,7 @@ import {
   Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
 import {
   SmartUploadZone,
   ProfileView,
@@ -506,13 +507,21 @@ export default function SmartProfile() {
           setCompletedSteps((prev) => new Set([...prev, step]));
           setStep(targetStep);
         } else {
-          setExtractionError('Extraction failed. Please try again.');
+          const message = 'Extraction failed. Please try again.';
+          setExtractionError(message);
+          toast.error(message);
         }
       } catch (error) {
         console.error('Extraction error:', error);
-        setExtractionError(
-          error instanceof Error ? error.message : 'Extraction failed. Please try again.'
-        );
+        const fallbackMessage = 'Extraction failed. Please try again.';
+        const errorMessage =
+          axios.isAxiosError(error) && error.response?.data?.message
+            ? String(error.response.data.message)
+            : error instanceof Error
+              ? error.message
+              : fallbackMessage;
+        setExtractionError(errorMessage);
+        toast.error(errorMessage);
       } finally {
         setIsExtracting(false);
       }

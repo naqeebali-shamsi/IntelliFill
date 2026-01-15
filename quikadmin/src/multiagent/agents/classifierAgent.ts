@@ -309,9 +309,7 @@ function getGeminiApiKey(): string {
   ].filter((k): k is string => !!k && k.length > 0);
 
   if (keys.length === 0) {
-    throw new Error(
-      'No Gemini API key configured. Set GEMINI_API_KEY environment variable.'
-    );
+    throw new Error('No Gemini API key configured. Set GEMINI_API_KEY environment variable.');
   }
 
   return keys[0];
@@ -392,9 +390,9 @@ async function classifyWithGemini(
   const apiKey = getGeminiApiKey();
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Use gemini-1.5-flash for fast classification
+  // Use gemini-2.5-flash for fast classification
   // Use vision model if image is provided
-  const modelName = imageBase64 ? 'gemini-1.5-flash' : 'gemini-1.5-flash';
+  const modelName = imageBase64 ? 'gemini-2.5-flash' : 'gemini-2.5-flash';
   const model: GenerativeModel = genAI.getGenerativeModel({ model: modelName });
 
   // Build content parts

@@ -148,6 +148,14 @@ function createSuccessfulOCRResult() {
 import { prisma } from '../../utils/prisma';
 import { realtimeService } from '../../services/RealtimeService';
 import { OCRService, OCRProgress } from '../../services/OCRService';
+import { encryptExtractedData } from '../../middleware/encryptionMiddleware';
+
+function buildExtractedFields(structuredData: Record<string, any>) {
+  if (structuredData.fields && typeof structuredData.fields === 'object') {
+    return structuredData.fields as Record<string, unknown>;
+  }
+  return structuredData;
+}
 
 async function processOCRJob(job: Job<OCRProcessingJob>): Promise<{
   documentId: string;
@@ -195,6 +203,15 @@ async function processOCRJob(job: Job<OCRProcessingJob>): Promise<{
 
     // Extract structured data from OCR text
     const structuredData = await ocrService.extractStructuredData(ocrResult.text);
+    const extractedFields = buildExtractedFields(structuredData as Record<string, any>);
+    const extractedDataPayload = {
+      ...extractedFields,
+      _meta: {
+        ocrMetadata: ocrResult.metadata,
+        pages: ocrResult.pages,
+      },
+    };
+    const encryptedExtractedData = encryptExtractedData(extractedDataPayload);
 
     await job.progress(95);
 
@@ -204,11 +221,7 @@ async function processOCRJob(job: Job<OCRProcessingJob>): Promise<{
       data: {
         status: 'COMPLETED',
         extractedText: ocrResult.text,
-        extractedData: {
-          ...structuredData,
-          ocrMetadata: ocrResult.metadata,
-          pages: ocrResult.pages,
-        },
+        extractedData: encryptedExtractedData,
         confidence: ocrResult.confidence / 100,
         processedAt: new Date(),
       },
@@ -226,15 +239,17 @@ async function processOCRJob(job: Job<OCRProcessingJob>): Promise<{
       processingTime: Date.now() - startTime,
     };
   } catch (error) {
-    await prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status: 'FAILED',
-        extractedText: `OCR Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      },
-    }).catch(() => {
-      // Ignore DB errors during failure handling
-    });
+    await prisma.document
+      .update({
+        where: { id: documentId },
+        data: {
+          status: 'FAILED',
+          extractedText: `OCR Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        },
+      })
+      .catch(() => {
+        // Ignore DB errors during failure handling
+      });
 
     throw error;
   }
@@ -250,8 +265,10 @@ describe('OCR Processor', () => {
     mockPrismaDocumentUpdate.mockResolvedValue({ id: 'doc-123' });
     mockOCRProcessPDF.mockResolvedValue(createSuccessfulOCRResult());
     mockOCRExtractStructuredData.mockResolvedValue({
-      name: 'John Doe',
-      dateOfBirth: '1990-01-15',
+      fields: {
+        name: { value: 'John Doe', confidence: 92, source: 'pattern' },
+        date_of_birth: { value: '1990-01-15', confidence: 88, source: 'pattern' },
+      },
     });
   });
 
@@ -303,22 +320,48 @@ describe('OCR Processor', () => {
     it('should report incremental progress during PDF processing', async () => {
       const mockJob = createMockJob();
 
-      mockOCRProcessPDF.mockImplementation((_path: string, callback: (progress: OCRProgress) => void) => {
-        // Simulate progress updates with correct OCRProgress interface
-        callback({ currentPage: 1, totalPages: 4, progress: 25, stage: 'preprocessing', message: 'Preprocessing page 1' });
-        callback({ currentPage: 2, totalPages: 4, progress: 50, stage: 'recognizing', message: 'OCR on page 2' });
-        callback({ currentPage: 3, totalPages: 4, progress: 75, stage: 'recognizing', message: 'OCR on page 3' });
-        callback({ currentPage: 4, totalPages: 4, progress: 100, stage: 'complete', message: 'OCR complete' });
-        return Promise.resolve(createSuccessfulOCRResult());
-      });
+      mockOCRProcessPDF.mockImplementation(
+        (_path: string, callback: (progress: OCRProgress) => void) => {
+          // Simulate progress updates with correct OCRProgress interface
+          callback({
+            currentPage: 1,
+            totalPages: 4,
+            progress: 25,
+            stage: 'preprocessing',
+            message: 'Preprocessing page 1',
+          });
+          callback({
+            currentPage: 2,
+            totalPages: 4,
+            progress: 50,
+            stage: 'recognizing',
+            message: 'OCR on page 2',
+          });
+          callback({
+            currentPage: 3,
+            totalPages: 4,
+            progress: 75,
+            stage: 'recognizing',
+            message: 'OCR on page 3',
+          });
+          callback({
+            currentPage: 4,
+            totalPages: 4,
+            progress: 100,
+            stage: 'complete',
+            message: 'OCR complete',
+          });
+          return Promise.resolve(createSuccessfulOCRResult());
+        }
+      );
 
       await processOCRJob(mockJob);
 
       // Progress should be mapped from 10-90 range (10 + progress * 0.8)
-      expect(mockJob.progress).toHaveBeenCalledWith(30);  // 10 + 25 * 0.8 = 30
-      expect(mockJob.progress).toHaveBeenCalledWith(50);  // 10 + 50 * 0.8 = 50
-      expect(mockJob.progress).toHaveBeenCalledWith(70);  // 10 + 75 * 0.8 = 70
-      expect(mockJob.progress).toHaveBeenCalledWith(90);  // 10 + 100 * 0.8 = 90
+      expect(mockJob.progress).toHaveBeenCalledWith(30); // 10 + 25 * 0.8 = 30
+      expect(mockJob.progress).toHaveBeenCalledWith(50); // 10 + 50 * 0.8 = 50
+      expect(mockJob.progress).toHaveBeenCalledWith(70); // 10 + 75 * 0.8 = 70
+      expect(mockJob.progress).toHaveBeenCalledWith(90); // 10 + 100 * 0.8 = 90
     });
   });
 
@@ -369,7 +412,7 @@ describe('OCR Processor', () => {
       );
     });
 
-    it('should store extracted data with OCR metadata and pages', async () => {
+    it('should store extracted data in encrypted form', async () => {
       const mockJob = createMockJob();
 
       await processOCRJob(mockJob);
@@ -377,15 +420,7 @@ describe('OCR Processor', () => {
       expect(mockPrismaDocumentUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            extractedData: expect.objectContaining({
-              name: 'John Doe',
-              ocrMetadata: expect.objectContaining({
-                pageCount: 3,
-              }),
-              pages: expect.arrayContaining([
-                expect.objectContaining({ pageNumber: 1 }),
-              ]),
-            }),
+            extractedData: expect.any(String),
           }),
         })
       );
@@ -464,10 +499,18 @@ describe('OCR Processor', () => {
     it('should send progress updates to user via RealtimeService', async () => {
       const mockJob = createMockJob({ userId: 'user-realtime' });
 
-      mockOCRProcessPDF.mockImplementation((_path: string, callback: (progress: OCRProgress) => void) => {
-        callback({ currentPage: 2, totalPages: 4, progress: 50, stage: 'recognizing', message: 'Processing...' });
-        return Promise.resolve(createSuccessfulOCRResult());
-      });
+      mockOCRProcessPDF.mockImplementation(
+        (_path: string, callback: (progress: OCRProgress) => void) => {
+          callback({
+            currentPage: 2,
+            totalPages: 4,
+            progress: 50,
+            stage: 'recognizing',
+            message: 'Processing...',
+          });
+          return Promise.resolve(createSuccessfulOCRResult());
+        }
+      );
 
       await processOCRJob(mockJob);
 
@@ -487,10 +530,18 @@ describe('OCR Processor', () => {
     it('should not send notifications when userId is not provided', async () => {
       const mockJob = createMockJob({ userId: '' });
 
-      mockOCRProcessPDF.mockImplementation((_path: string, callback: (progress: OCRProgress) => void) => {
-        callback({ currentPage: 2, totalPages: 4, progress: 50, stage: 'recognizing', message: 'Processing...' });
-        return Promise.resolve(createSuccessfulOCRResult());
-      });
+      mockOCRProcessPDF.mockImplementation(
+        (_path: string, callback: (progress: OCRProgress) => void) => {
+          callback({
+            currentPage: 2,
+            totalPages: 4,
+            progress: 50,
+            stage: 'recognizing',
+            message: 'Processing...',
+          });
+          return Promise.resolve(createSuccessfulOCRResult());
+        }
+      );
 
       await processOCRJob(mockJob);
 
@@ -500,10 +551,18 @@ describe('OCR Processor', () => {
     it('should include all required fields in progress notification', async () => {
       const mockJob = createMockJob();
 
-      mockOCRProcessPDF.mockImplementation((_path: string, callback: (progress: OCRProgress) => void) => {
-        callback({ currentPage: 3, totalPages: 4, progress: 75, stage: 'recognizing', message: 'Finalizing...' });
-        return Promise.resolve(createSuccessfulOCRResult());
-      });
+      mockOCRProcessPDF.mockImplementation(
+        (_path: string, callback: (progress: OCRProgress) => void) => {
+          callback({
+            currentPage: 3,
+            totalPages: 4,
+            progress: 75,
+            stage: 'recognizing',
+            message: 'Finalizing...',
+          });
+          return Promise.resolve(createSuccessfulOCRResult());
+        }
+      );
 
       await processOCRJob(mockJob);
 
@@ -576,10 +635,7 @@ describe('OCR Processor', () => {
 
       await processOCRJob(mockJob);
 
-      expect(mockOCRProcessPDF).toHaveBeenCalledWith(
-        '/uploads/test-doc.pdf',
-        expect.any(Function)
-      );
+      expect(mockOCRProcessPDF).toHaveBeenCalledWith('/uploads/test-doc.pdf', expect.any(Function));
     });
   });
 });
