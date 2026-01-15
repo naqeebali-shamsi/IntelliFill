@@ -51,6 +51,7 @@ import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-pr
 import { profilesService } from '@/services/profilesService';
 import { getMissingFields, getSuggestedDocuments } from '@/lib/form-fields';
 import { useUserPreferencesStore, MODE_CONFIDENCE_THRESHOLDS } from '@/stores/userPreferencesStore';
+import { startTiming, wizardTimer } from '@/lib/performance';
 
 // =================== STEP CONFIGURATION ===================
 
@@ -160,6 +161,12 @@ function UploadStepContent() {
   );
   const totalFileCount = useSmartProfileStore((state) => state.uploadedFiles.length);
 
+  // Start wizard timing when first file is detected
+  const handleFilesReady = React.useCallback(() => {
+    // Only start timer on first upload batch
+    wizardTimer.start('Total Wizard Flow');
+  }, []);
+
   return (
     <Card>
       <CardHeader>
@@ -170,7 +177,7 @@ function UploadStepContent() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <SmartUploadZone />
+        <SmartUploadZone onFilesReady={handleFilesReady} />
         {totalFileCount > 0 && detectedFileCount === totalFileCount && (
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Click <strong>Continue</strong> to proceed with {detectedFileCount} document
@@ -435,6 +442,8 @@ function FormSelectStepContent() {
 
   const handleSelectForm = (formId: string) => {
     selectForm(formId);
+    // End total wizard timing when form is selected
+    wizardTimer.end('Total Wizard Flow');
   };
 
   return (
@@ -495,6 +504,9 @@ export default function SmartProfile() {
       setIsExtracting(true);
       setExtractionError(null);
 
+      // Start extraction timing
+      const endExtractionTiming = startTiming('Batch Extraction');
+
       try {
         // Get detected files and their types
         const detectedFiles = uploadedFiles.filter((f) => f.status === 'detected');
@@ -504,6 +516,9 @@ export default function SmartProfile() {
 
         // Call extraction API
         const result = await extractBatch(files, documentTypes);
+
+        // End extraction timing
+        endExtractionTiming();
 
         if (result.success) {
           // Store extraction results
@@ -599,6 +614,7 @@ export default function SmartProfile() {
     setExtractionError(null);
     setSuggestedMerges([]);
     fileObjectStore.clear();
+    wizardTimer.clear();
   };
 
   // Save profile to backend

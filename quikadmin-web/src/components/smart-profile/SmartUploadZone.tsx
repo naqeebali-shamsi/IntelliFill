@@ -11,6 +11,7 @@ import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { startTiming } from '@/lib/performance';
 import { Upload, FileUp, AlertCircle } from 'lucide-react';
 import { FileCard } from './FileCard';
 import {
@@ -92,6 +93,9 @@ export function SmartUploadZone({ className, onFilesReady }: SmartUploadZoneProp
       });
 
       try {
+        // Start detection timing
+        const endDetectionTiming = startTiming('Document Detection');
+
         // Call detect-types API
         // Don't set Content-Type manually - axios will set it with correct boundary for FormData
         const response = await api.post<DetectTypesResponse>(
@@ -103,6 +107,9 @@ export function SmartUploadZone({ className, onFilesReady }: SmartUploadZoneProp
             },
           }
         );
+
+        // End detection timing
+        endDetectionTiming();
 
         if (response.data.success) {
           // Match results to our file IDs by fileName
