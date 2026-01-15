@@ -30,7 +30,12 @@ import {
   Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { SmartUploadZone, ProfileView, PersonGrouper, ConfidenceReview } from '@/components/smart-profile';
+import {
+  SmartUploadZone,
+  ProfileView,
+  PersonGrouper,
+  ConfidenceReview,
+} from '@/components/smart-profile';
 import type { SuggestedMerge } from '@/services/smartProfileService';
 import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-profile';
 import { profilesService } from '@/services/profilesService';
@@ -242,27 +247,64 @@ function GroupingStepContent({ suggestedMerges }: GroupingStepContentProps) {
   );
 }
 
-function ReviewStepContent() {
+interface ReviewStepContentProps {
+  onComplete: () => void;
+}
+
+function ReviewStepContent({ onComplete }: ReviewStepContentProps) {
   const lowConfidenceFields = useSmartProfileStore((state) => state.lowConfidenceFields);
+  const conflicts = useSmartProfileStore((state) => state.conflicts);
+  const updateProfileField = useSmartProfileStore((state) => state.updateProfileField);
+  const markFieldAsEdited = useSmartProfileStore((state) => state.markFieldAsEdited);
+  const resolveConflict = useSmartProfileStore((state) => state.resolveConflict);
+
+  // Convert store types to component types
+  const lowConfidenceFieldsData: LowConfidenceFieldData[] = lowConfidenceFields.map((f) => ({
+    fieldName: f.fieldName,
+    value: f.value,
+    confidence: f.confidence,
+    documentId: f.documentId,
+    documentName: f.documentName,
+  }));
+
+  const conflictsData: ConflictData[] = conflicts.map((c) => ({
+    fieldName: c.fieldName,
+    values: c.values,
+    selectedIndex: c.selectedIndex,
+    customValue: c.customValue,
+  }));
+
+  // Handle field value update
+  const handleFieldUpdate = (fieldName: string, value: unknown) => {
+    updateProfileField(fieldName, value);
+    markFieldAsEdited(fieldName);
+  };
+
+  // Handle conflict resolution
+  const handleConflictResolve = (
+    fieldName: string,
+    selectedIndex: number,
+    customValue?: string
+  ) => {
+    resolveConflict(fieldName, selectedIndex, customValue);
+  };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Review Extracted Data</CardTitle>
-        <CardDescription>Verify fields that need attention due to low confidence</CardDescription>
+        <CardDescription>
+          Verify fields that need attention due to low confidence or conflicts
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
-          <CheckCircle className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-muted-foreground">
-            {lowConfidenceFields.length > 0
-              ? `${lowConfidenceFields.length} field(s) need review`
-              : 'All fields extracted with high confidence'}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground/70">
-            ConfidenceReview component will replace this placeholder in Phase 2
-          </p>
-        </div>
+        <ConfidenceReview
+          lowConfidenceFields={lowConfidenceFieldsData}
+          conflicts={conflictsData}
+          onFieldUpdate={handleFieldUpdate}
+          onConflictResolve={handleConflictResolve}
+          onComplete={onComplete}
+        />
       </CardContent>
     </Card>
   );
@@ -366,6 +408,7 @@ export default function SmartProfile() {
   const setProfileData = useSmartProfileStore((state) => state.setProfileData);
   const setFieldSources = useSmartProfileStore((state) => state.setFieldSources);
   const setLowConfidenceFields = useSmartProfileStore((state) => state.setLowConfidenceFields);
+  const setConflicts = useSmartProfileStore((state) => state.setConflicts);
   const setDetectedPeople = useSmartProfileStore((state) => state.setDetectedPeople);
   const uploadedFiles = useSmartProfileStore((state) => state.uploadedFiles);
   const profileData = useSmartProfileStore((state) => state.profileData);
@@ -398,6 +441,10 @@ export default function SmartProfile() {
           setFieldSources(result.fieldSources);
           setLowConfidenceFields(result.lowConfidenceFields);
 
+          // Store conflicts if present (from API or default to empty)
+          const extractedConflicts = result.conflicts || [];
+          setConflicts(extractedConflicts);
+
           // Store detected people and merge suggestions if present
           if (result.detectedPeople && result.detectedPeople.length > 0) {
             setDetectedPeople(result.detectedPeople);
@@ -411,15 +458,17 @@ export default function SmartProfile() {
 
           // Check if we should show the grouping step (more than 1 person detected)
           const hasMultiplePeople = result.detectedPeople && result.detectedPeople.length > 1;
+          const needsReview =
+            result.lowConfidenceFields.length > 0 || extractedConflicts.length > 0;
 
           if (hasMultiplePeople) {
             // Multiple people detected - go to grouping step
             targetStep = 'grouping';
-          } else if (result.lowConfidenceFields.length === 0) {
-            // Single person, no low confidence fields - skip to profile
+          } else if (!needsReview) {
+            // Single person, no low confidence fields and no conflicts - skip to profile
             targetStep = 'profile';
           } else {
-            // Single person, has low confidence fields - go to review
+            // Single person, has low confidence fields or conflicts - go to review
             targetStep = 'review';
           }
 
@@ -493,6 +542,12 @@ export default function SmartProfile() {
     }
   };
 
+  // Handle review step completion
+  const handleReviewComplete = () => {
+    setCompletedSteps((prev) => new Set([...prev, 'review']));
+    setStep('profile');
+  };
+
   // Render step content based on current step
   const renderStepContent = () => {
     switch (step) {
@@ -501,7 +556,7 @@ export default function SmartProfile() {
       case 'grouping':
         return <GroupingStepContent suggestedMerges={suggestedMerges} />;
       case 'review':
-        return <ReviewStepContent />;
+        return <ReviewStepContent onComplete={handleReviewComplete} />;
       case 'profile':
         return <ProfileStepContent onSaveProfile={handleSaveProfile} isSaving={isSaving} />;
       case 'form-select':

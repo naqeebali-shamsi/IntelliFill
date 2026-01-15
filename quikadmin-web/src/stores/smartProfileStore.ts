@@ -80,6 +80,24 @@ export interface LowConfidenceField {
   documentName: string;
 }
 
+export interface FieldConflict {
+  /** Field name/key */
+  fieldName: string;
+  /** Array of conflicting values from different documents */
+  values: Array<{
+    value: unknown;
+    source: {
+      documentId: string;
+      documentName: string;
+      confidence: number;
+    };
+  }>;
+  /** Index of currently selected value (-1 for custom) */
+  selectedIndex: number;
+  /** Custom value if selectedIndex is -1 */
+  customValue?: string;
+}
+
 export type ExtractionStatus = 'idle' | 'extracting' | 'merging' | 'complete' | 'error';
 
 export interface ExtractionProgress {
@@ -106,6 +124,8 @@ interface SmartProfileState {
   detectedPeople: DetectedPerson[];
   /** Fields requiring manual review due to low confidence */
   lowConfidenceFields: LowConfidenceField[];
+  /** Field conflicts from multiple documents with different values */
+  conflicts: FieldConflict[];
   /** Merged profile data from all documents */
   profileData: Record<string, unknown>;
   /** Source tracking for each profile field */
@@ -139,6 +159,10 @@ interface SmartProfileActions {
   setDetectedPeople: (people: DetectedPerson[]) => void;
   /** Set low confidence fields for review */
   setLowConfidenceFields: (fields: LowConfidenceField[]) => void;
+  /** Set field conflicts for resolution */
+  setConflicts: (conflicts: FieldConflict[]) => void;
+  /** Resolve a conflict by selecting an index or custom value */
+  resolveConflict: (fieldName: string, selectedIndex: number, customValue?: string) => void;
   /** Set merged profile data */
   setProfileData: (data: Record<string, unknown>) => void;
   /** Update a single profile field */
@@ -184,6 +208,7 @@ const initialState: SmartProfileState = {
   uploadedFiles: [],
   detectedPeople: [],
   lowConfidenceFields: [],
+  conflicts: [],
   profileData: {},
   fieldSources: {},
   selectedFormId: null,
@@ -243,12 +268,15 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
           const state = get();
           const currentIndex = getStepIndex(state.step);
 
+          // Helper to check if review step is needed
+          const needsReview = state.lowConfidenceFields.length > 0 || state.conflicts.length > 0;
+
           // Auto-skip logic
           if (state.step === 'upload') {
             // Skip grouping if only one person detected or no grouping needed
             if (state.detectedPeople.length <= 1) {
-              // Skip review if no low confidence fields
-              if (state.lowConfidenceFields.length === 0) {
+              // Skip review if no low confidence fields and no conflicts
+              if (!needsReview) {
                 return 'profile';
               }
               return 'review';
@@ -257,8 +285,8 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
           }
 
           if (state.step === 'grouping') {
-            // Skip review if no low confidence fields
-            if (state.lowConfidenceFields.length === 0) {
+            // Skip review if no low confidence fields and no conflicts
+            if (!needsReview) {
               return 'profile';
             }
             return 'review';
@@ -350,6 +378,22 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
         setLowConfidenceFields: (fields) => {
           set((state) => {
             state.lowConfidenceFields = fields;
+          });
+        },
+
+        setConflicts: (conflicts) => {
+          set((state) => {
+            state.conflicts = conflicts;
+          });
+        },
+
+        resolveConflict: (fieldName, selectedIndex, customValue) => {
+          set((state) => {
+            const conflict = state.conflicts.find((c) => c.fieldName === fieldName);
+            if (conflict) {
+              conflict.selectedIndex = selectedIndex;
+              conflict.customValue = customValue;
+            }
           });
         },
 
@@ -446,6 +490,7 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
           uploadedFiles: state.uploadedFiles,
           detectedPeople: state.detectedPeople,
           lowConfidenceFields: state.lowConfidenceFields,
+          conflicts: state.conflicts,
           profileData: state.profileData,
           fieldSources: state.fieldSources,
           selectedFormId: state.selectedFormId,
@@ -470,6 +515,7 @@ export const smartProfileSelectors = {
   errorFiles: (state: SmartProfileStore) => state.uploadedFiles.filter((f) => f.status === 'error'),
   detectedPeople: (state: SmartProfileStore) => state.detectedPeople,
   lowConfidenceFields: (state: SmartProfileStore) => state.lowConfidenceFields,
+  conflicts: (state: SmartProfileStore) => state.conflicts,
   profileData: (state: SmartProfileStore) => state.profileData,
   fieldSources: (state: SmartProfileStore) => state.fieldSources,
   selectedFormId: (state: SmartProfileStore) => state.selectedFormId,
@@ -539,8 +585,11 @@ export const useExtractionResults = () =>
     useShallow((state) => ({
       detectedPeople: state.detectedPeople,
       lowConfidenceFields: state.lowConfidenceFields,
+      conflicts: state.conflicts,
       setDetectedPeople: state.setDetectedPeople,
       setLowConfidenceFields: state.setLowConfidenceFields,
+      setConflicts: state.setConflicts,
+      resolveConflict: state.resolveConflict,
     }))
   );
 

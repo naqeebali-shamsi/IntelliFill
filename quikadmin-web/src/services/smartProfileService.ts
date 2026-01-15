@@ -56,11 +56,28 @@ export interface SuggestedMerge {
   reason: string;
 }
 
+/** Field conflict when multiple documents have different values */
+export interface FieldConflict {
+  fieldName: string;
+  values: Array<{
+    value: unknown;
+    source: {
+      documentId: string;
+      documentName: string;
+      confidence: number;
+    };
+  }>;
+  selectedIndex: number;
+  customValue?: string;
+}
+
 export interface ExtractBatchResponse {
   success: boolean;
   profileData: Record<string, unknown>;
   fieldSources: Record<string, FieldSource>;
   lowConfidenceFields: LowConfidenceField[];
+  /** Field conflicts when multiple documents have different values (optional) */
+  conflicts?: FieldConflict[];
   /** Detected people from entity resolution (optional, may not be present in older API responses) */
   detectedPeople?: DetectedPerson[];
   /** Suggested merges from entity resolution (optional) */
