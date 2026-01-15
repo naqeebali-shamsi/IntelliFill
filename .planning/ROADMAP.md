@@ -17,7 +17,7 @@ Transform IntelliFill's 6-step document-to-form flow into a streamlined 3-step "
 - Decimal phases: Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Foundation** - Wizard structure, upload zone, batch extraction, basic profile view ✓
-- [ ] **Phase 2: Intelligence** - Person grouping, confidence review, field sources, missing fields
+- [x] **Phase 2: Intelligence** - Person grouping, confidence review, field sources, missing fields ✓
 - [ ] **Phase 3: Polish** - Form suggestion, animations, assisted/express mode, performance
 - [ ] **Phase 4: PRO Features** - Client list, batch history, analytics, admin dashboard
 
@@ -52,9 +52,8 @@ Plans:
 
 **Goal**: Multi-person support and confidence-based review flow
 **Depends on**: Phase 1
-**Research**: Likely (entity resolution algorithm)
-**Research topics**: Person grouping by ID matching, name similarity algorithms, drag-drop grouping UI patterns
-**Plans**: TBD (estimate 3 plans)
+**Research**: Complete (02-RESEARCH.md)
+**Plans**: 4 plans
 
 Key deliverables:
 
@@ -62,6 +61,13 @@ Key deliverables:
 - ConfidenceReview step for low-certainty fields
 - Field source tracking (which document, manual edit)
 - Missing field detection against selected form
+
+Plans:
+
+- [x] 02-01: Entity Resolution Backend (fuzzball, Union-Find grouping, enhanced extract-batch) ✓
+- [x] 02-02: PersonGrouper UI (drag-drop with @dnd-kit, inline name editing) ✓
+- [x] 02-03: ConfidenceReview Step (low confidence fields, conflict resolution) ✓
+- [x] 02-04: Field Source & Missing Fields (FieldSourceBadge, MissingFieldsAlert) ✓
 
 ### Phase 3: Polish
 
@@ -99,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase           | Plans Complete | Status      | Completed  |
 | --------------- | -------------- | ----------- | ---------- |
 | 1. Foundation   | 6/6            | Complete    | 2026-01-15 |
-| 2. Intelligence | 0/TBD          | Not started | -          |
+| 2. Intelligence | 4/4            | Complete    | 2026-01-15 |
 | 3. Polish       | 0/TBD          | Not started | -          |
 | 4. PRO Features | 0/TBD          | Not started | -          |
 
