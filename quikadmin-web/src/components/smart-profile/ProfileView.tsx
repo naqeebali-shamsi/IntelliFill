@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, User, FileText, Phone, Settings } from 'lucide-react';
 import { FieldSourcePill } from './FieldSourcePill';
+import { FieldSourceBadge } from './FieldSourceBadge';
 import { ConfidenceBadge, CONFIDENCE_THRESHOLDS } from './ConfidenceBadge';
 import { EditableField, detectFieldType } from './EditableField';
 import type { FieldSource } from '@/stores/smartProfileStore';
@@ -175,7 +176,7 @@ function FieldRow({
         <div className="text-sm font-medium text-muted-foreground">
           {formatFieldLabel(fieldKey)}
         </div>
-        <div className="mt-0.5">
+        <div className="mt-0.5 flex items-center gap-1.5">
           {editable ? (
             <EditableField
               value={formatFieldValue(value)}
@@ -187,10 +188,22 @@ function FieldRow({
           ) : (
             <div className="text-base font-medium break-words">{formatFieldValue(value)}</div>
           )}
+          {/* Field source badge - inline with value */}
+          {source && (
+            <FieldSourceBadge
+              source={{
+                documentId: source.documentId,
+                documentName: source.documentName,
+                confidence: source.confidence,
+                extractedAt: source.extractedAt,
+                manuallyEdited: source.manuallyEdited,
+              }}
+            />
+          )}
         </div>
       </div>
 
-      {/* Source and confidence indicators */}
+      {/* Source pill and confidence indicators */}
       <div className="flex items-center gap-2 shrink-0">
         {source && (
           <FieldSourcePill
