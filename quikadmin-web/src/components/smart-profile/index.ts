@@ -26,3 +26,18 @@ export {
   type FieldType,
   detectFieldType,
 } from './EditableField';
+export {
+  PersonGrouper,
+  type PersonGrouperProps,
+  type SuggestedMerge,
+  type PersonGroup,
+  type DocumentItemDocument,
+} from './PersonGrouper';
+export {
+  ConfidenceReview,
+  ReviewField,
+  FieldConflict,
+  type ConfidenceReviewProps,
+  type LowConfidenceFieldData,
+  type ConflictData,
+} from './ConfidenceReview';

@@ -41,11 +41,30 @@ export interface LowConfidenceField {
   documentName: string;
 }
 
+/** Detected person from entity resolution */
+export interface DetectedPerson {
+  id: string;
+  name: string | null;
+  confidence: number;
+  documentIds: string[];
+}
+
+/** Suggested merge from entity resolution */
+export interface SuggestedMerge {
+  groupIds: [string, string];
+  confidence: number;
+  reason: string;
+}
+
 export interface ExtractBatchResponse {
   success: boolean;
   profileData: Record<string, unknown>;
   fieldSources: Record<string, FieldSource>;
   lowConfidenceFields: LowConfidenceField[];
+  /** Detected people from entity resolution (optional, may not be present in older API responses) */
+  detectedPeople?: DetectedPerson[];
+  /** Suggested merges from entity resolution (optional) */
+  suggestedMerges?: SuggestedMerge[];
   processingTime: number;
   documentsProcessed: number;
   totalFieldsExtracted: number;

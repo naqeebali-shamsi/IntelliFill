@@ -30,7 +30,9 @@ import {
   Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { SmartUploadZone, ProfileView } from '@/components/smart-profile';
+import { SmartUploadZone, ProfileView, PersonGrouper, ConfidenceReview } from '@/components/smart-profile';
+import type { SuggestedMerge } from '@/services/smartProfileService';
+import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-profile';
 import { profilesService } from '@/services/profilesService';
 
 // =================== STEP CONFIGURATION ===================
@@ -163,29 +165,78 @@ function UploadStepContent() {
   );
 }
 
-function GroupingStepContent() {
+interface GroupingStepContentProps {
+  suggestedMerges: SuggestedMerge[];
+}
+
+function GroupingStepContent({ suggestedMerges }: GroupingStepContentProps) {
   const detectedPeople = useSmartProfileStore((state) => state.detectedPeople);
+  const uploadedFiles = useSmartProfileStore((state) => state.uploadedFiles);
+  const setDetectedPeople = useSmartProfileStore((state) => state.setDetectedPeople);
+
+  // Convert uploadedFiles to documents format for PersonGrouper
+  const documents = React.useMemo(() => {
+    return uploadedFiles
+      .filter((f) => f.status === 'detected')
+      .map((f) => ({
+        id: f.id,
+        fileName: f.fileName,
+        detectedType: f.detectedType,
+        confidence: f.confidence,
+      }));
+  }, [uploadedFiles]);
+
+  // Convert detectedPeople to groups format for PersonGrouper
+  const groups = React.useMemo(() => {
+    return detectedPeople.map((person) => ({
+      id: person.id,
+      name: person.name,
+      confidence: 0.85, // Default confidence for detected groups
+      documentIds: person.documentIds,
+    }));
+  }, [detectedPeople]);
+
+  // Handle grouping changes from PersonGrouper
+  const handleGroupingChange = React.useCallback(
+    (updatedGroups: Array<{ id: string; name: string | null; documentIds: string[] }>) => {
+      // Convert back to DetectedPerson format and update store
+      const updatedPeople = updatedGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        documentIds: group.documentIds,
+      }));
+      setDetectedPeople(updatedPeople);
+    },
+    [setDetectedPeople]
+  );
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Person Grouping</CardTitle>
         <CardDescription>
-          Organize documents by person if multiple people were detected
+          {detectedPeople.length > 1
+            ? 'We detected multiple people in your documents. Drag documents between groups to correct any mistakes.'
+            : 'Organize documents by person if needed'}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
-          <Users className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-muted-foreground">
-            {detectedPeople.length > 0
-              ? `${detectedPeople.length} person(s) detected`
-              : 'Person grouping will appear here'}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground/70">
-            PersonGrouper component will replace this placeholder in Phase 2
-          </p>
-        </div>
+        {groups.length > 0 ? (
+          <PersonGrouper
+            groups={groups}
+            documents={documents}
+            suggestedMerges={suggestedMerges}
+            onGroupingChange={handleGroupingChange}
+          />
+        ) : (
+          <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 p-8 text-center">
+            <Users className="mb-4 h-12 w-12 text-muted-foreground/50" />
+            <p className="text-muted-foreground">No people detected yet</p>
+            <p className="mt-2 text-xs text-muted-foreground/70">
+              Upload and extract documents first
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -309,11 +360,13 @@ export default function SmartProfile() {
   const [isExtracting, setIsExtracting] = React.useState(false);
   const [extractionError, setExtractionError] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [suggestedMerges, setSuggestedMerges] = React.useState<SuggestedMerge[]>([]);
 
   // Get store actions for updating extraction results
   const setProfileData = useSmartProfileStore((state) => state.setProfileData);
   const setFieldSources = useSmartProfileStore((state) => state.setFieldSources);
   const setLowConfidenceFields = useSmartProfileStore((state) => state.setLowConfidenceFields);
+  const setDetectedPeople = useSmartProfileStore((state) => state.setDetectedPeople);
   const uploadedFiles = useSmartProfileStore((state) => state.uploadedFiles);
   const profileData = useSmartProfileStore((state) => state.profileData);
   const clientId = useSmartProfileStore((state) => state.clientId);
@@ -345,11 +398,29 @@ export default function SmartProfile() {
           setFieldSources(result.fieldSources);
           setLowConfidenceFields(result.lowConfidenceFields);
 
+          // Store detected people and merge suggestions if present
+          if (result.detectedPeople && result.detectedPeople.length > 0) {
+            setDetectedPeople(result.detectedPeople);
+          }
+          if (result.suggestedMerges) {
+            setSuggestedMerges(result.suggestedMerges);
+          }
+
           // Determine next step based on extraction results
-          // Skip grouping for now (Phase 2), skip review if no low confidence fields
           let targetStep: WizardStep = nextStep;
-          if (result.lowConfidenceFields.length === 0) {
+
+          // Check if we should show the grouping step (more than 1 person detected)
+          const hasMultiplePeople = result.detectedPeople && result.detectedPeople.length > 1;
+
+          if (hasMultiplePeople) {
+            // Multiple people detected - go to grouping step
+            targetStep = 'grouping';
+          } else if (result.lowConfidenceFields.length === 0) {
+            // Single person, no low confidence fields - skip to profile
             targetStep = 'profile';
+          } else {
+            // Single person, has low confidence fields - go to review
+            targetStep = 'review';
           }
 
           setCompletedSteps((prev) => new Set([...prev, step]));
@@ -384,6 +455,7 @@ export default function SmartProfile() {
     reset();
     setCompletedSteps(new Set());
     setExtractionError(null);
+    setSuggestedMerges([]);
     fileObjectStore.clear();
   };
 
@@ -427,7 +499,7 @@ export default function SmartProfile() {
       case 'upload':
         return <UploadStepContent />;
       case 'grouping':
-        return <GroupingStepContent />;
+        return <GroupingStepContent suggestedMerges={suggestedMerges} />;
       case 'review':
         return <ReviewStepContent />;
       case 'profile':
