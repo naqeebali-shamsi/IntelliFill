@@ -14,6 +14,7 @@ import {
 } from '@/components/smart-profile/animations/wizard-variants';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   useSmartProfileStore,
   useWizardNavigation,
@@ -30,10 +31,12 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   RotateCcw,
   Check,
   Loader2,
   Save,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -45,10 +48,14 @@ import {
   MissingFieldsAlert,
   ModeToggle,
   FormSuggester,
+  ClientSelector,
 } from '@/components/smart-profile';
 import type { SuggestedMerge } from '@/services/smartProfileService';
 import type { ConflictData, LowConfidenceFieldData } from '@/components/smart-profile';
 import { profilesService } from '@/services/profilesService';
+import { clientsService, type ClientType } from '@/services/clientsService';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { useClientSelection } from '@/stores/smartProfileStore';
 import { getMissingFields, getSuggestedDocuments } from '@/lib/form-fields';
 import { useUserPreferencesStore, MODE_CONFIDENCE_THRESHOLDS } from '@/stores/userPreferencesStore';
 import { startTiming, wizardTimer } from '@/lib/performance';
@@ -338,23 +345,32 @@ function ReviewStepContent({ onComplete }: ReviewStepContentProps) {
 }
 
 interface ProfileStepContentProps {
-  onSaveProfile: () => Promise<void>;
+  onSaveToClient: (clientId: string) => Promise<void>;
+  onCreateClientAndSave: (name: string, type: ClientType) => Promise<void>;
   isSaving: boolean;
 }
 
-function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps) {
+function ProfileStepContent({
+  onSaveToClient,
+  onCreateClientAndSave,
+  isSaving,
+}: ProfileStepContentProps) {
   const profileData = useSmartProfileStore((state) => state.profileData);
   const fieldSources = useSmartProfileStore((state) => state.fieldSources);
   const updateProfileField = useSmartProfileStore((state) => state.updateProfileField);
   const markFieldAsEdited = useSmartProfileStore((state) => state.markFieldAsEdited);
-  const clientId = useSmartProfileStore((state) => state.clientId);
   const selectedFormId = useSmartProfileStore((state) => state.selectedFormId);
+
+  // Client selection state
+  const { savedClientName, clearClientSelection } = useClientSelection();
 
   // Track whether user has dismissed the missing fields alert
   const [alertDismissed, setAlertDismissed] = React.useState(false);
 
+  // Track whether client selector is open
+  const [clientSelectorOpen, setClientSelectorOpen] = React.useState(false);
+
   // Calculate missing fields for selected form (or default to visa-application)
-  // Uses FormSuggester selection from form-select step
   const formType = selectedFormId || 'visa-application';
   const missingFields = React.useMemo(
     () => getMissingFields(profileData as Record<string, unknown>, formType),
@@ -364,6 +380,14 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
     () => getSuggestedDocuments(missingFields),
     [missingFields]
   );
+
+  // Get default name from profile data for new client creation
+  const defaultClientName = React.useMemo(() => {
+    const firstName = (profileData.firstName as string) || '';
+    const lastName = (profileData.lastName as string) || '';
+    const fullName = (profileData.fullName as string) || `${firstName} ${lastName}`.trim();
+    return fullName || '';
+  }, [profileData]);
 
   const handleFieldChange = (fieldName: string, newValue: unknown) => {
     updateProfileField(fieldName, newValue);
@@ -375,6 +399,25 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
 
   const handleDismissAlert = () => {
     setAlertDismissed(true);
+  };
+
+  const handleSelectExisting = async (clientId: string, clientName: string) => {
+    await onSaveToClient(clientId);
+    setClientSelectorOpen(false);
+  };
+
+  const handleCreateNew = async (name: string, type: ClientType) => {
+    await onCreateClientAndSave(name, type);
+    setClientSelectorOpen(false);
+  };
+
+  const handleCancelClientSelect = () => {
+    setClientSelectorOpen(false);
+  };
+
+  const handleChangeClient = () => {
+    clearClientSelection();
+    setClientSelectorOpen(true);
   };
 
   return (
@@ -397,21 +440,62 @@ function ProfileStepContent({ onSaveProfile, isSaving }: ProfileStepContentProps
                 Review and edit your extracted profile data. Click any field to edit.
               </CardDescription>
             </div>
-            <Button onClick={onSaveProfile} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
+            {/* Save to Client section */}
+            <div className="flex items-center gap-2">
+              {savedClientName ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="success-muted" className="flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    Saved to: {savedClientName}
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={handleChangeClient}>
+                    Change
+                  </Button>
+                </div>
               ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  {clientId ? 'Update Profile' : 'Save Profile'}
-                </>
+                <Button
+                  onClick={() => setClientSelectorOpen(!clientSelectorOpen)}
+                  disabled={isSaving}
+                  variant={clientSelectorOpen ? 'secondary' : 'default'}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Save to Client
+                      <ChevronDown
+                        className={cn(
+                          'ml-2 h-4 w-4 transition-transform',
+                          clientSelectorOpen && 'rotate-180'
+                        )}
+                      />
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
           </div>
         </CardHeader>
+
+        {/* Client Selector - Collapsible section */}
+        <Collapsible open={clientSelectorOpen} onOpenChange={setClientSelectorOpen}>
+          <CollapsibleContent>
+            <div className="border-t px-6 py-4 bg-muted/30">
+              <ClientSelector
+                onSelectExisting={handleSelectExisting}
+                onCreateNew={handleCreateNew}
+                onCancel={handleCancelClientSelect}
+                defaultName={defaultClientName}
+                isLoading={isSaving}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
         <CardContent>
           <ProfileView
             profileData={profileData as Record<string, unknown>}
@@ -618,6 +702,7 @@ export default function SmartProfile() {
 
   const handleReset = () => {
     reset();
+    clearClientSelection();
     setCompletedSteps(new Set());
     setExtractionError(null);
     setSuggestedMerges([]);
@@ -625,35 +710,54 @@ export default function SmartProfile() {
     wizardTimer.clear();
   };
 
-  // Save profile to backend
-  const handleSaveProfile = async () => {
+  // Get client selection actions from store
+  const selectExistingClient = useSmartProfileStore((state) => state.selectExistingClient);
+  const setSavedClientName = useSmartProfileStore((state) => state.setSavedClientName);
+  const clearClientSelection = useSmartProfileStore((state) => state.clearClientSelection);
+
+  // Save profile to existing client
+  const handleSaveToClient = async (targetClientId: string) => {
     setIsSaving(true);
     try {
-      // Generate a name from profile data
-      const firstName = (profileData.firstName as string) || '';
-      const lastName = (profileData.lastName as string) || '';
-      const fullName = (profileData.fullName as string) || `${firstName} ${lastName}`.trim();
-      const profileName = fullName || 'Extracted Profile';
+      // Get client details for the name
+      const clientResponse = await clientsService.getClientById(targetClientId);
+      const clientName = clientResponse.data.client.name;
 
-      if (clientId) {
-        // Update existing profile
-        await profilesService.updateProfileData(clientId, profileData);
-        toast.success('Profile updated successfully');
-      } else {
-        // Create new profile
-        const newProfile = await profilesService.create({
-          name: profileName,
-          type: 'PERSONAL',
-        });
-        // Update profile data
-        await profilesService.updateProfileData(newProfile.id, profileData);
-        // Store the client ID for future updates
-        setClientId(newProfile.id);
-        toast.success('Profile saved successfully');
-      }
+      // Use the profilesService to update the client profile with extracted data
+      // The backend PUT /api/clients/:clientId/profile endpoint handles merging
+      await profilesService.updateProfileData(targetClientId, profileData);
+
+      // Update store with successful save
+      selectExistingClient(targetClientId, clientName);
+      setClientId(targetClientId);
+      toast.success(`Profile saved to ${clientName}`);
     } catch (error) {
-      console.error('Save profile error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save profile');
+      console.error('Save to client error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save profile to client');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Create new client and save profile
+  const handleCreateClientAndSave = async (name: string, type: ClientType) => {
+    setIsSaving(true);
+    try {
+      // Create the new client
+      const clientResponse = await clientsService.createClient({ name, type });
+      const newClient = clientResponse.data.client;
+
+      // Save profile data to the new client using profilesService
+      await profilesService.updateProfileData(newClient.id, profileData);
+
+      // Update store with successful save
+      selectExistingClient(newClient.id, newClient.name);
+      setSavedClientName(newClient.name);
+      setClientId(newClient.id);
+      toast.success(`Client "${name}" created and profile saved`);
+    } catch (error) {
+      console.error('Create client and save error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create client');
     } finally {
       setIsSaving(false);
     }
@@ -675,7 +779,13 @@ export default function SmartProfile() {
       case 'review':
         return <ReviewStepContent onComplete={handleReviewComplete} />;
       case 'profile':
-        return <ProfileStepContent onSaveProfile={handleSaveProfile} isSaving={isSaving} />;
+        return (
+          <ProfileStepContent
+            onSaveToClient={handleSaveToClient}
+            onCreateClientAndSave={handleCreateClientAndSave}
+            isSaving={isSaving}
+          />
+        );
       case 'form-select':
         return <FormSelectStepContent />;
       default:
