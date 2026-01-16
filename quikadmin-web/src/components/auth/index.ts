@@ -21,3 +21,5 @@ export {
 export { SuccessState } from './SuccessState';
 
 export { AttemptsWarning, type AttemptsWarningProps } from './AttemptsWarning';
+
+export { GoogleAuthButton, type GoogleAuthButtonProps } from './GoogleAuthButton';

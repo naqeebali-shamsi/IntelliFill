@@ -1468,6 +1468,152 @@ export function createSupabaseAuthRoutes(): Router {
     }
   });
 
+  /**
+   * POST /api/auth/v2/oauth/callback - Handle OAuth provider callback
+   *
+   * Verifies the Supabase OAuth session and syncs the user to Prisma.
+   * Creates a new user if this is their first OAuth sign-in.
+   */
+  router.post('/oauth/callback', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { accessToken, refreshToken } = req.body as {
+        accessToken: string;
+        refreshToken: string;
+      };
+
+      if (!accessToken || !refreshToken) {
+        return res.status(400).json({
+          error: 'Access token and refresh token are required',
+        });
+      }
+
+      // Verify the Supabase session using the access token
+      const {
+        data: { user: supabaseUser },
+        error: authError,
+      } = await supabaseAdmin.auth.getUser(accessToken);
+
+      if (authError || !supabaseUser) {
+        logger.warn('OAuth callback: Invalid token', { error: authError?.message });
+        return res.status(401).json({
+          error: 'Invalid OAuth token',
+        });
+      }
+
+      logger.info('OAuth callback: User verified', {
+        supabaseId: supabaseUser.id,
+        email: supabaseUser.email,
+        provider: supabaseUser.app_metadata?.provider,
+      });
+
+      // Check if user exists in Prisma
+      let user = await prisma.user.findUnique({
+        where: { supabaseUserId: supabaseUser.id },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          createdAt: true,
+          lastLogin: true,
+        },
+      });
+
+      // Create user if doesn't exist (first OAuth sign-in)
+      if (!user) {
+        const metadata = supabaseUser.user_metadata || {};
+        const fullName = metadata.full_name || metadata.name || '';
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || metadata.given_name || null;
+        const lastName = nameParts.slice(1).join(' ') || metadata.family_name || null;
+        const avatarUrl = metadata.avatar_url || metadata.picture || null;
+
+        user = await prisma.user.create({
+          data: {
+            id: supabaseUser.id, // Use Supabase user ID as primary key
+            email: supabaseUser.email!.toLowerCase(),
+            supabaseUserId: supabaseUser.id,
+            firstName,
+            lastName,
+            avatarUrl,
+            emailVerified: true, // OAuth emails are pre-verified by provider
+            password: '', // No password for OAuth users
+            role: 'USER',
+            isActive: true,
+          },
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            isActive: true,
+            emailVerified: true,
+            createdAt: true,
+            lastLogin: true,
+          },
+        });
+
+        logger.info('OAuth callback: New user created', {
+          userId: user.id,
+          email: user.email,
+          provider: supabaseUser.app_metadata?.provider,
+        });
+      }
+
+      // Check if user is active
+      if (!user.isActive) {
+        logger.warn('OAuth callback: Inactive user attempted login', { userId: user.id });
+        return res.status(403).json({
+          error: 'Account is deactivated. Please contact support.',
+          code: 'ACCOUNT_DEACTIVATED',
+        });
+      }
+
+      // Update last login
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
+
+      // Set refresh token as httpOnly cookie
+      setRefreshTokenCookie(res, refreshToken);
+
+      logger.info('OAuth callback: Login successful', { userId: user.id });
+
+      // Return success response
+      res.json({
+        success: true,
+        message: 'OAuth login successful',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role.toLowerCase(),
+            emailVerified: user.emailVerified,
+            lastLogin: new Date(),
+            createdAt: user.createdAt,
+          },
+          tokens: {
+            accessToken,
+            expiresIn: 3600, // Supabase default is 1 hour
+            tokenType: 'Bearer',
+          },
+        },
+      });
+    } catch (error: unknown) {
+      logger.error('OAuth callback error:', error);
+      res.status(500).json({
+        error: 'OAuth authentication failed. Please try again.',
+      });
+    }
+  });
+
   // MFA (Multi-Factor Authentication) Endpoints
 
   const BACKUP_CODE_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes confusing chars (0, O, 1, I)

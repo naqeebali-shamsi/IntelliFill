@@ -88,6 +88,11 @@ interface AuthState {
   demoInfo: DemoInfo | null; // Demo mode info (notice, features)
 }
 
+interface OAuthCallbackData {
+  user: AuthUser;
+  tokens: AuthTokens;
+}
+
 interface AuthActions {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
@@ -106,6 +111,8 @@ interface AuthActions {
   verifyResetToken: (token: string) => Promise<void>;
   // REQ-009: Loading stage actions
   setLoadingStage: (stage: LoadingStage) => void;
+  // OAuth callback handler
+  setAuthFromOAuth: (data: OAuthCallbackData) => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -724,6 +731,13 @@ export const useBackendAuthStore = create<AuthStore>()(
           set((state) => {
             state.loadingStage = stage;
           });
+        },
+
+        // Set auth state from OAuth callback response
+        // Called after successful OAuth redirect processing
+        setAuthFromOAuth: (data: OAuthCallbackData) => {
+          const { user, tokens } = data;
+          setAuthenticatedState(set, { user, tokens });
         },
       })),
       {

@@ -12,6 +12,7 @@ import { ErrorCode } from '@/constants/errorCodes';
 import { Testimonial } from '@/components/ui/design-testimonial';
 import { Boxes } from '@/components/ui/background-boxes';
 import { AccentLine, AnimatedLogo, PasswordVisibilityToggle, AttemptsWarning } from '@/components';
+import { GoogleAuthButton } from '@/components/auth';
 import { cn } from '@/lib/utils';
 import { logger } from '@/utils/logger';
 import { useBoolean, useLockoutCountdown } from '@/hooks';
@@ -347,8 +348,25 @@ export default function Login(): JSX.Element {
                 )}
               </Button>
 
+              {/* OAuth Divider */}
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-sleek-line-subtle" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-surface-2/80 px-2 text-white/40">or continue with</span>
+                </div>
+              </div>
+
+              {/* Google OAuth Button */}
+              <GoogleAuthButton
+                mode="login"
+                disabled={isFormDisabled}
+                className="w-full h-11 bg-surface-1/50 border-sleek-line-default hover:bg-surface-1 hover:border-primary/30"
+              />
+
               {/* Sign up link */}
-              <p className="text-center text-sm text-white/50">
+              <p className="text-center text-sm text-white/50 pt-2">
                 Don't have an account?{' '}
                 <Link
                   to="/register"

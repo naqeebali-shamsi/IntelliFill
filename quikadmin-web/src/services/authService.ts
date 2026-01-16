@@ -183,6 +183,18 @@ export async function demoLogin(): Promise<AuthResponse> {
   return response.data;
 }
 
+/**
+ * Handle OAuth callback - syncs OAuth user with backend
+ * Called after successful OAuth redirect from provider (e.g., Google)
+ */
+export async function handleOAuthCallback(params: {
+  accessToken: string;
+  refreshToken: string;
+}): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/auth/v2/oauth/callback', params);
+  return response.data;
+}
+
 export default {
   login,
   register,
@@ -196,4 +208,5 @@ export default {
   verifyEmail,
   resendVerification,
   demoLogin,
+  handleOAuthCallback,
 };
