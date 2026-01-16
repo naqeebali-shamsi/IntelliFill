@@ -8,20 +8,20 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CardDescription, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   FileText,
-  Upload,
   CheckCircle,
   AlertCircle,
   ArrowUpRight,
   Eye,
-  FolderOpen,
   RefreshCw,
   Inbox,
   Sparkles,
   Zap,
   Activity,
+  Users,
 } from 'lucide-react';
 import { useStatistics, useJobs, useTemplates, useQueueMetrics } from '@/hooks/useApiData';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,7 +30,7 @@ import { StatusBadge } from '@/components/features/status-badge';
 import { staggerContainer, fadeInUp } from '@/lib/animations';
 import { StatCard } from '@/components/features/stat-card';
 import { ResponsiveGrid } from '@/components/layout/responsive-grid';
-import { SleekIconButton, SleekBadge, AccentLine } from '@/components';
+import { AccentLine } from '@/components';
 
 export default function ConnectedDashboard() {
   const navigate = useNavigate();
@@ -98,10 +98,10 @@ export default function ConnectedDashboard() {
             Refresh
           </Button>
           <Button
-            onClick={() => navigate('/upload')}
+            onClick={() => navigate('/smart-profile')}
             className="shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
           >
-            <Upload className="mr-2 h-4 w-4" /> Upload New
+            <Sparkles className="mr-2 h-4 w-4" /> Smart Profile
           </Button>
         </div>
       </div>
@@ -222,15 +222,15 @@ export default function ConnectedDashboard() {
                           <span>{formatDate(job.createdAt)}</span>
                         </div>
                       </div>
-                      <SleekIconButton
+                      <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         aria-label={`View job ${job.id}`}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => navigate(`/job/${job.id}`)}
                       >
                         <Eye className="h-4 w-4" />
-                      </SleekIconButton>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -241,16 +241,20 @@ export default function ConnectedDashboard() {
           {/* Right Column: Processing & Quick Actions */}
           <motion.div variants={fadeInUp} className="space-y-6">
             {/* Processing Queue Widget */}
-            <div className="glass-card p-6 rounded-xl border border-white/10 relative overflow-hidden" data-testid="processing-queue-widget">
+            <div
+              className="glass-card p-6 rounded-xl border border-white/10 relative overflow-hidden"
+              data-testid="processing-queue-widget"
+            >
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-4">
                   <AccentLine variant="active" size="sm" animate delay={0.2} />
                   <h3 className="font-medium flex items-center gap-2">
                     <Activity className="h-4 w-4 text-primary" /> Processing Queue
                   </h3>
-                  <SleekBadge variant="subtle" size="sm" showDot dotPulse dotVariant="active">
+                  <Badge variant="outline" className="inline-flex items-center gap-2 text-xs">
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-info animate-pulse" />
                     Live
-                  </SleekBadge>
+                  </Badge>
                 </div>
 
                 {queueLoading ? (
@@ -265,7 +269,11 @@ export default function ConnectedDashboard() {
                           {(queueMetrics?.waiting || 0) + (queueMetrics?.active || 0)}
                         </span>
                       </div>
-                      <Progress value={progress} className="h-2" data-testid="processing-queue-progress" />
+                      <Progress
+                        value={progress}
+                        className="h-2"
+                        data-testid="processing-queue-progress"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
@@ -289,7 +297,10 @@ export default function ConnectedDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="glass-panel p-6 rounded-xl border border-white/10" data-testid="quick-actions-section">
+            <div
+              className="glass-panel p-6 rounded-xl border border-white/10"
+              data-testid="quick-actions-section"
+            >
               <h3 className="font-medium flex items-center gap-2 mb-4">
                 <Zap className="h-4 w-4 text-warning" /> Quick Actions
               </h3>
@@ -297,16 +308,16 @@ export default function ConnectedDashboard() {
                 <Button
                   variant="outline"
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
-                  onClick={() => navigate('/upload')}
-                  data-testid="quick-action-upload"
+                  onClick={() => navigate('/smart-profile')}
+                  data-testid="quick-action-smart-profile"
                 >
                   <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Upload className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4" />
                   </div>
                   <div className="text-left">
-                    <div className="font-medium text-sm">Upload Document</div>
+                    <div className="font-medium text-sm">Smart Profile</div>
                     <div className="text-[10px] text-muted-foreground">
-                      Start new processing job
+                      Upload docs and fill forms
                     </div>
                   </div>
                 </Button>
@@ -331,17 +342,15 @@ export default function ConnectedDashboard() {
                 <Button
                   variant="outline"
                   className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
-                  onClick={() => navigate('/documents')}
-                  data-testid="quick-action-library"
+                  onClick={() => navigate('/clients')}
+                  data-testid="quick-action-clients"
                 >
                   <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-white transition-colors">
-                    <FolderOpen className="h-4 w-4" />
+                    <Users className="h-4 w-4" />
                   </div>
                   <div className="text-left">
-                    <div className="font-medium text-sm">Browse Library</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      Access all processed files
-                    </div>
+                    <div className="font-medium text-sm">View Clients</div>
+                    <div className="text-[10px] text-muted-foreground">Manage client profiles</div>
                   </div>
                 </Button>
               </div>

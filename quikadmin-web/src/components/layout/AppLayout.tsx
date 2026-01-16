@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useToggle } from 'usehooks-ts';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -10,38 +9,42 @@ import { NotificationBell } from '@/components/notifications';
 import { useTheme } from '@/components/theme-provider';
 import { useAuthStore } from '@/stores/auth';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ProfileFormModal } from '@/components/features/profile-form-modal';
 import {
   LayoutDashboard,
-  UploadCloud,
-  FileSignature,
-  History,
+  Sparkles,
   Users,
   Files,
+  History,
   LayoutTemplate,
+  BookOpen,
   Settings,
+  BarChart3,
+  Shield,
   Menu,
   ChevronLeft,
   ChevronRight,
   LogOut,
   Search,
   Plus,
-  FileCheck,
-  BookOpen,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-const navigation = [
+// Base navigation for all users
+const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Upload', href: '/upload', icon: UploadCloud },
-  { name: 'Fill Form', href: '/fill-form', icon: FileSignature },
-  { name: 'Filled Forms', href: '/filled-forms', icon: FileCheck },
-  { name: 'History', href: '/history', icon: History },
-  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
-  { name: 'Profiles', href: '/profiles', icon: Users },
+  { name: 'Smart Profile', href: '/smart-profile', icon: Sparkles },
+  { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Documents', href: '/documents', icon: Files },
+  { name: 'History', href: '/history', icon: History },
   { name: 'Templates', href: '/templates', icon: LayoutTemplate },
+  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
   { name: 'Settings', href: '/settings', icon: Settings },
+];
+
+// Admin-only navigation items
+const adminNavigation = [
+  { name: 'Form Analytics', href: '/analytics/forms', icon: BarChart3 },
+  { name: 'Accuracy', href: '/admin/accuracy', icon: Shield },
 ];
 
 interface AppLayoutProps {
@@ -56,7 +59,6 @@ interface SidebarContentProps {
   logout: () => Promise<void>;
   navigate: (path: string) => void;
   theme: string;
-  onNewClient?: () => void;
 }
 
 const SidebarContent = ({
@@ -67,11 +69,14 @@ const SidebarContent = ({
   logout,
   navigate,
   theme,
-  onNewClient,
 }: SidebarContentProps) => {
   // Use light logo variant for dark theme, dark variant for light theme
   const logoIcon = theme === 'dark' ? '/logo-light.svg' : '/logo-dark.svg';
   const logoFull = theme === 'dark' ? '/logo-full-light.svg' : '/logo-full-dark.svg';
+
+  // Build navigation based on user role
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'admin';
+  const navigation = isAdmin ? [...baseNavigation, ...adminNavigation] : baseNavigation;
 
   return (
     <div className="flex flex-col h-full bg-background/40 backdrop-blur-xl border-r border-white/5">
@@ -141,12 +146,12 @@ const SidebarContent = ({
                 variant="outline"
                 className="w-full justify-start border-dashed border-white/10 hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-all"
                 onClick={() => {
-                  onNewClient?.();
+                  navigate('/smart-profile');
                   setSidebarOpen?.(false);
                 }}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                New Client
+                <Sparkles className="mr-2 h-4 w-4" />
+                New Profile
               </Button>
             </div>
           </div>
@@ -194,13 +199,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const [sidebarOpen, , setSidebarOpen] = useToggle(false);
   const [sidebarCollapsed, toggleSidebarCollapsed] = useToggle(false);
-  const [newClientModalOpen, setNewClientModalOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const { theme } = useTheme();
-
-  const handleNewClientSuccess = () => {
-    navigate('/profiles');
-  };
 
   return (
     <div className="flex min-h-screen bg-background font-sans selection:bg-primary/20">
@@ -217,7 +217,6 @@ export function AppLayout({ children }: AppLayoutProps) {
           logout={logout}
           navigate={navigate}
           theme={theme}
-          onNewClient={() => setNewClientModalOpen(true)}
         />
 
         {/* Toggle Button */}
@@ -252,7 +251,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             logout={logout}
             navigate={navigate}
             theme={theme}
-            onNewClient={() => setNewClientModalOpen(true)}
           />
         </SheetContent>
       </Sheet>
@@ -304,13 +302,6 @@ export function AppLayout({ children }: AppLayoutProps) {
           </AnimatePresence>
         </main>
       </div>
-
-      {/* New Client Modal */}
-      <ProfileFormModal
-        open={newClientModalOpen}
-        onOpenChange={setNewClientModalOpen}
-        onSuccess={handleNewClientSuccess}
-      />
     </div>
   );
 }
