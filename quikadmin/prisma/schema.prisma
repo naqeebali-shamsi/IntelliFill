@@ -49,6 +49,13 @@ model User {
   phone            String?                  @db.VarChar(30)
   acceptedTermsAt  DateTime?                @map("accepted_terms_at")
   marketingConsent Boolean                  @default(false) @map("marketing_consent")
+
+  // Stripe subscription fields
+  stripeCustomerId    String?   @unique @map("stripe_customer_id")
+  subscriptionId      String?   @unique @map("subscription_id")
+  subscriptionStatus  String?   @map("subscription_status")  // 'active', 'canceled', 'past_due', 'trialing', etc.
+  currentPeriodEnd    DateTime? @map("current_period_end")   // When billing period ends
+
   apiUsage        ApiUsage[]
   auditLogs       AuditLog[]
   clients         Client[]
