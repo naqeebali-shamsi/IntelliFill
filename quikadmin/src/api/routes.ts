@@ -14,6 +14,7 @@ import { createFilledFormRoutes } from './filled-forms.routes';
 import { createKnowledgeRoutes } from './knowledge.routes';
 import { createMultiagentRoutes } from './multiagent.routes';
 import securityDashboardRoutes from './security-dashboard.routes';
+import { createAdminAccuracyRoutes } from './admin-accuracy.routes';
 import { createOrganizationRoutes } from './organization.routes';
 import { createInvitationRoutes } from './invitation.routes';
 import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
@@ -133,6 +134,11 @@ export function setupRoutes(
   // Setup security audit dashboard routes (Task 285)
   // Mounted at /api/admin/security for admin-only security monitoring
   app.use('/api/admin/security', securityDashboardRoutes);
+
+  // Setup admin accuracy dashboard routes (Phase 4 - PRO Features)
+  // Mounted at /api/admin/accuracy for OCR accuracy and AI agent metrics
+  const adminAccuracyRoutes = createAdminAccuracyRoutes();
+  app.use('/api/admin/accuracy', adminAccuracyRoutes);
 
   // Setup organization routes (Task 382)
   // Mounted at /api/organizations for organization CRUD operations
