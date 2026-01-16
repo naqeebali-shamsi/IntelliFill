@@ -37,6 +37,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const JobDetails = lazy(() => import('./pages/JobDetails'));
 const DocumentLibrary = lazy(() => import('./pages/DocumentLibrary'));
 const ClientLibrary = lazy(() => import('./pages/ClientLibrary'));
+const FormAnalytics = lazy(() => import('./pages/FormAnalytics'));
 
 // Form fill pages - lazy loaded
 const SimpleFillForm = lazy(() => import('./pages/SimpleFillForm'));
@@ -197,6 +198,7 @@ function App() {
                   <Route path="templates/:id/edit" element={<TemplateEditor />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="job/:jobId" element={<JobDetails />} />
+                  <Route path="analytics/forms" element={<FormAnalytics />} />
                 </Route>
 
                 {/* Catch-all route for 404 */}
