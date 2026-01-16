@@ -115,6 +115,9 @@ export interface ExtractionProgress {
 
 // =================== STORE INTERFACES ===================
 
+/** Mode for client selection: existing client, new client, or not yet chosen */
+export type ClientSelectionMode = 'existing' | 'new' | null;
+
 interface SmartProfileState {
   /** Current wizard step */
   step: WizardStep;
@@ -138,6 +141,16 @@ interface SmartProfileState {
   processingStartedAt: number | null;
   /** Extraction progress for UI feedback */
   extractionProgress: ExtractionProgress;
+
+  // =================== CLIENT SELECTION STATE ===================
+  /** Selected existing client ID for saving profile */
+  selectedClientId: string | null;
+  /** Name for new client creation */
+  newClientName: string | null;
+  /** Client selection mode: 'existing' | 'new' | null */
+  clientMode: ClientSelectionMode;
+  /** Name of the saved client (for display after save) */
+  savedClientName: string | null;
 }
 
 interface SmartProfileActions {
@@ -177,6 +190,18 @@ interface SmartProfileActions {
   setClientId: (clientId: string | null) => void;
   /** Set processing start time */
   setProcessingStartedAt: (timestamp: number | null) => void;
+
+  // =================== CLIENT SELECTION ACTIONS ===================
+  /** Select an existing client to save the profile to */
+  selectExistingClient: (clientId: string, clientName: string) => void;
+  /** Set name for new client creation */
+  setNewClientName: (name: string) => void;
+  /** Set client selection mode */
+  setClientMode: (mode: ClientSelectionMode) => void;
+  /** Clear all client selection state */
+  clearClientSelection: () => void;
+  /** Set the saved client name (after successful save) */
+  setSavedClientName: (name: string | null) => void;
   /** Update extraction progress for UI feedback */
   setExtractionProgress: (progress: Partial<ExtractionProgress>) => void;
   /** Reset extraction progress to idle */
@@ -215,6 +240,11 @@ const initialState: SmartProfileState = {
   clientId: null,
   processingStartedAt: null,
   extractionProgress: initialExtractionProgress,
+  // Client selection state
+  selectedClientId: null,
+  newClientName: null,
+  clientMode: null,
+  savedClientName: null,
 };
 
 // =================== STEP NAVIGATION HELPERS ===================
@@ -458,6 +488,51 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
           });
         },
 
+        // =================== CLIENT SELECTION ===================
+
+        selectExistingClient: (clientId, clientName) => {
+          set((state) => {
+            state.selectedClientId = clientId;
+            state.newClientName = null;
+            state.clientMode = 'existing';
+            state.savedClientName = clientName;
+          });
+        },
+
+        setNewClientName: (name) => {
+          set((state) => {
+            state.newClientName = name;
+            state.selectedClientId = null;
+            state.clientMode = 'new';
+          });
+        },
+
+        setClientMode: (mode) => {
+          set((state) => {
+            state.clientMode = mode;
+            // Clear selection data when mode changes
+            if (mode === null) {
+              state.selectedClientId = null;
+              state.newClientName = null;
+            }
+          });
+        },
+
+        clearClientSelection: () => {
+          set((state) => {
+            state.selectedClientId = null;
+            state.newClientName = null;
+            state.clientMode = null;
+            state.savedClientName = null;
+          });
+        },
+
+        setSavedClientName: (name) => {
+          set((state) => {
+            state.savedClientName = name;
+          });
+        },
+
         // =================== EXTRACTION PROGRESS ===================
 
         setExtractionProgress: (progress) => {
@@ -496,6 +571,11 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
           selectedFormId: state.selectedFormId,
           clientId: state.clientId,
           processingStartedAt: state.processingStartedAt,
+          // Client selection state
+          selectedClientId: state.selectedClientId,
+          newClientName: state.newClientName,
+          clientMode: state.clientMode,
+          savedClientName: state.savedClientName,
         }),
       }
     ),
@@ -528,6 +608,15 @@ export const smartProfileSelectors = {
   isExtracting: (state: SmartProfileStore) =>
     state.extractionProgress.status === 'extracting' ||
     state.extractionProgress.status === 'merging',
+  // Client selection selectors
+  selectedClientId: (state: SmartProfileStore) => state.selectedClientId,
+  newClientName: (state: SmartProfileStore) => state.newClientName,
+  clientMode: (state: SmartProfileStore) => state.clientMode,
+  savedClientName: (state: SmartProfileStore) => state.savedClientName,
+  hasClientSelection: (state: SmartProfileStore) =>
+    state.clientMode !== null &&
+    (state.selectedClientId !== null ||
+      (state.newClientName !== null && state.newClientName.trim() !== '')),
 };
 
 // =================== HOOKS ===================
@@ -606,5 +695,28 @@ export const useExtractionProgress = () =>
       isExtracting:
         state.extractionProgress.status === 'extracting' ||
         state.extractionProgress.status === 'merging',
+    }))
+  );
+
+/**
+ * Hook for client selection management
+ * Provides state and actions for selecting existing or creating new clients
+ */
+export const useClientSelection = () =>
+  useSmartProfileStore(
+    useShallow((state) => ({
+      selectedClientId: state.selectedClientId,
+      newClientName: state.newClientName,
+      clientMode: state.clientMode,
+      savedClientName: state.savedClientName,
+      selectExistingClient: state.selectExistingClient,
+      setNewClientName: state.setNewClientName,
+      setClientMode: state.setClientMode,
+      clearClientSelection: state.clearClientSelection,
+      setSavedClientName: state.setSavedClientName,
+      hasSelection:
+        state.clientMode !== null &&
+        (state.selectedClientId !== null ||
+          (state.newClientName !== null && state.newClientName.trim() !== '')),
     }))
   );
