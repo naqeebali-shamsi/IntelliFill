@@ -2,19 +2,40 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-13)
+See: .planning/PROJECT.md (updated 2026-01-16)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** Phase 4 — PRO Features
+**Current focus:** v1.0 shipped — planning next milestone
 
 ## Current Position
 
-Phase: 4 of 4 (PRO Features) - COMPLETE
-Plan: All 5 plans complete (04-01 through 04-05)
-Status: MILESTONE COMPLETE - Smart Profile UX
-Last activity: 2026-01-16 — Phase 4 complete (PRO features scaffolded, not MVP priority)
+Phase: v1.0 Complete
+Plan: All 19 plans complete
+Status: MILESTONE SHIPPED
+Last activity: 2026-01-16 — v1.0 MVP shipped
 
-Progress: ██████████ 100% (Milestone Complete)
+Progress: v1.0 ██████████ 100% (Shipped)
+
+## v1.0 Summary
+
+**Shipped:** 2026-01-16
+
+**Delivered:**
+
+- 3-step wizard: Upload → See → Fill
+- Smart document detection with Gemini AI
+- Multi-person entity resolution
+- Confidence-based review flow
+- Smart form suggestions
+- PRO features (scaffolded)
+
+**Stats:**
+
+- 4 phases, 19 plans
+- 60 files, +13k LOC
+- 4 days (2026-01-13 → 2026-01-16)
+
+See `.planning/MILESTONES.md` for full details.
 
 ## Performance Metrics
 
@@ -33,287 +54,36 @@ Progress: ██████████ 100% (Milestone Complete)
 | 3-Polish       | 4/4   | ~52 min | ~13 min  |
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
 
-**Recent Trend:**
+## Next Steps
 
-- Phase 3-4 plans executed efficiently with wave-based parallelism
-- PRO features scaffolded (not MVP priority, accepted as-is)
+Ready to plan v1.1. Options:
+
+1. `/gsd:discuss-milestone` — Collaborative discovery of next features
+2. `/gsd:new-milestone` — Direct milestone creation if scope is clear
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Parallel flow, not replacement (PRO agents need existing power-user features)
-- Person grouping defaults to separate (safer to let users merge)
-- Confidence thresholds start at 85% (conservative, tune based on corrections)
-- Confidence badges show semantic labels, not raw percentages
-- 30-second timeout for Gemini API calls
-- Max 5 concurrent Gemini calls (rate limiting)
-- Native Semaphore implementation for rate limiting
-- Removed "Verified" label - overstated AI certainty
-- Four-tier confidence: High (95%+), Good (85-94%), Review (70-84%), Low (<70%)
-- Entity resolution thresholds: AUTO_GROUP=0.95, SUGGEST=0.85, REVIEW=0.70
-- Use fuzzball token_sort_ratio for name matching (handles name reordering)
-- Union-Find algorithm for grouping efficiency
-- PointerSensor with 8px activation distance (prevents accidental drags)
-- Inline edit pattern for person names (not modal)
-- Show grouping step only when >1 person detected
-- Review step shows only fields needing attention (low confidence + conflicts)
-- Auto-skip review when all fields high confidence
-- Field confirmation pattern with visual state change (warning -> success)
-- **NEW:** FieldSourceBadge shows icon-only with detailed tooltip
-- **NEW:** Default form type "visa-application" for missing field detection
-- **NEW:** MissingFieldsAlert dismissable for power users
-- **NEW:** Assisted/Express mode toggle (85% vs 90% threshold)
-- **NEW:** Default to 'assisted' mode for new users (safer)
-- **NEW:** Dev-mode performance timing for wizard flow
-- **NEW:** Step indicator uses semantic nav with aria-labels
+All v1.0 decisions archived in PROJECT.md Key Decisions table.
 
 ### Deferred Issues
 
-None yet.
+- Real-user validation metrics (TBD in production)
+- Mobile-responsive polish
+- WCAG 2.1 AA accessibility audit
 
 ### Blockers/Concerns
 
-- Pre-existing TypeScript errors in modified files from prior work (not blocking)
+None — clean milestone completion.
 
 ## Session Continuity
 
 Last session: 2026-01-16
-Stopped at: Milestone complete
+Stopped at: v1.0 milestone complete
 Resume file: None
-Next: `/gsd:complete-milestone` to archive and prepare for next milestone
+Next: Plan v1.1 milestone
 
-## Plan 04-05 Summary (Complete)
+---
 
-**Admin Accuracy Dashboard:**
-
-- Created admin-accuracy.routes.ts with 3 admin-only endpoints:
-  - GET /api/admin/accuracy/overview - accuracy stats with trends
-  - GET /api/admin/accuracy/agents - AI agent performance comparison
-  - GET /api/admin/accuracy/feedback - paginated user feedback
-- Created adminService.ts with typed API methods
-- Built AdminAccuracyDashboard.tsx page with:
-  - Overview cards (accuracy %, confidence, feedback count)
-  - Accuracy trend chart (30 days with low accuracy highlighting)
-  - Agent performance table (sortable, success rates, timing)
-  - Document category breakdown with confidence bars
-  - Recent feedback list (expandable, load more pagination)
-  - Access control check with denied message for non-admins
-- Added /admin/accuracy route (protected, lazy loaded)
-
-**Commits:**
-
-- `5411a4e`: Add admin accuracy backend routes
-- `7afd1f5`: Add adminService for accuracy dashboard API
-- `59eb7d4`: Build AdminAccuracyDashboard page with route
-
-**Status:** Complete (PRO features, approved as-is - not MVP priority)
-
-## Plan 03-01 Summary (Complete)
-
-**FormSuggester - Smart form suggestions based on uploaded documents:**
-
-- Extended form-fields.ts with DOCUMENT_TO_FORM_MAPPING and suggestForms()
-- Created FormCard component with confidence badge and matched docs display
-- Built FormSuggester main component with ranked suggestions
-- Integrated into SmartProfile wizard form-select step
-- MissingFieldsAlert now uses selected form ID
-- 22 unit tests for form suggestion functionality
-
-**Commits:**
-
-- `9860d04`: Add form mapping utilities to form-fields
-- `b4cd6e7`: Build FormSuggester UI components
-- `ddaa1dd`: Integrate FormSuggester into wizard
-
-## Plan 03-02 Summary (Complete)
-
-**Wizard animations with direction-awareness and accessibility:**
-
-- Created wizard-variants.ts with stepVariants and fadeStepVariants
-- Added direction state tracking (1=forward, -1=backward)
-- Integrated useReducedMotion for accessibility compliance
-- Replaced inline animation objects with variant references
-- Added staggered animations to PersonGrouper grid
-
-**Commits:**
-
-- `3de714d`: Create wizard animation variants
-- `1f5b9dd`: Enhance SmartProfile with variants and reduced motion
-- `751e38e`: Add staggered animations for PersonGrouper lists
-
-## Plan 03-03 Summary (Complete)
-
-**Assisted/Express Mode toggle:**
-
-- Created userPreferencesStore with localStorage persistence
-- Built ModeToggle component with Switch and tooltips
-- Integrated mode-aware auto-skip logic into SmartProfile
-- Express mode: 90% threshold, Assisted mode: 85% threshold
-- Default to 'assisted' for new users
-
-**Commits:**
-
-- `fa82594`: userPreferencesStore with persist
-- `fa55ecb`: ModeToggle component
-- `34fe81a`: Integrate mode logic into SmartProfile wizard
-
-## Plan 03-04 Summary (Complete)
-
-**UI Polish & Verification:**
-
-- Created lib/performance.ts with timing utilities
-- Added detection timing to SmartUploadZone
-- Added extraction and total wizard timing to SmartProfile
-- Improved step indicator accessibility (aria-labels, nav element)
-- Audited all components - existing states are complete
-- User verification via E2E tests: 62 passed, 3 skipped
-
-**Commits:**
-
-- `dcc8e51`: Performance logging utility
-- `da94c09`: Step indicator accessibility
-
-**Phase 3 Polish - COMPLETE**
-
-## Plan 04-01 Summary (Complete)
-
-**Client List & Search UI:**
-
-- Created clientsService.ts with full CRUD API client
-- Built clientsStore.ts Zustand store with immer, filters, pagination
-- Implemented ClientLibrary.tsx page with search, filters, grid
-- Added /clients route to App.tsx (lazy loaded)
-- Responsive grid (1/2/3 columns), ClientCard with type/status badges
-- Archive/restore actions, empty states, loading skeletons
-- useClientsFilters() and useClientsPagination() selector hooks
-
-**Commits:**
-
-- `57432dd`: Create clientsService.ts API service
-- `4f7d7f0`: Create clientsStore.ts Zustand store
-- `f84bae6`: Build ClientLibrary.tsx page with route
-
-## Plan 04-02 Summary (Complete)
-
-**Form Analytics Backend & Frontend:**
-
-- Created form-analytics.routes.ts with 3 authenticated endpoints
-- GET /api/form-analytics/overview - aggregate form stats
-- GET /api/form-analytics/templates/:templateId - template analytics
-- GET /api/form-analytics/trends - 30-day usage trends
-- Created formAnalyticsService.ts with typed methods
-- Full TypeScript interfaces for all response types
-
-**Commits:**
-
-- `606888e`: Add form analytics backend routes
-- `8473c32`: Add form analytics frontend service
-
-## Plan 04-03 Summary (Complete)
-
-**Form Analytics Dashboard UI:**
-
-- Created formAnalyticsStore.ts with overview, trends, template analytics state
-- Built FormAnalytics.tsx page with:
-  - Overview cards (total forms, monthly, status breakdown)
-  - Top templates ranked list with usage counts
-  - Usage trends CSS bar chart (30 days)
-  - Template details expansion panel
-  - Loading skeletons and empty states
-  - Responsive layout
-- Added /analytics/forms route (lazy loaded)
-- User approved visual layout at checkpoint
-
-**Commits:**
-
-- `336e8bc`: Create formAnalyticsStore.ts for analytics state
-- `7862ae2`: Build FormAnalytics.tsx dashboard page
-
-## Plan 04-04 Summary (Complete)
-
-**SmartProfile-Client Integration with Bug Fix:**
-
-- Extended smartProfileStore with client selection state
-- Created ClientSelector component (tabbed UI, search, create)
-- Integrated into SmartProfile wizard profile step
-- Fixed backend bug: GET /api/clients/:id now returns full profile object
-- Profile data correctly persists and displays in ProfileDetail
-
-**Commits:**
-
-- `28b6ec5`: Client selection state in smartProfileStore
-- `52b9eaf`: ClientSelector component
-- `2cddaea`: SmartProfile integration
-- `735008f`: Bug fix - full profile object in API response
-
-## Plan 02-04 Summary (Complete)
-
-**Field source tracking and missing field detection:**
-
-- Created FieldSourceBadge component with icon and tooltip
-- Built form-fields.ts utilities for required fields and document mapping
-- Implemented MissingFieldsAlert component with suggested documents
-- Integrated FieldSourceBadge into ProfileView inline with values
-- Added MissingFieldsAlert to profile step in SmartProfile
-- User approved verification checkpoint (Phase 2 complete)
-
-**Commits:**
-
-- `4bc2c4f`: FieldSourceBadge component
-- `97e62f0`: MissingFieldsAlert and form-fields utilities
-- `207991f`: Integrate FieldSourceBadge into ProfileView
-- `990ba67`: Add MissingFieldsAlert to profile step
-
-## Plan 02-03 Summary
-
-**ConfidenceReview step for low-confidence fields and conflicts:**
-
-- Created ReviewField component for single-field review with inline editing
-- Built FieldConflict component for multi-value resolution with radio selection
-- Implemented ConfidenceReview main component with progress tracking
-- Integrated into SmartProfile wizard with auto-skip behavior
-- Added conflicts state/actions to smartProfileStore
-
-**Commits:**
-
-- `940d629`: ReviewField.tsx (parallel agent commit)
-- `eab49ab`: FieldConflict component
-- `d63c22a`: ConfidenceReview/index.tsx (parallel agent commit)
-- `bb26870`: Wire ConfidenceReview into wizard
-
-## Plan 02-02 Summary
-
-**PersonGrouper UI with drag-drop document reassignment:**
-
-- Created DocumentItem draggable component with useSortable hook
-- Built PersonCard droppable container with inline name editing
-- Implemented PersonGrouper with DndContext and DragOverlay
-- Integrated into SmartProfile wizard grouping step
-- Added MergeSuggestion component for backend suggestions
-
-**Commits:**
-
-- `940d629`: DocumentItem draggable component
-- `76c9419`: PersonCard droppable container
-- `d63c22a`: PersonGrouper main component with DndContext
-- `815cbd7`: Wire PersonGrouper into SmartProfile wizard
-
-## Plan 02-01 Summary
-
-**Entity Resolution Backend Foundation:**
-
-- Installed fuzzball (backend), @dnd-kit + fuse.js (frontend)
-- Created frontend entity-resolution utilities
-- Implemented PersonGroupingService with Union-Find grouping
-- Enhanced extract-batch endpoint to return detectedPeople
-
-**Commits:**
-
-- `07023e2`: Install dependencies
-- `b2bc205`: Frontend entity resolution utilities
-- `328fb8d`: PersonGroupingService
-- `5917306`: Enhance extract-batch endpoint
+_v1.0 MVP shipped 2026-01-16_
