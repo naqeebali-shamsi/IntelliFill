@@ -71,6 +71,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
+    "fuzzball": "^2.2.3",
     "helmet": "^8.1.0",
     "ioredis": "^5.4.0",
     "joi": "^17.11.0",
@@ -89,11 +90,11 @@
     "redis": "^4.6.11",
     "resend": "^4.0.0",
     "sharp": "^0.33.5",
+    "stripe": "^17.7.0",
     "tesseract.js": "^7.0.0",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",
-    "zod": "^3.23.8",
-    "fuzzball": "^2.2.3"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
