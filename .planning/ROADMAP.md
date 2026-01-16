@@ -32,18 +32,36 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full details.
 
 ## Current Milestone
 
-### v1.1 — Planning
+### v1.1 — Stripe Integration & Monetization
 
-No phases defined yet. Use `/gsd:discuss-milestone` or `/gsd:new-milestone` to plan next work.
+Enable PRO subscription payments via Stripe.
+
+**Vision:** Users hit PRO feature → clean pricing page → Stripe Checkout → instant unlock.
+
+**Phases:**
+
+- [ ] Phase 5: Stripe Integration (4 plans) — **Planning**
+  - 05-01: Database schema + Stripe setup (Wave 1, has checkpoints)
+  - 05-02: Backend webhook & checkout (Wave 2)
+  - 05-03: Frontend pricing & subscription UI (Wave 2, parallel with 05-02)
+  - 05-04: Integration testing & verification (Wave 3)
+
+**Key Requirements:**
+
+- Instant unlock — Pay → features work immediately
+- Single PRO tier, simple pricing
+- Stripe Customer Portal for billing management
+- Webhook-driven subscription state
 
 ## Progress
 
-| Phase           | Milestone | Plans Complete | Status   | Completed  |
-| --------------- | --------- | -------------- | -------- | ---------- |
-| 1. Foundation   | v1.0      | 6/6            | Complete | 2026-01-15 |
-| 2. Intelligence | v1.0      | 4/4            | Complete | 2026-01-15 |
-| 3. Polish       | v1.0      | 4/4            | Complete | 2026-01-16 |
-| 4. PRO Features | v1.0      | 5/5            | Complete | 2026-01-16 |
+| Phase                 | Milestone | Plans Complete | Status   | Completed  |
+| --------------------- | --------- | -------------- | -------- | ---------- |
+| 1. Foundation         | v1.0      | 6/6            | Complete | 2026-01-15 |
+| 2. Intelligence       | v1.0      | 4/4            | Complete | 2026-01-15 |
+| 3. Polish             | v1.0      | 4/4            | Complete | 2026-01-16 |
+| 4. PRO Features       | v1.0      | 5/5            | Complete | 2026-01-16 |
+| 5. Stripe Integration | v1.1      | 0/4            | Planning | —          |
 
 ---
 
