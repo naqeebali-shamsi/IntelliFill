@@ -36,6 +36,7 @@ const TemplateEditor = lazy(() => import('./pages/TemplateEditor'));
 const Settings = lazy(() => import('./pages/Settings'));
 const JobDetails = lazy(() => import('./pages/JobDetails'));
 const DocumentLibrary = lazy(() => import('./pages/DocumentLibrary'));
+const ClientLibrary = lazy(() => import('./pages/ClientLibrary'));
 
 // Form fill pages - lazy loaded
 const SimpleFillForm = lazy(() => import('./pages/SimpleFillForm'));
@@ -183,6 +184,7 @@ function App() {
                   <Route path="smart-profile" element={<SmartProfile />} />
                   <Route path="history" element={<History />} />
                   <Route path="documents" element={<DocumentLibrary />} />
+                  <Route path="clients" element={<ClientLibrary />} />
                   <Route path="knowledge" element={<KnowledgeBase />} />
                   <Route path="fill-form" element={<SimpleFillForm />} />
                   <Route path="batch-fill" element={<BatchFillForm />} />
