@@ -38,6 +38,7 @@ const JobDetails = lazy(() => import('./pages/JobDetails'));
 const DocumentLibrary = lazy(() => import('./pages/DocumentLibrary'));
 const ClientLibrary = lazy(() => import('./pages/ClientLibrary'));
 const FormAnalytics = lazy(() => import('./pages/FormAnalytics'));
+const AdminAccuracyDashboard = lazy(() => import('./pages/AdminAccuracyDashboard'));
 
 // Form fill pages - lazy loaded
 const SimpleFillForm = lazy(() => import('./pages/SimpleFillForm'));
@@ -199,6 +200,7 @@ function App() {
                   <Route path="settings" element={<Settings />} />
                   <Route path="job/:jobId" element={<JobDetails />} />
                   <Route path="analytics/forms" element={<FormAnalytics />} />
+                  <Route path="admin/accuracy" element={<AdminAccuracyDashboard />} />
                 </Route>
 
                 {/* Catch-all route for 404 */}
