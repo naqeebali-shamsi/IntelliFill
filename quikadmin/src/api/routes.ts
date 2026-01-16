@@ -20,6 +20,7 @@ import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
 import { createNotificationRoutes } from './notifications.routes';
 import { createSharedRoutes } from './shared.routes';
 import { createSmartProfileRoutes } from './smart-profile.routes';
+import { createFormAnalyticsRoutes } from './form-analytics.routes';
 import { jobsRouter } from './jobs.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
@@ -158,6 +159,11 @@ export function setupRoutes(
   // Mounted at /api/smart-profile for document type detection and batch extraction
   const smartProfileRoutes = createSmartProfileRoutes();
   app.use('/api/smart-profile', smartProfileRoutes);
+
+  // Setup Form Analytics routes (Phase 4 - PRO Features)
+  // Mounted at /api/form-analytics for form usage analytics
+  const formAnalyticsRoutes = createFormAnalyticsRoutes();
+  app.use('/api/form-analytics', formAnalyticsRoutes);
 
   // Setup jobs routes for queue status polling
   // Mounted at /api for job status, cancel, retry endpoints
