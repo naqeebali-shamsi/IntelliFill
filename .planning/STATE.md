@@ -5,16 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-01-16)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** v1.0 shipped — planning next milestone
+**Current focus:** Phase 05 - Stripe Integration
 
 ## Current Position
 
-Phase: v1.0 Complete
-Plan: All 19 plans complete
-Status: MILESTONE SHIPPED
-Last activity: 2026-01-16 — v1.0 MVP shipped
+Phase: 05-stripe-integration
+Plan: 05-01 complete, 05-02 pending
+Status: IN PROGRESS
+Last activity: 2026-01-17 — Database schema updated with Stripe fields
 
-Progress: v1.0 ██████████ 100% (Shipped)
+Progress: Phase 05 █░░░░░░░░░ 25% (1/4 plans)
+
+## Phase 05: Stripe Integration
+
+**Objective:** Enable PRO tier monetization with Stripe subscriptions
+
+**Plans:**
+| Plan | Name | Status |
+|------|------|--------|
+| 05-01 | Database Schema & Environment Setup | Complete |
+| 05-02 | Stripe SDK Setup & Service Layer | Pending |
+| 05-03 | Checkout & Webhook Implementation | Pending |
+| 05-04 | Frontend Integration | Pending |
+
+**Completed in 05-01:**
+
+- Stripe credentials configured in environment files
+- User model extended with subscription fields (stripeCustomerId, subscriptionId, subscriptionStatus, currentPeriodEnd)
+- Database migration applied
 
 ## v1.0 Summary
 
@@ -41,9 +59,9 @@ See `.planning/MILESTONES.md` for full details.
 
 **Velocity:**
 
-- Total plans completed: 19
+- Total plans completed: 20 (19 + 1)
 - Average duration: ~15 min
-- Total execution time: ~285 min
+- Total execution time: ~300 min
 
 **By Phase:**
 
@@ -53,19 +71,19 @@ See `.planning/MILESTONES.md` for full details.
 | 2-Intelligence | 4/4   | ~70 min | ~18 min  |
 | 3-Polish       | 4/4   | ~52 min | ~13 min  |
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
-
-## Next Steps
-
-Ready to plan v1.1. Options:
-
-1. `/gsd:discuss-milestone` — Collaborative discovery of next features
-2. `/gsd:new-milestone` — Direct milestone creation if scope is clear
+| 5-Stripe       | 1/4   | ~15 min | ~15 min  |
 
 ## Accumulated Context
 
 ### Decisions
 
 All v1.0 decisions archived in PROJECT.md Key Decisions table.
+
+**Phase 05 Decisions:**
+
+- Use String (not enum) for subscriptionStatus to accommodate all Stripe status values
+- Use `prisma db push` for schema changes due to existing migration drift
+- Test mode credentials for development (sk*test*_, pk*test*_)
 
 ### Deferred Issues
 
@@ -75,15 +93,15 @@ All v1.0 decisions archived in PROJECT.md Key Decisions table.
 
 ### Blockers/Concerns
 
-None — clean milestone completion.
+None — proceeding with Stripe integration.
 
 ## Session Continuity
 
-Last session: 2026-01-16
-Stopped at: v1.0 milestone complete
+Last session: 2026-01-17
+Stopped at: Plan 05-01 complete
 Resume file: None
-Next: Plan v1.1 milestone
+Next: Execute plan 05-02 (Stripe SDK Setup)
 
 ---
 
-_v1.0 MVP shipped 2026-01-16_
+_Phase 05 Stripe Integration in progress 2026-01-17_
