@@ -259,6 +259,17 @@ export function createClientRoutes(): Router {
               formCount: client._count.filledForms,
               extractedDataCount: client._count.extractedData,
               hasProfile: !!client.profile,
+              // Return full profile object for frontend compatibility
+              // Frontend expects profile.data and profile.fieldSources structure
+              profile: client.profile
+                ? {
+                    id: client.profile.id,
+                    data: client.profile.data || {},
+                    fieldSources: client.profile.fieldSources || {},
+                    updatedAt: client.profile.updatedAt.toISOString(),
+                  }
+                : null,
+              // Keep profileData for backward compatibility
               profileData: client.profile?.data || {},
               createdAt: client.createdAt.toISOString(),
               updatedAt: client.updatedAt.toISOString(),
