@@ -54,3 +54,4 @@ export {
   type FormCardProps,
 } from './FormSuggester';
 export { ModeToggle, type ModeToggleProps } from './ModeToggle';
+export { ClientSelector, type ClientSelectorProps } from './ClientSelector';
