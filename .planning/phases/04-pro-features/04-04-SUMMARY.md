@@ -1,21 +1,22 @@
 # Plan 04-04 Summary: SmartProfile Client Integration
 
-## Status: PAUSED AT CHECKPOINT
+## Status: COMPLETE
 
-Plan paused for human verification of client integration flow.
+**Phase:** 04-pro-features
+**Duration:** ~40 min (across two sessions with bug fix)
 
 ## Objective
 
 Integrate client management with SmartProfile wizard for seamless client-profile workflow. PRO agents need to easily save extracted profiles to existing clients or create new clients directly from the Smart Profile flow.
 
-## Tasks Completed (3/4)
+## Tasks Completed (4/4)
 
 | #   | Task                                       | Files                                                           | Commit    |
 | --- | ------------------------------------------ | --------------------------------------------------------------- | --------- |
 | 1   | Add client state to smartProfileStore      | `quikadmin-web/src/stores/smartProfileStore.ts`                 | `28b6ec5` |
 | 2   | Create ClientSelector component            | `quikadmin-web/src/components/smart-profile/ClientSelector.tsx` | `52b9eaf` |
 | 3   | Integrate ClientSelector into SmartProfile | `quikadmin-web/src/pages/SmartProfile.tsx`                      | `2cddaea` |
-| 4   | **CHECKPOINT** Human verification          | -                                                               | PENDING   |
+| 4   | Human verification + Bug fix               | `quikadmin/src/api/clients.routes.ts`                           | `735008f` |
 
 ## Implementation Details
 
@@ -105,39 +106,42 @@ Modified `SmartProfile.tsx` ProfileStepContent:
 
 - `handleReset()` now calls `clearClientSelection()`
 
+### Task 4: Bug Fix - Profile Data Not Displaying
+
+**Bug Report:** Save to client showed success notification but when navigating to the client's profile, stored data showed empty.
+
+**Root Cause Analysis:**
+
+1. Backend GET `/api/clients/:id` returned: `profileData: client.profile?.data` (flattened data)
+2. Frontend `profilesService.getWithData()` expected: `client.profile` (full object with data, fieldSources)
+3. ProfileDetail accessed: `profile.profileData?.data` (undefined because profileData was already the data, not a wrapper)
+
+**Fix Applied:**
+
+Modified `quikadmin/src/api/clients.routes.ts` to return full profile object:
+
+```javascript
+profile: client.profile ? {
+  id: client.profile.id,
+  data: client.profile.data || {},
+  fieldSources: client.profile.fieldSources || {},
+  updatedAt: client.profile.updatedAt.toISOString(),
+} : null,
+// Keep profileData for backward compatibility
+profileData: client.profile?.data || {},
+```
+
 ## Verification Checklist
 
 - [x] `cd quikadmin-web && bun run build` succeeds
 - [x] "Save to Client" button appears in profile step
-- [ ] Can search and select existing client (needs human verify)
-- [ ] Can create new client with name (needs human verify)
-- [ ] Profile merges to selected client (needs human verify)
-- [ ] User approved the integration flow (PENDING)
-
-## Checkpoint Requirements
-
-To verify this plan, test the following:
-
-1. **Start services:**
-
-   ```bash
-   # Backend
-   cd quikadmin && npm run dev
-   # Frontend
-   cd quikadmin-web && bun run dev
-   ```
-
-2. **Navigate to:** http://localhost:8080/smart-profile
-
-3. **Test flow:**
-   - Upload a document (any test PDF)
-   - Progress through wizard to profile step
-   - Test "Save to Existing Client" (if clients exist)
-   - Test "Create New Client"
-   - Verify toasts show success
-   - Verify client appears in /clients page
-
-4. **Resume signal:** Type "approved" to continue, or describe issues
+- [x] Can search and select existing client
+- [x] Can create new client with name
+- [x] Profile merges to selected client
+- [x] Profile data displays correctly in ProfileDetail after save
+- [x] Backend tests pass (65 tests)
+- [x] User verified and reported bug
+- [x] Bug fixed and committed
 
 ## Dependencies
 
