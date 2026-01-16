@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-16)
 ## Current Position
 
 Phase: 05-stripe-integration
-Plan: 05-01 complete, 05-02 pending
+Plan: 05-03 complete, 05-04 pending
 Status: IN PROGRESS
-Last activity: 2026-01-17 — Database schema updated with Stripe fields
+Last activity: 2026-01-17 — Frontend subscription UI implemented
 
-Progress: Phase 05 █░░░░░░░░░ 25% (1/4 plans)
+Progress: Phase 05 ███████░░░ 75% (3/4 plans)
 
 ## Phase 05: Stripe Integration
 
@@ -24,15 +24,30 @@ Progress: Phase 05 █░░░░░░░░░ 25% (1/4 plans)
 | Plan | Name | Status |
 |------|------|--------|
 | 05-01 | Database Schema & Environment Setup | Complete |
-| 05-02 | Stripe SDK Setup & Service Layer | Pending |
-| 05-03 | Checkout & Webhook Implementation | Pending |
-| 05-04 | Frontend Integration | Pending |
+| 05-02 | Backend Stripe Service & Endpoints | Complete |
+| 05-03 | Frontend Subscription UI | Complete |
+| 05-04 | Webhook Handling & PRO Feature Integration | Pending |
 
 **Completed in 05-01:**
 
 - Stripe credentials configured in environment files
 - User model extended with subscription fields (stripeCustomerId, subscriptionId, subscriptionStatus, currentPeriodEnd)
 - Database migration applied
+
+**Completed in 05-02:**
+
+- Stripe SDK installed and configured
+- Backend Stripe service layer
+- Checkout, portal, and subscription-status endpoints
+
+**Completed in 05-03:**
+
+- stripeService.ts - Frontend API wrapper for Stripe endpoints
+- subscriptionStore.ts - Zustand store for subscription state
+- Pricing.tsx - Public pricing page with PRO plan
+- UpgradePrompt.tsx - Reusable component for PRO feature gates
+- SubscriptionSettings.tsx - Subscription management in settings
+- /pricing route added to App.tsx
 
 ## v1.0 Summary
 
@@ -71,7 +86,7 @@ See `.planning/MILESTONES.md` for full details.
 | 2-Intelligence | 4/4   | ~70 min | ~18 min  |
 | 3-Polish       | 4/4   | ~52 min | ~13 min  |
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
-| 5-Stripe       | 1/4   | ~15 min | ~15 min  |
+| 5-Stripe       | 3/4   | ~45 min | ~15 min  |
 
 ## Accumulated Context
 
@@ -84,6 +99,9 @@ All v1.0 decisions archived in PROJECT.md Key Decisions table.
 - Use String (not enum) for subscriptionStatus to accommodate all Stripe status values
 - Use `prisma db push` for schema changes due to existing migration drift
 - Test mode credentials for development (sk*test*_, pk*test*_)
+- Pricing page is public (outside ProtectedRoute) so users can view before logging in
+- useIsPro hook provides simple boolean check for PRO features
+- SubscriptionSettings uses semantic status colors from design tokens
 
 ### Deferred Issues
 
@@ -98,9 +116,9 @@ None — proceeding with Stripe integration.
 ## Session Continuity
 
 Last session: 2026-01-17
-Stopped at: Plan 05-01 complete
+Stopped at: Plan 05-03 complete
 Resume file: None
-Next: Execute plan 05-02 (Stripe SDK Setup)
+Next: Execute plan 05-04 (Webhook Handling & PRO Feature Integration)
 
 ---
 
