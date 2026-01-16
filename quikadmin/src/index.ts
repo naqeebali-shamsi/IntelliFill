@@ -242,6 +242,10 @@ async function initializeApp(): Promise<{ app: Application }> {
       })
     );
 
+    // Stripe webhook needs raw body for signature verification
+    // MUST be mounted BEFORE the global JSON body parser
+    app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
     // Body parsing middleware
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));

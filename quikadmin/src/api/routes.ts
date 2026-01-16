@@ -22,6 +22,7 @@ import { createNotificationRoutes } from './notifications.routes';
 import { createSharedRoutes } from './shared.routes';
 import { createSmartProfileRoutes } from './smart-profile.routes';
 import { createFormAnalyticsRoutes } from './form-analytics.routes';
+import { createStripeRoutes } from './stripe.routes';
 import { jobsRouter } from './jobs.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
@@ -170,6 +171,12 @@ export function setupRoutes(
   // Mounted at /api/form-analytics for form usage analytics
   const formAnalyticsRoutes = createFormAnalyticsRoutes();
   app.use('/api/form-analytics', formAnalyticsRoutes);
+
+  // Setup Stripe routes (Phase 5 - Subscription)
+  // Mounted at /api/stripe for checkout, portal, webhook
+  // NOTE: Webhook raw body middleware is in index.ts BEFORE json parser
+  const stripeRoutes = createStripeRoutes();
+  app.use('/api/stripe', stripeRoutes);
 
   // Setup jobs routes for queue status polling
   // Mounted at /api for job status, cancel, retry endpoints
