@@ -26,6 +26,7 @@ const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('@/pages/VerifyEmail'));
 const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
 const AcceptInvitePage = lazy(() => import('@/pages/AcceptInvitePage'));
+const Pricing = lazy(() => import('@/pages/Pricing'));
 
 // Dashboard and main pages - lazy loaded
 const ConnectedDashboard = lazy(() => import('@/pages/ConnectedDashboard'));
@@ -176,6 +177,7 @@ function App() {
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/accept-invite" element={<AcceptInvitePage />} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/forbidden" element={<ForbiddenPage />} />
 
                 {/* Protected routes - with layout */}
