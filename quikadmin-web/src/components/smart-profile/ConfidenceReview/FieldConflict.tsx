@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ConfidenceBadge } from '../ConfidenceBadge';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, Edit3 } from 'lucide-react';
 

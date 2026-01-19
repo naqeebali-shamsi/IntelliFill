@@ -36,7 +36,7 @@
 /**
  * Phase 3 Library Tests: 20+ tests covering:
  * - DocumentLibrary page (search, filters, view modes, pagination)
- * - SearchBar component (debouncing, clear button, keyboard shortcuts)
+ * - Document search input (debouncing, clear button, keyboard shortcuts)
  * - DocumentFilters component (status, type, date range filters)
  * - BulkActionsToolbar component (delete, download, clear selection)
  * - useDocumentActions hook (CRUD operations, optimistic updates)

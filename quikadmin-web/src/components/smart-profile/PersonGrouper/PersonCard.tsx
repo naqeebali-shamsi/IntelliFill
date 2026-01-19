@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ConfidenceBadge } from '../ConfidenceBadge';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { DocumentItem, type DocumentItemDocument } from './DocumentItem';
 
 // ============================================================================

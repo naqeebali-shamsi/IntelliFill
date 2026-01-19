@@ -42,38 +42,9 @@ export {
   SelectValue,
 } from './ui/select';
 
-// Sleek Design System Components
-export {
-  SleekIconButton,
-  sleekIconButtonVariants,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-} from './ui/sleek-icon-button';
-export type { SleekIconButtonProps } from './ui/sleek-icon-button';
-
-export { AccentLine, accentLineVariants, ProgressLine, SeparatorLine } from './ui/accent-line';
-export type { AccentLineProps, ProgressLineProps, SeparatorLineProps } from './ui/accent-line';
-
-export { SleekBadge, sleekBadgeVariants, AnimatedSleekBadge, SleekLabel } from './ui/sleek-badge';
-export type { SleekBadgeProps, AnimatedSleekBadgeProps, SleekLabelProps } from './ui/sleek-badge';
-
-export {
-  SleekTooltip,
-  SleekTooltipContent,
-  SleekTooltipTrigger,
-  SleekIconBar,
-  sleekTooltipVariants,
-  useSleekTooltip,
-} from './ui/sleek-tooltip';
-export type {
-  SleekTooltipProps,
-  SleekTooltipTriggerProps,
-  SleekTooltipCompleteProps,
-  SleekIconBarProps,
-  SleekIconBarItem,
-} from './ui/sleek-tooltip';
+// Accent Line
+export { AccentLine, accentLineVariants } from './ui/accent-line';
+export type { AccentLineProps } from './ui/accent-line';
 
 export { AnimatedLogo } from './ui/animated-logo';
 export type { AnimatedLogoProps } from './ui/animated-logo';
@@ -88,20 +59,18 @@ export {
 } from './ui/progress';
 export type { ProgressProps, ProgressCircularProps } from './ui/progress';
 export { Badge } from './ui/badge';
+export {
+  ConfidenceBadge,
+  getConfidenceDisplay,
+  CONFIDENCE_THRESHOLDS,
+} from './ui/confidence-badge';
+export type { ConfidenceBadgeProps, ConfidenceLevel } from './ui/confidence-badge';
 
 // Loading Components
 export { Skeleton, SkeletonText, skeletonVariants } from './ui/skeleton';
 export type { SkeletonProps, SkeletonTextProps } from './ui/skeleton';
 export { Spinner, SpinnerOverlay, spinnerVariants } from './ui/spinner';
 export type { SpinnerProps, SpinnerOverlayProps } from './ui/spinner';
-export {
-  LoadingState,
-  LoadingStateSkeleton,
-  LoadingStateSpinner,
-  LoadingStateOverlay,
-  loadingStateVariants,
-} from './ui/loading-state';
-export type { LoadingStateProps } from './ui/loading-state';
 
 // Empty States
 export { EmptyState, EmptyStateSimple, emptyStateVariants } from './ui/empty-state';
@@ -212,8 +181,6 @@ export type {
 } from './features/document-card';
 
 // Search Bar
-export { SearchBar, SearchBarWithResults } from './features/search-bar';
-export type { SearchBarProps, SearchBarWithResultsProps } from './features/search-bar';
 
 // Data Table
 export { DataTable } from './features/data-table';

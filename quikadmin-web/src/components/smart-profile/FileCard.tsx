@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ConfidenceBadge } from './ConfidenceBadge';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import type { UploadedFile, DocumentType, UploadStatus } from '@/stores/smartProfileStore';
 
 // ============================================================================

@@ -11,7 +11,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ConfidenceBadge } from '../ConfidenceBadge';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 
 // ============================================================================
 // Types

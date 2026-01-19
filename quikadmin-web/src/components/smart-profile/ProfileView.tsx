@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight, User, FileText, Phone, Settings } from 'lucide-react';
 import { FieldSourcePill } from './FieldSourcePill';
 import { FieldSourceBadge } from './FieldSourceBadge';
-import { ConfidenceBadge, CONFIDENCE_THRESHOLDS } from './ConfidenceBadge';
+import { ConfidenceBadge, CONFIDENCE_THRESHOLDS } from '@/components/ui/confidence-badge';
 import { EditableField, detectFieldType } from './EditableField';
 import type { FieldSource } from '@/stores/smartProfileStore';
 

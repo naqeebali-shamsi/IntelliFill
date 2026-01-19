@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { LoadingStateSkeleton } from '@/components/ui/loading-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { useBackendAuthStore } from '@/stores/backendAuthStore';
@@ -214,7 +214,12 @@ export function OrganizationTabContent() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <LoadingStateSkeleton lines={4} size="lg" />
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
       </div>
     );
   }

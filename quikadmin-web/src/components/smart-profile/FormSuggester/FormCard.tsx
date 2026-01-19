@@ -11,7 +11,7 @@ import * as React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { FileText, Check, AlertTriangle, ChevronRight } from 'lucide-react';
-import { ConfidenceBadge } from '../ConfidenceBadge';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { getFormTypeLabel, type FormSuggestion } from '@/lib/form-fields';
 
 // ============================================================================

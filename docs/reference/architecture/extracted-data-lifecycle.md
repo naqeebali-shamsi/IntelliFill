@@ -3,7 +3,7 @@ title: Extracted Data Lifecycle
 description: Complete end-to-end flow of document data from upload to form filling
 category: reference
 tags: [architecture, data-flow, ocr, extraction, encryption]
-lastUpdated: 2025-12-17
+lastUpdated: 2026-01-15
 relatedDocs:
   - ../api/endpoints.md
   - ./system-overview.md
@@ -181,6 +181,10 @@ interface OCRResult {
 
 **`OCRService.extractStructuredData()`** - `OCRService.ts:261-294`
 
+**LLM Fallback (Optional)**:
+- If enabled (`ENABLE_LLM_EXTRACTION=true`) and OCR confidence is below the threshold (default 70), the Gemini-based extractor runs on OCR text (and image input for images).
+- LLM results are merged with pattern/OCR extraction, keeping higher-confidence values.
+
 ### Extracted Patterns
 
 | Field        | Regex Pattern                                                    | Example          |
@@ -198,18 +202,9 @@ interface OCRResult {
 
 ```typescript
 {
-  email: ["john@example.com", "jane@company.org"],
-  phone: ["+1-555-123-4567"],
-  date: ["01/15/2025", "2024-12-01"],
-  ssn: ["123-45-6789"],
-  zipCode: ["12345", "90210-1234"],
-  currency: ["$1,234.56"],
-  percentage: ["85.5%"],
-  fields: {
-    name: "John Doe",
-    address: "123 Main Street",
-    company: "Acme Corp"
-  }
+  full_name: { value: "John Doe", confidence: 92, source: "ocr" },
+  emirates_id: { value: "784-1989-1593287-9", confidence: 95, source: "pattern" },
+  date_of_birth: { value: "04/10/1989", confidence: 84, source: "llm" }
 }
 ```
 
@@ -239,7 +234,7 @@ base64(IV):base64(AuthTag):base64(Ciphertext)
 
 - `encryptJSON(data)` - Encrypt object to string
 - `decryptJSON(encrypted)` - Decrypt string to object
-- `encryptExtractedData(data)` - Wrapper for extracted data
+- `encryptExtractedData(data)` - Wrapper for extracted data (used for all OCR paths)
 - `decryptExtractedData(encrypted)` - Wrapper with error handling
 
 ### Database Schema

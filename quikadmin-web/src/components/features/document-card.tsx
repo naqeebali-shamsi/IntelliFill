@@ -11,7 +11,7 @@ import {
   CardAction,
 } from '@/components/ui/card';
 import { StatusBadge } from './status-badge';
-import { ConfidenceBadge } from './ocr-confidence-alert';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {

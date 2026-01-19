@@ -60,6 +60,11 @@ export const verifyCSRFToken = (req: CSRFRequest, res: Response, next: NextFunct
     return next();
   }
 
+  // Skip for Stripe webhook - uses signature verification instead of CSRF
+  if (req.path === '/api/stripe/webhook') {
+    return next();
+  }
+
   const cookieToken = req.cookies?.csrf_token;
   const headerToken = req.headers['x-csrf-token'] as string;
   const bodyToken = req.body?._csrf;

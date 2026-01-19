@@ -17,7 +17,7 @@ export {
   type ConfidenceLevel,
   getConfidenceDisplay,
   CONFIDENCE_THRESHOLDS,
-} from './ConfidenceBadge';
+} from '@/components/ui/confidence-badge';
 export { FieldSourcePill, type FieldSourcePillProps } from './FieldSourcePill';
 export {
   FieldSourceBadge,

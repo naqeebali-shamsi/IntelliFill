@@ -42,6 +42,19 @@ export const documentApi = {
 }
 ```
 
+## Multipart Uploads (FormData)
+
+When sending `FormData`, override the default JSON header so the backend receives files.
+
+```typescript
+const formData = new FormData()
+formData.append('files', file)
+
+await apiClient.post('/smart-profile/detect-types', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' },
+})
+```
+
 ## With React Query
 
 ```typescript

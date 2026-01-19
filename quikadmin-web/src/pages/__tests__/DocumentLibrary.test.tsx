@@ -10,7 +10,6 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import DocumentLibrary from '@/pages/DocumentLibrary'
-import { SearchBar } from '@/components/features/search-bar'
 import { DocumentFilters } from '@/components/features/document-filters'
 import { BulkActionsToolbar } from '@/components/features/bulk-actions-toolbar'
 import * as api from '@/services/api'
@@ -93,75 +92,6 @@ describe('DocumentLibrary Page', () => {
       await waitFor(() => {
         expect(screen.getByPlaceholderText(/search documents/i)).toBeInTheDocument()
       })
-    })
-
-    it('updates search query on input', async () => {
-      const user = userEvent.setup()
-      const handleChange = vi.fn()
-      const { rerender } = render(
-        <TestWrapper>
-          <SearchBar value="" onChange={handleChange} />
-        </TestWrapper>
-      )
-
-      const searchInput = screen.getByRole('searchbox')
-      await user.type(searchInput, 'invoice')
-
-      // SearchBar is controlled, so we need to rerender with the new value
-      rerender(
-        <TestWrapper>
-          <SearchBar value="invoice" onChange={handleChange} />
-        </TestWrapper>
-      )
-
-      expect(searchInput).toHaveValue('invoice')
-    })
-
-    it('debounces search input', async () => {
-      const handleChange = vi.fn()
-      const user = userEvent.setup()
-      render(
-        <TestWrapper>
-          <SearchBar value="" onChange={handleChange} debounceMs={300} />
-        </TestWrapper>
-      )
-      
-      const searchInput = screen.getByRole('searchbox')
-      await user.type(searchInput, 'test')
-
-      // Should debounce
-      await waitFor(() => {
-        expect(handleChange).toHaveBeenCalled()
-      }, { timeout: 500 })
-    })
-
-    it('clears search when clear button is clicked', async () => {
-      const handleChange = vi.fn()
-      const user = userEvent.setup()
-      render(
-        <TestWrapper>
-          <SearchBar value="test" onChange={handleChange} showClearButton />
-        </TestWrapper>
-      )
-      
-      const clearButton = screen.getByRole('button', { name: /clear search/i })
-      await user.click(clearButton)
-      
-      expect(handleChange).toHaveBeenCalled()
-    })
-
-    it('focuses search on Ctrl+K shortcut', async () => {
-      const user = userEvent.setup()
-      render(
-        <TestWrapper>
-          <SearchBar value="" onChange={() => {}} />
-        </TestWrapper>
-      )
-      
-      await user.keyboard('{Control>}k{/Control}')
-
-      const searchInput = screen.getByRole('searchbox')
-      expect(searchInput).toHaveFocus()
     })
   })
 

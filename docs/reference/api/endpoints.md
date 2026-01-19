@@ -3,7 +3,7 @@ title: API Endpoints Reference
 description: Complete reference for all IntelliFill API endpoints
 category: reference
 tags: [api, endpoints, rest]
-lastUpdated: 2025-12-30
+lastUpdated: 2026-01-15
 ---
 
 # API Endpoints Reference
@@ -96,6 +96,24 @@ List all documents for the current user.
 ### GET /api/documents/:id
 
 Get a specific document.
+
+**Query Parameters**:
+- `includeConfidence` (optional, default `true`): When `true`, `extractedData` returns per-field objects with confidence and source. When `false`, returns flattened key/value pairs.
+
+**Extracted Data Format**:
+```json
+{
+  "full_name": { "value": "Zeeshan Yasin", "confidence": 92, "source": "ocr" },
+  "emirates_id": { "value": "784-1989-1593287-9", "confidence": 95, "source": "pattern" }
+}
+```
+
+### GET /api/documents/:id/data
+
+Get extracted data only (for form filling).
+
+**Query Parameters**:
+- `includeConfidence` (optional, default `true`)
 
 ### POST /api/documents/upload
 

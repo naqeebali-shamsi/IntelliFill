@@ -360,34 +360,3 @@ export function OCRConfidenceAlert({
   );
 }
 
-/**
- * Inline confidence badge for compact displays
- */
-export interface ConfidenceBadgeProps {
-  confidence: number | null | undefined;
-  showLabel?: boolean;
-  className?: string;
-}
-
-export function ConfidenceBadge({ confidence, showLabel = true, className }: ConfidenceBadgeProps) {
-  if (confidence === null || confidence === undefined) {
-    return null;
-  }
-
-  const level = getConfidenceLevel(confidence);
-  const info = getConfidenceInfo(level);
-  const Icon = info.icon;
-  const confidencePercent = Math.round(confidence * 100);
-
-  return (
-    <span
-      className={cn('inline-flex items-center gap-1 text-xs font-medium', info.color, className)}
-      title={`OCR Confidence: ${confidencePercent}% - ${info.title}`}
-    >
-      <Icon className="h-3 w-3" />
-      {showLabel && <span>{confidencePercent}%</span>}
-    </span>
-  );
-}
-
-export { CONFIDENCE_THRESHOLDS };

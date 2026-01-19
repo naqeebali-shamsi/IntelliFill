@@ -19,7 +19,7 @@
 
 import React from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { SleekIconButton } from '@/components/ui/sleek-icon-button';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface PasswordVisibilityToggleProps {
@@ -48,10 +48,10 @@ export const PasswordVisibilityToggle = React.forwardRef<
   PasswordVisibilityToggleProps
 >(({ showPassword, onToggle, testId, className, disabled = false, iconSize = 'md' }, ref) => {
   return (
-    <SleekIconButton
+    <Button
       ref={ref}
       variant="ghost"
-      size="sm"
+      size="icon"
       aria-label={showPassword ? 'Hide password' : 'Show password'}
       onClick={onToggle}
       disabled={disabled}
@@ -63,7 +63,7 @@ export const PasswordVisibilityToggle = React.forwardRef<
       ) : (
         <Eye className={cn(iconSizes[iconSize], 'text-white/50')} />
       )}
-    </SleekIconButton>
+    </Button>
   );
 });
 

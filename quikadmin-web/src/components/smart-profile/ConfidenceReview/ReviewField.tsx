@@ -11,7 +11,7 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ConfidenceBadge } from '../ConfidenceBadge';
+import { ConfidenceBadge } from '@/components/ui/confidence-badge';
 import { FieldSourcePill } from '../FieldSourcePill';
 import { cn } from '@/lib/utils';
 import { Check, Pencil } from 'lucide-react';

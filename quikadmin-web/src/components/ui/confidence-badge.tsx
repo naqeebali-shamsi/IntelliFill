@@ -10,7 +10,7 @@
  * - "Review suggested" (70-84%) - Check this field before submission
  * - "Low confidence" (<70%) - Definitely needs manual verification
  *
- * @module components/smart-profile/ConfidenceBadge
+ * @module components/ui/confidence-badge
  */
 
 import { cn } from '@/lib/utils';
@@ -141,21 +141,6 @@ const iconSizes = {
 /**
  * ConfidenceBadge displays AI extraction confidence with honest semantic labels.
  * Includes tooltip showing actual percentage for transparency.
- *
- * @example
- * ```tsx
- * // Very high confidence - shows green "High confidence" (95%+)
- * <ConfidenceBadge confidence={0.97} />
- *
- * // High confidence - shows green "Good confidence" (85-94%)
- * <ConfidenceBadge confidence={0.92} />
- *
- * // Medium confidence - shows yellow "Review suggested" (70-84%)
- * <ConfidenceBadge confidence={0.75} showIcon />
- *
- * // Low confidence - shows red "Low confidence" (<70%)
- * <ConfidenceBadge confidence={0.45} size="lg" />
- * ```
  */
 export function ConfidenceBadge({
   confidence,

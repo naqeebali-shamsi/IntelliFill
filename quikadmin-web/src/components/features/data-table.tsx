@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { LoadingStateSkeleton } from '@/components/ui/loading-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Checkbox } from '@/components/ui/checkbox';
 import { VirtualTableBody } from './virtual-table-body';
@@ -355,7 +355,11 @@ function DataTable<T extends Record<string, unknown>>({
 
       {/* Loading State */}
       {loading ? (
-        <LoadingStateSkeleton lines={5} size="lg" aria-label="Loading table data" />
+        <div className="space-y-2" aria-label="Loading table data">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
+          ))}
+        </div>
       ) : paginatedData.length === 0 ? (
         // Empty State
         emptyState || (

@@ -3,7 +3,7 @@ title: Environment Variables
 description: Complete reference for all IntelliFill environment variables
 category: reference
 tags: [configuration, environment, settings, redis, tls, security]
-lastUpdated: 2025-12-31
+lastUpdated: 2026-01-15
 ---
 
 # Environment Variables
@@ -18,8 +18,8 @@ IntelliFill uses **three separate `.env` files**, each authoritative for specifi
 
 | File                 | Purpose                | Authoritative For                                             |
 | -------------------- | ---------------------- | ------------------------------------------------------------- |
-| `quikadmin/.env`     | Backend configuration  | DATABASE*URL, SUPABASE*_, JWT\__, REDIS*URL, R2*\*, LOG_LEVEL |
-| `quikadmin-web/.env` | Frontend configuration | VITE*API_URL, VITE_SUPABASE*_, VITE\__ feature flags          |
+| `quikadmin/.env`     | Backend configuration  | DATABASE*URL, SUPABASE**, JWT\_*, REDIS*URL, R2*\*, LOG_LEVEL |
+| `quikadmin-web/.env` | Frontend configuration | VITE*API_URL, VITE_SUPABASE**, VITE\_* feature flags          |
 | `.env` (root)        | AI tooling only        | PERPLEXITY_API_KEY, GEMINI_API_KEY, GROQ_API_KEY              |
 
 **IMPORTANT Security Notes**:
@@ -182,17 +182,25 @@ ALLOWED_MIME_TYPES="application/pdf,image/png,image/jpeg"
 
 ### OCR Configuration
 
-| Variable       | Required | Default | Description                  |
-| -------------- | -------- | ------- | ---------------------------- |
-| `OCR_LANGUAGE` | No       | `eng`   | Tesseract language code      |
-| `OCR_WORKERS`  | No       | `4`     | Number of OCR worker threads |
+| Variable                              | Required | Default | Description                                         |
+| ------------------------------------- | -------- | ------- | --------------------------------------------------- |
+| `OCR_LANGUAGE`                        | No       | `eng`   | Tesseract language code                             |
+| `OCR_WORKERS`                         | No       | `4`     | Number of OCR worker threads                        |
+| `ENABLE_LLM_EXTRACTION`               | No       | `false` | Enable Gemini-based extraction fallback             |
+| `LLM_EXTRACTION_CONFIDENCE_THRESHOLD` | No       | `70`    | Trigger LLM fallback below this OCR confidence (0-100) |
 
 **Example**:
 
 ```env
 OCR_LANGUAGE="eng+spa"
 OCR_WORKERS=4
+ENABLE_LLM_EXTRACTION="true"
+LLM_EXTRACTION_CONFIDENCE_THRESHOLD=70
 ```
+
+**Notes**:
+
+- LLM extraction uses Gemini and requires `GEMINI_API_KEY` in `quikadmin/.env`.
 
 ---
 

@@ -29,11 +29,13 @@ export const MyComponent: FC<MyComponentProps> = ({ title, onAction }) => {
 - Use `interface` for props
 - Export component with `FC` type
 - Make props optional when sensible
+- Use `forwardRef` when a component must accept refs (ex: Framer Motion layout)
 
 ### Styling
 - Use TailwindCSS utilities
 - Follow design system
 - Use `className` for customization
+- Ensure badge/chip UI uses adequate contrast and truncation on small screens
 
 ### State
 - Use hooks for local state
