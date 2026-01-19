@@ -46,6 +46,18 @@ export const initializeStores = async () => {
       await authStore.initialize();
     }
 
+    // Fetch subscription status if user is authenticated
+    // This ensures PRO status is available immediately after login/page refresh
+    const { isAuthenticated } = useAuthStore.getState();
+    if (isAuthenticated) {
+      const { useSubscriptionStore } = await import('./subscriptionStore');
+      const subscriptionStore = useSubscriptionStore.getState();
+      // Fire and forget - don't block app initialization on subscription fetch
+      subscriptionStore.fetchStatus().catch((err) => {
+        console.warn('[Stores] Subscription status fetch failed:', err);
+      });
+    }
+
     // console.log('✅ All stores initialized successfully');
   } catch (error) {
     // console.error('❌ Store initialization error:', error);

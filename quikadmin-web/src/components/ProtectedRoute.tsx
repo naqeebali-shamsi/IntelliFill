@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore, type LoadingStage } from '@/stores/auth';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -24,6 +25,18 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const isLoading = useAuthStore((state) => state.isLoading);
   const loadingStage = useAuthStore((state) => state.loadingStage);
   const checkSession = useAuthStore((state) => state.checkSession);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Fetch subscription status when user is authenticated
+  // This ensures PRO status is available immediately after login
+  const subscriptionInitialized = useSubscriptionStore((state) => state.initialized);
+  const fetchSubscriptionStatus = useSubscriptionStore((state) => state.fetchStatus);
+
+  useEffect(() => {
+    if (isAuthenticated && !subscriptionInitialized) {
+      fetchSubscriptionStatus();
+    }
+  }, [isAuthenticated, subscriptionInitialized, fetchSubscriptionStatus]);
 
   // Show loading spinner while initializing with stage-specific message
   if (!isInitialized || isLoading) {
