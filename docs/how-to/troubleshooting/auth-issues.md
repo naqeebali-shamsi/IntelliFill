@@ -3,7 +3,7 @@ title: Authentication Issues
 description: Troubleshoot and fix login and authentication problems
 category: how-to
 tags: [troubleshooting, authentication, supabase, jwt]
-lastUpdated: 2025-11-25
+lastUpdated: 2026-01-19
 ---
 
 # Authentication Issues
@@ -205,6 +205,10 @@ CORS policy blocked
 3. **Check browser cookie settings**:
    - Third-party cookies not blocked
    - Site not in private/incognito mode with strict settings
+
+4. **Localhost with production env**:
+   - If `NODE_ENV=production` locally, cookies may be set as `Secure`/`SameSite=None`
+   - Ensure the backend detects localhost for cookie options or set `NODE_ENV=development`
 
 ---
 

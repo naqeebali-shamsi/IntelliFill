@@ -20,7 +20,9 @@ export const stripeService = {
    * Get current subscription status
    */
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
+    console.log('[StripeService] Fetching subscription status...');
     const response = await api.get<{ data: SubscriptionStatus }>('/stripe/subscription-status');
+    console.log('[StripeService] Response:', response.data);
     return response.data.data;
   },
 

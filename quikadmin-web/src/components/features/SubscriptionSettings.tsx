@@ -10,13 +10,22 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
  * Shows current status and link to Stripe Customer Portal
  */
 export function SubscriptionSettings() {
-  const { isPro, status, currentPeriodEnd, loading, error, fetchStatus, redirectToPortal } =
-    useSubscriptionStore();
+  // Use individual selectors to ensure proper re-renders when state changes
+  const isPro = useSubscriptionStore((state) => state.isPro);
+  const status = useSubscriptionStore((state) => state.status);
+  const currentPeriodEnd = useSubscriptionStore((state) => state.currentPeriodEnd);
+  const loading = useSubscriptionStore((state) => state.loading);
+  const error = useSubscriptionStore((state) => state.error);
+  const fetchStatus = useSubscriptionStore((state) => state.fetchStatus);
+  const redirectToPortal = useSubscriptionStore((state) => state.redirectToPortal);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  // Debug: log current state values
+  console.log('[SubscriptionSettings] Render:', { isPro, status, loading, currentPeriodEnd });
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'N/A';

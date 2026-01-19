@@ -47,9 +47,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       ...initialState,
 
       fetchStatus: async () => {
+        console.log('[SubscriptionStore] fetchStatus called');
         set({ loading: true, error: null });
         try {
+          console.log('[SubscriptionStore] Calling stripeService.getSubscriptionStatus()');
           const status = await stripeService.getSubscriptionStatus();
+          console.log('[SubscriptionStore] Got status:', status);
           set({
             isPro: status.isPro,
             status: status.status,
@@ -58,6 +61,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             initialized: true,
           });
         } catch (error) {
+          console.error('[SubscriptionStore] Error fetching status:', error);
           set({
             error: 'Failed to fetch subscription status',
             loading: false,

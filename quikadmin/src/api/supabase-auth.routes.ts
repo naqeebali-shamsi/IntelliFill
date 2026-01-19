@@ -29,10 +29,11 @@ import { lockoutService } from '../services/lockout.service';
 
 // Test mode for E2E tests (uses Prisma/bcrypt instead of Supabase Auth)
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
+const isProduction = process.env.NODE_ENV === 'production';
 
 // Cookie configuration for httpOnly refreshToken
-// Production: secure, none sameSite (required for cross-origin fetch)
-// Test: not secure, lax sameSite (allows cross-port requests)
+// Production: secure, SameSite=None (required for cross-origin fetch)
+// Dev/Test/Local: not secure, SameSite=Lax (allows localhost and avoids secure cookie rejection)
 // COOKIE_DOMAIN: Set to '.parentdomain.com' for cross-subdomain cookie sharing
 //
 // IMPORTANT: SameSite=None is required when frontend (Vercel) and backend (AWS)
@@ -40,55 +41,79 @@ const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE 
 // navigations, NOT for programmatic fetch/XHR requests (like axios POST).
 //
 // Path must be '/api' (not '/api/auth') to cover SSE endpoint at /api/realtime
-const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
-const REFRESH_TOKEN_COOKIE_OPTIONS: {
+const cookieDomain = isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined;
+
+const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+
+function isLocalhostRequest(req: Request): boolean {
+  const origin = req.headers.origin;
+  if (origin) {
+    try {
+      const { hostname } = new URL(origin);
+      if (LOCALHOST_HOSTNAMES.has(hostname)) {
+        return true;
+      }
+    } catch {
+      // Ignore malformed Origin headers
+    }
+  }
+  return LOCALHOST_HOSTNAMES.has(req.hostname);
+}
+
+function getCookieEnvOptions(req: Request): {
+  secure: boolean;
+  sameSite: 'lax' | 'strict' | 'none';
+  domain?: string;
+} {
+  const useLocalOptions = !isProduction || isLocalhostRequest(req);
+  return {
+    secure: !useLocalOptions,
+    // SameSite=None required for cross-origin cookie sending (fetch/XHR) in production
+    // Local/dev uses Lax to allow http://localhost without Secure cookies
+    sameSite: useLocalOptions ? 'lax' : 'none',
+    ...(useLocalOptions || !cookieDomain ? {} : { domain: cookieDomain }),
+  };
+}
+
+function getRefreshTokenCookieOptions(req: Request): {
   httpOnly: boolean;
   secure: boolean;
   sameSite: 'lax' | 'strict' | 'none';
   maxAge: number;
   path: string;
   domain?: string;
-} = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV !== 'test',
-  // SameSite=None required for cross-origin cookie sending (fetch/XHR)
-  // In test mode, use 'lax' since same-origin requests work fine
-  sameSite: isTestMode ? 'lax' : 'none',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/api', // Must cover all API endpoints including /api/realtime for SSE
-  ...(cookieDomain && { domain: cookieDomain }),
-};
+} {
+  return {
+    httpOnly: true,
+    ...getCookieEnvOptions(req),
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/api', // Must cover all API endpoints including /api/realtime for SSE
+  };
+}
 
 /** Clear legacy cookie with old path (for migration from /api/auth to /api) */
-function clearLegacyCookie(res: Response): void {
+function clearLegacyCookie(req: Request, res: Response): void {
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV !== 'test',
-    sameSite: isTestMode ? 'lax' : 'none',
+    ...getCookieEnvOptions(req),
     path: '/api/auth',
-    ...(cookieDomain && { domain: cookieDomain }),
   });
 }
 
-function setRefreshTokenCookie(res: Response, refreshToken: string): void {
+function setRefreshTokenCookie(req: Request, res: Response, refreshToken: string): void {
   // Clear legacy cookie path first to prevent conflicts
-  clearLegacyCookie(res);
-  res.cookie('refreshToken', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+  clearLegacyCookie(req, res);
+  res.cookie('refreshToken', refreshToken, getRefreshTokenCookieOptions(req));
 }
 
-function clearRefreshTokenCookie(res: Response): void {
+function clearRefreshTokenCookie(req: Request, res: Response): void {
+  const { maxAge: _maxAge, ...cookieOptions } = getRefreshTokenCookieOptions(req);
   // Must match all options from REFRESH_TOKEN_COOKIE_OPTIONS (except expires/maxAge)
   // for clearCookie to work properly across all browsers
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV !== 'test',
-    sameSite: isTestMode ? 'lax' : 'none',
-    path: '/api', // Must match REFRESH_TOKEN_COOKIE_OPTIONS.path
-    ...(cookieDomain && { domain: cookieDomain }),
-  });
+  res.clearCookie('refreshToken', cookieOptions);
 
   // Also clear legacy cookie path to prevent conflicts after path migration
-  clearLegacyCookie(res);
+  clearLegacyCookie(req, res);
 }
 
 // JWT secrets from validated config (≥64 characters enforced)
@@ -481,7 +506,7 @@ export function createSupabaseAuthRoutes(): Router {
 
           // Set refreshToken as httpOnly cookie (Phase 2 REQ-005)
           if (sessionData.session.refresh_token) {
-            setRefreshTokenCookie(res, sessionData.session.refresh_token);
+            setRefreshTokenCookie(req, res, sessionData.session.refresh_token);
           }
 
           res.status(201).json({
@@ -624,7 +649,7 @@ export function createSupabaseAuthRoutes(): Router {
         await lockoutService.clearLockout(email);
 
         logger.info('[TEST MODE] User logged in successfully', { email });
-        setRefreshTokenCookie(res, refreshResult.token);
+        setRefreshTokenCookie(req, res, refreshResult.token);
 
         return res.json(
           createLoginSuccessResponse(user, { accessToken, expiresIn: 3600, tokenType: 'Bearer' })
@@ -708,7 +733,7 @@ export function createSupabaseAuthRoutes(): Router {
       logger.info('User logged in successfully', { userId: user.id });
 
       if (sessionData.session.refresh_token) {
-        setRefreshTokenCookie(res, sessionData.session.refresh_token);
+        setRefreshTokenCookie(req, res, sessionData.session.refresh_token);
       }
 
       res.json(
@@ -767,7 +792,7 @@ export function createSupabaseAuthRoutes(): Router {
         }
 
         // Clear refreshToken cookie (Phase 2 REQ-005)
-        clearRefreshTokenCookie(res);
+        clearRefreshTokenCookie(req, res);
 
         // Always return success for logout (idempotent operation)
         res.json({
@@ -777,7 +802,7 @@ export function createSupabaseAuthRoutes(): Router {
       } catch (error: unknown) {
         logger.error('Logout error:', error);
         // Clear cookie even on error
-        clearRefreshTokenCookie(res);
+        clearRefreshTokenCookie(req, res);
         // Return success even if logout fails to prevent client-side issues
         res.json({
           success: true,
@@ -860,7 +885,7 @@ export function createSupabaseAuthRoutes(): Router {
           });
 
           // Set new rotated refresh token as httpOnly cookie
-          setRefreshTokenCookie(res, rotationResult.refreshToken);
+          setRefreshTokenCookie(req, res, rotationResult.refreshToken);
 
           return res.json({
             success: true,
@@ -912,7 +937,7 @@ export function createSupabaseAuthRoutes(): Router {
 
       // Set new refreshToken as httpOnly cookie (Phase 2 REQ-005)
       if (sessionData.session.refresh_token) {
-        setRefreshTokenCookie(res, sessionData.session.refresh_token);
+        setRefreshTokenCookie(req, res, sessionData.session.refresh_token);
       }
 
       res.json({
@@ -1433,7 +1458,7 @@ export function createSupabaseAuthRoutes(): Router {
       await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
 
       logger.info(`Demo user logged in: ${DEMO_EMAIL}`);
-      setRefreshTokenCookie(res, refreshResult.token);
+      setRefreshTokenCookie(req, res, refreshResult.token);
 
       res.json({
         success: true,
@@ -1580,7 +1605,7 @@ export function createSupabaseAuthRoutes(): Router {
       });
 
       // Set refresh token as httpOnly cookie
-      setRefreshTokenCookie(res, refreshToken);
+      setRefreshTokenCookie(req, res, refreshToken);
 
       logger.info('OAuth callback: Login successful', { userId: user.id });
 

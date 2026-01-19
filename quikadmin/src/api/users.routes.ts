@@ -730,15 +730,32 @@ export function createUserRoutes(): Router {
         }
 
         // Clear refresh token cookie
-        const isTestMode = process.env.NODE_ENV === 'test';
-        const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieDomain =
+          process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN
+            ? process.env.COOKIE_DOMAIN
+            : undefined;
+
+        const localhostHostnames = new Set(['localhost', '127.0.0.1', '::1']);
+        const origin = req.headers.origin;
+        let isLocalhost = localhostHostnames.has(req.hostname);
+        if (origin) {
+          try {
+            const { hostname } = new URL(origin);
+            isLocalhost = isLocalhost || localhostHostnames.has(hostname);
+          } catch {
+            // Ignore malformed Origin headers
+          }
+        }
+
+        const useLocalOptions = !isProduction || isLocalhost;
         res.clearCookie('refreshToken', {
           httpOnly: true,
-          secure: !isTestMode,
+          secure: !useLocalOptions,
           // SameSite=None required for cross-origin cookie clearing (frontend on different subdomain)
-          sameSite: isTestMode ? 'lax' : 'none',
+          sameSite: useLocalOptions ? 'lax' : 'none',
           path: '/api', // Must match cookie path from supabase-auth.routes.ts
-          ...(cookieDomain && { domain: cookieDomain }),
+          ...(useLocalOptions || !cookieDomain ? {} : { domain: cookieDomain }),
         });
 
         logger.info('User account deleted successfully', { userId, email: user.email });

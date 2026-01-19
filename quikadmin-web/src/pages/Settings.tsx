@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/page-header';
+import { SubscriptionSettings } from '@/components/features/SubscriptionSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -881,36 +882,7 @@ export default function Settings() {
 
                     <Separator className="bg-white/10" />
 
-                    <SettingsSection title="Subscription" description="Manage your billing plan.">
-                      <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-4 rounded-xl border border-primary/20 flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-lg text-primary">Free Plan</h4>
-                            <Badge
-                              variant="outline"
-                              className="bg-primary/10 border-primary/20 text-primary"
-                            >
-                              Current
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Basic access (50 docs/month)
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          className="border-primary/20 hover:bg-primary/10 hover:text-primary"
-                          onClick={() =>
-                            toast.info('Coming Soon', {
-                              description: 'Premium plans will be available soon. Stay tuned!',
-                              duration: 5000,
-                            })
-                          }
-                        >
-                          <CreditCard className="mr-2 h-4 w-4" /> Upgrade
-                        </Button>
-                      </div>
-                    </SettingsSection>
+                    <SubscriptionSettings />
                   </>
                 )}
 
