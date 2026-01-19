@@ -242,11 +242,36 @@ async function initializeApp(): Promise<{ app: Application }> {
       })
     );
 
-    // Stripe webhook needs raw body for signature verification
-    // MUST be mounted BEFORE the global JSON body parser
-    app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+    // Stripe webhook - MUST be defined BEFORE body parsing middleware
+    // Following Stripe's official pattern: https://docs.stripe.com/webhooks/quickstart
+    // The route handler is defined here with express.raw() inline, not in a separate router
+    app.post(
+      '/api/stripe/webhook',
+      express.raw({ type: 'application/json' }),
+      async (req, res) => {
+        const { stripeService } = await import('./services/stripe.service');
 
-    // Body parsing middleware
+        const signature = req.headers['stripe-signature'];
+        if (!signature || typeof signature !== 'string') {
+          logger.warn('Webhook received without signature');
+          return res.status(400).json({ error: 'Missing signature' });
+        }
+
+        try {
+          const event = stripeService.constructWebhookEvent(req.body, signature);
+          logger.info('Webhook event received', { type: event.type, id: event.id });
+          await stripeService.handleWebhookEvent(event);
+          res.json({ received: true });
+        } catch (error) {
+          logger.error('Webhook error', { error });
+          res.status(400).json({
+            error: error instanceof Error ? error.message : 'Webhook error',
+          });
+        }
+      }
+    );
+
+    // Body parsing middleware - applied AFTER webhook route
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(cookieParser());

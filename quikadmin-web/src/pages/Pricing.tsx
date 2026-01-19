@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,14 +20,20 @@ export default function Pricing() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
   const isPro = useIsPro();
   const { loading, error, redirectToCheckout, fetchStatus } = useSubscriptionStore();
 
+  // Track if we've handled the success redirect to avoid double-fetching
+  const successHandled = useRef(false);
+
   // Handle success/cancel redirects from Stripe
+  // Wait for auth to be initialized before fetching status
   useEffect(() => {
-    if (searchParams.get('success') === 'true') {
+    if (searchParams.get('success') === 'true' && isInitialized && isAuthenticated && !successHandled.current) {
+      successHandled.current = true;
       toast.success('Welcome to PRO! Your subscription is now active.');
-      // Refresh subscription status
+      // Refresh subscription status - auth is now ready
       fetchStatus();
       // Clear query params
       navigate('/pricing', { replace: true });
@@ -35,14 +41,14 @@ export default function Pricing() {
       toast.info('Checkout canceled. No charges were made.');
       navigate('/pricing', { replace: true });
     }
-  }, [searchParams, fetchStatus, navigate]);
+  }, [searchParams, fetchStatus, navigate, isInitialized, isAuthenticated]);
 
-  // Fetch status on mount if authenticated
+  // Fetch status on mount if authenticated (and initialized)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && isInitialized) {
       fetchStatus();
     }
-  }, [isAuthenticated, fetchStatus]);
+  }, [isAuthenticated, isInitialized, fetchStatus]);
 
   const handleSubscribe = () => {
     if (!isAuthenticated) {

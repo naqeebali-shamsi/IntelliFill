@@ -124,35 +124,9 @@ router.get(
   }
 );
 
-/**
- * POST /api/stripe/webhook
- * Handle Stripe webhook events
- * IMPORTANT: Must use raw body parser, NOT json parser
- * This endpoint is called by Stripe, not by the frontend
- */
-router.post('/webhook', async (req: Request, res: Response) => {
-  const signature = req.headers['stripe-signature'];
-
-  if (!signature || typeof signature !== 'string') {
-    logger.warn('Webhook received without signature');
-    return res.status(400).json({ error: 'Missing signature' });
-  }
-
-  try {
-    const event = stripeService.constructWebhookEvent(req.body, signature);
-
-    logger.info('Webhook event received', { type: event.type, id: event.id });
-
-    await stripeService.handleWebhookEvent(event);
-
-    res.json({ received: true });
-  } catch (error) {
-    logger.error('Webhook error', { error });
-    res.status(400).json({
-      error: error instanceof Error ? error.message : 'Webhook error',
-    });
-  }
-});
+// NOTE: Webhook route is handled directly in index.ts BEFORE body parsing middleware
+// This is required by Stripe for signature verification with raw body
+// See: https://docs.stripe.com/webhooks/quickstart
 
 export function createStripeRoutes(): Router {
   return router;

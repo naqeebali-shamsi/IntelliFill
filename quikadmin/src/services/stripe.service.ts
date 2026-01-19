@@ -195,6 +195,24 @@ export const stripeService = {
       return;
     }
 
+    logger.info('Updating subscription for user', {
+      userId,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      currentPeriodEnd: subscription.current_period_end,
+    });
+
+    // Verify user exists first
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      logger.error('User not found for subscription update', { userId, subId: subscription.id });
+      return;
+    }
+
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -204,8 +222,9 @@ export const stripeService = {
       },
     });
 
-    logger.info('Subscription updated', {
+    logger.info('Subscription updated successfully', {
       userId,
+      email: user.email,
       subscriptionId: subscription.id,
       status: subscription.status,
     });
