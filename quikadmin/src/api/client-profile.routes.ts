@@ -7,8 +7,8 @@
  * Task 9: API: Client Profile Endpoints
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { prisma } from '../utils/prisma';
 import { Prisma } from '@prisma/client';
@@ -100,9 +100,9 @@ export function createClientProfileRoutes(): Router {
   /**
    * GET /api/clients/:clientId/profile - Get client profile data
    */
-  router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const userId = req.user?.id;
       const { clientId } = req.params;
 
       if (!userId) {
@@ -197,9 +197,9 @@ export function createClientProfileRoutes(): Router {
    * PUT /api/clients/:clientId/profile - Update client profile data
    * Marks manually edited fields to prevent overwriting during extraction
    */
-  router.put('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+  router.put('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const userId = req.user?.id;
       const { clientId } = req.params;
 
       if (!userId) {
@@ -305,9 +305,9 @@ export function createClientProfileRoutes(): Router {
   router.patch(
     '/fields/:fieldName',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { clientId, fieldName } = req.params;
         const { value } = req.body;
 
@@ -388,9 +388,9 @@ export function createClientProfileRoutes(): Router {
   router.delete(
     '/fields/:fieldName',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { clientId, fieldName } = req.params;
 
         if (!userId) {
@@ -446,9 +446,9 @@ export function createClientProfileRoutes(): Router {
   router.get(
     '/export',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { clientId } = req.params;
         const format = (req.query.format as string) || 'json';
 
@@ -504,7 +504,7 @@ export function createClientProfileRoutes(): Router {
   /**
    * GET /api/clients/:clientId/profile/fields - Get available field definitions
    */
-  router.get('/fields', authenticateSupabase, async (req: Request, res: Response) => {
+  router.get('/fields', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
     res.json({
       success: true,
       data: {
