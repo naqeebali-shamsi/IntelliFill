@@ -7,8 +7,8 @@
  * Task 6: API: Client CRUD Endpoints
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { prisma } from '../utils/prisma';
 import { ClientType, Prisma } from '@prisma/client';
@@ -57,9 +57,9 @@ export function createClientRoutes(): Router {
   router.post(
     '/',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -216,9 +216,9 @@ export function createClientRoutes(): Router {
   router.get(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -289,9 +289,9 @@ export function createClientRoutes(): Router {
   router.put(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -361,9 +361,9 @@ export function createClientRoutes(): Router {
   router.delete(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -403,9 +403,9 @@ export function createClientRoutes(): Router {
   router.post(
     '/:id/archive',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -453,9 +453,9 @@ export function createClientRoutes(): Router {
   router.post(
     '/:id/restore',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -503,9 +503,9 @@ export function createClientRoutes(): Router {
   router.get(
     '/:id/summary',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
