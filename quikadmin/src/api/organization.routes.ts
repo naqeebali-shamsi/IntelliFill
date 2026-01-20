@@ -5,7 +5,7 @@
  * Task 382: Backend: Create Organization API Routes and Services
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { requireOrgAdmin, requireOrgOwner } from '../middleware/organizationContext';
 import { validate, validateParams, validateQuery } from '../middleware/validation';
@@ -23,7 +23,7 @@ import {
 import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { sendInvitationEmail } from '../services/emailService';
-import { OrganizationStatus, OrgMemberRole } from '@prisma/client';
+import { OrganizationStatus, OrgMemberRole, Prisma, MembershipStatus } from '@prisma/client';
 import crypto from 'crypto';
 
 /**
@@ -105,9 +105,9 @@ export function createOrganizationRoutes(): Router {
     '/',
     authenticateSupabase,
     validate(createOrganizationSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as AuthenticatedRequest).user?.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -202,9 +202,9 @@ export function createOrganizationRoutes(): Router {
   router.get(
     '/me',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as AuthenticatedRequest).user?.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -272,7 +272,7 @@ export function createOrganizationRoutes(): Router {
     validateParams(organizationIdParamSchema),
     requireOrgAdmin,
     validate(updateOrganizationSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         const { name, website, status, settings } = req.body;
@@ -331,7 +331,7 @@ export function createOrganizationRoutes(): Router {
     authenticateSupabase,
     validateParams(organizationIdParamSchema),
     requireOrgOwner,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
 
@@ -369,9 +369,9 @@ export function createOrganizationRoutes(): Router {
     authenticateSupabase,
     validateParams(organizationIdParamSchema),
     validateQuery(listMembersQuerySchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as AuthenticatedRequest).user?.id;
+        const userId = req.user?.id;
         const { id: organizationId } = req.params;
         const { page = 1, limit = 20, search, role, status = 'ACTIVE' } = req.query;
 
@@ -397,13 +397,13 @@ export function createOrganizationRoutes(): Router {
         }
 
         // Build where clause
-        const where: any = {
+        const where: Prisma.OrganizationMembershipWhereInput = {
           organizationId,
-          status: status as string,
+          status: status as MembershipStatus,
         };
 
         if (role) {
-          where.role = role;
+          where.role = role as OrgMemberRole;
         }
 
         if (search) {
@@ -483,9 +483,9 @@ export function createOrganizationRoutes(): Router {
     authenticateSupabase,
     validateParams(memberUserIdParamSchema),
     validate(updateMemberRoleSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const currentUserId = (req as AuthenticatedRequest).user?.id;
+        const currentUserId = req.user?.id;
         const { id: organizationId, userId: targetUserId } = req.params;
         const { role: newRole } = req.body;
 
@@ -615,9 +615,9 @@ export function createOrganizationRoutes(): Router {
     '/:id/members/:userId',
     authenticateSupabase,
     validateParams(memberUserIdParamSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const currentUserId = (req as AuthenticatedRequest).user?.id;
+        const currentUserId = req.user?.id;
         const { id: organizationId, userId: targetUserId } = req.params;
 
         if (!currentUserId) {
@@ -731,9 +731,9 @@ export function createOrganizationRoutes(): Router {
     '/:id/leave',
     authenticateSupabase,
     validateParams(organizationIdParamSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as AuthenticatedRequest).user?.id;
+        const userId = req.user?.id;
         const { id: organizationId } = req.params;
 
         if (!userId) {
@@ -813,9 +813,9 @@ export function createOrganizationRoutes(): Router {
     validateParams(organizationIdParamSchema),
     requireOrgAdmin,
     validate(inviteMemberSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as AuthenticatedRequest).user?.id;
+        const userId = req.user?.id;
         const organizationId = req.params.id;
         const { email, role } = req.body;
 
@@ -935,7 +935,7 @@ export function createOrganizationRoutes(): Router {
     authenticateSupabase,
     validateParams(inviteIdParamSchema),
     requireOrgAdmin,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id: organizationId, inviteId } = req.params;
 
