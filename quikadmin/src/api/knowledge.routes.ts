@@ -14,9 +14,8 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import multer from 'multer';
-import path from 'path';
 import { Prisma, DocumentSourceStatus } from '@prisma/client';
+import { createUploadMiddleware, FileUploadPresets } from '../config/fileUpload.config';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { requireOrganization, OrganizationRequest } from '../middleware/organizationContext';
 import { prisma } from '../utils/prisma';
@@ -33,7 +32,6 @@ import {
   getFormSuggestionService,
   FormSuggestionsRequest,
 } from '../services/formSuggestion.service';
-import { fileValidationService } from '../services/fileValidation.service';
 
 // ============================================================================
 // Types & Interfaces
@@ -148,80 +146,13 @@ function auditLogger(action: string) {
 }
 
 // ============================================================================
-// File Upload Configuration
+// File Upload Configuration (using centralized config)
 // ============================================================================
 
-import { FileValidationError } from '../utils/FileValidationError';
-
-const knowledgeAllowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv'];
-const knowledgeMimeTypes: Record<string, string[]> = {
-  '.pdf': ['application/pdf'],
-  '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  '.doc': ['application/msword'],
-  '.txt': ['text/plain'],
-  '.csv': ['text/csv', 'application/csv'],
-};
-
-const storage = multer.diskStorage({
-  destination: 'uploads/knowledge/',
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `knowledge-${uniqueSuffix}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit for knowledge documents
-  },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-
-    // Check for double extensions (e.g., file.pdf.exe)
-    const doubleExtCheck = fileValidationService.hasDoubleExtension(
-      file.originalname,
-      knowledgeAllowedTypes
-    );
-    if (doubleExtCheck.isDouble) {
-      logger.warn('Double extension attack detected in knowledge upload', {
-        filename: file.originalname,
-        extensions: doubleExtCheck.extensions,
-        dangerousExtension: doubleExtCheck.dangerousExtension,
-      });
-      return cb(
-        new FileValidationError(
-          `Suspicious double extension detected: ${file.originalname}. File rejected for security reasons.`,
-          'DOUBLE_EXTENSION'
-        )
-      );
-    }
-
-    // Check for MIME type spoofing
-    const expectedMimes = knowledgeMimeTypes[ext];
-    if (expectedMimes && !expectedMimes.includes(file.mimetype)) {
-      logger.warn('MIME type spoofing detected in knowledge upload', {
-        filename: file.originalname,
-        extension: ext,
-        declaredMimeType: file.mimetype,
-        expectedMimeTypes: expectedMimes,
-      });
-      return cb(
-        new FileValidationError(
-          `MIME type mismatch: file extension ${ext} does not match declared type ${file.mimetype}`,
-          'MIME_TYPE_MISMATCH'
-        )
-      );
-    }
-
-    if (knowledgeAllowedTypes.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type ${ext} not supported for knowledge base`));
-    }
-  },
-});
+// Use centralized upload config for knowledge documents
+// Config: 50MB limit, text-only formats (.pdf, .docx, .doc, .txt, .csv)
+// Security: Double extension detection, MIME spoofing detection, path traversal validation
+const upload = createUploadMiddleware(FileUploadPresets.KNOWLEDGE);
 
 // ============================================================================
 // Route Factory

@@ -48,6 +48,9 @@ export const AllowedFileTypes = {
 
   // Minimal types for profile/ID documents
   PROFILE_DOCS: ['.pdf', '.jpg', '.jpeg', '.png'] as const,
+
+  // Knowledge base documents - text-only formats (no images)
+  KNOWLEDGE_DOCS: ['.pdf', '.docx', '.doc', '.txt', '.csv'] as const,
 } as const;
 
 /**
@@ -127,14 +130,14 @@ export const FileUploadPresets: Record<string, FileUploadConfig> = {
   },
 
   /**
-   * Knowledge base documents - extended types for processing
-   * Used by: knowledge.routes.ts, multiagent.routes.ts
+   * Knowledge base documents - text-only formats for semantic processing
+   * Used by: knowledge.routes.ts
    */
   KNOWLEDGE: {
     destination: 'uploads/knowledge/',
-    filePrefix: 'kb',
-    maxFileSize: 20 * 1024 * 1024, // 20MB
-    allowedTypes: AllowedFileTypes.DOCUMENTS_EXTENDED,
+    filePrefix: 'knowledge',
+    maxFileSize: 50 * 1024 * 1024, // 50MB limit for large documents
+    allowedTypes: AllowedFileTypes.KNOWLEDGE_DOCS,
     enhancedSecurity: true,
   },
 
