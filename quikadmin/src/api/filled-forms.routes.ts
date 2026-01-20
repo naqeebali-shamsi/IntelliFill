@@ -10,15 +10,14 @@
  * The generated PDFs are stored and can be downloaded/re-generated
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import fs from 'fs/promises';
-import path from 'path';
-import { PDFDocument, PDFTextField, PDFCheckBox, PDFDropdown, PDFRadioGroup } from 'pdf-lib';
+import { formFiller } from '../fillers/FormFiller';
 
 // Validation schemas
 const generateFormSchema = z.object({
@@ -98,130 +97,6 @@ function createSuccessResult(
   };
 }
 
-/**
- * Fill a PDF form with profile data using field mappings
- */
-async function fillPdfForm(
-  templatePath: string,
-  fieldMappings: Record<string, string>,
-  profileData: Record<string, unknown>,
-  outputPath: string
-): Promise<{
-  success: boolean;
-  filledFields: string[];
-  unmappedFields: string[];
-  warnings: string[];
-}> {
-  const filledFields: string[] = [];
-  const unmappedFields: string[] = [];
-  const warnings: string[] = [];
-
-  try {
-    // Load the template PDF
-    const pdfBytes = await fs.readFile(templatePath);
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    const form = pdfDoc.getForm();
-    const fields = form.getFields();
-
-    logger.info(`Filling form with ${fields.length} fields`);
-
-    // Fill each mapped field
-    for (const field of fields) {
-      const formFieldName = field.getName();
-      const profileFieldName = fieldMappings[formFieldName];
-
-      if (!profileFieldName) {
-        unmappedFields.push(formFieldName);
-        continue;
-      }
-
-      const value = profileData[profileFieldName];
-
-      if (value === undefined || value === null || value === '') {
-        warnings.push(
-          `No data for profile field '${profileFieldName}' (form field: ${formFieldName})`
-        );
-        continue;
-      }
-
-      try {
-        // Fill based on field type
-        if (field instanceof PDFTextField) {
-          field.setText(String(value));
-          filledFields.push(formFieldName);
-        } else if (field instanceof PDFCheckBox) {
-          const boolValue = parseBoolean(value);
-          if (boolValue) {
-            field.check();
-          } else {
-            field.uncheck();
-          }
-          filledFields.push(formFieldName);
-        } else if (field instanceof PDFDropdown) {
-          const options = field.getOptions();
-          const valueStr = String(value);
-          if (options.includes(valueStr)) {
-            field.select(valueStr);
-            filledFields.push(formFieldName);
-          } else {
-            // Try case-insensitive match
-            const match = options.find((opt) => opt.toLowerCase() === valueStr.toLowerCase());
-            if (match) {
-              field.select(match);
-              filledFields.push(formFieldName);
-            } else {
-              warnings.push(`Value '${valueStr}' not in dropdown options for '${formFieldName}'`);
-            }
-          }
-        } else if (field instanceof PDFRadioGroup) {
-          const options = field.getOptions();
-          const valueStr = String(value);
-          if (options.includes(valueStr)) {
-            field.select(valueStr);
-            filledFields.push(formFieldName);
-          } else {
-            warnings.push(`Value '${valueStr}' not in radio options for '${formFieldName}'`);
-          }
-        } else {
-          warnings.push(`Unknown field type for '${formFieldName}'`);
-        }
-      } catch (fieldError) {
-        warnings.push(
-          `Failed to fill field '${formFieldName}': ${fieldError instanceof Error ? fieldError.message : 'Unknown error'}`
-        );
-      }
-    }
-
-    // Save the filled PDF
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    const filledPdfBytes = await pdfDoc.save();
-    await fs.writeFile(outputPath, filledPdfBytes);
-
-    return {
-      success: true,
-      filledFields,
-      unmappedFields,
-      warnings,
-    };
-  } catch (error) {
-    logger.error('Error filling PDF form:', error);
-    throw new Error(
-      `Failed to fill PDF form: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  }
-}
-
-function parseBoolean(value: unknown): boolean {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    const lower = value.toLowerCase();
-    return (
-      lower === 'true' || lower === 'yes' || lower === '1' || lower === 'checked' || lower === 'x'
-    );
-  }
-  return Boolean(value);
-}
-
 export function createFilledFormRoutes(): Router {
   const router = Router();
 
@@ -237,9 +112,9 @@ export function createFilledFormRoutes(): Router {
   router.post(
     '/generate',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -306,7 +181,7 @@ export function createFilledFormRoutes(): Router {
         const outputPath = `outputs/filled-forms/${outputFileName}`;
 
         // Fill the form
-        const fillResult = await fillPdfForm(
+        const fillResult = await formFiller.fillPDFFormWithData(
           template.fileUrl,
           fieldMappings,
           mergedData,
@@ -366,9 +241,9 @@ export function createFilledFormRoutes(): Router {
   router.post(
     '/preview',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -479,9 +354,9 @@ export function createFilledFormRoutes(): Router {
   /**
    * GET /api/filled-forms - List all filled forms
    */
-  router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -553,9 +428,9 @@ export function createFilledFormRoutes(): Router {
   router.get(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -605,9 +480,9 @@ export function createFilledFormRoutes(): Router {
   router.get(
     '/:id/download',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -658,9 +533,9 @@ export function createFilledFormRoutes(): Router {
   router.get(
     '/:id/export',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
         const format = (req.query.format as string)?.toLowerCase() || 'pdf';
 
@@ -783,9 +658,9 @@ export function createFilledFormRoutes(): Router {
   router.delete(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -831,9 +706,9 @@ export function createFilledFormRoutes(): Router {
   router.post(
     '/:id/regenerate',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -873,7 +748,7 @@ export function createFilledFormRoutes(): Router {
         const outputPath = `outputs/filled-forms/${outputFileName}`;
 
         // Fill the form
-        const fillResult = await fillPdfForm(
+        const fillResult = await formFiller.fillPDFFormWithData(
           existingForm.template.fileUrl,
           fieldMappings,
           profileData,
@@ -929,9 +804,9 @@ export function createFilledFormRoutes(): Router {
   router.post(
     '/save-adhoc',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -1054,9 +929,9 @@ export function createFilledFormRoutes(): Router {
   router.post(
     '/batch',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -1174,7 +1049,7 @@ export function createFilledFormRoutes(): Router {
           const outputPath = `outputs/filled-forms/${outputFileName}`;
 
           try {
-            await fillPdfForm(template.fileUrl, fieldMappings, profileData, outputPath);
+            await formFiller.fillPDFFormWithData(template.fileUrl, fieldMappings, profileData, outputPath);
 
             const filledForm = await prisma.filledForm.create({
               data: {

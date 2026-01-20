@@ -19,6 +19,16 @@ export interface FillResult {
   warnings: string[];
 }
 
+/**
+ * Simplified fill result for direct data filling (without MappingResult)
+ */
+export interface SimpleFillResult {
+  success: boolean;
+  filledFields: string[];
+  unmappedFields: string[];
+  warnings: string[];
+}
+
 export class FormFiller {
   async fillPDFForm(
     pdfPath: string,
@@ -131,13 +141,141 @@ export class FormFiller {
     }
   }
 
-  private parseBoolean(value: unknown): boolean {
+  /**
+   * Parse a value as boolean for checkbox fields
+   * Supports: true, 'true', 'yes', '1', 'checked', 'x'
+   */
+  parseBoolean(value: unknown): boolean {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
       const lower = value.toLowerCase();
-      return lower === 'true' || lower === 'yes' || lower === '1' || lower === 'checked';
+      return (
+        lower === 'true' || lower === 'yes' || lower === '1' || lower === 'checked' || lower === 'x'
+      );
     }
     return Boolean(value);
+  }
+
+  /**
+   * Fill a PDF form using field mappings and profile data directly
+   *
+   * This is a convenience method that accepts a simpler data format than fillPDFForm.
+   * Use when you have field mappings (formField -> profileField) and profile data
+   * (profileField -> value) separately.
+   *
+   * @param pdfPath - Path to the PDF template file
+   * @param fieldMappings - Map of form field names to profile field names
+   * @param profileData - Map of profile field names to values
+   * @param outputPath - Where to save the filled PDF
+   * @returns Fill result with filled/unmapped fields and warnings
+   */
+  async fillPDFFormWithData(
+    pdfPath: string,
+    fieldMappings: Record<string, string>,
+    profileData: Record<string, unknown>,
+    outputPath: string
+  ): Promise<SimpleFillResult> {
+    const filledFields: string[] = [];
+    const unmappedFields: string[] = [];
+    const warnings: string[] = [];
+
+    try {
+      // Load the PDF using shared fileReader utility (supports both local paths and R2 URLs)
+      const pdfBytes = await getFileBuffer(pdfPath);
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const form = pdfDoc.getForm();
+      const fields = form.getFields();
+
+      logger.info(`Filling form with ${fields.length} fields`);
+
+      // Fill each mapped field
+      for (const field of fields) {
+        const formFieldName = field.getName();
+        const profileFieldName = fieldMappings[formFieldName];
+
+        if (!profileFieldName) {
+          unmappedFields.push(formFieldName);
+          continue;
+        }
+
+        const value = profileData[profileFieldName];
+
+        if (value === undefined || value === null || value === '') {
+          warnings.push(
+            `No data for profile field '${profileFieldName}' (form field: ${formFieldName})`
+          );
+          continue;
+        }
+
+        try {
+          // Fill based on field type
+          if (field instanceof PDFTextField) {
+            field.setText(String(value));
+            filledFields.push(formFieldName);
+          } else if (field instanceof PDFCheckBox) {
+            if (this.parseBoolean(value)) {
+              field.check();
+            } else {
+              field.uncheck();
+            }
+            filledFields.push(formFieldName);
+          } else if (field instanceof PDFDropdown) {
+            const options = field.getOptions();
+            const valueStr = String(value);
+            if (options.includes(valueStr)) {
+              field.select(valueStr);
+              filledFields.push(formFieldName);
+            } else {
+              // Try case-insensitive match
+              const match = options.find((opt) => opt.toLowerCase() === valueStr.toLowerCase());
+              if (match) {
+                field.select(match);
+                filledFields.push(formFieldName);
+              } else {
+                warnings.push(`Value '${valueStr}' not in dropdown options for '${formFieldName}'`);
+              }
+            }
+          } else if (field instanceof PDFRadioGroup) {
+            const options = field.getOptions();
+            const valueStr = String(value);
+            if (options.includes(valueStr)) {
+              field.select(valueStr);
+              filledFields.push(formFieldName);
+            } else {
+              warnings.push(`Value '${valueStr}' not in radio options for '${formFieldName}'`);
+            }
+          } else {
+            warnings.push(`Unknown field type for '${formFieldName}'`);
+          }
+        } catch (fieldError) {
+          warnings.push(
+            `Failed to fill field '${formFieldName}': ${fieldError instanceof Error ? fieldError.message : 'Unknown error'}`
+          );
+        }
+      }
+
+      // Flatten form if requested (makes fields non-editable)
+      if (process.env.FLATTEN_FORMS === 'true') {
+        form.flatten();
+      }
+
+      // Save the filled PDF
+      await fs.mkdir(outputPath.substring(0, outputPath.lastIndexOf('/')), { recursive: true });
+      const filledPdfBytes = await pdfDoc.save();
+      await fs.writeFile(outputPath, filledPdfBytes);
+
+      return {
+        success: true,
+        filledFields,
+        unmappedFields,
+        warnings,
+      };
+    } catch (error) {
+      logger.error('Error filling PDF form:', error);
+      throw new Error(
+        `Failed to fill PDF form: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   async fillMultipleForms(
@@ -213,3 +351,6 @@ export class FormFiller {
     }
   }
 }
+
+// Export singleton instance for convenience
+export const formFiller = new FormFiller();
