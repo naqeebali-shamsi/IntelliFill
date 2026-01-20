@@ -7,37 +7,19 @@
  * Task 10: API: Form Template Endpoints
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 import { FormCategory, Prisma } from '@prisma/client';
 import { z } from 'zod';
-import multer from 'multer';
-import path from 'path';
 import fs from 'fs/promises';
 import { PDFDocument } from 'pdf-lib';
+import { createUploadMiddleware, FileUploadPresets } from '../config/fileUpload.config';
 
-// Configure multer for PDF uploads
-const storage = multer.diskStorage({
-  destination: 'uploads/templates/',
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `template-${uniqueSuffix}.pdf`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for templates
-  fileFilter: (_req, file, cb) => {
-    if (path.extname(file.originalname).toLowerCase() === '.pdf') {
-      cb(null, true);
-    } else {
-      cb(new Error('Only PDF files are allowed'));
-    }
-  },
-});
+// Use centralized upload config for form templates
+// Config: 20MB limit, PDF only, enhanced security (double extension, MIME spoofing, path traversal)
+const upload = createUploadMiddleware(FileUploadPresets.FORM_TEMPLATES);
 
 // Validation schemas
 const createTemplateSchema = z.object({
@@ -101,9 +83,9 @@ export function createFormTemplateRoutes(): Router {
     '/',
     authenticateSupabase,
     upload.single('template'),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
 
         if (!userId) {
           return res.status(401).json({ error: 'Unauthorized' });
@@ -174,9 +156,9 @@ export function createFormTemplateRoutes(): Router {
   /**
    * GET /api/form-templates - List all form templates for the user
    */
-  router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -261,9 +243,9 @@ export function createFormTemplateRoutes(): Router {
   router.get(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -316,9 +298,9 @@ export function createFormTemplateRoutes(): Router {
   router.put(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -386,9 +368,9 @@ export function createFormTemplateRoutes(): Router {
   router.put(
     '/:id/mappings',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -457,9 +439,9 @@ export function createFormTemplateRoutes(): Router {
   router.delete(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -506,9 +488,9 @@ export function createFormTemplateRoutes(): Router {
   router.get(
     '/:id/fields',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -563,9 +545,9 @@ export function createFormTemplateRoutes(): Router {
   router.post(
     '/:id/auto-map',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { id } = req.params;
 
         if (!userId) {
@@ -648,9 +630,9 @@ export function createFormTemplateRoutes(): Router {
   router.get(
     '/:id/preview',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
+        const userId = req.user?.id;
         const { id } = req.params;
         const { clientId } = req.query;
 

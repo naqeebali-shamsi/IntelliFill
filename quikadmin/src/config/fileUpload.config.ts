@@ -148,7 +148,7 @@ export const FileUploadPresets: Record<string, FileUploadConfig> = {
   FORM_TEMPLATES: {
     destination: 'uploads/templates/',
     filePrefix: 'template',
-    maxFileSize: 10 * 1024 * 1024, // 10MB
+    maxFileSize: 20 * 1024 * 1024, // 20MB for large form templates
     allowedTypes: ['.pdf'] as readonly string[],
     enhancedSecurity: true,
   },
