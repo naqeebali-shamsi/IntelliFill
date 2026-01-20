@@ -10,6 +10,7 @@ import { logger } from '../utils/logger';
 import { FillResult } from '../fillers/FormFiller';
 import { MappingResult } from '../mappers/FieldMapper';
 import { getFileBuffer } from '../utils/fileReader';
+import { mergeExtractedData } from '../utils/dataUtils';
 
 export interface IntelliFillServiceConfig {
   documentParser?: DocumentParser;
@@ -124,7 +125,7 @@ export class IntelliFillService {
       }
 
       // Merge extracted data
-      const mergedData = this.mergeExtractedData(allExtractedData);
+      const mergedData = mergeExtractedData(allExtractedData);
 
       // Get form fields
       const formFields = await this.extractFormFields(formPath);
@@ -250,48 +251,5 @@ export class IntelliFillService {
     }
 
     return Buffer.from(await mergedPdf.save());
-  }
-
-  private mergeExtractedData(dataArray: any[]): any {
-    // Simple merge strategy - combine all fields
-    const merged: any = {
-      fields: {},
-      entities: {
-        names: [],
-        emails: [],
-        phones: [],
-        dates: [],
-        addresses: [],
-      },
-      metadata: {
-        confidence: 0,
-      },
-    };
-
-    for (const data of dataArray) {
-      // Merge fields
-      Object.assign(merged.fields, data.fields);
-
-      // Merge entities
-      merged.entities.names.push(...(data.entities?.names || []));
-      merged.entities.emails.push(...(data.entities?.emails || []));
-      merged.entities.phones.push(...(data.entities?.phones || []));
-      merged.entities.dates.push(...(data.entities?.dates || []));
-      merged.entities.addresses.push(...(data.entities?.addresses || []));
-
-      // Average confidence
-      merged.metadata.confidence += data.metadata?.confidence || 0;
-    }
-
-    merged.metadata.confidence /= dataArray.length;
-
-    // Remove duplicates
-    merged.entities.names = [...new Set(merged.entities.names)];
-    merged.entities.emails = [...new Set(merged.entities.emails)];
-    merged.entities.phones = [...new Set(merged.entities.phones)];
-    merged.entities.dates = [...new Set(merged.entities.dates)];
-    merged.entities.addresses = [...new Set(merged.entities.addresses)];
-
-    return merged;
   }
 }

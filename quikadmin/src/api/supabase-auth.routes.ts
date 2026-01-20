@@ -26,95 +26,10 @@ import { config } from '../config';
 import { getTokenCacheService } from '../services/tokenCache.service';
 import { getTokenFamilyService } from '../services/RefreshTokenFamilyService';
 import { lockoutService } from '../services/lockout.service';
+import { setRefreshTokenCookie, clearRefreshTokenCookie } from '../utils/cookieHelpers';
 
 // Test mode for E2E tests (uses Prisma/bcrypt instead of Supabase Auth)
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
-const isProduction = process.env.NODE_ENV === 'production';
-
-// Cookie configuration for httpOnly refreshToken
-// Production: secure, SameSite=None (required for cross-origin fetch)
-// Dev/Test/Local: not secure, SameSite=Lax (allows localhost and avoids secure cookie rejection)
-// COOKIE_DOMAIN: Set to '.parentdomain.com' for cross-subdomain cookie sharing
-//
-// IMPORTANT: SameSite=None is required when frontend (Vercel) and backend (AWS)
-// are on different subdomains. SameSite=Lax only sends cookies for top-level
-// navigations, NOT for programmatic fetch/XHR requests (like axios POST).
-//
-// Path must be '/api' (not '/api/auth') to cover SSE endpoint at /api/realtime
-const cookieDomain = isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined;
-
-const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
-
-function isLocalhostRequest(req: Request): boolean {
-  const origin = req.headers.origin;
-  if (origin) {
-    try {
-      const { hostname } = new URL(origin);
-      if (LOCALHOST_HOSTNAMES.has(hostname)) {
-        return true;
-      }
-    } catch {
-      // Ignore malformed Origin headers
-    }
-  }
-  return LOCALHOST_HOSTNAMES.has(req.hostname);
-}
-
-function getCookieEnvOptions(req: Request): {
-  secure: boolean;
-  sameSite: 'lax' | 'strict' | 'none';
-  domain?: string;
-} {
-  const useLocalOptions = !isProduction || isLocalhostRequest(req);
-  return {
-    secure: !useLocalOptions,
-    // SameSite=None required for cross-origin cookie sending (fetch/XHR) in production
-    // Local/dev uses Lax to allow http://localhost without Secure cookies
-    sameSite: useLocalOptions ? 'lax' : 'none',
-    ...(useLocalOptions || !cookieDomain ? {} : { domain: cookieDomain }),
-  };
-}
-
-function getRefreshTokenCookieOptions(req: Request): {
-  httpOnly: boolean;
-  secure: boolean;
-  sameSite: 'lax' | 'strict' | 'none';
-  maxAge: number;
-  path: string;
-  domain?: string;
-} {
-  return {
-    httpOnly: true,
-    ...getCookieEnvOptions(req),
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/api', // Must cover all API endpoints including /api/realtime for SSE
-  };
-}
-
-/** Clear legacy cookie with old path (for migration from /api/auth to /api) */
-function clearLegacyCookie(req: Request, res: Response): void {
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    ...getCookieEnvOptions(req),
-    path: '/api/auth',
-  });
-}
-
-function setRefreshTokenCookie(req: Request, res: Response, refreshToken: string): void {
-  // Clear legacy cookie path first to prevent conflicts
-  clearLegacyCookie(req, res);
-  res.cookie('refreshToken', refreshToken, getRefreshTokenCookieOptions(req));
-}
-
-function clearRefreshTokenCookie(req: Request, res: Response): void {
-  const { maxAge: _maxAge, ...cookieOptions } = getRefreshTokenCookieOptions(req);
-  // Must match all options from REFRESH_TOKEN_COOKIE_OPTIONS (except expires/maxAge)
-  // for clearCookie to work properly across all browsers
-  res.clearCookie('refreshToken', cookieOptions);
-
-  // Also clear legacy cookie path to prevent conflicts after path migration
-  clearLegacyCookie(req, res);
-}
 
 // JWT secrets from validated config (≥64 characters enforced)
 const JWT_SECRET = config.jwt.secret;

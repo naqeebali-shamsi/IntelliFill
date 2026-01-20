@@ -2,7 +2,6 @@ import { Router, Request, Response, NextFunction } from 'express';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import multer from 'multer';
-import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
 import { decryptExtractedData } from '../middleware/encryptionMiddleware';
@@ -13,7 +12,11 @@ import { ExtractedData } from '../extractors/DataExtractor';
 import { prisma } from '../utils/prisma';
 import { validate } from '../middleware/validation';
 import { updateProfileSchema, updateSettingsSchema } from '../validators/schemas';
-import { supabaseAdmin } from '../utils/supabase';
+import { FieldMapper } from '../mappers/FieldMapper';
+import { FormFiller } from '../fillers/FormFiller';
+import { mergeExtractedData } from '../utils/dataUtils';
+import { clearRefreshTokenCookie } from '../utils/cookieHelpers';
+import { userService } from '../services/UserService';
 
 // Validation schema for fill-form endpoint
 const fillFormBodySchema = z.object({
@@ -252,95 +255,6 @@ export function createUserRoutes(): Router {
   );
 
   /**
-   * GET /api/users/me/profile - Get user profile
-   * Returns full profile data including phone, jobTitle, and bio.
-   */
-  router.get(
-    '/me/profile',
-    authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const userId = (req as any).user?.id;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            phone: true,
-            jobTitle: true,
-            bio: true,
-            updatedAt: true,
-          },
-        });
-
-        if (!user) {
-          return res.status(404).json({ error: 'User not found' });
-        }
-
-        res.json({
-          success: true,
-          data: { user },
-        });
-      } catch (error) {
-        logger.error('Error fetching user profile:', error);
-        next(error);
-      }
-    }
-  );
-
-  /**
-   * PATCH /api/users/me/profile - Update user profile
-   * Task 385: Update user profile fields (firstName, lastName, avatarUrl, phone, jobTitle, bio)
-   */
-  router.patch(
-    '/me/profile',
-    authenticateSupabase,
-    validate(updateProfileSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const userId = (req as any).user?.id;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Update user profile
-        const user = await prisma.user.update({
-          where: { id: userId },
-          data: req.body,
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-            phone: true,
-            jobTitle: true,
-            bio: true,
-            updatedAt: true,
-          },
-        });
-
-        res.json({
-          success: true,
-          data: { user },
-        });
-      } catch (error) {
-        logger.error('Error updating user profile:', error);
-        next(error);
-      }
-    }
-  );
-
-  /**
    * GET /api/users/me/settings - Get user settings
    * Task 385: Retrieve current user settings
    */
@@ -513,10 +427,6 @@ export function createUserRoutes(): Router {
         }
 
         // Initialize services
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { FieldMapper } = require('../mappers/FieldMapper');
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { FormFiller } = require('../fillers/FormFiller');
         const fieldMapper = new FieldMapper();
         const formFiller = new FormFiller();
 
@@ -623,6 +533,7 @@ export function createUserRoutes(): Router {
   /**
    * DELETE /api/users/me - Delete user account
    * Task 516: Securely delete user account with password verification
+   * Business logic delegated to UserService
    */
   router.delete(
     '/me',
@@ -646,119 +557,26 @@ export function createUserRoutes(): Router {
 
         const { password } = validation.data;
 
-        // Fetch user with password hash
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            email: true,
-            password: true,
-            supabaseUserId: true,
-          },
+        // Delegate to UserService for password verification, audit logging,
+        // cascading deletes, and Supabase auth user deletion
+        const result = await userService.deleteUser(userId, password, {
+          ip: req.ip,
+          userAgent: req.get('user-agent'),
         });
 
-        if (!user) {
-          return res.status(404).json({ error: 'User not found' });
-        }
-
-        // Verify password
-        const passwordValid = await bcrypt.compare(password, user.password);
-        if (!passwordValid) {
-          logger.warn('Delete account: invalid password attempt', { userId, email: user.email });
-          return res.status(401).json({ error: 'Invalid password' });
-        }
-
-        // Create audit log entry BEFORE deletion (so we have userId reference)
-        await prisma.auditLog.create({
-          data: {
-            userId: user.id,
-            action: 'USER_DELETED',
-            entityType: 'User',
-            entityId: user.id,
-            metadata: {
-              email: user.email,
-              deletedAt: new Date().toISOString(),
-              ipAddress: req.ip,
-              userAgent: req.get('user-agent'),
-            },
-          },
-        });
-
-        // Delete all user data in transaction (order matters for FK constraints)
-        await prisma.$transaction(async (tx) => {
-          // Get client IDs for cascading deletes
-          const clients = await tx.client.findMany({
-            where: { userId },
-            select: { id: true },
-          });
-          const clientIds = clients.map((c) => c.id);
-
-          // Delete records that reference clients
-          await tx.filledForm.deleteMany({ where: { clientId: { in: clientIds } } });
-          await tx.clientProfile.deleteMany({ where: { clientId: { in: clientIds } } });
-
-          // Delete user-owned records
-          await tx.clientDocument.deleteMany({ where: { userId } });
-          await tx.client.deleteMany({ where: { userId } });
-          await tx.document.deleteMany({ where: { userId } });
-          await tx.organizationMembership.deleteMany({ where: { userId } });
-          await tx.organizationInvitation.deleteMany({ where: { invitedBy: userId } });
-          await tx.userSettings.deleteMany({ where: { userId } });
-          await tx.userProfile.deleteMany({ where: { userId } });
-          await tx.refreshToken.deleteMany({ where: { userId } });
-          await tx.session.deleteMany({ where: { userId } });
-          await tx.formTemplate.deleteMany({ where: { userId } });
-          await tx.documentSource.deleteMany({ where: { userId } });
-          await tx.userFeedback.deleteMany({ where: { userId } });
-
-          // Finally delete the user
-          await tx.user.delete({ where: { id: userId } });
-        });
-
-        // Delete Supabase auth user if exists
-        if (user.supabaseUserId) {
-          try {
-            await supabaseAdmin.auth.admin.deleteUser(user.supabaseUserId);
-          } catch (supabaseError) {
-            // Log but don't fail - Prisma user is already deleted
-            logger.error('Failed to delete Supabase auth user', {
-              userId,
-              supabaseUserId: user.supabaseUserId,
-              error: supabaseError,
-            });
+        if (!result.success) {
+          // Handle specific error cases
+          if (result.error === 'User not found') {
+            return res.status(404).json({ error: result.error });
           }
-        }
-
-        // Clear refresh token cookie
-        const isProduction = process.env.NODE_ENV === 'production';
-        const cookieDomain =
-          process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN
-            ? process.env.COOKIE_DOMAIN
-            : undefined;
-
-        const localhostHostnames = new Set(['localhost', '127.0.0.1', '::1']);
-        const origin = req.headers.origin;
-        let isLocalhost = localhostHostnames.has(req.hostname);
-        if (origin) {
-          try {
-            const { hostname } = new URL(origin);
-            isLocalhost = isLocalhost || localhostHostnames.has(hostname);
-          } catch {
-            // Ignore malformed Origin headers
+          if (result.error === 'Invalid password') {
+            return res.status(401).json({ error: result.error });
           }
+          return res.status(400).json({ error: result.error });
         }
 
-        const useLocalOptions = !isProduction || isLocalhost;
-        res.clearCookie('refreshToken', {
-          httpOnly: true,
-          secure: !useLocalOptions,
-          // SameSite=None required for cross-origin cookie clearing (frontend on different subdomain)
-          sameSite: useLocalOptions ? 'lax' : 'none',
-          path: '/api', // Must match cookie path from supabase-auth.routes.ts
-          ...(useLocalOptions || !cookieDomain ? {} : { domain: cookieDomain }),
-        });
-
-        logger.info('User account deleted successfully', { userId, email: user.email });
+        // Clear refresh token cookie (HTTP-only, must be done in route handler)
+        clearRefreshTokenCookie(req, res);
 
         return res.json({
           success: true,
@@ -963,61 +781,3 @@ const upload = multer({
     }
   },
 });
-
-/**
- * Merge extracted data from multiple documents
- * Same logic as IntelliFillService.mergeExtractedData()
- */
-function mergeExtractedData(dataArray: any[]): any {
-  const merged: any = {
-    fields: {},
-    entities: {
-      names: [],
-      emails: [],
-      phones: [],
-      dates: [],
-      addresses: [],
-    },
-    metadata: {
-      confidence: 0,
-      sourceCount: dataArray.length,
-    },
-  };
-
-  let totalConfidence = 0;
-  let confidenceCount = 0;
-
-  for (const data of dataArray) {
-    // Merge fields
-    if (data.fields) {
-      Object.assign(merged.fields, data.fields);
-    }
-
-    // Merge entities
-    if (data.entities) {
-      merged.entities.names.push(...(data.entities.names || []));
-      merged.entities.emails.push(...(data.entities.emails || []));
-      merged.entities.phones.push(...(data.entities.phones || []));
-      merged.entities.dates.push(...(data.entities.dates || []));
-      merged.entities.addresses.push(...(data.entities.addresses || []));
-    }
-
-    // Average confidence
-    if (data.metadata?.confidence !== undefined && data.metadata.confidence !== null) {
-      totalConfidence += data.metadata.confidence;
-      confidenceCount++;
-    }
-  }
-
-  // Calculate average confidence
-  merged.metadata.confidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
-
-  // Remove duplicates from entities
-  merged.entities.names = [...new Set(merged.entities.names)];
-  merged.entities.emails = [...new Set(merged.entities.emails)];
-  merged.entities.phones = [...new Set(merged.entities.phones)];
-  merged.entities.dates = [...new Set(merged.entities.dates)];
-  merged.entities.addresses = [...new Set(merged.entities.addresses)];
-
-  return merged;
-}
