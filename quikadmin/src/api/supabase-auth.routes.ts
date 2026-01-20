@@ -22,39 +22,37 @@ import { prisma } from '../utils/prisma';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { authLimiter as centralAuthLimiter } from '../middleware/rateLimiter';
-import { config } from '../config';
 import { getTokenCacheService } from '../services/tokenCache.service';
 import { getTokenFamilyService } from '../services/RefreshTokenFamilyService';
 import { lockoutService } from '../services/lockout.service';
+import { jwtTokenService } from '../services/JwtTokenService';
+import { authService } from '../services/AuthService';
 import { setRefreshTokenCookie, clearRefreshTokenCookie } from '../utils/cookieHelpers';
+import { emailSchema, passwordSchema } from '../validators/schemas/common';
 
 // Test mode for E2E tests (uses Prisma/bcrypt instead of Supabase Auth)
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.E2E_TEST_MODE === 'true';
 
-// JWT secrets from validated config (≥64 characters enforced)
-const JWT_SECRET = config.jwt.secret;
-const JWT_REFRESH_SECRET = config.jwt.refreshSecret;
-
 // ============================================================================
-// Validation Helpers
+// Validation Helpers (using centralized Joi schemas)
 // ============================================================================
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_REGEX = /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-
-/** Validates email format. Returns error message or null if valid. */
+/** Validates email format using centralized Joi schema. Returns error message or null if valid. */
 function validateEmail(email: string): string | null {
   if (!email) return 'Email is required';
-  if (!EMAIL_REGEX.test(email)) return 'Invalid email format';
+  const result = emailSchema.validate(email);
+  if (result.error) {
+    return result.error.details[0]?.message || 'Invalid email format';
+  }
   return null;
 }
 
-/** Validates password strength. Returns error message or null if valid. */
+/** Validates password strength using centralized Joi schema. Returns error message or null if valid. */
 function validatePasswordStrength(password: string): string | null {
   if (!password) return 'Password is required';
-  if (password.length < 8) return 'Password must be at least 8 characters long';
-  if (!PASSWORD_REGEX.test(password)) {
-    return 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
+  const result = passwordSchema.validate(password);
+  if (result.error) {
+    return result.error.details[0]?.message || 'Password does not meet requirements';
   }
   return null;
 }
@@ -140,47 +138,6 @@ function createLoginSuccessResponse(user: UserForResponse, tokens: TokensForResp
   };
 }
 
-/** Generates a JWT access token for the given user. */
-function generateAccessToken(
-  userId: string,
-  email: string,
-  role: string,
-  issuer: string = 'test-mode'
-): string {
-  return jwt.sign(
-    {
-      sub: userId,
-      email,
-      role,
-      aud: 'authenticated',
-      iss: issuer,
-    },
-    JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-}
-
-/** Gets a refresh token using token family service, with JWT fallback. */
-async function getRefreshToken(
-  userId: string
-): Promise<{ token: string; familyId?: string; generation?: number }> {
-  try {
-    const tokenFamilyService = await getTokenFamilyService();
-    const familyResult = tokenFamilyService.createNewFamily(userId);
-    return {
-      token: familyResult.refreshToken,
-      familyId: familyResult.familyId,
-      generation: familyResult.generation,
-    };
-  } catch {
-    // Fallback to simple JWT if token family service unavailable
-    const token = jwt.sign({ sub: userId, type: 'refresh' }, JWT_REFRESH_SECRET, {
-      expiresIn: '7d',
-    });
-    return { token };
-  }
-}
-
 /** Handles failed login attempt: records attempt, applies timing delay, returns appropriate response. */
 async function handleFailedLoginAttempt(email: string, res: Response): Promise<Response> {
   const newLockoutStatus = await lockoutService.recordFailedAttempt(email);
@@ -259,13 +216,15 @@ export function createSupabaseAuthRoutes(): Router {
 
   /**
    * POST /api/auth/v2/register - Register a new user
-   * Creates user in Supabase Auth, then creates profile in Prisma.
+   * Delegates to AuthService for business logic.
    * Returns session tokens on success.
    */
   router.post(
     '/register',
     registerLimiter,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: Request, res: Response, _next: NextFunction) => {
+      let supabaseUserId: string | null = null;
+
       try {
         const {
           email,
@@ -276,7 +235,7 @@ export function createSupabaseAuthRoutes(): Router {
           marketingConsent = false,
         }: RegisterRequest = req.body;
 
-        // Validate required fields
+        // ===== Input Validation =====
         if (!email || !password || !fullName) {
           return res.status(400).json({
             error: 'Email, password, and full name are required',
@@ -316,117 +275,42 @@ export function createSupabaseAuthRoutes(): Router {
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(' ') || '';
 
-        // ===== Create User in Supabase Auth =====
-
-        logger.info('Attempting to register user with Supabase', { email });
-
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: email.toLowerCase(),
+        // ===== Create User in Supabase Auth (via AuthService) =====
+        const supabaseUser = await authService.createSupabaseUser(
+          email,
           password,
-          email_confirm: process.env.NODE_ENV === 'development', // Auto-confirm in dev, require verification in prod
-          user_metadata: {
+          firstName,
+          lastName,
+          role
+        );
+        supabaseUserId = supabaseUser.id;
+
+        // ===== Create User Profile in Prisma (via AuthService) =====
+        let user;
+        try {
+          user = await authService.createUserProfile(
+            supabaseUserId,
+            email,
             firstName,
             lastName,
-            role: role.toUpperCase(),
-          },
-        });
-
-        if (authError) {
-          logger.error('Supabase user creation failed:', authError);
-
-          // Handle specific Supabase errors
-          if (
-            authError.message.includes('already registered') ||
-            authError.message.includes('already exists')
-          ) {
-            return res.status(409).json({
-              error: 'User with this email already exists',
-            });
-          }
-
-          if (authError.message.includes('password')) {
-            return res.status(400).json({
-              error: authError.message,
-            });
-          }
-
-          return res.status(400).json({
-            error: 'Registration failed. Please try again.',
-          });
-        }
-
-        if (!authData.user) {
-          logger.error('Supabase user creation returned no user data');
-          return res.status(500).json({
-            error: 'Registration failed. Please try again.',
-          });
-        }
-
-        // ===== Create User Profile in Prisma =====
-
-        try {
-          const user = await prisma.user.create({
-            data: {
-              id: authData.user.id, // CRITICAL: Use Supabase user ID as primary key
-              email: email.toLowerCase(),
-              password: '', // Empty string for now (Supabase manages passwords)
-              firstName,
-              lastName,
-              role: role.toUpperCase() as any,
-              isActive: true,
-              emailVerified: process.env.NODE_ENV === 'development', // Match Supabase email_confirm setting
-              supabaseUserId: authData.user.id, // Track Supabase user ID for migration
-              // Task 500: Consent fields - set server-side for audit trail
-              acceptedTermsAt: new Date(), // Server timestamp, not user-controllable
-              marketingConsent: !!marketingConsent,
-            },
-          });
-
-          logger.info('User profile created in Prisma', { email });
-
-          // ===== Generate Session Tokens =====
-
-          // Sign in immediately to get session tokens
-          const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword(
-            {
-              email: email.toLowerCase(),
-              password,
-            }
+            role,
+            marketingConsent
           );
+        } catch (profileError: any) {
+          // Rollback Supabase user if Prisma creation fails
+          await authService.rollbackSupabaseUser(supabaseUserId);
+          throw profileError;
+        }
 
-          if (sessionError || !sessionData.session) {
-            logger.warn('Failed to generate session after registration:', sessionError?.message);
+        // ===== Generate Session Tokens =====
+        const session = await authService.signInAfterRegistration(email, password);
 
-            // Return success but without tokens (user needs to login manually)
-            return res.status(201).json({
-              success: true,
-              message:
-                'User registered successfully. Please check your email to verify your account.',
-              data: {
-                user: {
-                  id: user.id,
-                  email: user.email,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  role: user.role.toLowerCase(),
-                },
-                tokens: null,
-              },
-            });
-          }
-
-          // ===== Success Response =====
-
-          logger.info('New user registered successfully', { email });
-
-          // Set refreshToken as httpOnly cookie (Phase 2 REQ-005)
-          if (sessionData.session.refresh_token) {
-            setRefreshTokenCookie(req, res, sessionData.session.refresh_token);
-          }
-
-          res.status(201).json({
+        if (!session) {
+          // Return success but without tokens (user needs to login manually)
+          return res.status(201).json({
             success: true,
-            message: 'User registered successfully',
+            message:
+              'User registered successfully. Please check your email to verify your account.',
             data: {
               user: {
                 id: user.id,
@@ -434,57 +318,64 @@ export function createSupabaseAuthRoutes(): Router {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role.toLowerCase(),
-                emailVerified: user.emailVerified,
               },
-              tokens: {
-                accessToken: sessionData.session.access_token,
-                // refreshToken removed from response - now in httpOnly cookie
-                expiresIn: sessionData.session.expires_in || 3600,
-                tokenType: 'Bearer',
-              },
+              tokens: null,
             },
           });
-        } catch (prismaError: unknown) {
-          // Rollback: Delete user from Supabase if Prisma creation fails
-          const errorMessage =
-            prismaError instanceof Error ? prismaError.message : String(prismaError);
-          logger.error('Prisma user creation failed, rolling back Supabase user:', errorMessage);
-
-          try {
-            await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-            logger.info('Supabase user rollback successful');
-          } catch (deleteError) {
-            logger.error('Supabase user rollback failed:', deleteError);
-          }
-
-          if (
-            typeof prismaError === 'object' &&
-            prismaError !== null &&
-            (prismaError as any).code === 'P2002'
-          ) {
-            return res.status(409).json({
-              error: 'User with this email already exists',
-            });
-          }
-
-          return res.status(500).json({
-            error: 'Registration failed. Please try again.',
-          });
         }
-      } catch (error: unknown) {
-        logger.error('Registration error:', error);
-        res.status(500).json({
-          error: 'Registration failed. Please try again.',
+
+        // ===== Success Response =====
+        logger.info('New user registered successfully', { email });
+
+        if (session.refresh_token) {
+          setRefreshTokenCookie(req, res, session.refresh_token);
+        }
+
+        res.status(201).json({
+          success: true,
+          message: 'User registered successfully',
+          data: {
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role.toLowerCase(),
+              emailVerified: user.emailVerified,
+            },
+            tokens: {
+              accessToken: session.access_token,
+              expiresIn: session.expires_in || 3600,
+              tokenType: 'Bearer',
+            },
+          },
         });
+      } catch (error: any) {
+        logger.error('Registration error:', error);
+
+        // Handle known error codes from AuthService
+        const status = error.status || 500;
+        const code = error.code;
+
+        if (code === 'USER_EXISTS') {
+          return res.status(409).json({ error: 'User with this email already exists' });
+        }
+
+        if (code === 'INVALID_PASSWORD') {
+          return res.status(400).json({ error: error.message });
+        }
+
+        res.status(status).json({ error: 'Registration failed. Please try again.' });
       }
     }
   );
 
   /** POST /api/auth/v2/login - Authenticate user and return session tokens */
-  router.post('/login', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/login', authLimiter, async (req: Request, res: Response, _next: NextFunction) => {
     try {
       const { email, password }: LoginRequest = req.body;
 
+      // ===== Input Validation =====
       if (!email || !password) {
         return res.status(400).json({
           error: 'Email and password are required',
@@ -495,7 +386,7 @@ export function createSupabaseAuthRoutes(): Router {
         });
       }
 
-      // Check server-side lockout first
+      // ===== Check Lockout =====
       const lockoutStatus = await lockoutService.checkLockout(email);
       if (lockoutStatus.isLocked) {
         logger.warn('Locked account login attempt', { email });
@@ -504,54 +395,31 @@ export function createSupabaseAuthRoutes(): Router {
 
       logger.info('Login attempt', { email, isTestMode });
 
-      // TEST MODE: Authenticate with Prisma/bcrypt (E2E tests)
+      // ===== TEST MODE: Authenticate with bcrypt (E2E tests) =====
       if (isTestMode) {
-        logger.info('[TEST MODE] Authenticating via Prisma/bcrypt', { email });
-
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
-          select: {
-            id: true,
-            email: true,
-            password: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            isActive: true,
-            emailVerified: true,
-            createdAt: true,
-            lastLogin: true,
-            mfaEnabled: true,
-          },
-        });
+        const user = await authService.authenticateWithBcrypt(email, password);
 
         if (!user) {
-          logger.warn('[TEST MODE] User not found', { email });
           return handleFailedLoginAttempt(email, res);
         }
 
-        const passwordValid = await bcrypt.compare(password, user.password);
-        if (!passwordValid) {
-          logger.warn('[TEST MODE] Invalid password', { email });
-          return handleFailedLoginAttempt(email, res);
-        }
-
-        if (!user.isActive) {
-          logger.warn('[TEST MODE] Inactive user attempted login', { email });
+        // Check if user can login
+        const loginPermission = authService.verifyUserCanLogin(user);
+        if (!loginPermission.allowed) {
           return res.status(403).json({
-            error: 'Account is deactivated. Please contact support.',
-            code: 'ACCOUNT_DEACTIVATED',
+            error: loginPermission.error,
+            code: loginPermission.code,
           });
         }
 
-        // Check if MFA is enabled (simplified for test mode - no actual MFA verification)
+        // MFA bypassed in test mode
         if (user.mfaEnabled) {
           logger.info('[TEST MODE] MFA enabled but bypassed for testing', { email });
-          // In test mode, we don't actually enforce MFA
         }
 
-        const accessToken = generateAccessToken(user.id, user.email, user.role);
-        const refreshResult = await getRefreshToken(user.id);
+        // Generate tokens
+        const accessToken = jwtTokenService.generateAccessToken(user.id, user.email, user.role);
+        const refreshResult = await jwtTokenService.generateRefreshToken(user.id);
         if (refreshResult.familyId) {
           logger.debug('[TEST MODE] Token family created', {
             userId: user.id,
@@ -560,7 +428,8 @@ export function createSupabaseAuthRoutes(): Router {
           });
         }
 
-        await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
+        // Record login success
+        await authService.recordLoginSuccess(user.id);
         await lockoutService.clearLockout(email);
 
         logger.info('[TEST MODE] User logged in successfully', { email });
@@ -571,90 +440,55 @@ export function createSupabaseAuthRoutes(): Router {
         );
       }
 
-      // PRODUCTION MODE: Authenticate with Supabase
-      const { data: sessionData, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
-        password,
-      });
+      // ===== PRODUCTION MODE: Authenticate with Supabase =====
+      const supabaseAuth = await authService.authenticateWithSupabase(email, password);
 
-      if (authError || !sessionData.session || !sessionData.user) {
-        logger.warn('Login failed', { email, error: authError?.message || 'No session returned' });
+      if (!supabaseAuth) {
         return handleFailedLoginAttempt(email, res);
       }
 
-      // Verify user exists in Prisma (lookup by supabaseUserId)
-      const user = await prisma.user.findUnique({
-        where: { supabaseUserId: sessionData.user.id },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          isActive: true,
-          emailVerified: true,
-          createdAt: true,
-          lastLogin: true,
-          mfaEnabled: true,
-        },
-      });
+      // Get user profile from Prisma
+      const user = await authService.getUserBySupabaseId(supabaseAuth.user.id);
 
       if (!user) {
         logger.error(
-          `User ${sessionData.user.id} authenticated with Supabase but not found in database`
+          `User ${supabaseAuth.user.id} authenticated with Supabase but not found in database`
         );
         return res.status(401).json({ error: 'User not found. Please contact support.' });
       }
 
-      if (!user.isActive) {
-        logger.warn('Inactive user attempted login', { userId: user.id });
+      // Check if user can login
+      const loginPermission = authService.verifyUserCanLogin(user);
+      if (!loginPermission.allowed) {
         return res.status(403).json({
-          error: 'Account is deactivated. Please contact support.',
-          code: 'ACCOUNT_DEACTIVATED',
+          error: loginPermission.error,
+          code: loginPermission.code,
         });
       }
 
-      // Check if MFA is enabled and require second factor
-      if (user.mfaEnabled) {
-        const { data: factorsData } = await supabase.auth.mfa.listFactors();
-        const totpFactors = factorsData?.totp || [];
-        const verifiedFactors = totpFactors.filter((f) => f.status === 'verified');
-
-        if (verifiedFactors.length > 0) {
-          logger.info('MFA required for login', { userId: user.id });
-
-          // Return MFA required response with factor info
-          return res.json({
-            success: true,
-            mfaRequired: true,
-            factors: verifiedFactors.map((f) => ({
-              id: f.id,
-              type: f.factor_type,
-              friendlyName: f.friendly_name,
-            })),
-            user: {
-              id: user.id,
-              email: user.email,
-              firstName: user.firstName,
-              lastName: user.lastName,
-            },
-          });
-        }
+      // Check MFA requirement
+      const mfaResult = await authService.checkMfaRequired(user);
+      if (mfaResult) {
+        return res.json({
+          success: true,
+          ...mfaResult,
+        });
       }
 
-      await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
+      // Record login success
+      await authService.recordLoginSuccess(user.id);
       await lockoutService.clearLockout(email);
 
       logger.info('User logged in successfully', { userId: user.id });
 
-      if (sessionData.session.refresh_token) {
-        setRefreshTokenCookie(req, res, sessionData.session.refresh_token);
+      if (supabaseAuth.session.refresh_token) {
+        setRefreshTokenCookie(req, res, supabaseAuth.session.refresh_token);
       }
 
       res.json(
         createLoginSuccessResponse(user, {
-          accessToken: sessionData.session.access_token,
-          expiresIn: sessionData.session.expires_in || 3600,
+          accessToken: supabaseAuth.session.access_token,
+          expiresIn: supabaseAuth.session.expires_in || 3600,
           tokenType: 'Bearer',
         })
       );
@@ -771,16 +605,10 @@ export function createSupabaseAuthRoutes(): Router {
           }
 
           // Generate new access token
-          const accessToken = jwt.sign(
-            {
-              sub: user.id,
-              email: user.email,
-              role: user.role,
-              aud: 'authenticated',
-              iss: 'test-mode',
-            },
-            JWT_SECRET,
-            { expiresIn: '1h' }
+          const accessToken = jwtTokenService.generateAccessToken(
+            user.id,
+            user.email,
+            user.role
           );
 
           // Update last login
@@ -1348,21 +1176,14 @@ export function createSupabaseAuthRoutes(): Router {
       }
 
       // Demo uses extended 4h session
-      const accessToken = jwt.sign(
-        {
-          sub: user.id,
-          email: user.email,
-          role: user.role,
-          organizationId: user.organizationId,
-          aud: 'authenticated',
-          iss: 'demo-mode',
-          isDemo: true,
-        },
-        JWT_SECRET,
-        { expiresIn: '4h' }
+      const accessToken = jwtTokenService.generateDemoAccessToken(
+        user.id,
+        user.email,
+        user.role,
+        user.organizationId
       );
 
-      const refreshResult = await getRefreshToken(user.id);
+      const refreshResult = await jwtTokenService.generateRefreshToken(user.id);
       if (refreshResult.familyId) {
         logger.debug('[DEMO] Token family created', {
           userId: user.id,
