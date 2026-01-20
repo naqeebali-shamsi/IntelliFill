@@ -1,9 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { IntelliFillService } from '../services/IntelliFillService';
-import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, optionalAuthSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 
@@ -37,9 +37,9 @@ export function createStatsRoutes(): Router {
   // Get dashboard statistics
   // NOTE: Uses Document table for stats since OCR processing updates Document records,
   // not the Job table. Job table is legacy and not populated by current OCR workflow.
-  router.get('/statistics', optionalAuthSupabase, async (req: Request, res: Response) => {
+  router.get('/statistics', optionalAuthSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
       const userFilter = userId ? { userId } : {};
 
       // Get document statistics (OCR processing updates Document table, not Job table)
@@ -154,9 +154,9 @@ export function createStatsRoutes(): Router {
 
   // Get processing history (documents formatted as jobs for frontend compatibility)
   // NOTE: Uses Document table since OCR processing creates Document records, not Job records.
-  router.get('/jobs', optionalAuthSupabase, async (req: Request, res: Response) => {
+  router.get('/jobs', optionalAuthSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = parseInt(req.query.offset as string) || 0;
       const status = req.query.status as string;
@@ -238,10 +238,10 @@ export function createStatsRoutes(): Router {
 
   // Get single job/document details
   // NOTE: Queries Document table since OCR creates Document records, not Job records.
-  router.get('/jobs/:jobId', optionalAuthSupabase, async (req: Request, res: Response) => {
+  router.get('/jobs/:jobId', optionalAuthSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { jobId } = req.params;
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
 
       // First try to find as a Document
       const document = await prisma.document.findFirst({
@@ -323,9 +323,9 @@ export function createStatsRoutes(): Router {
   // both Prisma jobs and Bull queues (OCR, document processing, batch)
 
   // Get templates (real data from database)
-  router.get('/templates', optionalAuthSupabase, async (req: Request, res: Response) => {
+  router.get('/templates', optionalAuthSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
 
       // Get templates from the old Template model
       const templates = await prisma.template.findMany({
@@ -356,9 +356,9 @@ export function createStatsRoutes(): Router {
   });
 
   // Create template (stores in database)
-  router.post('/templates', authenticateSupabase, async (req: Request, res: Response) => {
+  router.post('/templates', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
       const { name, description, formType, fields, isPublic } = req.body;
 
       // Validate required fields
@@ -408,9 +408,9 @@ export function createStatsRoutes(): Router {
   });
 
   // Get queue metrics (real data from Bull queue if available, otherwise from database)
-  router.get('/queue/metrics', optionalAuthSupabase, async (req: Request, res: Response) => {
+  router.get('/queue/metrics', optionalAuthSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
 
       // Get metrics from database job counts
       const [waiting, active, completed, failed] = await Promise.all([
@@ -466,9 +466,9 @@ export function createStatsRoutes(): Router {
   });
 
   // Extract data endpoint - delegates to document processing service
-  router.post('/extract', authenticateSupabase, async (req: Request, res: Response) => {
+  router.post('/extract', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
       const { documentId } = req.body;
 
       if (!documentId) {
@@ -517,7 +517,7 @@ export function createStatsRoutes(): Router {
     '/validate/form',
     authenticateSupabase,
     upload.single('form'),
-    async (req: Request, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
         // Handle PDF file upload (new behavior for frontend)
         if (req.file) {

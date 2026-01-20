@@ -27,7 +27,7 @@ import { jobsRouter } from './jobs.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
 import { realtimeService } from '../services/RealtimeService';
-import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, optionalAuthSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
 import { validateFilePath } from '../utils/encryption';
 import { sseConnectionLimiter } from '../middleware/rateLimiter';
@@ -340,9 +340,9 @@ export function setupRoutes(
       { name: 'document', maxCount: 1 },
       { name: 'form', maxCount: 1 },
     ]),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
         if (!files.document || !files.form) {
@@ -435,7 +435,7 @@ export function setupRoutes(
       { name: 'documents', maxCount: 10 },
       { name: 'form', maxCount: 1 },
     ]),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
@@ -489,7 +489,7 @@ export function setupRoutes(
       { name: 'documents', maxCount: 20 },
       { name: 'forms', maxCount: 20 },
     ]),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
@@ -533,7 +533,7 @@ export function setupRoutes(
     '/form/fields',
     optionalAuthSupabase,
     upload.single('form'),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         if (!req.file) {
           return res.status(400).json({ error: 'Form file is required' });
@@ -560,7 +560,7 @@ export function setupRoutes(
     '/validate',
     authenticateSupabase,
     upload.single('document'),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         if (!req.file) {
           return res.status(400).json({ error: 'Document file is required' });

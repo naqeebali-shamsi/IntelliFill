@@ -7,11 +7,11 @@
  * @module api/smart-profile.routes
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { classifyDocument } from '../multiagent/agents/classifierAgent';
 import { extractDocumentData, LOW_CONFIDENCE_THRESHOLD } from '../multiagent/agents/extractorAgent';
 import { DocumentCategory } from '../multiagent/types/state';
@@ -218,7 +218,7 @@ async function cleanupFiles(filePaths: string[]): Promise<void> {
  *
  * Returns classification results with confidence scores.
  */
-async function detectTypesHandler(req: Request, res: Response, next: NextFunction) {
+async function detectTypesHandler(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const startTime = Date.now();
   const files = req.files as Express.Multer.File[];
   const filePaths: string[] = [];
@@ -234,7 +234,7 @@ async function detectTypesHandler(req: Request, res: Response, next: NextFunctio
 
     logger.info('Starting document type detection', {
       fileCount: files.length,
-      userId: (req as any).user?.id,
+      userId: req.user?.id,
     });
 
     const results: DetectionResult[] = [];
@@ -403,7 +403,7 @@ function mapFieldToProfileKey(fieldName: string): string {
  * - fieldSources: Which document each field came from
  * - lowConfidenceFields: Fields below 85% confidence threshold
  */
-async function extractBatchHandler(req: Request, res: Response, next: NextFunction) {
+async function extractBatchHandler(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const startTime = Date.now();
   const files = req.files as Express.Multer.File[];
   const filePaths: string[] = [];
@@ -437,7 +437,7 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
     logger.info('Starting batch extraction', {
       fileCount: files.length,
       documentTypes,
-      userId: (req as any).user?.id,
+      userId: req.user?.id,
     });
 
     // OCR service singleton for text extraction (already initialized)
