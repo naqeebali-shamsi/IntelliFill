@@ -7,89 +7,27 @@
  * Task 7: API: Document Endpoints (Client-Scoped)
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+import {
+  verifyClientOwnership,
+  ClientVerifiedRequest,
+  ClientWithProfileRequest,
+} from '../middleware/verifyClientOwnership';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
-import { DocumentCategory, ClientDocumentStatus, ExtractionStatus, Prisma } from '@prisma/client';
+import { DocumentCategory, Prisma } from '@prisma/client';
 import { z } from 'zod';
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import { ocrService } from '../services/OCRService';
 import { queueCoordinator } from '../services/QueueCoordinator';
-import { FileValidationService, fileValidationService } from '../services/fileValidation.service';
-import { FileValidationError } from '../utils/FileValidationError';
+import { fileValidationService } from '../services/fileValidation.service';
+import { clientDocumentFieldService } from '../services/ClientDocumentFieldService';
+import { createUploadMiddleware, FileUploadPresets } from '../config/fileUpload.config';
 
-const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
-const allowedMimeTypes: Record<string, string[]> = {
-  '.pdf': ['application/pdf'],
-  '.jpg': ['image/jpeg'],
-  '.jpeg': ['image/jpeg'],
-  '.png': ['image/png'],
-  '.gif': ['image/gif'],
-  '.webp': ['image/webp'],
-};
-
-// Configure multer for document uploads
-const storage = multer.diskStorage({
-  destination: 'uploads/client-documents/',
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `doc-${uniqueSuffix}${ext}`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
-  fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-
-    // Check for double extensions (e.g., file.pdf.exe)
-    const doubleExtCheck = fileValidationService.hasDoubleExtension(
-      file.originalname,
-      allowedTypes
-    );
-    if (doubleExtCheck.isDouble) {
-      logger.warn('Double extension attack detected in client document upload', {
-        filename: file.originalname,
-        extensions: doubleExtCheck.extensions,
-        dangerousExtension: doubleExtCheck.dangerousExtension,
-      });
-      return cb(
-        new FileValidationError(
-          `Suspicious double extension detected: ${file.originalname}. File rejected for security reasons.`,
-          'DOUBLE_EXTENSION'
-        )
-      );
-    }
-
-    // Check for MIME type spoofing
-    const expectedMimes = allowedMimeTypes[ext];
-    if (expectedMimes && !expectedMimes.includes(file.mimetype)) {
-      logger.warn('MIME type spoofing detected in client document upload', {
-        filename: file.originalname,
-        extension: ext,
-        declaredMimeType: file.mimetype,
-        expectedMimeTypes: expectedMimes,
-      });
-      return cb(
-        new FileValidationError(
-          `MIME type mismatch: file extension ${ext} does not match declared type ${file.mimetype}`,
-          'MIME_TYPE_MISMATCH'
-        )
-      );
-    }
-
-    if (allowedTypes.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type ${ext} not supported. Allowed: ${allowedTypes.join(', ')}`));
-    }
-  },
-});
+// Use centralized upload configuration with enhanced security
+const upload = createUploadMiddleware(FileUploadPresets.CLIENT_DOCUMENTS);
 
 // Validation schemas
 const uploadDocumentSchema = z.object({
@@ -147,8 +85,8 @@ const listDocumentsSchema = z.object({
 export function createClientDocumentRoutes(): Router {
   const router = Router({ mergeParams: true }); // Enable access to :clientId from parent
 
-  // Initialize file validation service
-  const fileValidationService = new FileValidationService();
+  // NOTE: Uses the singleton fileValidationService imported at the top of this file
+  // Do NOT create a new instance here - that would shadow the singleton and cause inconsistent behavior
 
   // Ensure uploads directory exists
   fs.mkdir('uploads/client-documents', { recursive: true }).catch(() => {});
@@ -160,9 +98,9 @@ export function createClientDocumentRoutes(): Router {
     '/',
     authenticateSupabase,
     upload.single('document'),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { clientId } = req.params;
 
         if (!userId) {
@@ -275,90 +213,81 @@ export function createClientDocumentRoutes(): Router {
   /**
    * GET /api/clients/:clientId/documents - List all documents for a client
    */
-  router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = (req as any).user?.id;
-      const { clientId } = req.params;
+  router.get(
+    '/',
+    authenticateSupabase,
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
+      try {
+        const { clientId } = req.params;
+        const client = req.client;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        // Validate query params
+        const validation = listDocumentsSchema.safeParse(req.query);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Invalid query parameters',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-      });
+        const { category, status, limit, offset } = validation.data;
 
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
+        // Build where clause
+        const whereClause: Prisma.ClientDocumentWhereInput = { clientId };
+        if (category) whereClause.category = category;
+        if (status) whereClause.status = status;
 
-      // Validate query params
-      const validation = listDocumentsSchema.safeParse(req.query);
-      if (!validation.success) {
-        return res.status(400).json({
-          error: 'Invalid query parameters',
-          details: validation.error.flatten().fieldErrors,
-        });
-      }
-
-      const { category, status, limit, offset } = validation.data;
-
-      // Build where clause
-      const whereClause: Prisma.ClientDocumentWhereInput = { clientId };
-      if (category) whereClause.category = category;
-      if (status) whereClause.status = status;
-
-      const [documents, total] = await Promise.all([
-        prisma.clientDocument.findMany({
-          where: whereClause,
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
-          include: {
-            extractedData: {
-              select: {
-                id: true,
-                status: true,
-                extractedAt: true,
+        const [documents, total] = await Promise.all([
+          prisma.clientDocument.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+            include: {
+              extractedData: {
+                select: {
+                  id: true,
+                  status: true,
+                  extractedAt: true,
+                },
               },
             },
-          },
-        }),
-        prisma.clientDocument.count({ where: whereClause }),
-      ]);
+          }),
+          prisma.clientDocument.count({ where: whereClause }),
+        ]);
 
-      const formattedDocuments = documents.map((doc) => ({
-        id: doc.id,
-        fileName: doc.fileName,
-        fileType: doc.fileType,
-        fileSize: doc.fileSize,
-        category: doc.category,
-        status: doc.status,
-        hasExtractedData: !!doc.extractedData,
-        extractionStatus: doc.extractedData?.status || null,
-        extractedAt: doc.extractedData?.extractedAt?.toISOString() || null,
-        createdAt: doc.createdAt.toISOString(),
-        updatedAt: doc.updatedAt.toISOString(),
-      }));
+        const formattedDocuments = documents.map((doc) => ({
+          id: doc.id,
+          fileName: doc.fileName,
+          fileType: doc.fileType,
+          fileSize: doc.fileSize,
+          category: doc.category,
+          status: doc.status,
+          hasExtractedData: !!doc.extractedData,
+          extractionStatus: doc.extractedData?.status || null,
+          extractedAt: doc.extractedData?.extractedAt?.toISOString() || null,
+          createdAt: doc.createdAt.toISOString(),
+          updatedAt: doc.updatedAt.toISOString(),
+        }));
 
-      res.json({
-        success: true,
-        data: {
-          clientId,
-          clientName: client.name,
-          documents: formattedDocuments,
-          pagination: {
-            total,
-            limit,
-            offset,
-            hasMore: offset + limit < total,
+        res.json({
+          success: true,
+          data: {
+            clientId,
+            clientName: client.name,
+            documents: formattedDocuments,
+            pagination: {
+              total,
+              limit,
+              offset,
+              hasMore: offset + limit < total,
+            },
           },
-        },
-      });
-    } catch (error) {
-      logger.error('Error listing client documents:', error);
-      next(error);
+        });
+      } catch (error) {
+        logger.error('Error listing client documents:', error);
+        next(error);
     }
   });
 
@@ -368,23 +297,10 @@ export function createClientDocumentRoutes(): Router {
   router.get(
     '/:documentId',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         const document = await prisma.clientDocument.findFirst({
           where: { id: documentId, clientId },
@@ -437,23 +353,10 @@ export function createClientDocumentRoutes(): Router {
   router.put(
     '/:documentId',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         // Validate request body
         const validation = updateDocumentSchema.safeParse(req.body);
@@ -507,23 +410,10 @@ export function createClientDocumentRoutes(): Router {
   router.delete(
     '/:documentId',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         // Check document exists
         const document = await prisma.clientDocument.findFirst({
@@ -572,25 +462,12 @@ export function createClientDocumentRoutes(): Router {
   router.post(
     '/:documentId/extract',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership({ includeProfile: true }),
+    async (req: ClientWithProfileRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
+        const userId = req.user?.id;
         const { clientId, documentId } = req.params;
         const { sync = false, mergeToProfile = true, forceReprocess = false } = req.body;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-          include: { profile: true },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         // Check document exists
         const document = await prisma.clientDocument.findFirst({
@@ -669,7 +546,7 @@ export function createClientDocumentRoutes(): Router {
 
             // Extract structured fields based on document category (pass OCR confidence)
             const structuredData = await ocrService.extractStructuredData(ocrResult.text, ocrResult.confidence);
-            const categoryFields = extractFieldsByCategory(structuredData, document.category);
+            const categoryFields = clientDocumentFieldService.extractFieldsByCategory(structuredData, document.category);
 
             // Update extracted data
             extractedData = await prisma.extractedData.update({
@@ -691,7 +568,7 @@ export function createClientDocumentRoutes(): Router {
             // Merge to client profile if requested
             let profileUpdated = false;
             if (mergeToProfile && Object.keys(categoryFields).length > 0) {
-              profileUpdated = await mergeToClientProfile(clientId, categoryFields, documentId);
+              profileUpdated = await clientDocumentFieldService.mergeToClientProfile(clientId, categoryFields, documentId);
             }
 
             await ocrService.cleanup();
@@ -807,23 +684,10 @@ export function createClientDocumentRoutes(): Router {
   router.get(
     '/:documentId/extraction-status',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as unknown as { user: { id: string } }).user.id;
         const { clientId, documentId } = req.params;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         const document = await prisma.clientDocument.findFirst({
           where: { id: documentId, clientId },
@@ -866,27 +730,14 @@ export function createClientDocumentRoutes(): Router {
   router.put(
     '/:documentId/extracted-data',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
         const { clientId, documentId } = req.params;
         const { fields, mergeToProfile = false } = req.body;
 
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
         if (!fields || typeof fields !== 'object') {
           return res.status(400).json({ error: 'Fields object is required' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
         }
 
         const document = await prisma.clientDocument.findFirst({
@@ -918,7 +769,7 @@ export function createClientDocumentRoutes(): Router {
         // Merge to client profile if requested
         let profileUpdated = false;
         if (mergeToProfile) {
-          profileUpdated = await mergeToClientProfile(clientId, fields, documentId);
+          profileUpdated = await clientDocumentFieldService.mergeToClientProfile(clientId, fields, documentId);
         }
 
         logger.info(`Extracted data updated for document: ${documentId}`);
@@ -948,24 +799,11 @@ export function createClientDocumentRoutes(): Router {
   router.post(
     '/:documentId/merge-to-profile',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
         const { clientId, documentId } = req.params;
         const { fieldNames } = req.body; // Optional: specific fields to merge
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         const document = await prisma.clientDocument.findFirst({
           where: { id: documentId, clientId },
@@ -997,7 +835,7 @@ export function createClientDocumentRoutes(): Router {
           return res.status(400).json({ error: 'No fields to merge' });
         }
 
-        const profileUpdated = await mergeToClientProfile(clientId, fieldsToMerge, documentId);
+        const profileUpdated = await clientDocumentFieldService.mergeToClientProfile(clientId, fieldsToMerge, documentId);
 
         logger.info(
           `Merged ${Object.keys(fieldsToMerge).length} fields to profile for client: ${clientId}`
@@ -1024,23 +862,10 @@ export function createClientDocumentRoutes(): Router {
   router.get(
     '/:documentId/preview',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
         const { clientId, documentId } = req.params;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         const document = await prisma.clientDocument.findFirst({
           where: { id: documentId, clientId },
@@ -1088,23 +913,10 @@ export function createClientDocumentRoutes(): Router {
   router.get(
     '/:documentId/download',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    verifyClientOwnership(),
+    async (req: ClientVerifiedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as any).user?.id;
         const { clientId, documentId } = req.params;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Unauthorized' });
-        }
-
-        // Verify client belongs to user
-        const client = await prisma.client.findFirst({
-          where: { id: clientId, userId },
-        });
-
-        if (!client) {
-          return res.status(404).json({ error: 'Client not found' });
-        }
 
         const document = await prisma.clientDocument.findFirst({
           where: { id: documentId, clientId },
@@ -1133,279 +945,5 @@ export function createClientDocumentRoutes(): Router {
   return router;
 }
 
-/**
- * Extract fields from OCR structured data based on document category
- * Maps generic OCR patterns to specific profile fields
- */
-function extractFieldsByCategory(
-  structuredData: Record<string, any>,
-  category: DocumentCategory | null
-): Record<string, any> {
-  const fields: Record<string, any> = {};
-
-  // Map common patterns from structuredData
-  if (structuredData.fields) {
-    Object.assign(fields, structuredData.fields);
-  }
-
-  // Extract based on document category
-  switch (category) {
-    case 'PASSPORT':
-      // Passport-specific field mappings
-      if (structuredData.fields) {
-        const f = structuredData.fields;
-        if (f.passport_no || f.passport_number) {
-          fields.passportNumber = f.passport_no || f.passport_number;
-        }
-        if (f.surname || f.family_name) {
-          fields.surname = f.surname || f.family_name;
-        }
-        if (f.given_names || f.first_name) {
-          fields.givenNames = f.given_names || f.first_name;
-        }
-        if (f.full_name || f.name) {
-          fields.fullName = f.full_name || f.name;
-        }
-        if (f.nationality) {
-          fields.nationality = f.nationality;
-        }
-        if (f.date_of_birth || f.dob || f.birth_date) {
-          fields.dateOfBirth = f.date_of_birth || f.dob || f.birth_date;
-        }
-        if (f.sex || f.gender) {
-          fields.gender = f.sex || f.gender;
-        }
-        if (f.place_of_birth || f.birthplace) {
-          fields.placeOfBirth = f.place_of_birth || f.birthplace;
-        }
-        if (f.date_of_issue || f.issue_date) {
-          fields.passportIssueDate = f.date_of_issue || f.issue_date;
-        }
-        if (f.date_of_expiry || f.expiry_date || f.expiration_date) {
-          fields.passportExpiryDate = f.date_of_expiry || f.expiry_date || f.expiration_date;
-        }
-        if (f.place_of_issue || f.issuing_authority) {
-          fields.passportIssuePlace = f.place_of_issue || f.issuing_authority;
-        }
-      }
-      // Extract dates from patterns
-      if (structuredData.date && structuredData.date.length > 0) {
-        if (!fields.dateOfBirth && structuredData.date[0]) {
-          fields.dateOfBirth = structuredData.date[0];
-        }
-        if (!fields.passportIssueDate && structuredData.date[1]) {
-          fields.passportIssueDate = structuredData.date[1];
-        }
-        if (!fields.passportExpiryDate && structuredData.date[2]) {
-          fields.passportExpiryDate = structuredData.date[2];
-        }
-      }
-      break;
-
-    case 'EMIRATES_ID':
-      // Emirates ID specific mappings
-      if (structuredData.fields) {
-        const f = structuredData.fields;
-        if (f.id_number || f.emirates_id || f.eid) {
-          fields.emiratesId = f.id_number || f.emirates_id || f.eid;
-        }
-        if (f.name || f.full_name) {
-          fields.fullName = f.name || f.full_name;
-        }
-        if (f.name_arabic) {
-          fields.fullNameArabic = f.name_arabic;
-        }
-        if (f.nationality) {
-          fields.nationality = f.nationality;
-        }
-        if (f.date_of_birth || f.dob) {
-          fields.dateOfBirth = f.date_of_birth || f.dob;
-        }
-        if (f.expiry_date || f.card_expiry) {
-          fields.emiratesIdExpiry = f.expiry_date || f.card_expiry;
-        }
-      }
-      break;
-
-    case 'TRADE_LICENSE':
-      // Trade license specific mappings
-      if (structuredData.fields) {
-        const f = structuredData.fields;
-        if (f.license_number || f.trade_license_no || f.licence_no) {
-          fields.tradeLicenseNumber = f.license_number || f.trade_license_no || f.licence_no;
-        }
-        if (f.company_name || f.establishment_name || f.business_name) {
-          fields.companyNameEn = f.company_name || f.establishment_name || f.business_name;
-        }
-        if (f.company_name_arabic) {
-          fields.companyNameAr = f.company_name_arabic;
-        }
-        if (f.legal_type || f.legal_form) {
-          fields.legalType = f.legal_type || f.legal_form;
-        }
-        if (f.activities || f.business_activities) {
-          fields.activities = f.activities || f.business_activities;
-        }
-        if (f.issue_date) {
-          fields.tradeLicenseIssueDate = f.issue_date;
-        }
-        if (f.expiry_date || f.expiration_date) {
-          fields.tradeLicenseExpiry = f.expiry_date || f.expiration_date;
-        }
-        if (f.free_zone) {
-          fields.freeZone = f.free_zone;
-        }
-      }
-      break;
-
-    case 'VISA':
-      // Visa specific mappings
-      if (structuredData.fields) {
-        const f = structuredData.fields;
-        if (f.visa_number || f.visa_no) {
-          fields.visaNumber = f.visa_number || f.visa_no;
-        }
-        if (f.visa_type || f.residence_type) {
-          fields.visaType = f.visa_type || f.residence_type;
-        }
-        if (f.entry_permit || f.permit_number) {
-          fields.entryPermitNumber = f.entry_permit || f.permit_number;
-        }
-        if (f.sponsor_name || f.sponsor) {
-          fields.sponsorName = f.sponsor_name || f.sponsor;
-        }
-        if (f.sponsor_id) {
-          fields.sponsorId = f.sponsor_id;
-        }
-        if (f.issue_date) {
-          fields.visaIssueDate = f.issue_date;
-        }
-        if (f.expiry_date) {
-          fields.visaExpiryDate = f.expiry_date;
-        }
-      }
-      break;
-
-    case 'LABOR_CARD':
-      // Labor card specific mappings
-      if (structuredData.fields) {
-        const f = structuredData.fields;
-        if (f.card_number || f.labor_card_no) {
-          fields.laborCardNumber = f.card_number || f.labor_card_no;
-        }
-        if (f.occupation || f.job_title || f.designation) {
-          fields.occupation = f.occupation || f.job_title || f.designation;
-        }
-        if (f.employer || f.company_name) {
-          fields.employer = f.employer || f.company_name;
-        }
-        if (f.salary || f.basic_salary) {
-          fields.salary = f.salary || f.basic_salary;
-        }
-        if (f.expiry_date) {
-          fields.laborCardExpiry = f.expiry_date;
-        }
-      }
-      break;
-
-    default:
-      // Generic extraction for OTHER or null category
-      // Include all extracted patterns
-      if (structuredData.email) {
-        fields.email = structuredData.email[0];
-      }
-      if (structuredData.phone) {
-        fields.phone = structuredData.phone[0];
-      }
-      // Copy all fields from structured data
-      if (structuredData.fields) {
-        Object.assign(fields, structuredData.fields);
-      }
-      break;
-  }
-
-  // Always extract common patterns if found
-  if (structuredData.email && structuredData.email.length > 0 && !fields.email) {
-    fields.email = structuredData.email[0];
-  }
-  if (structuredData.phone && structuredData.phone.length > 0 && !fields.phone) {
-    fields.phone = structuredData.phone[0];
-  }
-
-  return fields;
-}
-
-/**
- * Merge extracted fields into client profile
- * Only updates fields that are not manually edited (unless forced)
- */
-async function mergeToClientProfile(
-  clientId: string,
-  fields: Record<string, any>,
-  documentId: string
-): Promise<boolean> {
-  try {
-    // Get or create profile
-    let profile = await prisma.clientProfile.findUnique({
-      where: { clientId },
-    });
-
-    if (!profile) {
-      profile = await prisma.clientProfile.create({
-        data: {
-          clientId,
-          data: {},
-          fieldSources: {},
-        },
-      });
-    }
-
-    const currentData = (profile.data || {}) as Record<string, any>;
-    const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
-
-    const newData = { ...currentData };
-    const newFieldSources = { ...currentFieldSources };
-
-    let fieldsUpdated = 0;
-
-    for (const [fieldName, value] of Object.entries(fields)) {
-      // Skip if field was manually edited (don't overwrite user corrections)
-      if (currentFieldSources[fieldName]?.manuallyEdited) {
-        logger.debug(`Skipping manually edited field: ${fieldName}`);
-        continue;
-      }
-
-      // Skip if value is empty or null
-      if (value === null || value === undefined || value === '') {
-        continue;
-      }
-
-      // Update the field
-      newData[fieldName] = value;
-      newFieldSources[fieldName] = {
-        documentId,
-        extractedAt: new Date().toISOString(),
-        manuallyEdited: false,
-      };
-      fieldsUpdated++;
-    }
-
-    if (fieldsUpdated > 0) {
-      await prisma.clientProfile.update({
-        where: { id: profile.id },
-        data: {
-          data: newData,
-          fieldSources: newFieldSources,
-        },
-      });
-
-      logger.info(`Updated ${fieldsUpdated} fields in profile for client: ${clientId}`);
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    logger.error('Error merging to client profile:', error);
-    return false;
-  }
-}
+// NOTE: extractFieldsByCategory and mergeToClientProfile functions have been moved to
+// ClientDocumentFieldService (src/services/ClientDocumentFieldService.ts) for better modularity.
