@@ -1,10 +1,10 @@
 # Project Brief: Smart Profile UX
 
-## Current State (v1.0 Shipped)
+## Current State (v1.1 Shipped)
 
-**Shipped:** 2026-01-16
-**LOC:** ~13k TypeScript/React (60 files)
-**Tech stack:** React 18, Vite, Zustand 5, Framer Motion, @dnd-kit, Radix UI
+**Shipped:** 2026-01-20
+**LOC:** ~22k TypeScript/React (130+ files)
+**Tech stack:** React 18, Vite, Zustand 5, Framer Motion, @dnd-kit, Radix UI, Stripe SDK v17
 
 The Smart Profile wizard is live at `/smart-profile` with:
 
@@ -13,7 +13,13 @@ The Smart Profile wizard is live at `/smart-profile` with:
 - Multi-person entity resolution with drag-drop grouping
 - Confidence-based review flow
 - Smart form suggestions
-- PRO features (scaffolded): client library, form analytics, admin dashboard
+- PRO features with Stripe subscriptions: client library, form analytics, admin dashboard
+
+**New in v1.1:**
+- Stripe payment integration with instant PRO unlock
+- Public pricing page at `/pricing`
+- Subscription management in Settings
+- Stripe Customer Portal for billing self-service
 
 ## What This Is
 
@@ -25,19 +31,29 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 
 ## Requirements
 
-### Validated (v1.0)
+### Validated
 
-- New `/smart-profile` route with wizard flow — v1.0
-- Smart Upload Zone with auto-detection (F1) — v1.0
-- Person Grouping UI for multi-person uploads (F2) — v1.0
-- Quick Confidence Review for low-certainty fields (F3) — v1.0
-- Smart Profile View with missing field alerts (F4) — v1.0
-- Smart Form Suggestion (F5) — v1.0
-- Assisted vs Express mode toggle (F6) — v1.0
-- 4 new backend endpoints under `/api/smart-profile/` — v1.0
-- PRO client library and search — v1.0 (scaffolded)
-- Form usage analytics — v1.0 (scaffolded)
-- Admin accuracy dashboard — v1.0 (scaffolded)
+**v1.0:**
+- New `/smart-profile` route with wizard flow
+- Smart Upload Zone with auto-detection (F1)
+- Person Grouping UI for multi-person uploads (F2)
+- Quick Confidence Review for low-certainty fields (F3)
+- Smart Profile View with missing field alerts (F4)
+- Smart Form Suggestion (F5)
+- Assisted vs Express mode toggle (F6)
+- 4 new backend endpoints under `/api/smart-profile/`
+- PRO client library and search (scaffolded)
+- Form usage analytics (scaffolded)
+- Admin accuracy dashboard (scaffolded)
+
+**v1.1:**
+- Stripe SDK integration with subscription management
+- Checkout session creation for PRO tier ($19/month)
+- Customer Portal for billing self-service
+- Webhook handling for subscription lifecycle events
+- Instant PRO unlock on successful payment
+- Public pricing page at `/pricing`
+- Subscription settings in user account
 
 ### Active
 
@@ -45,6 +61,7 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 - Performance tuning based on production metrics
 - Mobile-responsive polish
 - Accessibility audit (WCAG 2.1 AA)
+- Production Stripe webhook configuration
 
 ### Out of Scope
 
@@ -64,12 +81,13 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 
 ## Success Metrics
 
-| Metric                            | Before  | v1.0 Target | v1.0 Actual |
+| Metric                            | Before  | v1.0 Target | v1.1 Actual |
 | --------------------------------- | ------- | ----------- | ----------- |
-| Steps to first form fill          | 6+      | 3           | 3           |
+| Steps to first form fill          | 6+      | 3           | 3 ✓         |
 | Document categorization errors    | Manual  | Auto 90%+   | TBD         |
 | Time to first extracted data view | ~30s    | <10s        | TBD         |
 | Form completion rate              | Unknown | 85%+        | TBD         |
+| PRO conversion (new in v1.1)      | N/A     | Track       | TBD         |
 
 ## Constraints
 
@@ -77,6 +95,7 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 - PRO agents need full client list access alongside Smart Profile
 - Performance: <3s document detection, <10s full extraction
 - Existing OCR confidence scores must be exposed to frontend
+- Stripe webhook must handle all subscription lifecycle events
 
 ## Key Decisions
 
@@ -91,14 +110,21 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 | 2026-01-15 | 8px drag activation distance         | Prevents accidental drags during normal use           | Good    |
 | 2026-01-16 | Auto-skip review when all high conf  | Reduces unnecessary steps for clean extractions       | Good    |
 | 2026-01-16 | Default to 'assisted' mode           | Safer for new users, Express for power users          | Good    |
+| 2026-01-17 | String for subscriptionStatus        | Accommodates all Stripe status values (not enum)      | Good    |
+| 2026-01-17 | `prisma db push` for schema changes  | Existing migration drift, safer than migrate          | Good    |
+| 2026-01-17 | Pricing page as public route         | Users can view before logging in                      | Good    |
+| 2026-01-17 | Raw body middleware before JSON      | Required for webhook signature verification           | Good    |
+| 2026-01-17 | userId in subscription metadata      | Enables instant unlock without customer lookup        | Good    |
 
 ## References
 
 - PRD: `.planning/phases/01-smart-profile-ux/PRD.md`
 - Research: `.planning/phases/01-smart-profile-ux/01-RESEARCH.md`
 - UX Panel: 5 experts voted "Ship with changes" (see PRD Appendix A)
-- Milestone Archive: `.planning/milestones/v1.0-ROADMAP.md`
+- Milestone Archives:
+  - [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
+  - [v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
 
 ---
 
-_Last updated: 2026-01-16 after v1.0 milestone_
+_Last updated: 2026-01-20 after v1.1 milestone_

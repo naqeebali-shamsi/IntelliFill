@@ -1,5 +1,37 @@
 # Project Milestones: IntelliFill Smart Profile UX
 
+## v1.1 Stripe Integration (Shipped: 2026-01-20)
+
+**Delivered:** PRO subscription payments via Stripe with instant unlock on successful checkout
+
+**Phases completed:** 5 (4 plans total)
+
+**Key accomplishments:**
+
+- Stripe SDK v17 integration with subscription management
+- Checkout session creation for PRO tier ($19/month)
+- Customer Portal for billing self-service
+- Webhook handling for subscription lifecycle events
+- Instant PRO unlock on successful payment
+- Public pricing page + subscription settings UI
+
+**Stats:**
+
+- 71 files changed
+- +9,588 / -3,036 lines of TypeScript/React
+- 1 phase, 4 plans, ~19 commits
+- 4 days (2026-01-17 → 2026-01-20)
+
+**Git range:** `c2411f8` → `4a14140`
+
+**What's next:** Planning v1.2 (TBD - user input needed)
+
+---
+
+_For full milestone details, see [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)_
+
+---
+
 ## v1.0 MVP (Shipped: 2026-01-16)
 
 **Delivered:** 3-step "Upload → See → Fill" wizard replacing 6+ step document-to-form workflow

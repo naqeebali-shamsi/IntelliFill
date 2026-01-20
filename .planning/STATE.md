@@ -2,81 +2,54 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-16)
+See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** Phase 05 - Stripe Integration
+**Current focus:** Planning next milestone (v1.2)
 
 ## Current Position
 
-Phase: 05-stripe-integration
-Plan: 05-04 in progress (Task 1 complete, awaiting human verification)
-Status: AT CHECKPOINT
-Last activity: 2026-01-17 — PRO feature gate verification complete, awaiting E2E testing
+Phase: None active
+Plan: None
+Status: MILESTONE COMPLETE — Ready to plan v1.2
+Last activity: 2026-01-20 — v1.1 Stripe Integration shipped
 
-Progress: Phase 05 ██████████ 90% (3.5/4 plans)
+Progress: v1.0 + v1.1 complete (5 phases, 23 plans)
 
-## Phase 05: Stripe Integration
+## Shipped Milestones
 
-**Objective:** Enable PRO tier monetization with Stripe subscriptions
+### v1.1 Stripe Integration (Shipped 2026-01-20)
 
-**Plans:**
-| Plan | Name | Status |
-|------|------|--------|
-| 05-01 | Database Schema & Environment Setup | Complete |
-| 05-02 | Backend Stripe Service & Endpoints | Complete |
-| 05-03 | Frontend Subscription UI | Complete |
-| 05-04 | Webhook Handling & PRO Feature Integration | Pending |
-
-**Completed in 05-01:**
-
-- Stripe credentials configured in environment files
-- User model extended with subscription fields (stripeCustomerId, subscriptionId, subscriptionStatus, currentPeriodEnd)
-- Database migration applied
-
-**Completed in 05-02:**
-
-- Stripe SDK installed and configured
-- Backend Stripe service layer
-- Checkout, portal, and subscription-status endpoints
-
-**Completed in 05-03:**
-
-- stripeService.ts - Frontend API wrapper for Stripe endpoints
-- subscriptionStore.ts - Zustand store for subscription state
-- Pricing.tsx - Public pricing page with PRO plan
-- UpgradePrompt.tsx - Reusable component for PRO feature gates
-- SubscriptionSettings.tsx - Subscription management in settings
-- /pricing route added to App.tsx
-
-## v1.0 Summary
-
-**Shipped:** 2026-01-16
+- Phase 5: Stripe Integration (4/4 plans)
 
 **Delivered:**
+- Stripe SDK v17 integration
+- PRO subscription checkout ($19/month)
+- Instant unlock on payment
+- Customer Portal billing management
+- Webhook handling for lifecycle events
 
+### v1.0 MVP (Shipped 2026-01-16)
+
+- Phase 1: Foundation (6/6 plans)
+- Phase 2: Intelligence (4/4 plans)
+- Phase 3: Polish (4/4 plans)
+- Phase 4: PRO Features (5/5 plans)
+
+**Delivered:**
 - 3-step wizard: Upload → See → Fill
 - Smart document detection with Gemini AI
 - Multi-person entity resolution
 - Confidence-based review flow
-- Smart form suggestions
 - PRO features (scaffolded)
-
-**Stats:**
-
-- 4 phases, 19 plans
-- 60 files, +13k LOC
-- 4 days (2026-01-13 → 2026-01-16)
-
-See `.planning/MILESTONES.md` for full details.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 20 (19 + 1)
-- Average duration: ~15 min
-- Total execution time: ~300 min
+- Total plans completed: 23
+- Average duration: ~15 min/plan
+- Total execution time: ~345 min
 
 **By Phase:**
 
@@ -86,45 +59,32 @@ See `.planning/MILESTONES.md` for full details.
 | 2-Intelligence | 4/4   | ~70 min | ~18 min  |
 | 3-Polish       | 4/4   | ~52 min | ~13 min  |
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
-| 5-Stripe       | 3/4   | ~45 min | ~15 min  |
+| 5-Stripe       | 4/4   | ~60 min | ~15 min  |
 
 ## Accumulated Context
 
 ### Decisions
 
-All v1.0 decisions archived in PROJECT.md Key Decisions table.
-
-**Phase 05 Decisions:**
-
-- Use String (not enum) for subscriptionStatus to accommodate all Stripe status values
-- Use `prisma db push` for schema changes due to existing migration drift
-- Test mode credentials for development (sk*test*_, pk*test*_)
-- Pricing page is public (outside ProtectedRoute) so users can view before logging in
-- useIsPro hook provides simple boolean check for PRO features
-- SubscriptionSettings uses semantic status colors from design tokens
+All decisions documented in PROJECT.md Key Decisions table (14 decisions total).
 
 ### Deferred Issues
 
 - Real-user validation metrics (TBD in production)
 - Mobile-responsive polish
 - WCAG 2.1 AA accessibility audit
+- Production Stripe webhook configuration
 
 ### Blockers/Concerns
 
-None — proceeding with Stripe integration.
+None — ready for next milestone planning.
 
 ## Session Continuity
 
-Last session: 2026-01-17
-Stopped at: Plan 05-04 Task 1 complete, awaiting human verification
+Last session: 2026-01-20
+Stopped at: v1.1 milestone complete
 Resume file: None
-Next: Complete E2E testing of subscription flow (Task 3 checkpoint)
-
-### Plan 05-04 Progress
-- Task 1: Update PRO feature gates - COMPLETE (no changes needed, already uses hooks)
-- Task 2: Start local services - CHECKPOINT (requires human to start services)
-- Task 3: Human verification - AWAITING (E2E subscription flow testing)
+Next: `/gsd:discuss-milestone` to plan v1.2
 
 ---
 
-_Phase 05 Stripe Integration in progress 2026-01-17_
+_v1.1 Stripe Integration shipped 2026-01-20_

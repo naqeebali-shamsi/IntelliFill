@@ -3,7 +3,8 @@
 ## Milestones
 
 - [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-4) — SHIPPED 2026-01-16
-- v1.1 — Planning (TBD)
+- [v1.1 Stripe Integration](milestones/v1.1-ROADMAP.md) (Phase 5) — SHIPPED 2026-01-20
+- v1.2 — Planning (TBD)
 
 ## Overview
 
@@ -30,28 +31,28 @@ See [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md) for full details.
 
 </details>
 
+<details>
+<summary>v1.1 Stripe Integration (Phase 5) — SHIPPED 2026-01-20</summary>
+
+- [x] Phase 5: Stripe Integration (4/4 plans) — completed 2026-01-20
+  - 05-01: Database schema + Stripe setup ✓
+  - 05-02: Backend webhook & checkout ✓
+  - 05-03: Frontend pricing & subscription UI ✓
+  - 05-04: Integration testing & verification ✓
+
+**Total:** 1 phase, 4 plans, 71 files, +9.5k LOC
+
+**Delivered:** PRO subscription payments via Stripe with instant unlock
+
+See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
+
+</details>
+
 ## Current Milestone
 
-### v1.1 — Stripe Integration & Monetization
+### v1.2 — TBD
 
-Enable PRO subscription payments via Stripe.
-
-**Vision:** Users hit PRO feature → clean pricing page → Stripe Checkout → instant unlock.
-
-**Phases:**
-
-- [ ] Phase 5: Stripe Integration (4 plans) — **Planning**
-  - 05-01: Database schema + Stripe setup (Wave 1, has checkpoints)
-  - 05-02: Backend webhook & checkout (Wave 2)
-  - 05-03: Frontend pricing & subscription UI (Wave 2, parallel with 05-02)
-  - 05-04: Integration testing & verification (Wave 3)
-
-**Key Requirements:**
-
-- Instant unlock — Pay → features work immediately
-- Single PRO tier, simple pricing
-- Stripe Customer Portal for billing management
-- Webhook-driven subscription state
+_No milestone currently planned. Run `/gsd:discuss-milestone` to plan next features._
 
 ## Progress
 
@@ -61,10 +62,11 @@ Enable PRO subscription payments via Stripe.
 | 2. Intelligence       | v1.0      | 4/4            | Complete | 2026-01-15 |
 | 3. Polish             | v1.0      | 4/4            | Complete | 2026-01-16 |
 | 4. PRO Features       | v1.0      | 5/5            | Complete | 2026-01-16 |
-| 5. Stripe Integration | v1.1      | 0/4            | Planning | —          |
+| 5. Stripe Integration | v1.1      | 4/4            | Complete | 2026-01-20 |
 
 ---
 
 **Created:** 2026-01-13
 **v1.0 Shipped:** 2026-01-16
+**v1.1 Shipped:** 2026-01-20
 **PRD Reference:** `.planning/phases/01-smart-profile-ux/PRD.md`
