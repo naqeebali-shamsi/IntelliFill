@@ -120,6 +120,33 @@ export interface OrientationDetectionResult {
 }
 
 export class OCRService {
+  private static instance: OCRService | null = null;
+
+  /**
+   * Get the singleton instance of OCRService.
+   * This prevents re-initialization of Tesseract workers on each request.
+   */
+  static getInstance(): OCRService {
+    if (!OCRService.instance) {
+      OCRService.instance = new OCRService();
+    }
+    return OCRService.instance;
+  }
+
+  /**
+   * Reset the singleton instance (primarily for testing purposes).
+   * This allows tests to get a fresh instance.
+   */
+  static resetInstance(): void {
+    if (OCRService.instance) {
+      // Don't await cleanup here to avoid blocking
+      OCRService.instance.cleanup().catch((err) => {
+        logger.warn('Error during OCRService instance cleanup:', err);
+      });
+      OCRService.instance = null;
+    }
+  }
+
   private worker: Tesseract.Worker | null = null;
   private initialized = false;
 
@@ -1083,3 +1110,9 @@ export class OCRService {
     }
   }
 }
+
+/**
+ * Singleton instance of OCRService.
+ * Use this instead of `new OCRService()` to prevent Tesseract worker re-initialization.
+ */
+export const ocrService = OCRService.getInstance();

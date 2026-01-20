@@ -6,7 +6,7 @@
 import { BaseParsingStrategy, ParsedDocument } from './ParsingStrategy';
 import { PDFDocument } from 'pdf-lib';
 import { logger } from '../../utils/logger';
-import { OCRService } from '../../services/OCRService';
+import { ocrService, OCRService } from '../../services/OCRService';
 import { getFileBuffer } from '../../utils/fileReader';
 
 export class PDFParsingStrategy extends BaseParsingStrategy {
@@ -20,7 +20,7 @@ export class PDFParsingStrategy extends BaseParsingStrategy {
   constructor(options: { useOCRFallback?: boolean } = {}) {
     super();
     this.useOCRFallback = options.useOCRFallback ?? true;
-    this.ocrService = new OCRService();
+    this.ocrService = ocrService;
   }
 
   async parse(pathOrUrl: string): Promise<ParsedDocument> {

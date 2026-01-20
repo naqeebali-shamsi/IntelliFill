@@ -1,7 +1,7 @@
 import Bull from 'bull';
 import * as path from 'path';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
-import { OCRService, OCRProgress, StructuredDataResult } from '../services/OCRService';
+import { ocrService, OCRProgress, StructuredDataResult } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
 import { QueueUnavailableError } from '../utils/QueueUnavailableError';
 import { realtimeService } from '../services/RealtimeService';
@@ -359,16 +359,13 @@ export function isOCRQueueAvailable(): boolean {
 /**
  * Process OCR jobs with configurable concurrency
  *
- * Uses try-finally pattern to ensure OCR service resources (Tesseract workers,
- * temporary files) are always cleaned up, regardless of success or failure.
+ * Uses the OCRService singleton which manages its own lifecycle and
+ * resource cleanup (Tesseract workers, temporary files).
  */
 if (ocrQueue) {
   ocrQueue.process(OCR_QUEUE_CONFIG.CONCURRENCY, async (job) => {
     const { documentId, userId, filePath } = job.data;
     const startTime = Date.now();
-
-    // OCR service instance - declared outside try block for finally access
-    let ocrService: OCRService | null = null;
 
     try {
       // Defensive validation at processor level (secondary defense layer)
@@ -397,8 +394,7 @@ if (ocrQueue) {
 
       await job.progress(5);
 
-      // Initialize OCR service
-      ocrService = new OCRService();
+      // Initialize OCR service singleton
       await ocrService.initialize();
 
       await job.progress(10);
@@ -580,21 +576,8 @@ if (ocrQueue) {
         });
 
       throw error;
-    } finally {
-      // ALWAYS cleanup OCR service resources (Tesseract workers, temp files)
-      // This prevents memory leaks regardless of success or failure
-      if (ocrService) {
-        try {
-          await ocrService.cleanup();
-          logger.debug(`OCR service cleanup completed for document ${documentId}`);
-        } catch (cleanupError) {
-          // Log cleanup failures as warnings - don't mask the original error
-          logger.warn(`OCR service cleanup failed for document ${documentId}`, {
-            error: cleanupError instanceof Error ? cleanupError.message : 'Unknown cleanup error',
-          });
-        }
-      }
     }
+    // Note: OCR service singleton manages its own lifecycle - no per-job cleanup needed
   });
 }
 

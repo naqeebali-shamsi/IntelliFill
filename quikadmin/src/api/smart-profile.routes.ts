@@ -17,7 +17,7 @@ import { extractDocumentData, LOW_CONFIDENCE_THRESHOLD } from '../multiagent/age
 import { DocumentCategory } from '../multiagent/types/state';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { validateFilePath } from '../utils/encryption';
-import { OCRService } from '../services/OCRService';
+import { ocrService } from '../services/OCRService';
 import {
   personGroupingService,
   DocumentExtraction,
@@ -440,8 +440,7 @@ async function extractBatchHandler(req: Request, res: Response, next: NextFuncti
       userId: (req as any).user?.id,
     });
 
-    // Initialize OCR service for text extraction
-    const ocrService = new OCRService();
+    // OCR service singleton for text extraction (already initialized)
 
     // Profile data accumulator - stores highest confidence value per field
     const profileData: Record<string, unknown> = {};

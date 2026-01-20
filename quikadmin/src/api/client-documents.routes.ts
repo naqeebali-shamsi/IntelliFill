@@ -16,21 +16,10 @@ import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { OCRService } from '../services/OCRService';
-import { enqueueDocumentForOCR, getOCRJobStatus } from '../queues/ocrQueue';
+import { ocrService } from '../services/OCRService';
+import { queueCoordinator } from '../services/QueueCoordinator';
 import { FileValidationService, fileValidationService } from '../services/fileValidation.service';
-
-/**
- * Custom error class for file validation failures
- */
-class FileValidationError extends Error {
-  code: string;
-  constructor(message: string, code: string) {
-    super(message);
-    this.name = 'FileValidationError';
-    this.code = code;
-  }
-}
+import { FileValidationError } from '../utils/FileValidationError';
 
 const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
 const allowedMimeTypes: Record<string, string[]> = {
@@ -667,7 +656,6 @@ export function createClientDocumentRoutes(): Router {
         // Synchronous extraction for small documents or when explicitly requested
         if (sync) {
           try {
-            const ocrService = new OCRService();
             await ocrService.initialize();
 
             const fileExt = path.extname(document.storageUrl).toLowerCase();
@@ -751,7 +739,7 @@ export function createClientDocumentRoutes(): Router {
         } else {
           // Queue for background processing
           try {
-            const job = await enqueueDocumentForOCR(
+            const job = await queueCoordinator.enqueueDocumentForOCR(
               documentId,
               userId,
               document.storageUrl,

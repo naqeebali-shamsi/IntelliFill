@@ -151,17 +151,7 @@ function auditLogger(action: string) {
 // File Upload Configuration
 // ============================================================================
 
-/**
- * Custom error class for file validation failures
- */
-class FileValidationError extends Error {
-  code: string;
-  constructor(message: string, code: string) {
-    super(message);
-    this.name = 'FileValidationError';
-    this.code = code;
-  }
-}
+import { FileValidationError } from '../utils/FileValidationError';
 
 const knowledgeAllowedTypes = ['.pdf', '.docx', '.doc', '.txt', '.csv'];
 const knowledgeMimeTypes: Record<string, string[]> = {

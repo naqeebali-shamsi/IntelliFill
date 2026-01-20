@@ -4,24 +4,20 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import multer from 'multer';
 import { authenticateSupabase } from '../middleware/supabaseAuth';
-import {
-  decryptFile,
-  decryptExtractedData,
-  encryptExtractedData,
-} from '../middleware/encryptionMiddleware';
+import { decryptFile, decryptExtractedData } from '../middleware/encryptionMiddleware';
 import { FieldMapper } from '../mappers/FieldMapper';
 import { FormFiller } from '../fillers/FormFiller';
 import { logger } from '../utils/logger';
-import { getOCRJobStatus, getOCRQueueHealth, enqueueDocumentForOCR } from '../queues/ocrQueue';
-import { getJobStatus } from '../queues/documentQueue';
-import { DocumentDetectionService } from '../services/DocumentDetectionService';
-import { OCRService } from '../services/OCRService';
+import { queueCoordinator } from '../services/QueueCoordinator';
+import { DocumentService } from '../services/DocumentService';
+import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
 import { uploadFile as uploadToStorage, fetchFromStorage } from '../services/storageHelper';
 import { normalizeExtractedData, flattenExtractedData } from '../types/extractedData';
 import archiver from 'archiver';
 import { SharePermission } from '@prisma/client';
+import { FileValidationError } from '../utils/FileValidationError';
 
 // Allowed document types for upload
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
@@ -36,19 +32,6 @@ function decodeExtractedData(raw: unknown): Record<string, unknown> | null {
     return raw as Record<string, unknown>;
   }
   return null;
-}
-
-/**
- * Create a custom error class for file validation failures
- * This allows the error handler to identify and return appropriate HTTP status codes
- */
-class FileValidationError extends Error {
-  code: string;
-  constructor(message: string, code: string) {
-    super(message);
-    this.name = 'FileValidationError';
-    this.code = code;
-  }
 }
 
 // Multer config for document upload (PDFs and images)
@@ -234,86 +217,58 @@ export function createDocumentRoutes(): Router {
             },
           });
 
-          // Queue for OCR processing with the correct storage URL
-          const job = await enqueueDocumentForOCR(document.id, userId, storageResult.url);
+          // Process document using DocumentProcessingService
+          // This handles the OCR decision logic (queue for OCR or extract directly)
+          const processingService = new DocumentProcessingService();
+          const processingResult = await processingService.processDocumentUpload(
+            document.id,
+            userId,
+            storageResult.url
+          );
 
-          if (job) {
+          if (processingResult.type === 'queued') {
             results.push({
               documentId: document.id,
               fileName: file.originalname,
-              jobId: job.id,
+              jobId: processingResult.jobId,
               status: 'queued',
               statusUrl: `/api/documents/${document.id}/status`,
             });
 
             logger.info('Document queued for OCR', {
               documentId: document.id,
-              jobId: job.id,
+              jobId: processingResult.jobId,
               fileName: file.originalname,
             });
+          } else if (processingResult.type === 'completed') {
+            results.push({
+              documentId: document.id,
+              fileName: file.originalname,
+              jobId: '',
+              status: 'completed',
+              statusUrl: `/api/documents/${document.id}/status`,
+            });
+
+            logger.info('Document processed without OCR (native text)', {
+              documentId: document.id,
+              fileName: file.originalname,
+              textLength: processingResult.textLength,
+              fieldsExtracted: processingResult.fieldsExtracted,
+            });
           } else {
-            // OCR not needed (e.g., native PDF with text) - extract text directly
-            const detectionService = new DocumentDetectionService();
-            const ocrService = new OCRService();
-
-            try {
-              // Extract text from native PDF using storage URL (R2 or local)
-              // Note: Use storageResult.url, not file.path, as the temp file
-              // may have been deleted after upload to R2
-              const extractedText = await detectionService.extractTextFromPDF(storageResult.url);
-
-              // Extract structured data from text (95% confidence for native PDF text)
-              const structuredData = await ocrService.extractStructuredData(extractedText, 95);
-
-              // Encrypt and store extracted data
-              const encryptedData = encryptExtractedData(structuredData);
-
-              await prisma.document.update({
-                where: { id: document.id },
-                data: {
-                  status: 'COMPLETED',
-                  extractedText: extractedText,
-                  extractedData: encryptedData,
-                  confidence: 0.95, // High confidence for native text
-                  processedAt: new Date(),
-                },
-              });
-
-              results.push({
-                documentId: document.id,
-                fileName: file.originalname,
-                jobId: '',
-                status: 'completed',
-                statusUrl: `/api/documents/${document.id}/status`,
-              });
-
-              logger.info('Document processed without OCR (native text)', {
-                documentId: document.id,
-                fileName: file.originalname,
-                textLength: extractedText.length,
-                fieldsExtracted: Object.keys(structuredData).length,
-              });
-            } catch (extractError) {
-              logger.error('Text extraction failed for native PDF', {
-                documentId: document.id,
-                error: extractError,
-              });
-
-              // Fallback: mark as failed
-              await prisma.document.update({
-                where: { id: document.id },
-                data: { status: 'FAILED' },
-              });
-
-              results.push({
-                documentId: document.id,
-                fileName: file.originalname,
-                jobId: '',
-                status: 'failed',
-                statusUrl: `/api/documents/${document.id}/status`,
-              });
-            }
+            // processingResult.type === 'failed'
+            results.push({
+              documentId: document.id,
+              fileName: file.originalname,
+              jobId: '',
+              status: 'failed',
+              statusUrl: `/api/documents/${document.id}/status`,
+              error: processingResult.error,
+            });
           }
+
+          // Cleanup the processing service
+          await processingService.cleanup();
         }
 
         res.status(201).json({
@@ -347,7 +302,6 @@ export function createDocumentRoutes(): Router {
           return res.status(400).json({ error: 'documentIds array is required' });
         }
 
-        const { DocumentService } = await import('../services/DocumentService');
         const documentService = new DocumentService();
 
         const jobs = await documentService.batchReprocess(documentIds, userId);
@@ -379,7 +333,6 @@ export function createDocumentRoutes(): Router {
         const userId = (req as unknown as { user: { id: string } }).user.id;
         const { threshold = 0.7 } = req.query;
 
-        const { DocumentService } = await import('../services/DocumentService');
         const documentService = new DocumentService();
 
         const documents = await documentService.getLowConfidenceDocuments(
@@ -766,19 +719,19 @@ export function createDocumentRoutes(): Router {
 
         try {
           // Check document queue for job status
-          const docJobStatus = await getJobStatus(id);
+          const docJobStatus = await queueCoordinator.getDocumentJobStatus(id);
           if (docJobStatus) {
             jobStatus = docJobStatus;
           } else {
             // Check OCR queue specifically (with IDOR protection)
-            const ocrJobStatus = await getOCRJobStatus(id, userId);
+            const ocrJobStatus = await queueCoordinator.getOCRJobStatus(id, userId);
             if (ocrJobStatus) {
               jobStatus = ocrJobStatus;
             }
           }
 
           // Get queue health for monitoring
-          queueHealth = await getOCRQueueHealth();
+          queueHealth = await queueCoordinator.getOCRQueueHealth();
         } catch (queueError) {
           logger.warn('Failed to fetch queue status:', queueError);
           // Continue without job status if queue is unavailable
@@ -976,7 +929,6 @@ export function createDocumentRoutes(): Router {
 
         const qualitySettings = QUALITY_PRESETS[quality as QualityPreset];
 
-        const { DocumentService } = await import('../services/DocumentService');
         const documentService = new DocumentService();
 
         const job = await documentService.reprocessDocument(id, userId, {
@@ -1015,7 +967,6 @@ export function createDocumentRoutes(): Router {
         const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id } = req.params;
 
-        const { DocumentService } = await import('../services/DocumentService');
         const documentService = new DocumentService();
 
         const history = await documentService.getReprocessingHistory(id, userId);
