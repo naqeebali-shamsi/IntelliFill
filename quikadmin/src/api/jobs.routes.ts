@@ -5,7 +5,7 @@ import { logger } from '../utils/logger';
 import { toJobStatusDTO } from '../dto/DocumentDTO';
 import Joi from 'joi';
 import { validate } from '../middleware/validation';
-import { authenticateSupabase, optionalAuthSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, optionalAuthSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 
 const router: Router = Router();
 
@@ -65,7 +65,7 @@ router.get('/jobs/:id/status', optionalAuthSupabase, async (req: Request, res: R
 
 // Cancel a job
 // Phase 6 Complete: Users can only cancel their own jobs (Supabase auth)
-router.post('/jobs/:id/cancel', authenticateSupabase, async (req: Request, res: Response) => {
+router.post('/jobs/:id/cancel', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -92,7 +92,7 @@ router.post('/jobs/:id/cancel', authenticateSupabase, async (req: Request, res: 
 
 // Retry a failed job
 // Phase 6 Complete: Users can only retry their own jobs (Supabase auth)
-router.post('/jobs/:id/retry', authenticateSupabase, async (req: Request, res: Response) => {
+router.post('/jobs/:id/retry', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -164,9 +164,9 @@ router.get('/jobs/queue/stats', async (req: Request, res: Response) => {
 
 // Get recent jobs for current user
 // Phase 6 Complete: Users can only see their own jobs (Supabase auth)
-router.get('/jobs/recent', authenticateSupabase, async (req: Request, res: Response) => {
+router.get('/jobs/recent', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = (req as unknown as { user: { id: string } }).user.id;
+    const userId = req.user!.id;
 
     // Get recent jobs (last 10)
     const jobs = await documentQueue.getJobs(['completed', 'failed', 'active', 'waiting'], 0, 10);

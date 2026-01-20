@@ -3,19 +3,15 @@
  * REST endpoints for listing, marking as read, and managing notifications
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response, NextFunction } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
-interface AuthenticatedRequest extends Request {
-  user: { id: string; email: string };
-}
-
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function getUserId(req: Request): string {
-  return (req as AuthenticatedRequest).user.id;
+function getUserId(req: AuthenticatedRequest): string {
+  return req.user!.id;
 }
 
 function isValidUUID(str: string): boolean {
@@ -51,7 +47,7 @@ export function createNotificationRoutes(): Router {
   const router = Router();
 
   // GET /api/notifications - List notifications
-  router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const userId = getUserId(req);
       const limit = clampLimit(req.query.limit as string);
@@ -85,7 +81,7 @@ export function createNotificationRoutes(): Router {
   router.get(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         if (!isValidUUID(id)) return invalidIdResponse(res);
@@ -108,7 +104,7 @@ export function createNotificationRoutes(): Router {
   router.patch(
     '/:id/read',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         if (!isValidUUID(id)) return invalidIdResponse(res);
@@ -136,7 +132,7 @@ export function createNotificationRoutes(): Router {
   router.post(
     '/mark-all-read',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const result = await prisma.notification.updateMany({
           where: { userId: getUserId(req), read: false },
@@ -158,7 +154,7 @@ export function createNotificationRoutes(): Router {
   router.delete(
     '/:id',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const { id } = req.params;
         if (!isValidUUID(id)) return invalidIdResponse(res);
@@ -183,7 +179,7 @@ export function createNotificationRoutes(): Router {
   router.delete(
     '/',
     authenticateSupabase,
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
         const result = await prisma.notification.deleteMany({
           where: { userId: getUserId(req), read: true },

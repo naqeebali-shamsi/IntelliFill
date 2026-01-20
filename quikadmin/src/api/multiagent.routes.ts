@@ -1,9 +1,9 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import Joi from 'joi';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { validateFilePath } from '../utils/encryption';
 import { prisma } from '../utils/prisma';
 import {
@@ -68,9 +68,9 @@ router.post(
   '/',
   authenticateSupabase,
   upload.single('document'),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const userId = req.user!.id;
 
       // Check if queue is available
       if (!isMultiagentQueueAvailable()) {
@@ -157,10 +157,10 @@ router.post(
  * Returns the current status of a multi-agent processing job.
  * Polls the queue and database for the most up-to-date status.
  */
-router.get('/:jobId/status', authenticateSupabase, async (req: Request, res: Response) => {
+router.get('/:jobId/status', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { jobId } = req.params;
-    const userId = (req as unknown as { user: { id: string } }).user.id;
+    const userId = req.user!.id;
 
     // Check if queue is available
     if (!isMultiagentQueueAvailable()) {
@@ -258,7 +258,7 @@ router.get('/:jobId/status', authenticateSupabase, async (req: Request, res: Res
  * Returns the health status of the multi-agent processing queue.
  * Used for monitoring and dashboards.
  */
-router.get('/queue/health', authenticateSupabase, async (req: Request, res: Response) => {
+router.get('/queue/health', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!isMultiagentQueueAvailable()) {
       return res.status(503).json({
@@ -288,9 +288,9 @@ router.get('/queue/health', authenticateSupabase, async (req: Request, res: Resp
  *
  * Returns recent multi-agent processing jobs for the authenticated user.
  */
-router.get('/recent', authenticateSupabase, async (req: Request, res: Response) => {
+router.get('/recent', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = (req as unknown as { user: { id: string } }).user.id;
+    const userId = req.user!.id;
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
 
     const recentJobs = await prisma.multiAgentProcessing.findMany({

@@ -106,10 +106,10 @@ export function createInvitationRoutes(): Router {
     '/:token/accept',
     authenticateSupabase,
     validateParams(invitationTokenParamSchema),
-    async (req: Request, res: Response, next: NextFunction) => {
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
       try {
-        const userId = (req as AuthenticatedRequest).user?.id;
-        const userEmail = (req as AuthenticatedRequest).user?.email;
+        const userId = req.user?.id;
+        const userEmail = req.user?.email;
         const { token } = req.params;
 
         if (!userId || !userEmail) {

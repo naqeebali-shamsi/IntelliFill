@@ -5,8 +5,8 @@
  * PRO agents need visibility into form usage patterns and completion rates.
  */
 
-import { Router, Request, Response } from 'express';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { Router, Response } from 'express';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 
@@ -62,9 +62,9 @@ export function createFormAnalyticsRoutes(): Router {
    * GET /api/form-analytics/overview
    * Returns aggregate form usage stats for authenticated user
    */
-  router.get('/overview', authenticateSupabase, async (req: Request, res: Response) => {
+  router.get('/overview', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -156,9 +156,9 @@ export function createFormAnalyticsRoutes(): Router {
   router.get(
     '/templates/:templateId',
     authenticateSupabase,
-    async (req: Request, res: Response) => {
+    async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const userId = (req as unknown as { user?: { id: string } }).user?.id;
+        const userId = req.user?.id;
         const { templateId } = req.params;
 
         if (!userId) {
@@ -241,9 +241,9 @@ export function createFormAnalyticsRoutes(): Router {
    * GET /api/form-analytics/trends
    * Returns usage trends for the last 30 days
    */
-  router.get('/trends', authenticateSupabase, async (req: Request, res: Response) => {
+  router.get('/trends', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });

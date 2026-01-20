@@ -9,9 +9,9 @@
  * - Handling Stripe webhooks
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { stripeService } from '../services/stripe.service';
-import { authenticateSupabase } from '../middleware/supabaseAuth';
+import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
 import { logger } from '../utils/logger';
 import Joi from 'joi';
 
@@ -35,7 +35,7 @@ const portalSchema = Joi.object({
 router.post(
   '/create-checkout-session',
   authenticateSupabase,
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { error, value } = checkoutSchema.validate(req.body);
       if (error) {
@@ -45,7 +45,7 @@ router.post(
         });
       }
 
-      const user = (req as any).user;
+      const user = req.user!;
       const { successUrl, cancelUrl } = value;
 
       const session = await stripeService.createCheckoutSession(
@@ -74,7 +74,7 @@ router.post(
 router.post(
   '/create-portal-session',
   authenticateSupabase,
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { error, value } = portalSchema.validate(req.body);
       if (error) {
@@ -84,7 +84,7 @@ router.post(
         });
       }
 
-      const user = (req as any).user;
+      const user = req.user!;
       const { returnUrl } = value;
 
       const session = await stripeService.createPortalSession(user.id, returnUrl);
@@ -108,9 +108,9 @@ router.post(
 router.get(
   '/subscription-status',
   authenticateSupabase,
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const user = (req as any).user;
+      const user = req.user!;
       const status = await stripeService.getSubscriptionStatus(user.id);
 
       res.json({
