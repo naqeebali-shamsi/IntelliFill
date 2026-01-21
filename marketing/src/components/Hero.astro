@@ -1,0 +1,55 @@
+---
+const appUrl = 'https://app.intellifill.com';
+---
+
+<section class="relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 px-4 py-20 sm:py-32">
+  <!-- Background gradient effect -->
+  <div class="absolute inset-0 overflow-hidden">
+    <div class="absolute -top-40 -right-32 h-80 w-80 rounded-full bg-primary-500/10 blur-3xl"></div>
+    <div class="absolute -bottom-40 -left-32 h-80 w-80 rounded-full bg-primary-500/5 blur-3xl"></div>
+  </div>
+
+  <div class="relative mx-auto max-w-5xl text-center">
+    <!-- Badge -->
+    <div class="mb-8 inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-500/10 px-4 py-2 text-sm text-primary-400">
+      <span class="relative flex h-2 w-2">
+        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-75"></span>
+        <span class="relative inline-flex h-2 w-2 rounded-full bg-primary-500"></span>
+      </span>
+      Now with 93% OCR accuracy
+    </div>
+
+    <!-- Headline -->
+    <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl">
+      Stop filling forms manually.
+      <span class="block text-primary-400">Let AI do it.</span>
+    </h1>
+
+    <!-- Subheadline -->
+    <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-400 sm:text-xl">
+      Intelligent document processing for UAE PRO agencies. Upload Emirates IDs, passports, and visas.
+      Extract data automatically. Fill government forms in seconds.
+    </p>
+
+    <!-- CTA Buttons -->
+    <div class="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+      <a
+        href={`${appUrl}/register`}
+        class="inline-flex h-12 items-center justify-center rounded-lg bg-primary-500 px-8 text-base font-semibold text-slate-900 shadow-lg shadow-primary-500/25 transition-all hover:bg-primary-400 hover:shadow-xl hover:shadow-primary-500/30 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+      >
+        Start Free Trial
+      </a>
+      <a
+        href="#pricing"
+        class="inline-flex h-12 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/50 px-8 text-base font-medium text-white transition-all hover:border-slate-600 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+      >
+        See Pricing
+      </a>
+    </div>
+
+    <!-- Trust indicator -->
+    <p class="mt-6 text-sm text-slate-500">
+      No credit card required. Start processing documents in minutes.
+    </p>
+  </div>
+</section>

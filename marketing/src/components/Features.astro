@@ -1,0 +1,82 @@
+---
+const features = [
+  {
+    title: '93% OCR Accuracy',
+    description: 'AI-powered extraction achieves industry-leading accuracy on Emirates IDs, passports, and visas.',
+    icon: 'scan',
+  },
+  {
+    title: 'Process in Seconds',
+    description: 'Upload documents and get extracted data instantly. No manual data entry required.',
+    icon: 'zap',
+  },
+  {
+    title: 'Bank-Grade Security',
+    description: 'Your documents are encrypted in transit and at rest. SOC 2 compliant infrastructure.',
+    icon: 'shield',
+  },
+  {
+    title: 'Smart Form Filling',
+    description: 'Auto-populate government forms with extracted data. Review, edit, and submit with confidence.',
+    icon: 'file-text',
+  },
+];
+---
+
+<section id="features" class="bg-slate-800 px-4 py-20 sm:py-24">
+  <div class="mx-auto max-w-6xl">
+    <!-- Section header -->
+    <div class="text-center">
+      <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        Everything you need to automate document processing
+      </h2>
+      <p class="mx-auto mt-4 max-w-2xl text-lg text-slate-400">
+        Built specifically for UAE PRO agencies handling Emirates IDs, passports, visas, and government forms.
+      </p>
+    </div>
+
+    <!-- Features grid -->
+    <div class="mt-16 grid gap-8 sm:grid-cols-2">
+      {features.map((feature) => (
+        <div class="group relative rounded-2xl border border-slate-700 bg-slate-900/50 p-8 transition-all hover:border-primary-500/50 hover:bg-slate-900">
+          <!-- Icon -->
+          <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-500/10 text-primary-400">
+            {feature.icon === 'scan' && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                <line x1="7" y1="12" x2="17" y2="12"></line>
+              </svg>
+            )}
+            {feature.icon === 'zap' && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+            )}
+            {feature.icon === 'shield' && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <path d="m9 12 2 2 4-4"></path>
+              </svg>
+            )}
+            {feature.icon === 'file-text' && (
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <line x1="10" y1="9" x2="8" y2="9"></line>
+              </svg>
+            )}
+          </div>
+
+          <!-- Content -->
+          <h3 class="text-xl font-semibold text-white">{feature.title}</h3>
+          <p class="mt-2 text-slate-400">{feature.description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
