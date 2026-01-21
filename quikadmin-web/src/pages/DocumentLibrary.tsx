@@ -14,7 +14,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { DocumentCard } from '@/components/features/document-card';
 import { DataTable, Column } from '@/components/features/data-table';
 import { StatusBadge } from '@/components/features/status-badge';
-import { DocumentStatistics } from '@/components/features/document-statistics';
 import { DocumentFilters } from '@/components/features/document-filters';
 import { BulkActionsToolbar } from '@/components/features/bulk-actions-toolbar';
 import { DocumentDetail } from '@/components/features/document-detail';
@@ -280,8 +279,26 @@ export default function DocumentLibrary() {
         actions={headerActions}
       />
 
-      {/* Statistics Dashboard */}
-      <DocumentStatistics statistics={statistics} loading={isLoading} />
+      {/* Quick Stats Summary */}
+      {!isLoading && (
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <FileText className="h-4 w-4" />
+            <strong className="text-foreground">{statistics.total}</strong> documents
+          </span>
+          {statistics.processing > 0 && (
+            <span className="flex items-center gap-1.5 text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              <strong>{statistics.processing}</strong> processing
+            </span>
+          )}
+          {statistics.failed > 0 && (
+            <span className="flex items-center gap-1.5 text-status-error-foreground">
+              <strong>{statistics.failed}</strong> failed
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Toolbar: Search, Filters, View Mode Toggle */}
       <div className="glass-panel p-4 rounded-xl flex flex-col gap-4 sm:flex-row sm:items-center justify-between sticky top-20 z-10">
