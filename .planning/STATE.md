@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** Planning next milestone (v1.2)
+**Current focus:** Phase 6 — UX Cleanup
 
 ## Current Position
 
-Phase: None active
-Plan: None
-Status: MILESTONE COMPLETE — Ready to plan v1.2
-Last activity: 2026-01-20 — v1.1 Stripe Integration shipped
+Phase: 6 of 8 (UX Cleanup)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-21 — v1.2 roadmap created from UI/UX audit
 
-Progress: v1.0 + v1.1 complete (5 phases, 23 plans)
+Progress: ██████████░░░░░░░░░░ 5/8 phases (v1.0 + v1.1 complete)
 
 ## Shipped Milestones
 
@@ -80,11 +80,11 @@ None — ready for next milestone planning.
 
 ## Session Continuity
 
-Last session: 2026-01-20
-Stopped at: v1.1 milestone complete
+Last session: 2026-01-21
+Stopped at: v1.2 roadmap created (3 phases from UI/UX audit)
 Resume file: None
-Next: `/gsd:discuss-milestone` to plan v1.2
+Next: `/gsd:plan-phase 6` to plan UX Cleanup phase
 
 ---
 
-_v1.1 Stripe Integration shipped 2026-01-20_
+_v1.2 UI/UX Cleanup & Marketing Site milestone created 2026-01-21_

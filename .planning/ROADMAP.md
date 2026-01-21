@@ -2,9 +2,9 @@
 
 ## Milestones
 
-- [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-4) — SHIPPED 2026-01-16
-- [v1.1 Stripe Integration](milestones/v1.1-ROADMAP.md) (Phase 5) — SHIPPED 2026-01-20
-- v1.2 — Planning (TBD)
+- ✅ [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-4) — SHIPPED 2026-01-16
+- ✅ [v1.1 Stripe Integration](milestones/v1.1-ROADMAP.md) (Phase 5) — SHIPPED 2026-01-20
+- 🚧 **v1.2 UI/UX Cleanup & Marketing Site** (Phases 6-8) — IN PROGRESS
 
 ## Overview
 
@@ -50,19 +50,77 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 ## Current Milestone
 
-### v1.2 — TBD
+### 🚧 v1.2 UI/UX Cleanup & Marketing Site (In Progress)
 
-_No milestone currently planned. Run `/gsd:discuss-milestone` to plan next features._
+**Milestone Goal:** Transform IntelliFill into an addictively simple experience by removing UI clutter, fixing broken elements, and separating marketing from the app.
+
+Based on comprehensive UI/UX audit: 76 validated issues → 17 v1.2 requirements.
+
+- [ ] **Phase 6: UX Cleanup** - Fix critical/high priority UX issues
+- [ ] **Phase 7: Marketing Site** - Separate marketing from app
+- [ ] **Phase 8: Polish** - Medium priority refinements
+
+## Phase Details
+
+### Phase 6: UX Cleanup
+**Goal**: Remove broken/fake UI, surface hidden actions, simplify navigation
+**Depends on**: Nothing (first phase of v1.2)
+**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-06, UX-07, UX-08, UX-09, UX-10
+**Research**: Unlikely (internal cleanup, established patterns)
+**Plans**: TBD
+
+Key deliverables:
+- Remove/implement fake search bar
+- Fix broken View button in FilledFormHistory
+- Remove fake status filters
+- Surface "Use Template" as visible button
+- Remove duplicate Quick Actions panel
+- Consolidate nav from 8-10 to 5-6 items
+- Rename "Smart Profile" to "My Profile"
+- Simplify Documents page stats
+
+### Phase 7: Marketing Site
+**Goal**: Create separate marketing site, clean up auth pages
+**Depends on**: Phase 6
+**Requirements**: UX-05, MKT-01, MKT-02
+**Research**: Likely (Astro/static site setup, deployment strategy)
+**Research topics**: Astro vs Next.js static, Vercel multi-domain, SEO best practices
+**Plans**: TBD
+
+Key deliverables:
+- Create intellifill.com marketing landing page
+- Remove testimonials/marketing from auth pages
+- Configure app.intellifill.com for application
+- SEO-optimized hero, features, pricing sections
+
+### Phase 8: Polish
+**Goal**: Medium priority UX refinements
+**Depends on**: Phase 7
+**Requirements**: UX-11, UX-12, UX-13, UX-14, UX-15
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Key deliverables:
+- Merge Organization tab into Account settings
+- Make stats dashboard collapsible
+- Simplify template flow (remove Preview modal)
+- Fix mobile navigation
+- Reduce upload page animation
 
 ## Progress
 
-| Phase                 | Milestone | Plans Complete | Status   | Completed  |
-| --------------------- | --------- | -------------- | -------- | ---------- |
-| 1. Foundation         | v1.0      | 6/6            | Complete | 2026-01-15 |
-| 2. Intelligence       | v1.0      | 4/4            | Complete | 2026-01-15 |
-| 3. Polish             | v1.0      | 4/4            | Complete | 2026-01-16 |
-| 4. PRO Features       | v1.0      | 5/5            | Complete | 2026-01-16 |
-| 5. Stripe Integration | v1.1      | 4/4            | Complete | 2026-01-20 |
+**Execution Order:** 6 → 7 → 8
+
+| Phase                 | Milestone | Plans Complete | Status      | Completed  |
+| --------------------- | --------- | -------------- | ----------- | ---------- |
+| 1. Foundation         | v1.0      | 6/6            | Complete    | 2026-01-15 |
+| 2. Intelligence       | v1.0      | 4/4            | Complete    | 2026-01-15 |
+| 3. Polish             | v1.0      | 4/4            | Complete    | 2026-01-16 |
+| 4. PRO Features       | v1.0      | 5/5            | Complete    | 2026-01-16 |
+| 5. Stripe Integration | v1.1      | 4/4            | Complete    | 2026-01-20 |
+| 6. UX Cleanup         | v1.2      | 0/TBD          | Not started | -          |
+| 7. Marketing Site     | v1.2      | 0/TBD          | Not started | -          |
+| 8. Polish             | v1.2      | 0/TBD          | Not started | -          |
 
 ---
 
