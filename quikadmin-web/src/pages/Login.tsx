@@ -40,6 +40,7 @@ export default function Login(): JSX.Element {
   // Auth store state and actions
   const { login, demoLogin, clearError } = useAuthStore();
   const isDemoEnabled = import.meta.env.VITE_ENABLE_DEMO === 'true';
+  const isMultiTenant = import.meta.env.VITE_MULTI_TENANT === 'true';
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
   const isLocked = useAuthStore((state) => state.isLocked);
@@ -232,22 +233,24 @@ export default function Login(): JSX.Element {
                 <AttemptsWarning attemptsRemaining={effectiveAttemptsRemaining} />
               )}
 
-              {/* Company field */}
-              <div className="space-y-2">
-                <Label htmlFor="companySlug" className="text-sm font-medium text-white/80">
-                  Company (Optional)
-                </Label>
-                <Input
-                  id="companySlug"
-                  name="companySlug"
-                  type="text"
-                  placeholder="your-company-slug"
-                  value={formData.companySlug}
-                  onChange={handleChange}
-                  disabled={isFormDisabled}
-                  className={authInputClassName}
-                />
-              </div>
+              {/* Company field - only shown in multi-tenant (B2B) mode */}
+              {isMultiTenant && (
+                <div className="space-y-2">
+                  <Label htmlFor="companySlug" className="text-sm font-medium text-white/80">
+                    Company (Optional)
+                  </Label>
+                  <Input
+                    id="companySlug"
+                    name="companySlug"
+                    type="text"
+                    placeholder="your-company-slug"
+                    value={formData.companySlug}
+                    onChange={handleChange}
+                    disabled={isFormDisabled}
+                    className={authInputClassName}
+                  />
+                </div>
+              )}
 
               {/* Email field */}
               <div className="space-y-2">
