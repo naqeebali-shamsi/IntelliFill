@@ -19,11 +19,9 @@ import {
   RefreshCw,
   Inbox,
   Sparkles,
-  Zap,
   Activity,
-  Users,
 } from 'lucide-react';
-import { useStatistics, useJobs, useTemplates, useQueueMetrics } from '@/hooks/useApiData';
+import { useStatistics, useJobs, useQueueMetrics } from '@/hooks/useApiData';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/features/status-badge';
@@ -36,7 +34,6 @@ export default function ConnectedDashboard() {
   const navigate = useNavigate();
   const { data: statistics, loading: statsLoading } = useStatistics();
   const { jobs, loading: jobsLoading } = useJobs(5);
-  const { templates, loading: templatesLoading } = useTemplates();
   const { metrics: queueMetrics, loading: queueLoading } = useQueueMetrics();
 
   const [progress, setProgress] = React.useState(0);
@@ -296,65 +293,6 @@ export default function ConnectedDashboard() {
               <div className="absolute top-0 right-0 h-32 w-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             </div>
 
-            {/* Quick Actions */}
-            <div
-              className="glass-panel p-6 rounded-xl border border-white/10"
-              data-testid="quick-actions-section"
-            >
-              <h3 className="font-medium flex items-center gap-2 mb-4">
-                <Zap className="h-4 w-4 text-warning" /> Quick Actions
-              </h3>
-              <div className="grid gap-3">
-                <Button
-                  variant="outline"
-                  className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
-                  onClick={() => navigate('/smart-profile')}
-                  data-testid="quick-action-smart-profile"
-                >
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium text-sm">Smart Profile</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      Upload docs and fill forms
-                    </div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
-                  onClick={() => navigate('/templates')}
-                  data-testid="quick-action-templates"
-                >
-                  <div className="h-8 w-8 rounded-full bg-info-light text-info flex items-center justify-center mr-3 group-hover:bg-info group-hover:text-info-foreground transition-colors">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium text-sm">Create Template</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      Setup reusable form mapping
-                    </div>
-                  </div>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="justify-start h-auto py-3 bg-background/50 border-white/5 hover:bg-background hover:border-primary/20 group"
-                  onClick={() => navigate('/clients')}
-                  data-testid="quick-action-clients"
-                >
-                  <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 group-hover:bg-primary group-hover:text-white transition-colors">
-                    <Users className="h-4 w-4" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-medium text-sm">View Clients</div>
-                    <div className="text-[10px] text-muted-foreground">Manage client profiles</div>
-                  </div>
-                </Button>
-              </div>
-            </div>
           </motion.div>
         </ResponsiveGrid>
       </motion.div>
