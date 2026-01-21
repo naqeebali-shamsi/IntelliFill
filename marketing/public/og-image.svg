@@ -1,0 +1,36 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0f172a"/>
+
+  <!-- Gradient overlay -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#02C39A;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#02C39A;stop-opacity:0.05" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grad)"/>
+
+  <!-- Logo icon -->
+  <g transform="translate(540, 180)">
+    <rect width="120" height="120" rx="24" fill="#02C39A" fill-opacity="0.15"/>
+    <path d="M30 37.5h60M30 60h45M30 82.5h30" stroke="#02C39A" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="90" cy="82.5" r="15" stroke="#02C39A" stroke-width="6" fill="none"/>
+    <path d="M82.5 82.5l15 15" stroke="#02C39A" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <!-- Title -->
+  <text x="600" y="360" text-anchor="middle" fill="white" font-family="Inter, system-ui, sans-serif" font-size="56" font-weight="700">
+    IntelliFill
+  </text>
+
+  <!-- Tagline -->
+  <text x="600" y="420" text-anchor="middle" fill="#94a3b8" font-family="Inter, system-ui, sans-serif" font-size="28">
+    AI-Powered Form Automation for UAE PRO Agencies
+  </text>
+
+  <!-- URL -->
+  <text x="600" y="560" text-anchor="middle" fill="#02C39A" font-family="Inter, system-ui, sans-serif" font-size="22">
+    intellifill.com
+  </text>
+</svg>
