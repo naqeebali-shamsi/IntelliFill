@@ -801,11 +801,11 @@ export default function SmartProfile() {
     <div className="space-y-6" data-testid="smart-profile-page">
       {/* Page Header */}
       <PageHeader
-        title="Smart Profile"
+        title="My Profile"
         description="Upload documents and create client profiles in seconds"
         breadcrumbs={[
           { label: 'Home', href: '/' },
-          { label: 'Smart Profile', href: '/smart-profile' },
+          { label: 'My Profile', href: '/smart-profile' },
           { label: currentStepConfig?.label || 'Upload' },
         ]}
         actions={

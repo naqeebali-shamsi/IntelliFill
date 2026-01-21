@@ -30,7 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 // Base navigation for all users
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Smart Profile', href: '/smart-profile', icon: Sparkles },
+  { name: 'My Profile', href: '/smart-profile', icon: Sparkles },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Documents', href: '/documents', icon: Files },
   { name: 'History', href: '/history', icon: History },
