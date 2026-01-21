@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 7 of 8 (Marketing Site)
-Plan: 07-02 (Astro Marketing Site)
-Status: Complete
-Last activity: 2026-01-21 — Plan 07-02 executed (3 tasks)
+Plan: 07-03 (Vercel Deployment Config)
+Status: Checkpoint - awaiting human verification
+Last activity: 2026-01-21 — Plan 07-03 Task 1 executed, checkpoint reached
 
 Progress: ██████████████████░░ 7/8 phases (v1.0 + v1.1 complete, v1.2 Phase 6 complete, Phase 7 in progress)
 
@@ -61,7 +61,7 @@ Progress: ██████████████████░░ 7/8 phase
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
 | 5-Stripe       | 4/4   | ~60 min | ~15 min  |
 | 6-UX Cleanup   | 2/2   | ~25 min | ~12 min  |
-| 7-Marketing    | 2/?   | ~18 min | ~9 min   |
+| 7-Marketing    | 3/?   | ~26 min | ~9 min   |
 
 ## Accumulated Context
 
@@ -76,6 +76,8 @@ All decisions documented in PROJECT.md Key Decisions table (14 decisions total).
 - Astro 5.2 chosen for marketing site (excellent SEO, fast loading, minimal JS)
 - Tailwind CSS 3.4 for consistent styling with main app
 - Static output for CDN deployment
+- Two separate Vercel projects from same repo (marketing/ and quikadmin-web/)
+- Marketing at intellifill.com, app at app.intellifill.com
 
 ### Deferred Issues
 
@@ -93,9 +95,9 @@ None — marketing site ready for deployment.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Plan 07-02 complete
+Stopped at: Plan 07-03 Task 1 complete, checkpoint reached
 Resume file: None
-Next: Phase 7-03 (if exists) or Phase 8
+Next: User verifies Vercel deployment, then continue 07-03 Task 2 approval
 
 ---
 
