@@ -1,6 +1,5 @@
 ---
 const currentYear = new Date().getFullYear();
-const appUrl = import.meta.env.PUBLIC_APP_URL || 'https://intellifill-web.vercel.app';
 ---
 
 <footer class="bg-slate-900 px-4 py-12">
@@ -17,7 +16,7 @@ const appUrl = import.meta.env.PUBLIC_APP_URL || 'https://intellifill-web.vercel
         <a href="/terms" class="text-slate-400 transition-colors hover:text-white">
           Terms of Service
         </a>
-        <a href={`${appUrl}/contact`} class="text-slate-400 transition-colors hover:text-white">
+        <a href="/contact" class="text-slate-400 transition-colors hover:text-white">
           Contact
         </a>
       </nav>
