@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** Phase 6 — UX Cleanup
+**Current focus:** Phase 7 — Marketing Site
 
 ## Current Position
 
-Phase: 6 of 8 (UX Cleanup)
-Plan: 06-02 (Navigation Consolidation)
+Phase: 7 of 8 (Marketing Site)
+Plan: 07-01 (Auth Page Marketing Removal)
 Status: Complete
-Last activity: 2026-01-21 — Plan 06-02 executed (2 tasks)
+Last activity: 2026-01-21 — Plan 07-01 executed (2 tasks)
 
-Progress: ██████████████░░░░░░ 6/8 phases (v1.0 + v1.1 complete, v1.2 Phase 6 complete)
+Progress: ██████████████████░░ 7/8 phases (v1.0 + v1.1 complete, v1.2 Phase 6 complete, Phase 7 started)
 
 ## Shipped Milestones
 
@@ -47,9 +47,9 @@ Progress: ██████████████░░░░░░ 6/8 phase
 
 **Velocity:**
 
-- Total plans completed: 25
+- Total plans completed: 26
 - Average duration: ~15 min/plan
-- Total execution time: ~370 min
+- Total execution time: ~378 min
 
 **By Phase:**
 
@@ -61,12 +61,18 @@ Progress: ██████████████░░░░░░ 6/8 phase
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
 | 5-Stripe       | 4/4   | ~60 min | ~15 min  |
 | 6-UX Cleanup   | 2/2   | ~25 min | ~12 min  |
+| 7-Marketing    | 1/?   | ~8 min  | ~8 min   |
 
 ## Accumulated Context
 
 ### Decisions
 
 All decisions documented in PROJECT.md Key Decisions table (14 decisions total).
+
+**Phase 7 Decisions:**
+- Marketing content removed from auth pages, will be on dedicated marketing site
+- Auth pages use centered single-column layout pattern
+- Animated background boxes kept for subtle visual interest
 
 ### Deferred Issues
 
@@ -77,14 +83,14 @@ All decisions documented in PROJECT.md Key Decisions table (14 decisions total).
 
 ### Blockers/Concerns
 
-None — ready for next milestone planning.
+None — ready for Phase 7-02 (Marketing Site Development).
 
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Plan 06-02 complete (Phase 6 complete)
+Stopped at: Plan 07-01 complete
 Resume file: None
-Next: Phase 7 planning or deployment
+Next: Phase 7-02 (Marketing Site Development)
 
 ---
 
