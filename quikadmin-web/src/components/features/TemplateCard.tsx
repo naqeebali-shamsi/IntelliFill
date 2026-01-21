@@ -17,6 +17,7 @@ import {
   Eye,
   Calendar,
   BarChart3,
+  Play,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -80,6 +81,10 @@ export interface TemplateCardProps {
    */
   onPreview?: (id: string) => void;
   /**
+   * Handler for use template action (primary action)
+   */
+  onUse?: (id: string) => void;
+  /**
    * Handler for card click
    */
   onClick?: (id: string) => void;
@@ -129,6 +134,7 @@ export function TemplateCard({
   onDuplicate,
   onDelete,
   onPreview,
+  onUse,
   onClick,
   className,
 }: TemplateCardProps) {
@@ -225,15 +231,27 @@ export function TemplateCard({
             </div>
           </CardContent>
           <CardFooter className="pt-3 border-t border-border/50">
-            <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <BarChart3 className="h-3 w-3" />
-                <span>{template.usageCount} uses</span>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <BarChart3 className="h-3 w-3" />
+                  <span>{template.usageCount} uses</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  <span>{formatDate(template.updatedAt)}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                <span>{formatDate(template.updatedAt)}</span>
-              </div>
+              {onUse && (
+                <Button
+                  size="sm"
+                  onClick={handleAction(onUse)}
+                  data-testid={`template-use-${template.id}`}
+                >
+                  <Play className="h-3 w-3 mr-1" />
+                  Use
+                </Button>
+              )}
             </div>
           </CardFooter>
         </Card>
@@ -271,7 +289,7 @@ export function TemplateCard({
         </div>
         <p className="text-sm text-muted-foreground truncate">{template.description}</p>
       </div>
-      <div className="flex items-center gap-6 text-sm text-muted-foreground shrink-0">
+      <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
         <div className="flex items-center gap-1">
           <BarChart3 className="h-4 w-4" />
           <span>{template.usageCount}</span>
@@ -280,6 +298,16 @@ export function TemplateCard({
           <Calendar className="h-4 w-4" />
           <span>{formatDate(template.updatedAt)}</span>
         </div>
+        {onUse && (
+          <Button
+            size="sm"
+            onClick={handleAction(onUse)}
+            data-testid={`template-use-${template.id}`}
+          >
+            <Play className="h-3 w-3 mr-1" />
+            Use
+          </Button>
+        )}
         <div onClick={(e) => e.stopPropagation()}>
           {ActionsMenu}
         </div>

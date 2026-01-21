@@ -450,6 +450,7 @@ export default function TemplateLibrary(): React.ReactElement {
                   onDuplicate={handleDuplicate}
                   onDelete={handleDelete}
                   onPreview={handlePreview}
+                  onUse={handleTemplateClick}
                   onClick={handleTemplateClick}
                 />
               ))}
@@ -474,6 +475,7 @@ export default function TemplateLibrary(): React.ReactElement {
                 onDuplicate={handleDuplicate}
                 onDelete={handleDelete}
                 onPreview={handlePreview}
+                onUse={handleTemplateClick}
                 onClick={handleTemplateClick}
               />
             ))}
