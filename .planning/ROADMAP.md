@@ -118,7 +118,7 @@ Key deliverables:
 | 3. Polish             | v1.0      | 4/4            | Complete    | 2026-01-16 |
 | 4. PRO Features       | v1.0      | 5/5            | Complete    | 2026-01-16 |
 | 5. Stripe Integration | v1.1      | 4/4            | Complete    | 2026-01-20 |
-| 6. UX Cleanup         | v1.2      | 0/2            | Planned     | -          |
+| 6. UX Cleanup         | v1.2      | 2/2            | Complete    | 2026-01-21 |
 | 7. Marketing Site     | v1.2      | 0/TBD          | Not started | -          |
 | 8. Polish             | v1.2      | 0/TBD          | Not started | -          |
 
