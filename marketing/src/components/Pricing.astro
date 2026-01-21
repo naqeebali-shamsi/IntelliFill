@@ -1,5 +1,5 @@
 ---
-const appUrl = 'https://intellifill-web.vercel.app';
+const appUrl = import.meta.env.PUBLIC_APP_URL || 'https://intellifill-web.vercel.app';
 
 const proFeatures = [
   'Unlimited document processing',
