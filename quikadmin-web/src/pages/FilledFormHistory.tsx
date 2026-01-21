@@ -27,7 +27,6 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -72,34 +71,15 @@ import {
   useFilledFormsStore,
   useFilledFormsFilters,
   useFilledFormsPagination,
-  type FilledFormStatus,
 } from '@/stores/filledFormsStore';
 
 // =================== CONSTANTS ===================
-
-const statusOptions: { value: FilledFormStatus; label: string }[] = [
-  { value: 'all', label: 'All Status' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'submitted', label: 'Submitted' },
-];
 
 const sortOptions = [
   { value: 'createdAt', label: 'Date Created' },
   { value: 'templateName', label: 'Template Name' },
   { value: 'clientName', label: 'Client Name' },
 ];
-
-// Status badge variant mapping
-const statusBadgeVariant: Record<
-  string,
-  'default' | 'secondary' | 'outline' | 'info' | 'success' | 'warning'
-> = {
-  draft: 'secondary',
-  completed: 'success',
-  submitted: 'info',
-  default: 'outline',
-};
 
 // =================== HELPER FUNCTIONS ===================
 
@@ -135,13 +115,6 @@ function formatDateTime(dateString: string): string {
   });
 }
 
-// Derive status from form (since backend doesn't have explicit status field yet)
-function getFormStatus(form: FilledForm): string {
-  // For now, treat all forms as completed since they're generated PDFs
-  // This can be enhanced when status field is added to backend
-  return 'completed';
-}
-
 // =================== COMPONENTS ===================
 
 interface FilledFormRowProps {
@@ -152,7 +125,6 @@ interface FilledFormRowProps {
 }
 
 function FilledFormRow({ form, onDownload, onDelete, isDeleting }: FilledFormRowProps) {
-  const status = getFormStatus(form);
   const exportFormats: { format: ExportFormat; label: string }[] = [
     { format: 'pdf', label: 'PDF' },
     { format: 'json', label: 'JSON' },
@@ -186,11 +158,6 @@ function FilledFormRow({ form, onDownload, onDelete, isDeleting }: FilledFormRow
           <Calendar className="h-3.5 w-3.5" />
           <span>{formatDate(form.createdAt)}</span>
         </div>
-      </TableCell>
-      <TableCell>
-        <Badge variant={statusBadgeVariant[status] || 'outline'}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </Badge>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -293,7 +260,7 @@ export default function FilledFormHistory() {
   const queryClient = useQueryClient();
 
   // Store hooks
-  const { filter, setSearchQuery, setStatusFilter, clearFilter, hasActiveFilters } =
+  const { filter, setSearchQuery, clearFilter, hasActiveFilters } =
     useFilledFormsFilters();
   const { page, pageSize, setPage, nextPage, previousPage } = useFilledFormsPagination();
   const sort = useFilledFormsStore((state) => state.sort);
@@ -386,7 +353,7 @@ export default function FilledFormHistory() {
   const totalPages = pagination ? Math.ceil(pagination.total / pagination.limit) : 0;
 
   // Filter forms by search query (client-side filtering for immediate feedback)
-  const filteredForms = useMemo(() => {
+  const displayedForms = useMemo(() => {
     if (!filter.searchQuery) return filledForms;
     const query = filter.searchQuery.toLowerCase();
     return filledForms.filter(
@@ -395,12 +362,6 @@ export default function FilledFormHistory() {
         form.clientName.toLowerCase().includes(query)
     );
   }, [filledForms, filter.searchQuery]);
-
-  // Filter by status (client-side for now since backend doesn't have status field)
-  const displayedForms = useMemo(() => {
-    if (filter.status === 'all') return filteredForms;
-    return filteredForms.filter((form) => getFormStatus(form) === filter.status);
-  }, [filteredForms, filter.status]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto" data-testid="filled-form-history">
@@ -427,23 +388,6 @@ export default function FilledFormHistory() {
               data-testid="form-search"
             />
           </div>
-
-          {/* Status Filter */}
-          <Select
-            value={filter.status}
-            onValueChange={(value) => setStatusFilter(value as FilledFormStatus)}
-          >
-            <SelectTrigger className="w-36" data-testid="status-filter">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           {/* Sort By */}
           <Select value={sort.field} onValueChange={handleSortChange}>
@@ -565,10 +509,9 @@ export default function FilledFormHistory() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-white/10">
-                  <TableHead className="w-[30%]">Form Name</TableHead>
-                  <TableHead className="w-[20%]">Client</TableHead>
-                  <TableHead className="w-[20%]">Created</TableHead>
-                  <TableHead className="w-[15%]">Status</TableHead>
+                  <TableHead className="w-[35%]">Form Name</TableHead>
+                  <TableHead className="w-[25%]">Client</TableHead>
+                  <TableHead className="w-[25%]">Created</TableHead>
                   <TableHead className="w-[15%] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
