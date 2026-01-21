@@ -24,8 +24,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Search,
-  Plus,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -269,13 +267,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="relative hidden sm:block max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-              <input
-                placeholder="Search..."
-                className="h-9 w-64 md:w-80 rounded-full bg-white/5 border border-white/10 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all"
-              />
-            </div>
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
