@@ -43,6 +43,15 @@ export class LoginPage extends BasePage {
 
     // Loading state
     loadingIndicator: '[data-testid="loading"], button[disabled]',
+
+    // OAuth buttons (discovered from GoogleAuthButton.tsx which uses data-testid)
+    googleSignInButton: '[data-testid="google-login-button"], button:has-text("Google")',
+    githubSignInButton: '[data-testid="github-login-button"], button:has-text("GitHub")',
+    azureSignInButton: '[data-testid="azure-login-button"], button:has-text("Microsoft")',
+    appleSignInButton: '[data-testid="apple-login-button"], button:has-text("Apple")',
+
+    // OAuth divider (the "or" separator between form and social login)
+    oauthDivider: '[data-testid="oauth-divider"], .divider, :text("or")',
   };
 
   constructor(page: Page) {
@@ -75,6 +84,22 @@ export class LoginPage extends BasePage {
     return this.page.locator(this.selectors.errorMessage);
   }
 
+  get googleSignInButton(): Locator {
+    return this.page.locator(this.selectors.googleSignInButton);
+  }
+
+  get githubSignInButton(): Locator {
+    return this.page.locator(this.selectors.githubSignInButton);
+  }
+
+  get azureSignInButton(): Locator {
+    return this.page.locator(this.selectors.azureSignInButton);
+  }
+
+  get appleSignInButton(): Locator {
+    return this.page.locator(this.selectors.appleSignInButton);
+  }
+
   // ========== Navigation ==========
 
   /**
@@ -98,6 +123,51 @@ export class LoginPage extends BasePage {
   async goToRegister(): Promise<void> {
     await this.registerLink.click();
     await this.waitForNavigation();
+  }
+
+  // ========== OAuth Methods ==========
+
+  /**
+   * Click Google Sign In button
+   */
+  async clickGoogleSignIn(): Promise<void> {
+    await this.googleSignInButton.click();
+  }
+
+  /**
+   * Click GitHub Sign In button
+   */
+  async clickGithubSignIn(): Promise<void> {
+    await this.githubSignInButton.click();
+  }
+
+  /**
+   * Click Azure/Microsoft Sign In button
+   */
+  async clickAzureSignIn(): Promise<void> {
+    await this.azureSignInButton.click();
+  }
+
+  /**
+   * Click Apple Sign In button
+   */
+  async clickAppleSignIn(): Promise<void> {
+    await this.appleSignInButton.click();
+  }
+
+  /**
+   * Check if OAuth buttons are visible
+   */
+  async hasOAuthButtons(): Promise<boolean> {
+    // At least Google should be visible if OAuth is enabled
+    return await this.googleSignInButton.isVisible();
+  }
+
+  /**
+   * Assert Google Sign In button is visible
+   */
+  async assertGoogleSignInVisible(): Promise<void> {
+    await expect(this.googleSignInButton).toBeVisible();
   }
 
   // ========== Form Interactions ==========

@@ -57,6 +57,15 @@ export class RegisterPage extends BasePage {
 
     // Password strength
     passwordStrength: '[data-testid="password-strength"], .password-strength',
+
+    // OAuth buttons (for social sign up)
+    googleSignUpButton: '[data-testid="google-register-button"], [data-testid="google-signup-button"], button:has-text("Google")',
+    githubSignUpButton: '[data-testid="github-register-button"], [data-testid="github-signup-button"], button:has-text("GitHub")',
+    azureSignUpButton: '[data-testid="azure-register-button"], [data-testid="azure-signup-button"], button:has-text("Microsoft")',
+    appleSignUpButton: '[data-testid="apple-register-button"], [data-testid="apple-signup-button"], button:has-text("Apple")',
+
+    // OAuth divider
+    oauthDivider: '[data-testid="oauth-divider"], .divider, :text("or")',
   };
 
   constructor(page: Page) {
@@ -103,6 +112,22 @@ export class RegisterPage extends BasePage {
 
   get successMessage(): Locator {
     return this.page.locator(this.selectors.successMessage);
+  }
+
+  get googleSignUpButton(): Locator {
+    return this.page.locator(this.selectors.googleSignUpButton);
+  }
+
+  get githubSignUpButton(): Locator {
+    return this.page.locator(this.selectors.githubSignUpButton);
+  }
+
+  get azureSignUpButton(): Locator {
+    return this.page.locator(this.selectors.azureSignUpButton);
+  }
+
+  get appleSignUpButton(): Locator {
+    return this.page.locator(this.selectors.appleSignUpButton);
   }
 
   // ========== Navigation ==========
@@ -230,6 +255,50 @@ export class RegisterPage extends BasePage {
     await this.register(data);
     await expect(this.errorMessage).toBeVisible();
     return (await this.errorMessage.textContent()) || '';
+  }
+
+  // ========== OAuth Methods ==========
+
+  /**
+   * Click Google Sign Up button
+   */
+  async clickGoogleSignUp(): Promise<void> {
+    await this.googleSignUpButton.click();
+  }
+
+  /**
+   * Click GitHub Sign Up button
+   */
+  async clickGithubSignUp(): Promise<void> {
+    await this.githubSignUpButton.click();
+  }
+
+  /**
+   * Click Azure/Microsoft Sign Up button
+   */
+  async clickAzureSignUp(): Promise<void> {
+    await this.azureSignUpButton.click();
+  }
+
+  /**
+   * Click Apple Sign Up button
+   */
+  async clickAppleSignUp(): Promise<void> {
+    await this.appleSignUpButton.click();
+  }
+
+  /**
+   * Check if OAuth buttons are visible
+   */
+  async hasOAuthButtons(): Promise<boolean> {
+    return await this.googleSignUpButton.isVisible();
+  }
+
+  /**
+   * Assert Google Sign Up button is visible
+   */
+  async assertGoogleSignUpVisible(): Promise<void> {
+    await expect(this.googleSignUpButton).toBeVisible();
   }
 
   // ========== Validation ==========
