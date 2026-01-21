@@ -12,11 +12,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Sparkles,
-  Users,
   Files,
   History,
   LayoutTemplate,
-  BookOpen,
   Settings,
   BarChart3,
   Shield,
@@ -27,15 +25,13 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// Base navigation for all users
+// Base navigation for all users (6 essential items)
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'My Profile', href: '/smart-profile', icon: Sparkles },
-  { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Documents', href: '/documents', icon: Files },
   { name: 'History', href: '/history', icon: History },
   { name: 'Templates', href: '/templates', icon: LayoutTemplate },
-  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
