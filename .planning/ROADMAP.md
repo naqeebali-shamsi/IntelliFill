@@ -67,7 +67,7 @@ Based on comprehensive UI/UX audit: 76 validated issues → 17 v1.2 requirements
 **Depends on**: Nothing (first phase of v1.2)
 **Requirements**: UX-01, UX-02, UX-03, UX-04, UX-06, UX-07, UX-08, UX-09, UX-10
 **Research**: Unlikely (internal cleanup, established patterns)
-**Plans**: TBD
+**Plans**: 2 (06-01: Critical UX Fixes, 06-02: Navigation Consolidation)
 
 Key deliverables:
 - Remove/implement fake search bar
@@ -118,7 +118,7 @@ Key deliverables:
 | 3. Polish             | v1.0      | 4/4            | Complete    | 2026-01-16 |
 | 4. PRO Features       | v1.0      | 5/5            | Complete    | 2026-01-16 |
 | 5. Stripe Integration | v1.1      | 4/4            | Complete    | 2026-01-20 |
-| 6. UX Cleanup         | v1.2      | 0/TBD          | Not started | -          |
+| 6. UX Cleanup         | v1.2      | 0/2            | Planned     | -          |
 | 7. Marketing Site     | v1.2      | 0/TBD          | Not started | -          |
 | 8. Polish             | v1.2      | 0/TBD          | Not started | -          |
 

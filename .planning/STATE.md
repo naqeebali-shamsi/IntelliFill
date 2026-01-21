@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-01-20)
 ## Current Position
 
 Phase: 6 of 8 (UX Cleanup)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-01-21 — v1.2 roadmap created from UI/UX audit
+Plan: 06-01 (Critical UX Fixes)
+Status: Ready to execute
+Last activity: 2026-01-21 — Phase 6 planned (2 plans)
 
 Progress: ██████████░░░░░░░░░░ 5/8 phases (v1.0 + v1.1 complete)
 
@@ -81,9 +81,9 @@ None — ready for next milestone planning.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: v1.2 roadmap created (3 phases from UI/UX audit)
+Stopped at: Phase 6 planned (2 plans created)
 Resume file: None
-Next: `/gsd:plan-phase 6` to plan UX Cleanup phase
+Next: `/gsd:execute-plan 06-01` to execute Critical UX Fixes
 
 ---
 
