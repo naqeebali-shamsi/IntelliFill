@@ -16,9 +16,7 @@ import {
   Calendar,
   Download,
   Trash2,
-  Eye,
   Loader2,
-  Filter,
   X,
   ChevronLeft,
   ChevronRight,
@@ -148,13 +146,12 @@ function getFormStatus(form: FilledForm): string {
 
 interface FilledFormRowProps {
   form: FilledForm;
-  onView: (form: FilledForm) => void;
   onDownload: (form: FilledForm, format: ExportFormat) => void;
   onDelete: (form: FilledForm) => void;
   isDeleting: boolean;
 }
 
-function FilledFormRow({ form, onView, onDownload, onDelete, isDeleting }: FilledFormRowProps) {
+function FilledFormRow({ form, onDownload, onDelete, isDeleting }: FilledFormRowProps) {
   const status = getFormStatus(form);
   const exportFormats: { format: ExportFormat; label: string }[] = [
     { format: 'pdf', label: 'PDF' },
@@ -197,16 +194,6 @@ function FilledFormRow({ form, onView, onDownload, onDelete, isDeleting }: Fille
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onView(form)}
-            title="View details"
-            data-testid={`view-form-${form.id}`}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -364,13 +351,6 @@ export default function FilledFormHistory() {
     },
     [handleSearch]
   );
-
-  const handleView = useCallback((form: FilledForm) => {
-    // Navigate to a detail view or open modal
-    // For now, we'll show a toast with form info
-    toast.info(`Viewing: ${form.templateName} for ${form.clientName}`);
-    // Future: navigate(`/filled-forms/${form.id}`);
-  }, []);
 
   const handleDownload = useCallback(async (form: FilledForm, format: ExportFormat = 'pdf') => {
     try {
@@ -597,7 +577,6 @@ export default function FilledFormHistory() {
                   <FilledFormRow
                     key={form.id}
                     form={form}
-                    onView={handleView}
                     onDownload={handleDownload}
                     onDelete={handleDeleteClick}
                     isDeleting={deleteMutation.isPending && formToDelete?.id === form.id}
