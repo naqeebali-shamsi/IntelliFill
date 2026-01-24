@@ -155,20 +155,36 @@ const SidebarContent = ({
       {/* Footer */}
       <div className={cn('p-4 border-t border-white/5 bg-white/2', collapsed && 'px-2')}>
         <div className={cn('flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
-          <Avatar className="h-9 w-9 ring-2 ring-primary/10 ring-offset-2 ring-offset-background/50 cursor-pointer hover:ring-primary/30 transition-all">
-            <AvatarImage src="/avatar.png" />
-            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white font-medium">
-              {user?.firstName?.charAt(0) || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate text-foreground">
-                {user?.firstName || 'User'}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-          )}
+          <div
+            className={cn(
+              'flex items-center cursor-pointer hover:opacity-80 transition-opacity',
+              collapsed ? 'justify-center' : 'flex-1 min-w-0 gap-3'
+            )}
+            onClick={() => navigate('/settings')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                navigate('/settings');
+              }
+            }}
+            aria-label="Go to settings"
+          >
+            <Avatar className="h-9 w-9 ring-2 ring-primary/10 ring-offset-2 ring-offset-background/50 hover:ring-primary/30 transition-all">
+              <AvatarImage src="/avatar.png" />
+              <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white font-medium">
+                {user?.firstName?.charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate text-foreground">
+                  {user?.firstName || 'User'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="icon"
