@@ -391,16 +391,16 @@ export default function ConnectedUpload(): React.ReactElement {
 
           {/* Dynamic Illustration / Active Process */}
           <div className="glass-panel p-6 rounded-2xl border border-white/10 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-secondary/3" />
 
             {currentProcessingFile ? (
               <div className="w-full relative z-10 animate-in fade-in duration-500">
-                <h3 className="text-center text-sm font-medium mb-4 text-primary animate-pulse">
+                <h3 className="text-center text-sm font-medium mb-4 text-primary/70">
                   {currentProcessingFile.status === 'uploading'
                     ? 'Uploading Document...'
-                    : 'AI Analyzing Content...'}
+                    : 'Analyzing Content...'}
                 </h3>
-                <div className="max-w-[200px] mx-auto shadow-2xl shadow-primary/20 rounded-xl">
+                <div className="max-w-[200px] mx-auto shadow-lg shadow-primary/10 rounded-xl">
                   <OCRScanning isScanning={true} />
                 </div>
               </div>

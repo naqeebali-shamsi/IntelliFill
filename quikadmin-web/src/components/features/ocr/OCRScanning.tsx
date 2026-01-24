@@ -38,15 +38,15 @@ export function OCRScanning({ className, isScanning = true }: OCRScanningProps) 
             top: ["0%", "100%", "0%"],
           }}
           transition={{
-            duration: 3,
+            duration: 5,
             ease: "easeInOut",
             repeat: Infinity,
             repeatType: "loop"
           }}
-          className="absolute left-0 right-0 h-1 bg-primary/50 shadow-[0_0_20px_2px_rgba(99,102,241,0.5)] z-10"
+          className="absolute left-0 right-0 h-0.5 bg-primary/30 shadow-[0_0_10px_1px_rgba(99,102,241,0.3)] z-10"
         >
-           <div className="absolute right-0 -top-1.5 p-1 bg-primary text-[10px] text-white font-mono rounded-l shadow-sm flex items-center gap-1">
-             <Sparkles className="h-2 w-2" /> OCR
+           <div className="absolute right-0 -top-1 p-0.5 bg-primary/70 text-[8px] text-white font-mono rounded-l shadow-sm flex items-center gap-0.5">
+             <Sparkles className="h-1.5 w-1.5" /> OCR
            </div>
         </motion.div>
       )}
@@ -56,9 +56,9 @@ export function OCRScanning({ className, isScanning = true }: OCRScanningProps) 
         <div className="p-4 rounded-full bg-background/80 backdrop-blur-md border border-primary/20 shadow-2xl relative">
           <FileText className="h-8 w-8 text-primary" />
           {isScanning && (
-             <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-secondary"></span>
+             <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary/50 opacity-50"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary/70"></span>
             </span>
           )}
         </div>
