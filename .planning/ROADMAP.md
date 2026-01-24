@@ -56,7 +56,7 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 Based on comprehensive UI/UX audit: 76 validated issues → 17 v1.2 requirements.
 
-- [ ] **Phase 6: UX Cleanup** - Fix critical/high priority UX issues
+- [x] **Phase 6: UX Cleanup** - Fix critical/high priority UX issues
 - [ ] **Phase 7: Marketing Site** - Separate marketing from app
 - [ ] **Phase 8: Polish** - Medium priority refinements
 
@@ -98,7 +98,12 @@ Key deliverables:
 **Depends on**: Phase 7
 **Requirements**: UX-11, UX-12, UX-13, UX-14, UX-15
 **Research**: Unlikely (internal patterns)
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Settings consolidation (Account sub-tabs)
+- [ ] 08-02-PLAN.md — Dashboard collapsible + template favorites
+- [ ] 08-03-PLAN.md — Mobile navigation + animation polish
 
 Key deliverables:
 - Merge Organization tab into Account settings
@@ -120,7 +125,7 @@ Key deliverables:
 | 5. Stripe Integration | v1.1      | 4/4            | Complete    | 2026-01-20 |
 | 6. UX Cleanup         | v1.2      | 2/2            | Complete    | 2026-01-21 |
 | 7. Marketing Site     | v1.2      | 0/TBD          | Not started | -          |
-| 8. Polish             | v1.2      | 0/TBD          | Not started | -          |
+| 8. Polish             | v1.2      | 0/3            | Planned     | -          |
 
 ---
 
