@@ -11,6 +11,7 @@ export interface UIState {
   globalLoading: boolean;
   sidebarCollapsed: boolean;
   compactMode: boolean;
+  dashboardStatsCollapsed: boolean;
 }
 
 export interface UIActions {
@@ -19,6 +20,8 @@ export interface UIActions {
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setCompactMode: (compact: boolean) => void;
+  setDashboardStatsCollapsed: (collapsed: boolean) => void;
+  toggleDashboardStats: () => void;
 }
 
 type UIStore = UIState & UIActions;
@@ -30,13 +33,14 @@ function applyCompactMode(compact: boolean): void {
 
 export const useUIStore = create<UIStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // State
       theme: 'system',
       resolvedTheme: 'light',
       globalLoading: false,
       sidebarCollapsed: false,
       compactMode: false,
+      dashboardStatsCollapsed: false,
 
       // Actions
       setTheme: (theme) => set({ theme }),
@@ -47,6 +51,8 @@ export const useUIStore = create<UIStore>()(
         applyCompactMode(compact);
         set({ compactMode: compact });
       },
+      setDashboardStatsCollapsed: (collapsed) => set({ dashboardStatsCollapsed: collapsed }),
+      toggleDashboardStats: () => set((state) => ({ dashboardStatsCollapsed: !state.dashboardStatsCollapsed })),
     }),
     {
       name: 'intellifill-ui',
@@ -54,6 +60,7 @@ export const useUIStore = create<UIStore>()(
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
         compactMode: state.compactMode,
+        dashboardStatsCollapsed: state.dashboardStatsCollapsed,
       }),
       onRehydrateStorage: () => {
         return (state) => {

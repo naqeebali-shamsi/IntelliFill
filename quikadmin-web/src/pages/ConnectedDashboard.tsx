@@ -20,6 +20,8 @@ import {
   Inbox,
   Sparkles,
   Activity,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useStatistics, useJobs, useQueueMetrics } from '@/hooks/useApiData';
 import { formatDistanceToNow } from 'date-fns';
@@ -29,12 +31,14 @@ import { staggerContainer, fadeInUp } from '@/lib/animations';
 import { StatCard } from '@/components/features/stat-card';
 import { ResponsiveGrid } from '@/components/layout/responsive-grid';
 import { AccentLine } from '@/components';
+import { useUIStore } from '@/stores/uiStore';
 
 export default function ConnectedDashboard() {
   const navigate = useNavigate();
   const { data: statistics, loading: statsLoading } = useStatistics();
   const { jobs, loading: jobsLoading } = useJobs(5);
   const { metrics: queueMetrics, loading: queueLoading } = useQueueMetrics();
+  const { dashboardStatsCollapsed, toggleDashboardStats } = useUIStore();
 
   const [progress, setProgress] = React.useState(0);
 
@@ -71,6 +75,40 @@ export default function ConnectedDashboard() {
     return `${trendIcon} ${prefix}${changeVal}% vs last week`;
   };
 
+  // Summary row component for collapsed state
+  const StatsSummaryRow = () => (
+    <div className="glass-panel p-4 rounded-xl flex items-center justify-between">
+      <div className="flex items-center gap-6 text-sm">
+        <span className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{statistics?.trends?.documents?.value || 0}</span>
+          <span className="text-muted-foreground">documents</span>
+        </span>
+        <span className="text-muted-foreground">•</span>
+        <span className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-status-success" />
+          <span className="font-medium">{statistics?.trends?.processedToday?.value || 0}</span>
+          <span className="text-muted-foreground">processed today</span>
+        </span>
+        <span className="text-muted-foreground">•</span>
+        <span className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="font-medium">{statistics?.successRate || 0}%</span>
+          <span className="text-muted-foreground">success rate</span>
+        </span>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={toggleDashboardStats}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <ChevronDown className="h-4 w-4 mr-1" />
+        Expand
+      </Button>
+    </div>
+  );
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -105,60 +143,78 @@ export default function ConnectedDashboard() {
 
       <motion.div variants={staggerContainer} initial="hidden" animate="show" className="space-y-6">
         {/* Stats Grid */}
-        <ResponsiveGrid preset="stats" data-testid="dashboard-stats-grid">
-          <StatCard
-            title="Total Documents"
-            value={statistics?.trends?.documents?.value || 0}
-            description={formatTrendDescription(
-              statistics?.trends?.documents?.change,
-              statistics?.trends?.documents?.trend
-            )}
-            icon={FileText}
-            variant="default"
-            loading={statsLoading}
-            animationDelay={0}
-            data-testid="stat-card-total-documents"
-          />
-          <StatCard
-            title="Processed Today"
-            value={statistics?.trends?.processedToday?.value || 0}
-            description={formatTrendDescription(
-              statistics?.trends?.processedToday?.change,
-              statistics?.trends?.processedToday?.trend
-            )}
-            icon={CheckCircle}
-            variant="success"
-            loading={statsLoading}
-            animationDelay={0.1}
-            data-testid="stat-card-processed-today"
-          />
-          <StatCard
-            title="In Progress"
-            value={statistics?.trends?.inProgress?.value || 0}
-            description={formatTrendDescription(
-              statistics?.trends?.inProgress?.change,
-              statistics?.trends?.inProgress?.trend
-            )}
-            icon={Sparkles}
-            variant="warning"
-            loading={statsLoading}
-            animationDelay={0.2}
-            data-testid="stat-card-in-progress"
-          />
-          <StatCard
-            title="Failed"
-            value={statistics?.trends?.failed?.value || 0}
-            description={formatTrendDescription(
-              statistics?.trends?.failed?.change,
-              statistics?.trends?.failed?.trend
-            )}
-            icon={AlertCircle}
-            variant="error"
-            loading={statsLoading}
-            animationDelay={0.3}
-            data-testid="stat-card-failed"
-          />
-        </ResponsiveGrid>
+        {dashboardStatsCollapsed ? (
+          <StatsSummaryRow />
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-medium">Overview</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleDashboardStats}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ChevronUp className="h-4 w-4 mr-1" />
+                Collapse
+              </Button>
+            </div>
+            <ResponsiveGrid preset="stats" data-testid="dashboard-stats-grid">
+              <StatCard
+                title="Total Documents"
+                value={statistics?.trends?.documents?.value || 0}
+                description={formatTrendDescription(
+                  statistics?.trends?.documents?.change,
+                  statistics?.trends?.documents?.trend
+                )}
+                icon={FileText}
+                variant="default"
+                loading={statsLoading}
+                animationDelay={0}
+                data-testid="stat-card-total-documents"
+              />
+              <StatCard
+                title="Processed Today"
+                value={statistics?.trends?.processedToday?.value || 0}
+                description={formatTrendDescription(
+                  statistics?.trends?.processedToday?.change,
+                  statistics?.trends?.processedToday?.trend
+                )}
+                icon={CheckCircle}
+                variant="success"
+                loading={statsLoading}
+                animationDelay={0.1}
+                data-testid="stat-card-processed-today"
+              />
+              <StatCard
+                title="In Progress"
+                value={statistics?.trends?.inProgress?.value || 0}
+                description={formatTrendDescription(
+                  statistics?.trends?.inProgress?.change,
+                  statistics?.trends?.inProgress?.trend
+                )}
+                icon={Sparkles}
+                variant="warning"
+                loading={statsLoading}
+                animationDelay={0.2}
+                data-testid="stat-card-in-progress"
+              />
+              <StatCard
+                title="Failed"
+                value={statistics?.trends?.failed?.value || 0}
+                description={formatTrendDescription(
+                  statistics?.trends?.failed?.change,
+                  statistics?.trends?.failed?.trend
+                )}
+                icon={AlertCircle}
+                variant="error"
+                loading={statsLoading}
+                animationDelay={0.3}
+                data-testid="stat-card-failed"
+              />
+            </ResponsiveGrid>
+          </>
+        )}
 
         {/* Main Content Grid */}
         <ResponsiveGrid preset="sidebar">
