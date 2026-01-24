@@ -58,7 +58,7 @@ Based on comprehensive UI/UX audit: 76 validated issues → 17 v1.2 requirements
 
 - [x] **Phase 6: UX Cleanup** - Fix critical/high priority UX issues
 - [ ] **Phase 7: Marketing Site** - Separate marketing from app
-- [ ] **Phase 8: Polish** - Medium priority refinements
+- [x] **Phase 8: Polish** - Medium priority refinements
 
 ## Phase Details
 
@@ -101,9 +101,9 @@ Key deliverables:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — Settings consolidation (Account sub-tabs)
-- [ ] 08-02-PLAN.md — Dashboard collapsible + template favorites
-- [ ] 08-03-PLAN.md — Mobile navigation + animation polish
+- [x] 08-01-PLAN.md — Settings consolidation (Account sub-tabs)
+- [x] 08-02-PLAN.md — Dashboard collapsible + template favorites
+- [x] 08-03-PLAN.md — Mobile navigation + animation polish
 
 Key deliverables:
 - Merge Organization tab into Account settings
@@ -125,7 +125,7 @@ Key deliverables:
 | 5. Stripe Integration | v1.1      | 4/4            | Complete    | 2026-01-20 |
 | 6. UX Cleanup         | v1.2      | 2/2            | Complete    | 2026-01-21 |
 | 7. Marketing Site     | v1.2      | 0/TBD          | Not started | -          |
-| 8. Polish             | v1.2      | 0/3            | Planned     | -          |
+| 8. Polish             | v1.2      | 3/3            | Complete    | 2026-01-25 |
 
 ---
 

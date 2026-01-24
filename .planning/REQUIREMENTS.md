@@ -99,11 +99,11 @@ These audit findings were validated as intentional design:
 | UX-10 | Phase 6 | Complete |
 | MKT-01 | Phase 7 | Pending |
 | MKT-02 | Phase 7 | Pending |
-| UX-11 | Phase 8 | Pending |
-| UX-12 | Phase 8 | Pending |
-| UX-13 | Phase 8 | Pending |
-| UX-14 | Phase 8 | Pending |
-| UX-15 | Phase 8 | Pending |
+| UX-11 | Phase 8 | Complete |
+| UX-12 | Phase 8 | Complete |
+| UX-13 | Phase 8 | Complete |
+| UX-14 | Phase 8 | Complete |
+| UX-15 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 17 total
