@@ -73,17 +73,23 @@ import {
   ChangePasswordModal,
   DeleteAccountModal,
   TwoFactorSetupModal,
+  SecurityTabContent,
 } from '@/components/settings';
 import { useTheme } from '@/components/theme-provider';
 
-// Sidebar Navigation Items
+// Sidebar Navigation Items (without organization and security)
 const navItems = [
   { id: 'general', label: 'General', icon: Palette },
   { id: 'account', label: 'Account', icon: User },
-  { id: 'organization', label: 'Organization', icon: Building2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'security', label: 'Security', icon: Shield },
   { id: 'advanced', label: 'Advanced', icon: Database },
+];
+
+// Account sub-tabs (Profile, Organization, Security)
+const accountSubTabs = [
+  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'organization', label: 'Organization', icon: Building2 },
+  { id: 'security', label: 'Security', icon: Shield },
 ];
 
 const SettingsSection = ({
@@ -455,11 +461,15 @@ function NotificationsTab({
 export default function Settings() {
   const user = useBackendAuthStore((state) => state.user);
   const [activeTab, setActiveTab] = useState('general');
+  const [activeAccountSubTab, setActiveAccountSubTab] = useState('profile');
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
+
+  // Check if user is admin or owner (for Organization visibility)
+  const isAdminOrOwner = user?.role === 'ADMIN' || user?.role === 'OWNER';
 
   // Fetch profile data on mount
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -705,10 +715,37 @@ export default function Settings() {
 
                 {activeTab === 'account' && (
                   <>
-                    <SettingsSection
-                      title="Profile Information"
-                      description="Update your personal details."
-                    >
+                    {/* Account Sub-Tabs Navigation */}
+                    <div className="flex gap-2 border-b border-white/10 mb-6">
+                      {accountSubTabs
+                        .filter((tab) => tab.id !== 'organization' || isAdminOrOwner)
+                        .map((tab) => {
+                          const Icon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveAccountSubTab(tab.id)}
+                              className={cn(
+                                'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-2',
+                                activeAccountSubTab === tab.id
+                                  ? 'border-primary text-primary'
+                                  : 'border-transparent text-muted-foreground hover:text-foreground'
+                              )}
+                            >
+                              <Icon className="h-4 w-4" />
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+
+                    {/* Profile Sub-Tab */}
+                    {activeAccountSubTab === 'profile' && (
+                      <>
+                        <SettingsSection
+                          title="Profile Information"
+                          description="Update your personal details."
+                        >
                       {profileLoading ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -880,69 +917,25 @@ export default function Settings() {
                       )}
                     </SettingsSection>
 
-                    <Separator className="bg-white/10" />
+                        <Separator className="bg-white/10" />
 
-                    <SubscriptionSettings />
+                        <SubscriptionSettings />
+                      </>
+                    )}
+
+                    {/* Organization Sub-Tab */}
+                    {activeAccountSubTab === 'organization' && <OrganizationTabContent />}
+
+                    {/* Security Sub-Tab */}
+                    {activeAccountSubTab === 'security' && <SecurityTabContent />}
                   </>
                 )}
-
-                {activeTab === 'organization' && <OrganizationTabContent />}
 
                 {activeTab === 'notifications' && (
                   <NotificationsTab
                     userSettings={userSettings}
                     updateSettingsMutation={updateSettingsMutation}
                   />
-                )}
-
-                {activeTab === 'security' && (
-                  <>
-                    <SettingsSection title="Login & Security" description="Protect your account.">
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <Key className="h-4 w-4" /> Password
-                          </div>
-                          <p className="text-xs text-muted-foreground">Last changed 3 months ago</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setChangePasswordOpen(true)}
-                        >
-                          Change Password
-                        </Button>
-                      </SettingsRow>
-                      <SettingsRow>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2 font-medium">
-                            <Smartphone className="h-4 w-4" /> Two-Factor Authentication
-                          </div>
-                          {user?.mfaEnabled ? (
-                            <p className="text-xs text-status-success flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" /> Enabled
-                            </p>
-                          ) : (
-                            <p className="text-xs text-status-warning">Not enabled</p>
-                          )}
-                        </div>
-                        {user?.mfaEnabled ? (
-                          <Button variant="outline" size="sm">
-                            Manage 2FA
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-primary hover:text-primary"
-                            onClick={() => setTwoFactorOpen(true)}
-                          >
-                            Enable 2FA
-                          </Button>
-                        )}
-                      </SettingsRow>
-                    </SettingsSection>
-                  </>
                 )}
 
                 {activeTab === 'advanced' && (
