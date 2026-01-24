@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** Phase 7 — Marketing Site
+**Current focus:** Phase 8 — Polish
 
 ## Current Position
 
-Phase: 7 of 8 (Marketing Site)
-Plan: 07-03 (Vercel Deployment Config)
-Status: Checkpoint - awaiting human verification
-Last activity: 2026-01-21 — Plan 07-03 Task 1 executed, checkpoint reached
+Phase: 8 of 8 (Polish)
+Plan: 08-02 (UX Polish)
+Status: Complete
+Last activity: 2026-01-25 — Completed 08-02-PLAN.md
 
-Progress: ██████████████████░░ 7/8 phases (v1.0 + v1.1 complete, v1.2 Phase 6 complete, Phase 7 in progress)
+Progress: ████████████████████ 29/~30 plans (v1.0 + v1.1 complete, v1.2 Phases 6-7 complete, Phase 8 in progress)
 
 ## Shipped Milestones
 
@@ -47,9 +47,9 @@ Progress: ██████████████████░░ 7/8 phase
 
 **Velocity:**
 
-- Total plans completed: 27
-- Average duration: ~15 min/plan
-- Total execution time: ~388 min
+- Total plans completed: 29
+- Average duration: ~14 min/plan
+- Total execution time: ~400 min
 
 **By Phase:**
 
@@ -61,13 +61,20 @@ Progress: ██████████████████░░ 7/8 phase
 | 4-PRO Features | 5/5   | ~65 min | ~13 min  |
 | 5-Stripe       | 4/4   | ~60 min | ~15 min  |
 | 6-UX Cleanup   | 2/2   | ~25 min | ~12 min  |
-| 7-Marketing    | 3/?   | ~26 min | ~9 min   |
+| 7-Marketing    | 3/3   | ~26 min | ~9 min   |
+| 8-Polish       | 2/?   | ~12 min | ~6 min   |
 
 ## Accumulated Context
 
 ### Decisions
 
-All decisions documented in PROJECT.md Key Decisions table (14 decisions total).
+All decisions documented in PROJECT.md Key Decisions table (17 decisions total).
+
+**Phase 8 Decisions:**
+- Use localStorage for favorites (no backend endpoint needed for v1)
+- Remove preview modal in favor of direct navigation to fill-form
+- Summary row shows 3 key metrics: documents, processed today, success rate
+- Collapsible UI pattern: zustand state + localStorage persistence + summary/expanded views
 
 **Phase 7 Decisions:**
 - Marketing content removed from auth pages, will be on dedicated marketing site
@@ -90,14 +97,14 @@ All decisions documented in PROJECT.md Key Decisions table (14 decisions total).
 
 ### Blockers/Concerns
 
-None — marketing site ready for deployment.
+None — UX polish features complete.
 
 ## Session Continuity
 
-Last session: 2026-01-21
-Stopped at: Plan 07-03 Task 1 complete, checkpoint reached
+Last session: 2026-01-25
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
-Next: User verifies Vercel deployment, then continue 07-03 Task 2 approval
+Next: Continue Phase 8 polish work or move to next phase
 
 ---
 
