@@ -287,7 +287,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </header>
 
         {/* Page Content with Transitions */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-20 relative">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-20 md:pb-6 relative">
           {/* Subtle background glow effect using CSS or absolute div */}
           <div className="absolute top-0 left-0 w-full h-96 bg-primary/5 blur-3xl -z-10 pointer-events-none rounded-full translate-y-[-50%]" />
 
@@ -304,6 +304,57 @@ export function AppLayout({ children }: AppLayoutProps) {
             </motion.div>
           </AnimatePresence>
         </main>
+
+        {/* Mobile Bottom Navigation - shows on small screens */}
+        <nav
+          className="fixed bottom-0 left-0 right-0 md:hidden bg-background/95 backdrop-blur-lg border-t border-white/10 z-50"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="flex justify-around items-center h-16 px-2">
+            {[
+              { name: 'Home', href: '/dashboard', icon: LayoutDashboard },
+              { name: 'Profile', href: '/smart-profile', icon: Sparkles },
+              { name: 'Docs', href: '/documents', icon: Files },
+              { name: 'Templates', href: '/templates', icon: LayoutTemplate },
+              { name: 'More', href: '#more', icon: Menu, isMore: true },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive = item.isMore ? false : location.pathname === item.href;
+
+              if (item.isMore) {
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => setSidebarOpen(true)}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors',
+                      'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="text-[10px] font-medium">{item.name}</span>
+                  </button>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors',
+                    isActive
+                      ? 'text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5', isActive && 'text-primary')} />
+                  <span className="text-[10px] font-medium">{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   );
