@@ -18,6 +18,7 @@ import {
   Calendar,
   BarChart3,
   Play,
+  Star,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -89,6 +90,14 @@ export interface TemplateCardProps {
    */
   onClick?: (id: string) => void;
   /**
+   * Whether this template is favorited
+   */
+  isFavorite?: boolean;
+  /**
+   * Handler for toggling favorite status
+   */
+  onToggleFavorite?: (id: string) => void;
+  /**
    * Additional CSS classes
    */
   className?: string;
@@ -136,6 +145,8 @@ export function TemplateCard({
   onPreview,
   onUse,
   onClick,
+  isFavorite,
+  onToggleFavorite,
   className,
 }: TemplateCardProps) {
   const handleAction = (action: (id: string) => void) => (e: React.MouseEvent) => {
@@ -212,6 +223,23 @@ export function TemplateCard({
               </span>
             </div>
             <CardAction>
+              {onToggleFavorite && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleFavorite(template.id);
+                  }}
+                  className={cn(
+                    'h-8 w-8',
+                    isFavorite ? 'text-yellow-500' : 'text-muted-foreground hover:text-yellow-500'
+                  )}
+                  aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
+                </Button>
+              )}
               {ActionsMenu}
             </CardAction>
           </CardHeader>
@@ -306,6 +334,20 @@ export function TemplateCard({
           >
             <Play className="h-3 w-3 mr-1" />
             Use
+          </Button>
+        )}
+        {onToggleFavorite && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleAction(onToggleFavorite)}
+            className={cn(
+              'h-8 w-8',
+              isFavorite ? 'text-yellow-500' : 'text-muted-foreground hover:text-yellow-500'
+            )}
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
           </Button>
         )}
         <div onClick={(e) => e.stopPropagation()}>

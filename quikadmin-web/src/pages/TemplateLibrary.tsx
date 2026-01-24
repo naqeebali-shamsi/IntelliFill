@@ -9,7 +9,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Grid3X3, List, Loader2, LayoutTemplate } from 'lucide-react';
+import { Plus, Search, Grid3X3, List, Loader2, LayoutTemplate, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { logger } from '@/utils/logger';
 
@@ -43,12 +43,13 @@ import {
   type Template,
   type TemplateCategory,
 } from '@/components/features/TemplateCard';
-import { TemplatePreviewModal } from '@/components/features/TemplatePreviewModal';
 import {
   getTemplates,
   deleteTemplate,
   duplicateTemplate,
   useTemplate as incrementTemplateUsage,
+  getFavoriteTemplateIds,
+  toggleTemplateFavorite,
 } from '@/services/formService';
 import type { MappingTemplate } from '@/types/formFilling';
 
@@ -120,9 +121,8 @@ export default function TemplateLibrary(): React.ReactElement {
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory>('all');
   const [sortBy, setSortBy] = useState<SortBy>('name');
 
-  // Preview modal state
-  const [previewTemplateId, setPreviewTemplateId] = useState<string | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  // Favorites state
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(getFavoriteTemplateIds);
 
   // Delete confirmation state
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
@@ -209,6 +209,17 @@ export default function TemplateLibrary(): React.ReactElement {
     return result;
   }, [templates, searchQuery, selectedCategory, sortBy]);
 
+  // Separate favorites from other templates
+  const favoriteTemplates = useMemo(
+    () => filteredTemplates.filter((t) => favoriteIds.includes(t.id)),
+    [filteredTemplates, favoriteIds]
+  );
+
+  const otherTemplates = useMemo(
+    () => filteredTemplates.filter((t) => !favoriteIds.includes(t.id)),
+    [filteredTemplates, favoriteIds]
+  );
+
   // Handlers
   const handleTemplateClick = async (id: string) => {
     // Increment usage count silently
@@ -224,9 +235,10 @@ export default function TemplateLibrary(): React.ReactElement {
     navigate(`/templates/edit/${id}`);
   };
 
-  const handlePreview = (id: string) => {
-    setPreviewTemplateId(id);
-    setIsPreviewOpen(true);
+  const handleToggleFavorite = (id: string) => {
+    const nowFavorited = toggleTemplateFavorite(id);
+    setFavoriteIds(getFavoriteTemplateIds());
+    toast.success(nowFavorited ? 'Added to favorites' : 'Removed from favorites');
   };
 
   const handleDuplicate = (id: string) => {
@@ -248,15 +260,6 @@ export default function TemplateLibrary(): React.ReactElement {
 
   const handleCreateTemplate = () => {
     navigate('/templates');
-  };
-
-  const handlePreviewUseTemplate = async (id: string) => {
-    try {
-      await incrementTemplateUsage(id);
-    } catch (error) {
-      logger.warn('Failed to increment usage count:', error);
-    }
-    navigate('/fill-form', { state: { templateId: id } });
   };
 
   const hasActiveFilters = selectedCategory !== 'all' || searchQuery.trim() !== '';
@@ -440,21 +443,56 @@ export default function TemplateLibrary(): React.ReactElement {
             animate="show"
             data-testid="template-grid"
           >
-            <ResponsiveGrid preset="cards">
-              {filteredTemplates.map((template) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  viewMode="grid"
-                  onEdit={handleEdit}
-                  onDuplicate={handleDuplicate}
-                  onDelete={handleDelete}
-                  onPreview={handlePreview}
-                  onUse={handleTemplateClick}
-                  onClick={handleTemplateClick}
-                />
-              ))}
-            </ResponsiveGrid>
+            {/* Favorites Section */}
+            {favoriteTemplates.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                  Favorites
+                </h3>
+                <ResponsiveGrid preset="cards">
+                  {favoriteTemplates.map((template) => (
+                    <TemplateCard
+                      key={template.id}
+                      template={template}
+                      viewMode="grid"
+                      isFavorite={true}
+                      onToggleFavorite={handleToggleFavorite}
+                      onEdit={handleEdit}
+                      onDuplicate={handleDuplicate}
+                      onDelete={handleDelete}
+                      onUse={handleTemplateClick}
+                      onClick={handleTemplateClick}
+                    />
+                  ))}
+                </ResponsiveGrid>
+              </div>
+            )}
+
+            {/* Other Templates Section */}
+            {otherTemplates.length > 0 && (
+              <div>
+                {favoriteTemplates.length > 0 && (
+                  <h3 className="text-sm font-medium text-muted-foreground mb-4">All Templates</h3>
+                )}
+                <ResponsiveGrid preset="cards">
+                  {otherTemplates.map((template) => (
+                    <TemplateCard
+                      key={template.id}
+                      template={template}
+                      viewMode="grid"
+                      isFavorite={false}
+                      onToggleFavorite={handleToggleFavorite}
+                      onEdit={handleEdit}
+                      onDuplicate={handleDuplicate}
+                      onDelete={handleDelete}
+                      onUse={handleTemplateClick}
+                      onClick={handleTemplateClick}
+                    />
+                  ))}
+                </ResponsiveGrid>
+              </div>
+            )}
           </motion.div>
         ) : (
           /* List View */
@@ -466,19 +504,56 @@ export default function TemplateLibrary(): React.ReactElement {
             className="bg-card/30 backdrop-blur-sm border border-white/5 rounded-xl overflow-hidden"
             data-testid="template-list"
           >
-            {filteredTemplates.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                viewMode="list"
-                onEdit={handleEdit}
-                onDuplicate={handleDuplicate}
-                onDelete={handleDelete}
-                onPreview={handlePreview}
-                onUse={handleTemplateClick}
-                onClick={handleTemplateClick}
-              />
-            ))}
+            {/* Favorites Section */}
+            {favoriteTemplates.length > 0 && (
+              <>
+                <div className="px-4 py-3 bg-muted/20 border-b border-white/5">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                    Favorites
+                  </h3>
+                </div>
+                {favoriteTemplates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    viewMode="list"
+                    isFavorite={true}
+                    onToggleFavorite={handleToggleFavorite}
+                    onEdit={handleEdit}
+                    onDuplicate={handleDuplicate}
+                    onDelete={handleDelete}
+                    onUse={handleTemplateClick}
+                    onClick={handleTemplateClick}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Other Templates Section */}
+            {otherTemplates.length > 0 && (
+              <>
+                {favoriteTemplates.length > 0 && (
+                  <div className="px-4 py-3 bg-muted/20 border-b border-white/5 border-t">
+                    <h3 className="text-sm font-medium text-muted-foreground">All Templates</h3>
+                  </div>
+                )}
+                {otherTemplates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    viewMode="list"
+                    isFavorite={false}
+                    onToggleFavorite={handleToggleFavorite}
+                    onEdit={handleEdit}
+                    onDuplicate={handleDuplicate}
+                    onDelete={handleDelete}
+                    onUse={handleTemplateClick}
+                    onClick={handleTemplateClick}
+                  />
+                ))}
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -491,15 +566,6 @@ export default function TemplateLibrary(): React.ReactElement {
           {hasActiveFilters && ' (filtered)'}
         </div>
       )}
-
-      {/* Preview Modal */}
-      <TemplatePreviewModal
-        templateId={previewTemplateId}
-        open={isPreviewOpen}
-        onOpenChange={setIsPreviewOpen}
-        onEdit={handleEdit}
-        onUseTemplate={handlePreviewUseTemplate}
-      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

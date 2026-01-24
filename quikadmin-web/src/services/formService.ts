@@ -289,6 +289,37 @@ export async function duplicateTemplate(templateId: string): Promise<MappingTemp
   };
 }
 
+/**
+ * Get user's favorite template IDs (stored in localStorage for now)
+ */
+export function getFavoriteTemplateIds(): string[] {
+  const stored = localStorage.getItem('favorite-templates');
+  return stored ? JSON.parse(stored) : [];
+}
+
+/**
+ * Toggle template favorite status
+ * @returns true if now favorited, false if unfavorited
+ */
+export function toggleTemplateFavorite(templateId: string): boolean {
+  const favorites = getFavoriteTemplateIds();
+  const index = favorites.indexOf(templateId);
+  if (index === -1) {
+    favorites.push(templateId);
+  } else {
+    favorites.splice(index, 1);
+  }
+  localStorage.setItem('favorite-templates', JSON.stringify(favorites));
+  return index === -1; // returns true if now favorited
+}
+
+/**
+ * Check if template is favorited
+ */
+export function isTemplateFavorited(templateId: string): boolean {
+  return getFavoriteTemplateIds().includes(templateId);
+}
+
 // Export everything for convenience
 export const formService = {
   validateForm,
@@ -306,5 +337,8 @@ export const formService = {
   detectFormType,
   matchTemplates,
   useTemplate,
+  getFavoriteTemplateIds,
+  toggleTemplateFavorite,
+  isTemplateFavorited,
 };
 
