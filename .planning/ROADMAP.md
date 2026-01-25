@@ -4,7 +4,7 @@
 
 - ✅ [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-4) — SHIPPED 2026-01-16
 - ✅ [v1.1 Stripe Integration](milestones/v1.1-ROADMAP.md) (Phase 5) — SHIPPED 2026-01-20
-- 🚧 **v1.2 UI/UX Cleanup & Marketing Site** (Phases 6-8) — IN PROGRESS
+- ✅ **v1.2 UI/UX Cleanup & Marketing Site** (Phases 6-8) — SHIPPED 2026-01-25
 
 ## Overview
 
@@ -50,14 +50,14 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 ## Current Milestone
 
-### 🚧 v1.2 UI/UX Cleanup & Marketing Site (In Progress)
+### ✅ v1.2 UI/UX Cleanup & Marketing Site (Complete)
 
 **Milestone Goal:** Transform IntelliFill into an addictively simple experience by removing UI clutter, fixing broken elements, and separating marketing from the app.
 
 Based on comprehensive UI/UX audit: 76 validated issues → 17 v1.2 requirements.
 
 - [x] **Phase 6: UX Cleanup** - Fix critical/high priority UX issues
-- [ ] **Phase 7: Marketing Site** - Separate marketing from app
+- [x] **Phase 7: Marketing Site** - Separate marketing from app
 - [x] **Phase 8: Polish** - Medium priority refinements
 
 ## Phase Details
@@ -85,7 +85,12 @@ Key deliverables:
 **Requirements**: UX-05, MKT-01, MKT-02
 **Research**: Likely (Astro/static site setup, deployment strategy)
 **Research topics**: Astro vs Next.js static, Vercel multi-domain, SEO best practices
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [x] 07-01-PLAN.md — Auth page cleanup
+- [x] 07-02-PLAN.md — Marketing site with Astro
+- [x] 07-03-PLAN.md — Vercel deployment config
 
 Key deliverables:
 - Create intellifill.com marketing landing page
@@ -124,7 +129,7 @@ Key deliverables:
 | 4. PRO Features       | v1.0      | 5/5            | Complete    | 2026-01-16 |
 | 5. Stripe Integration | v1.1      | 4/4            | Complete    | 2026-01-20 |
 | 6. UX Cleanup         | v1.2      | 2/2            | Complete    | 2026-01-21 |
-| 7. Marketing Site     | v1.2      | 0/TBD          | Not started | -          |
+| 7. Marketing Site     | v1.2      | 3/3            | Complete    | 2026-01-22 |
 | 8. Polish             | v1.2      | 3/3            | Complete    | 2026-01-25 |
 
 ---

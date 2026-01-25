@@ -91,14 +91,14 @@ These audit findings were validated as intentional design:
 | UX-02 | Phase 6 | Complete |
 | UX-03 | Phase 6 | Complete |
 | UX-04 | Phase 6 | Complete |
-| UX-05 | Phase 7 | Pending |
+| UX-05 | Phase 7 | Complete |
 | UX-06 | Phase 6 | Complete |
 | UX-07 | Phase 6 | Complete |
 | UX-08 | Phase 6 | Complete |
 | UX-09 | Phase 6 | Complete |
 | UX-10 | Phase 6 | Complete |
-| MKT-01 | Phase 7 | Pending |
-| MKT-02 | Phase 7 | Pending |
+| MKT-01 | Phase 7 | Complete |
+| MKT-02 | Phase 7 | Complete |
 | UX-11 | Phase 8 | Complete |
 | UX-12 | Phase 8 | Complete |
 | UX-13 | Phase 8 | Complete |

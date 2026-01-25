@@ -5,18 +5,35 @@
 See: .planning/PROJECT.md (updated 2026-01-20)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
-**Current focus:** Phase 8 — Polish
+**Current focus:** v1.2 Milestone Complete
 
 ## Current Position
 
 Phase: 8 of 8 (Polish)
-Plan: 08-03 (Mobile Navigation & Animation Polish)
-Status: Complete
-Last activity: 2026-01-25 — Completed 08-03-PLAN.md
+Plan: All plans complete
+Status: v1.2 Milestone Shipped
+Last activity: 2026-01-25 — v1.2 milestone completed
 
-Progress: █████████████████████ 30/~30 plans (v1.0 + v1.1 complete, v1.2 Phases 6-8 complete)
+Progress: █████████████████████ 30/30 plans (v1.0, v1.1, v1.2 all shipped)
 
 ## Shipped Milestones
+
+### v1.2 UI/UX Cleanup & Marketing Site (Shipped 2026-01-25)
+
+- Phase 6: UX Cleanup (2/2 plans)
+- Phase 7: Marketing Site (3/3 plans)
+- Phase 8: Polish (3/3 plans)
+
+**Delivered:**
+- Removed fake/broken UI elements
+- Consolidated navigation to 5-6 items
+- Separate marketing site at intellifill.com (Astro)
+- App at app.intellifill.com
+- Settings with sub-tabs (Profile/Organization/Security)
+- Collapsible dashboard stats
+- Template favorites with direct-to-editor flow
+- Mobile bottom navigation
+- Reduced upload page animations
 
 ### v1.1 Stripe Integration (Shipped 2026-01-20)
 
@@ -99,15 +116,15 @@ All decisions documented in PROJECT.md Key Decisions table (17 decisions total).
 
 ### Blockers/Concerns
 
-None — Phase 8 complete. All polish features delivered.
+None — v1.2 milestone complete. All 3 milestones shipped.
 
 ## Session Continuity
 
 Last session: 2026-01-25
-Stopped at: Completed 08-03-PLAN.md
+Stopped at: v1.2 milestone complete
 Resume file: None
-Next: Phase 8 complete — ready for next phase or new initiatives
+Next: Ready for v1.3 or new initiatives
 
 ---
 
-_v1.2 UI/UX Cleanup & Marketing Site milestone created 2026-01-21_
+_v1.2 UI/UX Cleanup & Marketing Site milestone shipped 2026-01-25_
