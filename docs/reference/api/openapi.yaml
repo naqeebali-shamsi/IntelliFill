@@ -1,0 +1,1967 @@
+openapi: 3.0.3
+info:
+  title: IntelliFill API
+  description: |
+    IntelliFill is an AI-powered document processing and form-filling platform.
+
+    ## Authentication
+
+    All protected endpoints require a valid JWT token in the Authorization header:
+
+    ```
+    Authorization: Bearer <token>
+    ```
+
+    Tokens are obtained via the `/api/auth/v2/login` endpoint.
+
+    ## Rate Limiting
+
+    API requests are rate-limited per user:
+    - Authentication endpoints: 10 requests/minute
+    - Document uploads: 30 requests/minute
+    - General API: 100 requests/minute
+
+  version: 1.0.0
+  contact:
+    name: IntelliFill Support
+    url: https://intellifill.io/support
+  license:
+    name: Proprietary
+    url: https://intellifill.io/license
+
+servers:
+  - url: http://localhost:3002
+    description: Local development server
+  - url: https://api.intellifill.io
+    description: Production server
+
+tags:
+  - name: Health
+    description: Service health and status
+  - name: Authentication
+    description: User authentication and session management
+  - name: Documents
+    description: Document upload, processing, and management
+  - name: Processing
+    description: OCR and data extraction operations
+  - name: Profiles
+    description: User profile aggregation and management
+  - name: Templates
+    description: Form template management
+  - name: Filled Forms
+    description: Generate and manage filled PDF forms
+  - name: Clients
+    description: Client management for multi-client workflows
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Returns API health status and version information
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/auth/v2/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/v2/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user
+      description: Log in with email and password
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/v2/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out user
+      description: Invalidate current session
+      operationId: logoutUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/auth/v2/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh authentication token
+      description: Get a new access token using refresh token
+      operationId: refreshToken
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/v2/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change password
+      description: Change the user's password
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/v2/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Send password reset email
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (always returns success for security)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/auth/v2/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password
+      description: Reset password with token from email
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/documents:
+    get:
+      tags:
+        - Documents
+      summary: List documents
+      description: Get all documents for the authenticated user
+      operationId: listDocuments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/documents/upload:
+    post:
+      tags:
+        - Documents
+      summary: Upload document
+      description: Upload a new document for processing
+      operationId: uploadDocument
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file (PDF, image, DOCX, TXT, CSV)
+                clientId:
+                  type: string
+                  format: uuid
+                  description: Optional client to associate with document
+      responses:
+        '201':
+          description: Document uploaded and queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/documents/{id}:
+    get:
+      tags:
+        - Documents
+      summary: Get document
+      description: Get a specific document by ID
+      operationId: getDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - name: includeConfidence
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Include per-field confidence scores
+      responses:
+        '200':
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - Documents
+      summary: Update document
+      description: Update document metadata
+      operationId: updateDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                clientId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Document updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Documents
+      summary: Delete document
+      description: Delete a document and its extracted data
+      operationId: deleteDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '200':
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/documents/{id}/data:
+    get:
+      tags:
+        - Documents
+      summary: Get extracted data
+      description: Get only the extracted data from a document
+      operationId: getDocumentData
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+        - name: includeConfidence
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Extracted data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractedDataResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/documents/{id}/reprocess:
+    post:
+      tags:
+        - Documents
+      summary: Reprocess document
+      description: Re-run OCR with higher quality settings
+      operationId: reprocessDocument
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DocumentId'
+      responses:
+        '202':
+          description: Reprocessing queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/process/single:
+    post:
+      tags:
+        - Processing
+      summary: Process single document
+      description: Upload and process a document with form filling
+      operationId: processSingle
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                templateId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Processing result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/process/multiple:
+    post:
+      tags:
+        - Processing
+      summary: Process multiple documents
+      description: Batch process multiple documents
+      operationId: processMultiple
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 10
+      responses:
+        '202':
+          description: Batch processing queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/jobs/{id}/status:
+    get:
+      tags:
+        - Processing
+      summary: Get job status
+      description: Check status of a processing job
+      operationId: getJobStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/me/profile:
+    get:
+      tags:
+        - Profiles
+      summary: Get user profile
+      description: Get aggregated profile data for the current user
+      operationId: getUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - Profiles
+      summary: Update user profile
+      description: Manually update profile fields (merges with existing data)
+      operationId: updateUserProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              example:
+                full_name: "John Smith"
+                email: "john@example.com"
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags:
+        - Profiles
+      summary: Delete user profile
+      description: Delete aggregated profile data (documents remain)
+      operationId: deleteUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/users/me/profile/refresh:
+    post:
+      tags:
+        - Profiles
+      summary: Refresh profile
+      description: Re-aggregate profile from all documents
+      operationId: refreshUserProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/users/me/fill-form:
+    post:
+      tags:
+        - Profiles
+      summary: Fill form with profile
+      description: Fill a form using the user's aggregated profile data
+      operationId: fillFormWithProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - templateId
+              properties:
+                templateId:
+                  type: string
+                  format: uuid
+                overrideData:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Form filled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FillFormResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/templates:
+    get:
+      tags:
+        - Templates
+      summary: List templates
+      description: Get all form templates for the user
+      operationId: listTemplates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Templates
+      summary: Create template
+      description: Upload a new form template
+      operationId: createTemplate
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - name
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF form template
+                name:
+                  type: string
+                  maxLength: 255
+                description:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/templates/{id}:
+    get:
+      tags:
+        - Templates
+      summary: Get template
+      description: Get a specific template by ID
+      operationId: getTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Templates
+      summary: Update template
+      description: Update template metadata and field mappings
+      operationId: updateTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateUpdateRequest'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Templates
+      summary: Delete template
+      description: Delete a form template
+      operationId: deleteTemplate
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateId'
+      responses:
+        '200':
+          description: Template deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/templates/public:
+    get:
+      tags:
+        - Templates
+      summary: List public templates
+      description: Get all publicly available templates
+      operationId: listPublicTemplates
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of public templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/filled-forms:
+    get:
+      tags:
+        - Filled Forms
+      summary: List filled forms
+      description: Get all generated filled forms
+      operationId: listFilledForms
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: clientId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: templateId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of filled forms
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilledFormListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/filled-forms/generate:
+    post:
+      tags:
+        - Filled Forms
+      summary: Generate filled form
+      description: Generate a filled PDF from template and client profile
+      operationId: generateFilledForm
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateFormRequest'
+      responses:
+        '201':
+          description: Form generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilledFormResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/filled-forms/preview:
+    post:
+      tags:
+        - Filled Forms
+      summary: Preview form filling
+      description: Preview what data would be filled without generating PDF
+      operationId: previewFormFilling
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateFormRequest'
+      responses:
+        '200':
+          description: Preview result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormPreviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/filled-forms/batch:
+    post:
+      tags:
+        - Filled Forms
+      summary: Batch generate forms
+      description: Generate multiple filled forms at once
+      operationId: batchGenerateForms
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFormRequest'
+      responses:
+        '200':
+          description: Batch results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchFormResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/filled-forms/{id}:
+    get:
+      tags:
+        - Filled Forms
+      summary: Get filled form
+      description: Get a specific filled form by ID
+      operationId: getFilledForm
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Filled form details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilledFormResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Filled Forms
+      summary: Delete filled form
+      description: Delete a generated filled form
+      operationId: deleteFilledForm
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Filled form deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/filled-forms/{id}/download:
+    get:
+      tags:
+        - Filled Forms
+      summary: Download filled form
+      description: Download the filled PDF
+      operationId: downloadFilledForm
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/filled-forms/{id}/export:
+    get:
+      tags:
+        - Filled Forms
+      summary: Export filled form
+      description: Export in various formats (PDF, JSON, CSV)
+      operationId: exportFilledForm
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [pdf, json, csv]
+            default: pdf
+      responses:
+        '200':
+          description: Exported file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/clients:
+    get:
+      tags:
+        - Clients
+      summary: List clients
+      description: Get all clients for the user
+      operationId: listClients
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Clients
+      summary: Create client
+      description: Create a new client record
+      operationId: createClient
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientRequest'
+      responses:
+        '201':
+          description: Client created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/clients/{id}:
+    get:
+      tags:
+        - Clients
+      summary: Get client
+      description: Get a specific client by ID
+      operationId: getClient
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/clients/{id}/profile:
+    post:
+      tags:
+        - Clients
+      summary: Update client profile
+      description: Update or create profile data for a client
+      operationId: updateClientProfile
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DocumentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Document UUID
+
+    TemplateId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Template UUID
+
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: UNAUTHORIZED
+              message: Authentication required
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: NOT_FOUND
+              message: Resource not found
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          example: 1.0.0
+        environment:
+          type: string
+          example: development
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid input
+            details:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+          maxLength: 255
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+            expiresAt:
+              type: string
+              format: date-time
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        fileType:
+          type: string
+        fileSize:
+          type: integer
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        confidence:
+          type: number
+          format: float
+        extractedData:
+          type: object
+        clientId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        processedAt:
+          type: string
+          format: date-time
+
+    DocumentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Document'
+
+    DocumentListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            documents:
+              type: array
+              items:
+                $ref: '#/components/schemas/Document'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    ExtractedDataResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            fields:
+              type: object
+              additionalProperties:
+                oneOf:
+                  - type: object
+                    properties:
+                      value:
+                        type: string
+                      confidence:
+                        type: number
+                      source:
+                        type: string
+                  - type: string
+            entities:
+              type: object
+              properties:
+                emails:
+                  type: array
+                  items:
+                    type: string
+                phones:
+                  type: array
+                  items:
+                    type: string
+                names:
+                  type: array
+                  items:
+                    type: string
+                dates:
+                  type: array
+                  items:
+                    type: string
+                addresses:
+                  type: array
+                  items:
+                    type: string
+                currencies:
+                  type: array
+                  items:
+                    type: string
+                numbers:
+                  type: array
+                  items:
+                    type: string
+
+    ProcessingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            documentId:
+              type: string
+              format: uuid
+            extractedData:
+              type: object
+            confidence:
+              type: number
+
+    JobResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+            status:
+              type: string
+              enum: [queued, processing, completed, failed]
+
+    BatchJobResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            batchId:
+              type: string
+            jobs:
+              type: array
+              items:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  documentName:
+                    type: string
+                  status:
+                    type: string
+
+    JobStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+            status:
+              type: string
+              enum: [queued, processing, completed, failed]
+            progress:
+              type: integer
+              minimum: 0
+              maximum: 100
+            result:
+              type: object
+            error:
+              type: string
+
+    ProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            userId:
+              type: string
+              format: uuid
+            fields:
+              type: object
+              additionalProperties:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  values:
+                    type: array
+                    items:
+                      type: string
+                  sources:
+                    type: array
+                    items:
+                      type: string
+                  confidence:
+                    type: number
+                  lastUpdated:
+                    type: string
+                    format: date-time
+            lastAggregated:
+              type: string
+              format: date-time
+            documentCount:
+              type: integer
+
+    FillFormResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            filledFormId:
+              type: string
+              format: uuid
+            downloadUrl:
+              type: string
+            filledFields:
+              type: integer
+            unmappedFields:
+              type: integer
+            warnings:
+              type: array
+              items:
+                type: string
+
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        fileUrl:
+          type: string
+        detectedFields:
+          type: array
+          items:
+            type: string
+        fieldMappings:
+          type: object
+          additionalProperties:
+            type: string
+        isActive:
+          type: boolean
+        usageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    TemplateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Template'
+
+    TemplateListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            templates:
+              type: array
+              items:
+                $ref: '#/components/schemas/Template'
+
+    TemplateUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        category:
+          type: string
+        fieldMappings:
+          type: object
+          additionalProperties:
+            type: string
+        isActive:
+          type: boolean
+
+    GenerateFormRequest:
+      type: object
+      required:
+        - templateId
+        - clientId
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        overrideData:
+          type: object
+          additionalProperties: true
+
+    FilledForm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        clientName:
+          type: string
+        templateId:
+          type: string
+          format: uuid
+        templateName:
+          type: string
+        templateCategory:
+          type: string
+        fileUrl:
+          type: string
+        downloadUrl:
+          type: string
+        dataSnapshot:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    FilledFormResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            filledForm:
+              $ref: '#/components/schemas/FilledForm'
+
+    FilledFormListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            filledForms:
+              type: array
+              items:
+                $ref: '#/components/schemas/FilledForm'
+            pagination:
+              $ref: '#/components/schemas/Pagination'
+
+    FormPreviewResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            template:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                totalFields:
+                  type: integer
+            client:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+            preview:
+              type: array
+              items:
+                type: object
+                properties:
+                  formField:
+                    type: string
+                  profileField:
+                    type: string
+                  value:
+                    type: string
+                  status:
+                    type: string
+                    enum: [filled, unmapped, missing_data]
+            summary:
+              type: object
+              properties:
+                filledCount:
+                  type: integer
+                unmappedCount:
+                  type: integer
+                missingDataCount:
+                  type: integer
+                completionPercentage:
+                  type: integer
+
+    BatchFormRequest:
+      type: object
+      required:
+        - combinations
+      properties:
+        combinations:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required:
+              - templateId
+              - profileId
+            properties:
+              templateId:
+                type: string
+                format: uuid
+              profileId:
+                type: string
+                format: uuid
+
+    BatchFormResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              templateId:
+                type: string
+              templateName:
+                type: string
+              profileId:
+                type: string
+              profileName:
+                type: string
+              success:
+                type: boolean
+              documentId:
+                type: string
+              downloadUrl:
+                type: string
+              error:
+                type: string
+        totalGenerated:
+          type: integer
+        totalFailed:
+          type: integer
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [INDIVIDUAL, COMPANY]
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        notes:
+          type: string
+        documentCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ClientResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Client'
+
+    ClientListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            clients:
+              type: array
+              items:
+                $ref: '#/components/schemas/Client'
+
+    CreateClientRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        type:
+          type: string
+          enum: [INDIVIDUAL, COMPANY]
+          default: INDIVIDUAL
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        notes:
+          type: string
+
+    ClientProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            clientId:
+              type: string
+              format: uuid
+            profileData:
+              type: object
+              additionalProperties: true
+            lastUpdated:
+              type: string
+              format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean

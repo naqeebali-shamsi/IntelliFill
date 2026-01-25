@@ -2,7 +2,7 @@
 title: 'Documentation Hub'
 description: 'Central navigation hub for all IntelliFill documentation organized by the Diataxis framework'
 category: 'reference'
-lastUpdated: '2025-12-30'
+lastUpdated: '2026-01-25'
 status: 'active'
 ---
 
@@ -18,6 +18,7 @@ Welcome to the IntelliFill documentation. This documentation follows the [Diáta
 
 Step-by-step lessons for newcomers to learn by doing.
 
+- [Developer Quickstart](./tutorials/developer-quickstart.md) - Get running in 15 minutes
 - [Getting Started](./tutorials/getting-started.md) - Set up your development environment
 - [Your First Document](./tutorials/first-document.md) - Upload and process a document
 - [Understanding the Workflow](./tutorials/understanding-workflow.md) - Learn the OCR → Extract → Fill flow
@@ -42,10 +43,13 @@ Technical descriptions and specifications.
 
 - **API**
   - [Endpoints](./reference/api/endpoints.md) - Complete API reference
+  - [OpenAPI Specification](./reference/api/openapi.yaml) - OpenAPI 3.0 spec (Swagger)
 - **Configuration**
   - [Environment Variables](./reference/configuration/environment.md) - All configuration options
 - **Architecture**
   - [System Overview](./reference/architecture/system-overview.md) - Architecture documentation
+  - [Core Algorithms](./reference/architecture/core-algorithms.md) - Algorithm deep dives
+  - [Extension Points](./reference/architecture/extension-points.md) - How to extend IntelliFill
 - **Database**
   - [Schema](./reference/database/schema.md) - Database schema reference
 
@@ -56,6 +60,14 @@ Conceptual discussions to deepen understanding.
 - [Architecture Decisions](./explanation/architecture-decisions.md) - Why we built it this way
 - [Security Model](./explanation/security-model.md) - How security works
 - [Data Flow](./explanation/data-flow.md) - How data moves through the system
+
+### [Business Documentation](./business/) - Investor & Stakeholder Materials
+
+Documentation for investors, stakeholders, and business development.
+
+- [Executive Summary](./business/executive-summary.md) - One-page overview for investors
+- [Technical Differentiators](./business/technical-differentiators.md) - What sets IntelliFill apart
+- [Pitch Deck Outline](./business/pitch-deck-outline.md) - Slide-by-slide outline for presentations
 
 ### [AI Development](./ai-development/) - AI Agent Guides
 
@@ -164,4 +176,4 @@ See [MAINTENANCE.md](./MAINTENANCE.md) for:
 
 ---
 
-**Last Updated**: 2025-11-25
+**Last Updated**: 2026-01-25
