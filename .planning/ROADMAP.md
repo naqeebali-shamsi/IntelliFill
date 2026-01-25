@@ -4,7 +4,7 @@
 
 - ✅ [v1.0 MVP](milestones/v1.0-ROADMAP.md) (Phases 1-4) — SHIPPED 2026-01-16
 - ✅ [v1.1 Stripe Integration](milestones/v1.1-ROADMAP.md) (Phase 5) — SHIPPED 2026-01-20
-- ✅ **v1.2 UI/UX Cleanup & Marketing Site** (Phases 6-8) — SHIPPED 2026-01-25
+- ✅ [v1.2 UI/UX Cleanup & Marketing Site](milestones/v1.2-ROADMAP.md) (Phases 6-8) — SHIPPED 2026-01-25
 
 ## Overview
 
@@ -48,78 +48,32 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md) for full details.
 
 </details>
 
-## Current Milestone
+<details>
+<summary>v1.2 UI/UX Cleanup & Marketing Site (Phases 6-8) — SHIPPED 2026-01-25</summary>
 
-### ✅ v1.2 UI/UX Cleanup & Marketing Site (Complete)
+- [x] Phase 6: UX Cleanup (2/2 plans) — completed 2026-01-21
+- [x] Phase 7: Marketing Site (3/3 plans) — completed 2026-01-22
+- [x] Phase 8: Polish (3/3 plans) — completed 2026-01-25
 
-**Milestone Goal:** Transform IntelliFill into an addictively simple experience by removing UI clutter, fixing broken elements, and separating marketing from the app.
+**Total:** 3 phases, 8 plans, 63 files, +10.5k LOC
 
-Based on comprehensive UI/UX audit: 76 validated issues → 17 v1.2 requirements.
+**Delivered:**
+- Separate marketing site at intellifill.com (Astro)
+- Clean auth pages (no marketing content)
+- Consolidated navigation (6 items)
+- Settings with sub-tabs (Profile/Organization/Security)
+- Template favorites with direct-to-editor flow
+- Collapsible dashboard stats
+- Mobile bottom navigation
+- Removed fake/broken UI elements
 
-- [x] **Phase 6: UX Cleanup** - Fix critical/high priority UX issues
-- [x] **Phase 7: Marketing Site** - Separate marketing from app
-- [x] **Phase 8: Polish** - Medium priority refinements
+See [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) for full details.
 
-## Phase Details
-
-### Phase 6: UX Cleanup
-**Goal**: Remove broken/fake UI, surface hidden actions, simplify navigation
-**Depends on**: Nothing (first phase of v1.2)
-**Requirements**: UX-01, UX-02, UX-03, UX-04, UX-06, UX-07, UX-08, UX-09, UX-10
-**Research**: Unlikely (internal cleanup, established patterns)
-**Plans**: 2 (06-01: Critical UX Fixes, 06-02: Navigation Consolidation)
-
-Key deliverables:
-- Remove/implement fake search bar
-- Fix broken View button in FilledFormHistory
-- Remove fake status filters
-- Surface "Use Template" as visible button
-- Remove duplicate Quick Actions panel
-- Consolidate nav from 8-10 to 5-6 items
-- Rename "Smart Profile" to "My Profile"
-- Simplify Documents page stats
-
-### Phase 7: Marketing Site
-**Goal**: Create separate marketing site, clean up auth pages
-**Depends on**: Phase 6
-**Requirements**: UX-05, MKT-01, MKT-02
-**Research**: Likely (Astro/static site setup, deployment strategy)
-**Research topics**: Astro vs Next.js static, Vercel multi-domain, SEO best practices
-**Plans**: 3 plans
-
-Plans:
-- [x] 07-01-PLAN.md — Auth page cleanup
-- [x] 07-02-PLAN.md — Marketing site with Astro
-- [x] 07-03-PLAN.md — Vercel deployment config
-
-Key deliverables:
-- Create intellifill.com marketing landing page
-- Remove testimonials/marketing from auth pages
-- Configure app.intellifill.com for application
-- SEO-optimized hero, features, pricing sections
-
-### Phase 8: Polish
-**Goal**: Medium priority UX refinements
-**Depends on**: Phase 7
-**Requirements**: UX-11, UX-12, UX-13, UX-14, UX-15
-**Research**: Unlikely (internal patterns)
-**Plans**: 3 plans
-
-Plans:
-- [x] 08-01-PLAN.md — Settings consolidation (Account sub-tabs)
-- [x] 08-02-PLAN.md — Dashboard collapsible + template favorites
-- [x] 08-03-PLAN.md — Mobile navigation + animation polish
-
-Key deliverables:
-- Merge Organization tab into Account settings
-- Make stats dashboard collapsible
-- Simplify template flow (remove Preview modal)
-- Fix mobile navigation
-- Reduce upload page animation
+</details>
 
 ## Progress
 
-**Execution Order:** 6 → 7 → 8
+**All milestones shipped.** Ready for v1.3 planning.
 
 | Phase                 | Milestone | Plans Complete | Status      | Completed  |
 | --------------------- | --------- | -------------- | ----------- | ---------- |
@@ -137,4 +91,5 @@ Key deliverables:
 **Created:** 2026-01-13
 **v1.0 Shipped:** 2026-01-16
 **v1.1 Shipped:** 2026-01-20
+**v1.2 Shipped:** 2026-01-25
 **PRD Reference:** `.planning/phases/01-smart-profile-ux/PRD.md`

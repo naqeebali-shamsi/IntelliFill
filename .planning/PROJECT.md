@@ -1,10 +1,10 @@
 # Project Brief: Smart Profile UX
 
-## Current State (v1.1 Shipped)
+## Current State (v1.2 Shipped)
 
-**Shipped:** 2026-01-20
-**LOC:** ~22k TypeScript/React (130+ files)
-**Tech stack:** React 18, Vite, Zustand 5, Framer Motion, @dnd-kit, Radix UI, Stripe SDK v17
+**Shipped:** 2026-01-25
+**LOC:** ~33k TypeScript/React (190+ files)
+**Tech stack:** React 18, Vite, Zustand 5, Framer Motion, @dnd-kit, Radix UI, Stripe SDK v17, Astro 5.2 (marketing)
 
 The Smart Profile wizard is live at `/smart-profile` with:
 
@@ -15,11 +15,16 @@ The Smart Profile wizard is live at `/smart-profile` with:
 - Smart form suggestions
 - PRO features with Stripe subscriptions: client library, form analytics, admin dashboard
 
-**New in v1.1:**
-- Stripe payment integration with instant PRO unlock
-- Public pricing page at `/pricing`
-- Subscription management in Settings
-- Stripe Customer Portal for billing self-service
+**New in v1.2:**
+- Separate marketing site at intellifill.com (Astro)
+- App at app.intellifill.com
+- Cleaned auth pages (no marketing content)
+- Consolidated navigation (6 items)
+- Settings with sub-tabs (Profile/Organization/Security)
+- Template favorites with direct-to-editor flow
+- Collapsible dashboard stats
+- Mobile bottom navigation
+- Removed fake/broken UI elements
 
 ## What This Is
 
@@ -54,6 +59,16 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 - Instant PRO unlock on successful payment
 - Public pricing page at `/pricing`
 - Subscription settings in user account
+
+**v1.2:**
+- Marketing site at intellifill.com (Astro 5.2)
+- Auth pages cleaned (no marketing content)
+- Navigation consolidated to 6 items
+- Settings restructured with Account sub-tabs
+- Template favorites with localStorage
+- Collapsible dashboard stats
+- Mobile bottom navigation bar
+- Upload animation polish
 
 ### Active
 
@@ -115,6 +130,13 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 | 2026-01-17 | Pricing page as public route         | Users can view before logging in                      | Good    |
 | 2026-01-17 | Raw body middleware before JSON      | Required for webhook signature verification           | Good    |
 | 2026-01-17 | userId in subscription metadata      | Enables instant unlock without customer lookup        | Good    |
+| 2026-01-21 | Remove vs implement fake elements    | Less scope, surfaces future work as conscious choice  | Good    |
+| 2026-01-21 | VITE_MULTI_TENANT feature flag       | B2C default (hidden), B2B can enable                  | Good    |
+| 2026-01-22 | Astro 5.2 for marketing              | Excellent SEO, fast loading, minimal JS               | Good    |
+| 2026-01-22 | Two Vercel projects same repo        | Clean domain separation                               | Good    |
+| 2026-01-25 | localStorage for favorites           | Simpler for v1, can migrate to backend later          | Good    |
+| 2026-01-25 | Remove preview modal                 | Direct navigation reduces friction                    | Good    |
+| 2026-01-25 | Bottom nav with 5 items              | Home, Profile, Docs, Templates, More                  | Good    |
 
 ## References
 
@@ -124,7 +146,8 @@ A simplified "Upload → See → Fill" experience for IntelliFill that hides bac
 - Milestone Archives:
   - [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   - [v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md)
+  - [v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md)
 
 ---
 
-_Last updated: 2026-01-20 after v1.1 milestone_
+_Last updated: 2026-01-25 after v1.2 milestone_

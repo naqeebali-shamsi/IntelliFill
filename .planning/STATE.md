@@ -2,7 +2,7 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-20)
+See: .planning/PROJECT.md (updated 2026-01-25)
 
 **Core value:** Users want to drop documents and fill forms — not manage technical complexity
 **Current focus:** v1.2 Milestone Complete
@@ -85,7 +85,7 @@ Progress: █████████████████████ 30/30 
 
 ### Decisions
 
-All decisions documented in PROJECT.md Key Decisions table (17 decisions total).
+All decisions documented in PROJECT.md Key Decisions table (24 decisions total).
 
 **Phase 8 Decisions:**
 - Use localStorage for favorites (no backend endpoint needed for v1)
