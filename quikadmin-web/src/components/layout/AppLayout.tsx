@@ -22,13 +22,15 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  FileEdit,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// Base navigation for all users (6 essential items)
+// Base navigation for all users (7 essential items)
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'My Profile', href: '/smart-profile', icon: Sparkles },
+  { name: 'Fill Form', href: '/fill-form', icon: FileEdit },
   { name: 'Documents', href: '/documents', icon: Files },
   { name: 'History', href: '/history', icon: History },
   { name: 'Templates', href: '/templates', icon: LayoutTemplate },
