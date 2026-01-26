@@ -230,6 +230,11 @@ export const useUploadStore = create<UploadStore>()(
             file.completedAt = Date.now();
           }
         });
+
+        // Auto-cleanup: schedule cleanup after file failure to release memory
+        setTimeout(() => {
+          get().cleanupStale(2 * 60 * 1000); // Clean files older than 2 minutes
+        }, 0);
       },
 
       setFileResult: (id: string, result: UploadResult) => {
@@ -242,6 +247,12 @@ export const useUploadStore = create<UploadStore>()(
             file.completedAt = Date.now();
           }
         });
+
+        // Auto-cleanup: schedule cleanup after file completion to release memory
+        // This runs after the state update, so we use setTimeout to defer
+        setTimeout(() => {
+          get().cleanupStale(2 * 60 * 1000); // Clean files older than 2 minutes
+        }, 0);
       },
 
       setFileJobId: (id: string, jobId: string) => {
@@ -278,6 +289,11 @@ export const useUploadStore = create<UploadStore>()(
             file.completedAt = Date.now();
           }
         });
+
+        // Auto-cleanup: schedule cleanup after cancellation to release memory
+        setTimeout(() => {
+          get().cleanupStale(2 * 60 * 1000); // Clean files older than 2 minutes
+        }, 0);
       },
 
       retryUpload: (id: string) => {

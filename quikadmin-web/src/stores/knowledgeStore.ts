@@ -23,6 +23,19 @@ import knowledgeService, {
 } from '@/services/knowledgeService';
 
 // ============================================================================
+// Constants - Memory limits to prevent unbounded growth
+// ============================================================================
+
+/** Maximum number of sources to keep in memory */
+const MAX_SOURCES = 200;
+
+/** Maximum number of field suggestions to cache */
+const MAX_FIELD_SUGGESTIONS = 50;
+
+/** Maximum number of search results to keep */
+const MAX_SEARCH_RESULTS = 100;
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -195,7 +208,10 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     fetchMoreSources: async () => {
       const { sourcePagination, sources } = get();
 
-      if (!sourcePagination.hasMore) return;
+      // Memory optimization: Don't fetch more if we're at the limit
+      if (!sourcePagination.hasMore || sources.length >= MAX_SOURCES) {
+        return;
+      }
 
       set((state) => {
         state.sourcesLoading = true;
@@ -208,8 +224,14 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         });
 
         set((state) => {
-          state.sources = [...sources, ...response.sources];
-          state.sourcePagination = response.pagination;
+          // Memory optimization: Cap total sources to prevent unbounded growth
+          const combined = [...sources, ...response.sources];
+          state.sources = combined.slice(0, MAX_SOURCES);
+          state.sourcePagination = {
+            ...response.pagination,
+            // Update hasMore based on our limit, not just server's response
+            hasMore: response.pagination.hasMore && state.sources.length < MAX_SOURCES,
+          };
           state.sourcesLoading = false;
         });
       } catch (error) {
@@ -328,7 +350,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         const response = await knowledgeService.semanticSearch(request);
 
         set((state) => {
-          state.searchResults = response.results;
+          // Memory optimization: Limit search results to prevent unbounded growth
+          state.searchResults = response.results.slice(0, MAX_SEARCH_RESULTS);
           state.searchTime = response.searchTime;
           state.searchCached = response.cached;
           state.searchLoading = false;
@@ -352,7 +375,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         const response = await knowledgeService.hybridSearch(request);
 
         set((state) => {
-          state.searchResults = response.results;
+          // Memory optimization: Limit search results to prevent unbounded growth
+          state.searchResults = response.results.slice(0, MAX_SEARCH_RESULTS);
           state.searchTime = response.searchTime;
           state.searchCached = response.cached;
           state.searchLoading = false;
@@ -395,7 +419,22 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         const response = await knowledgeService.getFormSuggestions(request);
 
         set((state) => {
-          state.fieldSuggestions = { ...state.fieldSuggestions, ...response.fields };
+          const merged = { ...state.fieldSuggestions, ...response.fields };
+          // Memory optimization: Limit number of cached field suggestions
+          const fieldNames = Object.keys(merged);
+          if (fieldNames.length > MAX_FIELD_SUGGESTIONS) {
+            // Remove oldest entries (first ones in the object)
+            const toKeep = fieldNames.slice(-MAX_FIELD_SUGGESTIONS);
+            state.fieldSuggestions = toKeep.reduce(
+              (acc, key) => {
+                acc[key] = merged[key];
+                return acc;
+              },
+              {} as Record<string, FieldSuggestion[]>
+            );
+          } else {
+            state.fieldSuggestions = merged;
+          }
           state.suggestionsLoading = false;
         });
       } catch (error) {
@@ -418,6 +457,12 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
         set((state) => {
           state.fieldSuggestions[request.fieldName] = response.suggestions;
+          // Memory optimization: Limit number of cached field suggestions
+          const fieldNames = Object.keys(state.fieldSuggestions);
+          if (fieldNames.length > MAX_FIELD_SUGGESTIONS) {
+            const toRemove = fieldNames.slice(0, fieldNames.length - MAX_FIELD_SUGGESTIONS);
+            toRemove.forEach((key) => delete state.fieldSuggestions[key]);
+          }
           state.suggestionsLoading = false;
         });
 
@@ -443,6 +488,12 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
         set((state) => {
           state.fieldSuggestions[request.fieldName] = response.suggestions;
+          // Memory optimization: Limit number of cached field suggestions
+          const fieldNames = Object.keys(state.fieldSuggestions);
+          if (fieldNames.length > MAX_FIELD_SUGGESTIONS) {
+            const toRemove = fieldNames.slice(0, fieldNames.length - MAX_FIELD_SUGGESTIONS);
+            toRemove.forEach((key) => delete state.fieldSuggestions[key]);
+          }
           state.suggestionsLoading = false;
         });
 

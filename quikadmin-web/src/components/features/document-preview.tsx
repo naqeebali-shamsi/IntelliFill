@@ -1,10 +1,30 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Lazy-load PDF.js only when needed to save ~1MB of memory
+// The worker is also only initialized when a PDF is actually rendered
+let pdfJsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+let pdfJsLoaded = false;
+
+async function loadPdfJs() {
+  if (pdfJsLoaded) {
+    return import('pdfjs-dist');
+  }
+
+  if (!pdfJsPromise) {
+    pdfJsPromise = import('pdfjs-dist').then((pdfjs) => {
+      // Initialize worker only once, when PDF.js is first loaded
+      pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      pdfJsLoaded = true;
+      return pdfjs;
+    });
+  }
+
+  return pdfJsPromise;
+}
 
 export interface DocumentPreviewProps {
   documentUrl: string;
@@ -22,7 +42,8 @@ export function DocumentPreview({
   initialScale = 1,
 }: DocumentPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
+  const renderTaskRef = useRef<{ cancel: () => void } | null>(null);
   const [pageNum, setPageNum] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(initialScale);
@@ -39,6 +60,15 @@ export function DocumentPreview({
     setError(null);
 
     try {
+      // Lazy-load PDF.js only when needed
+      const pdfjsLib = await loadPdfJs();
+
+      // Cancel any existing render task to prevent memory buildup
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+
       // Load PDF document if not already loaded
       if (!pdfDocRef.current) {
         const loadingTask = pdfjsLib.getDocument(documentUrl);
@@ -57,17 +87,29 @@ export function DocumentPreview({
         throw new Error('Could not get canvas context');
       }
 
+      // Clear previous canvas content to release memory
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      await page.render({
+      const renderTask = page.render({
         canvasContext: context,
         viewport,
         canvas,
-      }).promise;
+      });
+
+      renderTaskRef.current = renderTask;
+
+      await renderTask.promise;
+      renderTaskRef.current = null;
 
       setLoadingState('loaded');
     } catch (err) {
+      // Ignore cancellation errors
+      if (err instanceof Error && err.name === 'RenderingCancelledException') {
+        return;
+      }
       console.error('Error loading PDF:', err);
       setError(err instanceof Error ? err.message : 'Failed to load PDF');
       setLoadingState('error');
@@ -82,9 +124,27 @@ export function DocumentPreview({
 
     // Cleanup on unmount or URL change
     return () => {
+      // Cancel any pending render task
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+
+      // Destroy PDF document to release memory
       if (pdfDocRef.current) {
         pdfDocRef.current.destroy();
         pdfDocRef.current = null;
+      }
+
+      // Clear canvas to release GPU memory
+      if (canvasRef.current) {
+        const context = canvasRef.current.getContext('2d');
+        if (context) {
+          context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
+        // Reset canvas dimensions to release memory
+        canvasRef.current.width = 0;
+        canvasRef.current.height = 0;
       }
     };
   }, [loadPdf, isPdf, documentUrl]);

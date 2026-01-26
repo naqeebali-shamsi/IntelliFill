@@ -160,6 +160,28 @@ export function useMultiJobPolling(jobIds: string[], options: UseJobPollingOptio
   // Track processed jobs to avoid duplicate callbacks
   const processedJobsRef = useRef<Set<string>>(new Set());
 
+  // Memory optimization: Clean up processedJobsRef when jobIds change
+  // Remove entries for jobs that are no longer being tracked
+  useEffect(() => {
+    const currentJobIds = new Set(jobIds);
+    const keysToRemove: string[] = [];
+
+    processedJobsRef.current.forEach((key) => {
+      // Key format is "jobId-status"
+      const jobId = key.substring(0, key.lastIndexOf('-'));
+      if (!currentJobIds.has(jobId)) {
+        keysToRemove.push(key);
+      }
+    });
+
+    keysToRemove.forEach((key) => processedJobsRef.current.delete(key));
+
+    // Cleanup on unmount: clear all tracked jobs to free memory
+    return () => {
+      processedJobsRef.current.clear();
+    };
+  }, [jobIds]);
+
   const queries = useQueries({
     queries: jobIds.map((jobId) => ({
       queryKey: ['job-status', jobId],

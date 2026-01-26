@@ -559,23 +559,30 @@ export const useSmartProfileStore = create<SmartProfileStore>()(
       {
         name: 'smart-profile-wizard',
         storage: createJSONStorage(() => localStorage),
-        // Only persist serializable data, not File objects
+        // Memory optimization: Only persist essential user preferences
+        // Large arrays (uploadedFiles, lowConfidenceFields, conflicts, profileData, fieldSources)
+        // are NOT persisted to avoid re-hydrating megabytes of data on page load.
+        // Users will need to restart the wizard if they navigate away, but this prevents
+        // memory bloat from localStorage re-hydration.
         partialize: (state) => ({
+          // Only persist navigation state and user selections
           step: state.step,
-          uploadedFiles: state.uploadedFiles,
-          detectedPeople: state.detectedPeople,
-          lowConfidenceFields: state.lowConfidenceFields,
-          conflicts: state.conflicts,
-          profileData: state.profileData,
-          fieldSources: state.fieldSources,
           selectedFormId: state.selectedFormId,
           clientId: state.clientId,
-          processingStartedAt: state.processingStartedAt,
-          // Client selection state
+          // Client selection state (small strings only)
           selectedClientId: state.selectedClientId,
           newClientName: state.newClientName,
           clientMode: state.clientMode,
           savedClientName: state.savedClientName,
+          // Note: The following are intentionally NOT persisted to save memory:
+          // - uploadedFiles (can be large, contains file metadata)
+          // - detectedPeople (rebuilt on each session)
+          // - lowConfidenceFields (can grow unbounded)
+          // - conflicts (can grow unbounded)
+          // - profileData (can contain hundreds of fields)
+          // - fieldSources (record per field, can be huge)
+          // - processingStartedAt (ephemeral)
+          // - extractionProgress (ephemeral)
         }),
       }
     ),
