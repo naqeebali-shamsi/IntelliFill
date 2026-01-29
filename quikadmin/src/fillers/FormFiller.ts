@@ -75,25 +75,37 @@ export class FormFiller {
           } else if (field instanceof PDFDropdown) {
             const options = field.getOptions();
             const valueStr = String(mapping.value);
+            const bestMatch = this.findBestOptionMatch(valueStr, options);
 
-            if (options.includes(valueStr)) {
-              field.select(valueStr);
+            if (bestMatch) {
+              field.select(bestMatch);
               filledFields.push(mapping.formField);
+              if (bestMatch.toLowerCase() !== valueStr.toLowerCase()) {
+                logger.debug(
+                  `Smart matched '${valueStr}' to dropdown option '${bestMatch}' for field '${mapping.formField}'`
+                );
+              }
             } else {
               warnings.push(
-                `Value '${valueStr}' not found in dropdown options for field '${mapping.formField}'`
+                `Value '${valueStr}' not found in dropdown options [${options.join(', ')}] for field '${mapping.formField}'`
               );
             }
           } else if (field instanceof PDFRadioGroup) {
             const options = field.getOptions();
             const valueStr = String(mapping.value);
+            const bestMatch = this.findBestOptionMatch(valueStr, options);
 
-            if (options.includes(valueStr)) {
-              field.select(valueStr);
+            if (bestMatch) {
+              field.select(bestMatch);
               filledFields.push(mapping.formField);
+              if (bestMatch.toLowerCase() !== valueStr.toLowerCase()) {
+                logger.debug(
+                  `Smart matched '${valueStr}' to radio option '${bestMatch}' for field '${mapping.formField}'`
+                );
+              }
             } else {
               warnings.push(
-                `Value '${valueStr}' not found in radio options for field '${mapping.formField}'`
+                `Value '${valueStr}' not found in radio options [${options.join(', ')}] for field '${mapping.formField}'`
               );
             }
           } else {
@@ -154,6 +166,137 @@ export class FormFiller {
       );
     }
     return Boolean(value);
+  }
+
+  /**
+   * Common abbreviations and variations for smart matching
+   */
+  private static readonly VALUE_MAPPINGS: Record<string, string[]> = {
+    // Gender variations
+    male: ['m', 'male', 'man', 'mr'],
+    female: ['f', 'female', 'woman', 'mrs', 'ms'],
+    // Yes/No variations
+    yes: ['y', 'yes', 'true', '1', 'on', 'checked'],
+    no: ['n', 'no', 'false', '0', 'off', 'unchecked'],
+    // Country abbreviations (common ones)
+    'united arab emirates': ['uae', 'u.a.e.', 'united arab emirates'],
+    'united states': ['usa', 'us', 'u.s.', 'u.s.a.', 'united states', 'united states of america'],
+    'united kingdom': ['uk', 'u.k.', 'united kingdom', 'great britain', 'gb'],
+    // Marital status
+    single: ['s', 'single', 'unmarried'],
+    married: ['m', 'married'],
+    divorced: ['d', 'divorced'],
+    widowed: ['w', 'widowed'],
+  };
+
+  /**
+   * Smart match a value against available options
+   * Returns the best matching option or null if no match found
+   */
+  findBestOptionMatch(value: string, options: string[]): string | null {
+    if (!value || options.length === 0) return null;
+
+    const valueLower = value.toLowerCase().trim();
+    const optionsLower = options.map((o) => o.toLowerCase().trim());
+
+    // 1. Exact match
+    const exactIndex = optionsLower.indexOf(valueLower);
+    if (exactIndex !== -1) return options[exactIndex];
+
+    // 2. Check if value matches any known variation
+    for (const [canonical, variations] of Object.entries(FormFiller.VALUE_MAPPINGS)) {
+      if (variations.includes(valueLower) || canonical === valueLower) {
+        // Found a known value - look for any variation in options
+        for (const variation of variations) {
+          const varIndex = optionsLower.indexOf(variation);
+          if (varIndex !== -1) return options[varIndex];
+        }
+        // Also check if canonical form is in options
+        const canonIndex = optionsLower.indexOf(canonical);
+        if (canonIndex !== -1) return options[canonIndex];
+      }
+    }
+
+    // 3. Check if any option is a variation of the value
+    for (const [canonical, variations] of Object.entries(FormFiller.VALUE_MAPPINGS)) {
+      for (let i = 0; i < optionsLower.length; i++) {
+        if (variations.includes(optionsLower[i]) || optionsLower[i] === canonical) {
+          // This option is a known variation - check if value matches
+          if (variations.includes(valueLower) || valueLower === canonical) {
+            return options[i];
+          }
+        }
+      }
+    }
+
+    // 4. Partial match - value contains option or option contains value
+    for (let i = 0; i < optionsLower.length; i++) {
+      if (valueLower.includes(optionsLower[i]) || optionsLower[i].includes(valueLower)) {
+        return options[i];
+      }
+    }
+
+    // 5. First letter match for single-letter options (M for Male, F for Female)
+    if (valueLower.length > 1) {
+      const firstLetter = valueLower[0];
+      const singleLetterIndex = optionsLower.findIndex((o) => o === firstLetter);
+      if (singleLetterIndex !== -1) return options[singleLetterIndex];
+    }
+
+    // 6. Levenshtein-like similarity for close matches (typos)
+    const bestSimilar = this.findMostSimilarOption(valueLower, options, optionsLower);
+    if (bestSimilar) return bestSimilar;
+
+    return null;
+  }
+
+  /**
+   * Find the most similar option using basic string similarity
+   */
+  private findMostSimilarOption(
+    value: string,
+    options: string[],
+    optionsLower: string[]
+  ): string | null {
+    let bestMatch: string | null = null;
+    let bestScore = 0;
+    const threshold = 0.6; // Minimum similarity threshold
+
+    for (let i = 0; i < optionsLower.length; i++) {
+      const score = this.stringSimilarity(value, optionsLower[i]);
+      if (score > bestScore && score >= threshold) {
+        bestScore = score;
+        bestMatch = options[i];
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Simple string similarity (Dice coefficient)
+   */
+  private stringSimilarity(a: string, b: string): number {
+    if (a === b) return 1;
+    if (a.length < 2 || b.length < 2) return 0;
+
+    const getBigrams = (s: string): Set<string> => {
+      const bigrams = new Set<string>();
+      for (let i = 0; i < s.length - 1; i++) {
+        bigrams.add(s.substring(i, i + 2));
+      }
+      return bigrams;
+    };
+
+    const bigramsA = getBigrams(a);
+    const bigramsB = getBigrams(b);
+    let intersection = 0;
+
+    for (const bigram of bigramsA) {
+      if (bigramsB.has(bigram)) intersection++;
+    }
+
+    return (2 * intersection) / (bigramsA.size + bigramsB.size);
   }
 
   /**
@@ -222,27 +365,38 @@ export class FormFiller {
           } else if (field instanceof PDFDropdown) {
             const options = field.getOptions();
             const valueStr = String(value);
-            if (options.includes(valueStr)) {
-              field.select(valueStr);
+            const bestMatch = this.findBestOptionMatch(valueStr, options);
+
+            if (bestMatch) {
+              field.select(bestMatch);
               filledFields.push(formFieldName);
-            } else {
-              // Try case-insensitive match
-              const match = options.find((opt) => opt.toLowerCase() === valueStr.toLowerCase());
-              if (match) {
-                field.select(match);
-                filledFields.push(formFieldName);
-              } else {
-                warnings.push(`Value '${valueStr}' not in dropdown options for '${formFieldName}'`);
+              if (bestMatch.toLowerCase() !== valueStr.toLowerCase()) {
+                logger.debug(
+                  `Smart matched '${valueStr}' to dropdown option '${bestMatch}' for field '${formFieldName}'`
+                );
               }
+            } else {
+              warnings.push(
+                `Value '${valueStr}' not in dropdown options [${options.join(', ')}] for '${formFieldName}'`
+              );
             }
           } else if (field instanceof PDFRadioGroup) {
             const options = field.getOptions();
             const valueStr = String(value);
-            if (options.includes(valueStr)) {
-              field.select(valueStr);
+            const bestMatch = this.findBestOptionMatch(valueStr, options);
+
+            if (bestMatch) {
+              field.select(bestMatch);
               filledFields.push(formFieldName);
+              if (bestMatch.toLowerCase() !== valueStr.toLowerCase()) {
+                logger.debug(
+                  `Smart matched '${valueStr}' to radio option '${bestMatch}' for field '${formFieldName}'`
+                );
+              }
             } else {
-              warnings.push(`Value '${valueStr}' not in radio options for '${formFieldName}'`);
+              warnings.push(
+                `Value '${valueStr}' not in radio options [${options.join(', ')}] for '${formFieldName}'`
+              );
             }
           } else {
             warnings.push(`Unknown field type for '${formFieldName}'`);
