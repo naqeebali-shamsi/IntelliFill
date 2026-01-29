@@ -59,11 +59,38 @@ export function encryptExtractedData(data: any): string {
 
 /**
  * Helper to decrypt extractedData when retrieving from database
+ * Handles both encrypted strings and legacy unencrypted JSON data
  */
-export function decryptExtractedData(encryptedString: string): any {
-  if (!encryptedString) return null;
+export function decryptExtractedData(encryptedData: string | object | null | undefined): any {
+  if (!encryptedData) return null;
+
+  // If it's already an object (legacy unencrypted data or already parsed), return as-is
+  if (typeof encryptedData === 'object') {
+    return encryptedData;
+  }
+
+  // If it's not a string at this point, something is wrong
+  if (typeof encryptedData !== 'string') {
+    console.error('Unexpected extractedData type:', typeof encryptedData);
+    return null;
+  }
+
+  // Check if it looks like encrypted data (format: base64:base64:base64)
+  // Encrypted strings have exactly 2 colons separating 3 base64 parts
+  if (!encryptedData.includes(':') || encryptedData.split(':').length !== 3) {
+    // Try parsing as raw JSON (legacy unencrypted data)
+    try {
+      return JSON.parse(encryptedData);
+    } catch {
+      // Not valid JSON either, return as-is or null
+      console.warn('extractedData is neither encrypted nor valid JSON');
+      return null;
+    }
+  }
+
+  // Decrypt the encrypted string
   try {
-    return decryptJSON(encryptedString);
+    return decryptJSON(encryptedData);
   } catch (error) {
     console.error('Failed to decrypt extracted data:', error);
     return null;
