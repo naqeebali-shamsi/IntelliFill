@@ -5,6 +5,7 @@ import {
   PDFCheckBox,
   PDFDropdown,
   PDFRadioGroup,
+  PDFOptionList,
 } from 'pdf-lib';
 import * as fs from 'fs/promises';
 import { MappingResult } from '../mappers/FieldMapper';
@@ -108,6 +109,35 @@ export class FormFiller {
                 `Value '${valueStr}' not found in radio options [${options.join(', ')}] for field '${mapping.formField}'`
               );
             }
+          } else if (field instanceof PDFOptionList) {
+            // Multi-select list - can select multiple options
+            const options = field.getOptions();
+            const valueStr = String(mapping.value);
+
+            // Handle comma-separated values for multi-select
+            const valuesToSelect = valueStr.includes(',')
+              ? valueStr.split(',').map(v => v.trim())
+              : [valueStr];
+
+            const selectedOptions: string[] = [];
+            for (const val of valuesToSelect) {
+              const bestMatch = this.findBestOptionMatch(val, options);
+              if (bestMatch && !selectedOptions.includes(bestMatch)) {
+                selectedOptions.push(bestMatch);
+              }
+            }
+
+            if (selectedOptions.length > 0) {
+              field.select(selectedOptions);
+              filledFields.push(mapping.formField);
+              logger.debug(
+                `Selected options [${selectedOptions.join(', ')}] for option list field '${mapping.formField}'`
+              );
+            } else {
+              warnings.push(
+                `Value '${valueStr}' not found in option list [${options.join(', ')}] for field '${mapping.formField}'`
+              );
+            }
           } else {
             warnings.push(`Unknown field type for '${mapping.formField}'`);
           }
@@ -155,15 +185,24 @@ export class FormFiller {
 
   /**
    * Parse a value as boolean for checkbox fields
-   * Supports: true, 'true', 'yes', '1', 'checked', 'x'
+   * Supports various affirmative values including marital status
    */
   parseBoolean(value: unknown): boolean {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
-      const lower = value.toLowerCase();
-      return (
-        lower === 'true' || lower === 'yes' || lower === '1' || lower === 'checked' || lower === 'x'
-      );
+      const lower = value.toLowerCase().trim();
+      // Direct boolean values
+      if (['true', 'yes', 'y', '1', 'checked', 'x', 'on'].includes(lower)) {
+        return true;
+      }
+      // Marital status - "married" means checkbox should be checked
+      if (['married', 'wed', 'spouse'].includes(lower)) {
+        return true;
+      }
+      // Explicit false values
+      if (['false', 'no', 'n', '0', 'unchecked', 'off', 'single', 'unmarried', 'divorced', 'widowed'].includes(lower)) {
+        return false;
+      }
     }
     return Boolean(value);
   }
@@ -398,6 +437,35 @@ export class FormFiller {
                 `Value '${valueStr}' not in radio options [${options.join(', ')}] for '${formFieldName}'`
               );
             }
+          } else if (field instanceof PDFOptionList) {
+            // Multi-select list - can select multiple options
+            const options = field.getOptions();
+            const valueStr = String(value);
+
+            // Handle comma-separated values for multi-select
+            const valuesToSelect = valueStr.includes(',')
+              ? valueStr.split(',').map(v => v.trim())
+              : [valueStr];
+
+            const selectedOptions: string[] = [];
+            for (const val of valuesToSelect) {
+              const bestMatch = this.findBestOptionMatch(val, options);
+              if (bestMatch && !selectedOptions.includes(bestMatch)) {
+                selectedOptions.push(bestMatch);
+              }
+            }
+
+            if (selectedOptions.length > 0) {
+              field.select(selectedOptions);
+              filledFields.push(formFieldName);
+              logger.debug(
+                `Selected options [${selectedOptions.join(', ')}] for option list field '${formFieldName}'`
+              );
+            } else {
+              warnings.push(
+                `Value '${valueStr}' not in option list [${options.join(', ')}] for '${formFieldName}'`
+              );
+            }
           } else {
             warnings.push(`Unknown field type for '${formFieldName}'`);
           }
@@ -490,6 +558,8 @@ export class FormFiller {
           fieldInfo[name] = 'dropdown';
         } else if (field instanceof PDFRadioGroup) {
           fieldInfo[name] = 'radio';
+        } else if (field instanceof PDFOptionList) {
+          fieldInfo[name] = 'optionlist';
         } else {
           fieldInfo[name] = 'unknown';
         }
