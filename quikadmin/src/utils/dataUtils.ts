@@ -13,6 +13,8 @@ export interface ExtractedData {
     phones?: string[];
     dates?: string[];
     addresses?: string[];
+    numbers?: string[];
+    currencies?: string[];
   };
   metadata?: {
     confidence?: number;
@@ -32,6 +34,8 @@ export interface MergedExtractedData {
     phones: string[];
     dates: string[];
     addresses: string[];
+    numbers: string[];
+    currencies: string[];
   };
   metadata: {
     confidence: number;
@@ -54,6 +58,8 @@ export function mergeExtractedData(dataArray: ExtractedData[]): MergedExtractedD
       phones: [],
       dates: [],
       addresses: [],
+      numbers: [],
+      currencies: [],
     },
     metadata: {
       confidence: 0,
@@ -77,6 +83,8 @@ export function mergeExtractedData(dataArray: ExtractedData[]): MergedExtractedD
       merged.entities.phones.push(...(data.entities.phones || []));
       merged.entities.dates.push(...(data.entities.dates || []));
       merged.entities.addresses.push(...(data.entities.addresses || []));
+      merged.entities.numbers.push(...(data.entities.numbers || []));
+      merged.entities.currencies.push(...(data.entities.currencies || []));
     }
 
     // Average confidence
@@ -95,6 +103,8 @@ export function mergeExtractedData(dataArray: ExtractedData[]): MergedExtractedD
   merged.entities.phones = [...new Set(merged.entities.phones)];
   merged.entities.dates = [...new Set(merged.entities.dates)];
   merged.entities.addresses = [...new Set(merged.entities.addresses)];
+  merged.entities.numbers = [...new Set(merged.entities.numbers)];
+  merged.entities.currencies = [...new Set(merged.entities.currencies)];
 
   return merged;
 }

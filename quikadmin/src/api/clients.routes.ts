@@ -123,9 +123,9 @@ export function createClientRoutes(): Router {
    * GET /api/clients - List all clients for the authenticated user
    * Supports search, filtering, pagination, and sorting
    */
-  router.get('/', authenticateSupabase, async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const userId = req.user?.id;
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });

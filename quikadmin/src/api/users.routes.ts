@@ -12,9 +12,9 @@ import { ExtractedData } from '../extractors/DataExtractor';
 import { prisma } from '../utils/prisma';
 import { validate } from '../middleware/validation';
 import { updateProfileSchema, updateSettingsSchema } from '../validators/schemas';
-import { FieldMapper } from '../mappers/FieldMapper';
+import { FieldMapper, MappingResult } from '../mappers/FieldMapper';
 import { FormFiller } from '../fillers/FormFiller';
-import { mergeExtractedData } from '../utils/dataUtils';
+import { mergeExtractedData, MergedExtractedData } from '../utils/dataUtils';
 import { clearRefreshTokenCookie } from '../utils/cookieHelpers';
 import { userService } from '../services/UserService';
 
@@ -423,7 +423,21 @@ export function createUserRoutes(): Router {
 
           const allData = documents.map((doc) => decryptExtractedData(doc.extractedData as string));
 
-          userData = mergeExtractedData(allData);
+          // Merge and convert to ExtractedData format for FieldMapper
+          const mergedData = mergeExtractedData(allData);
+          userData = {
+            fields: mergedData.fields,
+            entities: {
+              ...mergedData.entities,
+              numbers: mergedData.entities.numbers || [],
+              currencies: mergedData.entities.currencies || [],
+            },
+            metadata: {
+              extractionMethod: 'merged',
+              confidence: mergedData.metadata.confidence,
+              timestamp: new Date(),
+            },
+          };
         }
 
         // Initialize services
@@ -440,15 +454,16 @@ export function createUserRoutes(): Router {
         const formFieldsInfo = await formFiller.validateFormFields(formPath);
 
         // Map data to form fields (use custom mappings if provided)
-        let mappingResult;
+        let mappingResult: MappingResult;
         if (Object.keys(mappings).length > 0) {
           // Use custom mappings
           mappingResult = {
             mappings: Object.entries(mappings).map(([formField, dataField]) => ({
               formField,
-              dataField,
+              dataSource: dataField as string,
               value: userData.fields[dataField as string],
               confidence: 1.0,
+              mappingMethod: 'custom',
             })),
             overallConfidence: 0.95,
             unmappedFormFields: [],
@@ -462,23 +477,16 @@ export function createUserRoutes(): Router {
 
         // Apply override values (user-edited field values take precedence)
         if (Object.keys(overrideValues).length > 0) {
-          mappingResult.mappings = mappingResult.mappings.map(
-            (mapping: {
-              formField: string;
-              dataField: string;
-              value: unknown;
-              confidence: number;
-            }) => {
-              if (mapping.formField in overrideValues) {
-                return {
-                  ...mapping,
-                  value: overrideValues[mapping.formField],
-                  confidence: 1.0, // User-provided value has max confidence
-                };
-              }
-              return mapping;
+          mappingResult.mappings = mappingResult.mappings.map((mapping) => {
+            if (mapping.formField in overrideValues) {
+              return {
+                ...mapping,
+                value: overrideValues[mapping.formField],
+                confidence: 1.0, // User-provided value has max confidence
+              };
             }
-          );
+            return mapping;
+          });
         }
 
         // Fill form

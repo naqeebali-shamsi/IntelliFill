@@ -15,7 +15,7 @@ import { Request } from 'express';
 import { fileValidationService } from '../services/fileValidation.service';
 import { FileValidationError } from '../utils/FileValidationError';
 import { logger } from '../utils/logger';
-import { validateFilePath } from '../utils/security';
+import { validateFilePath } from '../utils/encryption';
 
 // ============================================================================
 // File Type Definitions

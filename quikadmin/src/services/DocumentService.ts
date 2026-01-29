@@ -4,19 +4,20 @@ import Bull from 'bull';
 import { prisma } from '../utils/prisma';
 import {
   ExtractedDataWithConfidence,
+  LegacyExtractedData,
   normalizeExtractedData,
   flattenExtractedData,
   isExtractedDataWithConfidence,
 } from '../types/extractedData';
 import { decryptExtractedData } from '../middleware/encryptionMiddleware';
 
-function decodeExtractedData(raw: unknown): Record<string, unknown> | null {
+function decodeExtractedData(raw: unknown): ExtractedDataWithConfidence | LegacyExtractedData | null {
   if (!raw) return null;
   if (typeof raw === 'string') {
-    return decryptExtractedData(raw) as Record<string, unknown> | null;
+    return decryptExtractedData(raw) as ExtractedDataWithConfidence | LegacyExtractedData | null;
   }
   if (typeof raw === 'object') {
-    return raw as Record<string, unknown>;
+    return raw as ExtractedDataWithConfidence | LegacyExtractedData;
   }
   return null;
 }

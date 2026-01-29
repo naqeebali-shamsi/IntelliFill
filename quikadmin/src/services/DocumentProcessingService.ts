@@ -7,6 +7,7 @@ import { encryptExtractedData } from '../middleware/encryptionMiddleware';
 import Bull from 'bull';
 import { OCRProcessingJob } from '../queues/ocrQueue';
 import * as path from 'path';
+import { DocumentStatus } from '@prisma/client';
 
 /**
  * Supported image extensions that always require OCR processing
@@ -162,7 +163,7 @@ export class DocumentProcessingService {
     userId: string,
     storageUrl: string,
     forceOCR: boolean
-  ): Promise<QueuedProcessingResult | FailedProcessingResult> {
+  ): Promise<DocumentProcessingResult> {
     try {
       const job = await enqueueDocumentForOCR(documentId, userId, storageUrl, forceOCR);
 
@@ -187,7 +188,7 @@ export class DocumentProcessingService {
       });
 
       // Update document status to FAILED
-      await this.updateDocumentStatus(documentId, 'FAILED');
+      await this.updateDocumentStatus(documentId, DocumentStatus.FAILED);
 
       return {
         type: 'failed',
@@ -275,7 +276,7 @@ export class DocumentProcessingService {
       });
 
       // Update document status to FAILED
-      await this.updateDocumentStatus(documentId, 'FAILED');
+      await this.updateDocumentStatus(documentId, DocumentStatus.FAILED);
 
       return {
         type: 'failed',
@@ -288,7 +289,7 @@ export class DocumentProcessingService {
   /**
    * Update document status in database
    */
-  private async updateDocumentStatus(documentId: string, status: string): Promise<void> {
+  private async updateDocumentStatus(documentId: string, status: DocumentStatus): Promise<void> {
     try {
       await prisma.document.update({
         where: { id: documentId },

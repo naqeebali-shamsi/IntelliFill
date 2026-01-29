@@ -1,5 +1,6 @@
 import Bull from 'bull';
 import * as path from 'path';
+import { Prisma } from '@prisma/client';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { ocrService, OCRProgress, StructuredDataResult } from '../services/OCRService';
 import { DocumentDetectionService } from '../services/DocumentDetectionService';
@@ -540,7 +541,7 @@ if (ocrQueue) {
           extractedData: encryptedExtractedData,
           confidence: ocrResult.confidence / 100, // Convert to 0-1 scale
           processedAt: new Date(),
-          ...(llmSummary ? { multiAgentResult: llmSummary } : {}),
+          ...(llmSummary ? { multiAgentResult: llmSummary as Prisma.InputJsonValue } : {}),
         },
       });
 

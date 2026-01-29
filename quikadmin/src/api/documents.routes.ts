@@ -14,7 +14,7 @@ import { DocumentProcessingService } from '../services/DocumentProcessingService
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
 import { uploadFile as uploadToStorage, fetchFromStorage } from '../services/storageHelper';
-import { normalizeExtractedData, flattenExtractedData } from '../types/extractedData';
+import { normalizeExtractedData, flattenExtractedData, ExtractedDataWithConfidence, LegacyExtractedData } from '../types/extractedData';
 import archiver from 'archiver';
 import { SharePermission } from '@prisma/client';
 import { FileValidationError } from '../utils/FileValidationError';
@@ -23,13 +23,13 @@ import { FileValidationError } from '../utils/FileValidationError';
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
 const ALLOWED_MIMETYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/tiff'];
 
-function decodeExtractedData(raw: unknown): Record<string, unknown> | null {
+function decodeExtractedData(raw: unknown): ExtractedDataWithConfidence | LegacyExtractedData | null {
   if (!raw) return null;
   if (typeof raw === 'string') {
-    return decryptExtractedData(raw) as Record<string, unknown> | null;
+    return decryptExtractedData(raw) as ExtractedDataWithConfidence | LegacyExtractedData | null;
   }
   if (typeof raw === 'object') {
-    return raw as Record<string, unknown>;
+    return raw as ExtractedDataWithConfidence | LegacyExtractedData;
   }
   return null;
 }

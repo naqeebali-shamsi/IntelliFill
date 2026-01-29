@@ -10,7 +10,8 @@ import { logger } from '../utils/logger';
 import { FillResult } from '../fillers/FormFiller';
 import { MappingResult } from '../mappers/FieldMapper';
 import { getFileBuffer } from '../utils/fileReader';
-import { mergeExtractedData } from '../utils/dataUtils';
+import { mergeExtractedData, MergedExtractedData } from '../utils/dataUtils';
+import { ExtractedData } from '../extractors/DataExtractor';
 
 export interface IntelliFillServiceConfig {
   documentParser?: DocumentParser;
@@ -127,11 +128,26 @@ export class IntelliFillService {
       // Merge extracted data
       const mergedData = mergeExtractedData(allExtractedData);
 
+      // Convert MergedExtractedData to ExtractedData for FieldMapper
+      const extractedDataForMapper: ExtractedData = {
+        fields: mergedData.fields,
+        entities: {
+          ...mergedData.entities,
+          numbers: mergedData.entities.numbers || [],
+          currencies: mergedData.entities.currencies || [],
+        },
+        metadata: {
+          extractionMethod: 'merged',
+          confidence: mergedData.metadata.confidence,
+          timestamp: new Date(),
+        },
+      };
+
       // Get form fields
       const formFields = await this.extractFormFields(formPath);
 
       // Map fields
-      const mappingResult = await this.fieldMapper.mapFields(mergedData, formFields);
+      const mappingResult = await this.fieldMapper.mapFields(extractedDataForMapper, formFields);
 
       // Fill form
       const fillResult = await this.formFiller.fillPDFForm(formPath, mappingResult, outputPath);
