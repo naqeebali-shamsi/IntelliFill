@@ -56,9 +56,11 @@ RUN apk add --no-cache \
     tesseract-ocr-data-spa \
     tesseract-ocr-data-fra \
     tesseract-ocr-data-deu \
+    tesseract-ocr-data-ara \
     poppler-utils \
     ghostscript \
     imagemagick \
+    graphicsmagick \
     cairo \
     pango \
     jpeg \
@@ -69,7 +71,14 @@ RUN apk add --no-cache \
     py3-pillow \
     py3-numpy \
     dumb-init \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    # Fix ImageMagick security policy to allow PDF processing
+    && if [ -f /etc/ImageMagick-7/policy.xml ]; then \
+         sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-7/policy.xml; \
+       fi \
+    && if [ -f /etc/ImageMagick-6/policy.xml ]; then \
+         sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/g' /etc/ImageMagick-6/policy.xml; \
+       fi
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
