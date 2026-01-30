@@ -5,8 +5,10 @@ import sharp from 'sharp';
 import { fromPath } from 'pdf2pic';
 import * as path from 'path';
 import * as os from 'os';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../utils/logger';
 import { getFileBuffer, isUrl } from '../utils/fileReader';
+import { FEATURE_FLAGS, VLM_CONFIG, COMPLEXITY_THRESHOLDS } from '../config/featureFlags';
 
 export interface OCRResult {
   text: string;
@@ -20,6 +22,10 @@ export interface OCRResult {
     language: string;
     processingTime: number;
     pageCount: number;
+    /** OCR engine used for extraction */
+    engineUsed?: 'tesseract' | 'vlm' | 'hybrid';
+    /** Document complexity assessment */
+    complexity?: 'simple' | 'complex';
   };
 }
 
@@ -258,6 +264,382 @@ export class OCRService {
     } catch (error) {
       logger.error('Failed to initialize OCR service:', error);
       throw new Error(`OCR initialization failed: ${error}`);
+    }
+  }
+
+  // ============================================================================
+  // VLM (Vision Language Model) OCR - Phase 1.1
+  // ============================================================================
+
+  /**
+   * Get Gemini API key from environment
+   */
+  private getGeminiApiKey(): string {
+    const keys = [
+      process.env.GEMINI_API_KEY,
+      process.env.GOOGLE_API_KEY,
+      process.env.GOOGLE_GENERATIVE_AI_KEY,
+    ].filter((k): k is string => !!k && k.length > 0);
+
+    if (keys.length === 0) {
+      throw new Error('No Gemini API key configured for VLM OCR');
+    }
+
+    return keys[0];
+  }
+
+  /**
+   * Detect document complexity to route between Tesseract and VLM
+   *
+   * Complex documents (scanned, forms, handwritten) benefit from VLM.
+   * Simple documents (digital PDFs with clear text) work well with Tesseract.
+   *
+   * @param imageBuffer - Image buffer to analyze
+   * @param tesseractResult - Optional Tesseract result for comparison
+   * @returns 'simple' if Tesseract is sufficient, 'complex' if VLM needed
+   */
+  async detectDocumentComplexity(
+    imageBuffer: Buffer,
+    tesseractResult?: { text: string; confidence: number }
+  ): Promise<'simple' | 'complex'> {
+    // If VLM feature is disabled, always return 'simple' to use Tesseract
+    if (!FEATURE_FLAGS.VLM_OCR) {
+      return 'simple';
+    }
+
+    // If we have Tesseract results, use them for routing
+    if (tesseractResult) {
+      const textLength = tesseractResult.text.trim().length;
+      const confidence = tesseractResult.confidence;
+
+      // High confidence + reasonable text = simple document
+      if (
+        confidence >= COMPLEXITY_THRESHOLDS.HIGH_OCR_CONFIDENCE &&
+        textLength >= COMPLEXITY_THRESHOLDS.SIMPLE_TEXT_DENSITY
+      ) {
+        logger.debug('Document detected as SIMPLE (high Tesseract confidence)', {
+          confidence,
+          textLength,
+        });
+        return 'simple';
+      }
+
+      // Low confidence or minimal text = complex document, needs VLM
+      if (
+        confidence < VLM_CONFIG.CONFIDENCE_THRESHOLD ||
+        textLength < VLM_CONFIG.MIN_TEXT_DENSITY_THRESHOLD
+      ) {
+        logger.debug('Document detected as COMPLEX (low Tesseract confidence)', {
+          confidence,
+          textLength,
+        });
+        return 'complex';
+      }
+    }
+
+    // Without Tesseract results, analyze image characteristics
+    try {
+      const metadata = await sharp(imageBuffer).metadata();
+      const { width, height } = metadata;
+
+      // Very large images often indicate scanned documents
+      if (width && height && (width > 2000 || height > 2000)) {
+        logger.debug('Document detected as COMPLEX (high resolution scan)', {
+          width,
+          height,
+        });
+        return 'complex';
+      }
+
+      // Default to simple for routing efficiency
+      return 'simple';
+    } catch (error) {
+      logger.warn('Failed to analyze image for complexity, defaulting to simple:', error);
+      return 'simple';
+    }
+  }
+
+  /**
+   * Extract text using Vision Language Model (Gemini Pro Vision)
+   *
+   * VLMs understand document layout and context, achieving 94%+ accuracy
+   * on scanned documents compared to ~85% with traditional OCR.
+   *
+   * @param imageBuffer - Image buffer to extract text from
+   * @returns OCR result with extracted text and confidence
+   */
+  async extractWithVLM(imageBuffer: Buffer): Promise<{
+    text: string;
+    confidence: number;
+  }> {
+    if (!FEATURE_FLAGS.VLM_OCR) {
+      throw new Error('VLM OCR feature is not enabled');
+    }
+
+    const startTime = Date.now();
+
+    try {
+      const apiKey = this.getGeminiApiKey();
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: VLM_CONFIG.MODEL });
+
+      // Convert buffer to base64
+      const base64Image = imageBuffer.toString('base64');
+
+      // Detect MIME type from buffer
+      const mimeType = await this.detectMimeType(imageBuffer);
+
+      const prompt = `You are an expert document OCR system. Extract ALL text from this document image with the following requirements:
+
+1. PRESERVE the exact structure and layout of the text
+2. Maintain line breaks and spacing where meaningful
+3. Extract text in reading order (left-to-right, top-to-bottom for English)
+4. Include all visible text including:
+   - Headers and titles
+   - Form field labels AND their values
+   - Tables (preserve structure with pipes or tabs)
+   - Footnotes and small print
+   - Numbers, dates, and IDs
+   - Any handwritten text (if legible)
+
+5. For form documents:
+   - Extract "Field Label: Field Value" pairs
+   - Include checkbox states if visible (checked/unchecked)
+
+6. If text is unclear, make your best interpretation but indicate with [?] if uncertain
+
+Return ONLY the extracted text, no commentary or explanation.`;
+
+      // Call Gemini Vision API with timeout
+      const result = await Promise.race([
+        model.generateContent([
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType,
+              data: base64Image,
+            },
+          },
+        ]),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`VLM extraction timed out after ${VLM_CONFIG.TIMEOUT_MS}ms`)),
+            VLM_CONFIG.TIMEOUT_MS
+          )
+        ),
+      ]);
+
+      const response = result.response;
+      const extractedText = response.text();
+
+      const processingTime = Date.now() - startTime;
+
+      // Estimate confidence based on response quality
+      // VLM typically has high confidence but we're conservative
+      const confidence = this.estimateVLMConfidence(extractedText);
+
+      logger.info('VLM OCR extraction completed', {
+        processingTimeMs: processingTime,
+        textLength: extractedText.length,
+        estimatedConfidence: confidence,
+      });
+
+      return {
+        text: extractedText,
+        confidence,
+      };
+    } catch (error) {
+      logger.error('VLM OCR extraction failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Detect MIME type from image buffer
+   */
+  private async detectMimeType(buffer: Buffer): Promise<string> {
+    // Check magic bytes
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+      return 'image/jpeg';
+    }
+    if (
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47
+    ) {
+      return 'image/png';
+    }
+    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+      return 'image/gif';
+    }
+    if (
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46
+    ) {
+      return 'image/webp';
+    }
+
+    // Default to JPEG
+    return 'image/jpeg';
+  }
+
+  /**
+   * Estimate confidence score for VLM extraction
+   *
+   * Based on output quality indicators:
+   * - Text length (more text = likely successful extraction)
+   * - Presence of structured data patterns
+   * - Absence of error indicators
+   */
+  private estimateVLMConfidence(text: string): number {
+    let confidence = 85; // Base confidence for VLM
+
+    // Boost for substantial text extraction
+    if (text.length > 500) confidence += 5;
+    if (text.length > 1000) confidence += 3;
+
+    // Boost for structured patterns (dates, IDs, key:value)
+    if (/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(text)) confidence += 2; // Date pattern
+    if (/[A-Z]{1,2}\d{6,9}/.test(text)) confidence += 2; // ID pattern
+    if (/\w+:\s*\w+/.test(text)) confidence += 2; // Key:value pattern
+
+    // Penalize for uncertainty markers
+    const uncertainCount = (text.match(/\[\?\]/g) || []).length;
+    confidence -= uncertainCount * 3;
+
+    // Penalize for error-like responses
+    if (/unable to|cannot|sorry/i.test(text)) confidence -= 20;
+    if (text.length < 50) confidence -= 15;
+
+    return Math.max(50, Math.min(98, confidence));
+  }
+
+  /**
+   * Smart OCR extraction with automatic routing between Tesseract and VLM
+   *
+   * This method provides the best of both worlds:
+   * - Fast Tesseract for simple, clear documents
+   * - Accurate VLM for complex, scanned, or low-quality documents
+   *
+   * @param imageBuffer - Image buffer to process
+   * @param forceEngine - Optional: force a specific engine ('tesseract' or 'vlm')
+   * @returns OCR result with extracted text, confidence, and engine used
+   */
+  async extractWithSmartRouting(
+    imageBuffer: Buffer,
+    forceEngine?: 'tesseract' | 'vlm'
+  ): Promise<{
+    text: string;
+    confidence: number;
+    engineUsed: 'tesseract' | 'vlm' | 'hybrid';
+  }> {
+    const startTime = Date.now();
+
+    // If VLM is disabled or Tesseract is forced, use Tesseract only
+    if (!FEATURE_FLAGS.VLM_OCR || forceEngine === 'tesseract') {
+      await this.initialize();
+      const { buffer: processedImage } = await this.preprocessImage(imageBuffer, false);
+      const result = await this.worker!.recognize(processedImage);
+
+      logger.debug('Smart routing: Using Tesseract only', {
+        processingTimeMs: Date.now() - startTime,
+      });
+
+      return {
+        text: result.data.text,
+        confidence: result.data.confidence,
+        engineUsed: 'tesseract',
+      };
+    }
+
+    // If VLM is forced, use VLM only
+    if (forceEngine === 'vlm') {
+      const result = await this.extractWithVLM(imageBuffer);
+      return {
+        ...result,
+        engineUsed: 'vlm',
+      };
+    }
+
+    // Smart routing: Start with Tesseract for quick assessment
+    await this.initialize();
+    const { buffer: processedImage } = await this.preprocessImage(imageBuffer, false);
+    const tesseractResult = await this.worker!.recognize(processedImage);
+
+    const complexity = await this.detectDocumentComplexity(imageBuffer, {
+      text: tesseractResult.data.text,
+      confidence: tesseractResult.data.confidence,
+    });
+
+    // If document is simple, Tesseract result is good enough
+    if (complexity === 'simple') {
+      logger.debug('Smart routing: Document is simple, using Tesseract result', {
+        confidence: tesseractResult.data.confidence,
+        processingTimeMs: Date.now() - startTime,
+      });
+
+      return {
+        text: tesseractResult.data.text,
+        confidence: tesseractResult.data.confidence,
+        engineUsed: 'tesseract',
+      };
+    }
+
+    // Complex document: Use VLM
+    try {
+      const vlmResult = await this.extractWithVLM(imageBuffer);
+
+      // If VLM result is better, use it
+      if (vlmResult.confidence > tesseractResult.data.confidence) {
+        logger.info('Smart routing: Using VLM result (higher confidence)', {
+          vlmConfidence: vlmResult.confidence,
+          tesseractConfidence: tesseractResult.data.confidence,
+          processingTimeMs: Date.now() - startTime,
+        });
+
+        return {
+          ...vlmResult,
+          engineUsed: 'vlm',
+        };
+      }
+
+      // If both are close, merge them (hybrid approach)
+      if (Math.abs(vlmResult.confidence - tesseractResult.data.confidence) < 10) {
+        const mergedText = await this.enhanceWithOCR(tesseractResult.data.text, vlmResult.text);
+        const mergedConfidence = Math.max(vlmResult.confidence, tesseractResult.data.confidence);
+
+        logger.info('Smart routing: Using hybrid result (merged)', {
+          vlmConfidence: vlmResult.confidence,
+          tesseractConfidence: tesseractResult.data.confidence,
+          mergedConfidence,
+          processingTimeMs: Date.now() - startTime,
+        });
+
+        return {
+          text: mergedText,
+          confidence: mergedConfidence,
+          engineUsed: 'hybrid',
+        };
+      }
+
+      // Fallback to Tesseract if VLM didn't improve
+      return {
+        text: tesseractResult.data.text,
+        confidence: tesseractResult.data.confidence,
+        engineUsed: 'tesseract',
+      };
+    } catch (vlmError) {
+      // If VLM fails, fall back to Tesseract
+      logger.warn('VLM extraction failed, falling back to Tesseract:', vlmError);
+
+      return {
+        text: tesseractResult.data.text,
+        confidence: tesseractResult.data.confidence,
+        engineUsed: 'tesseract',
+      };
     }
   }
 
@@ -602,7 +984,6 @@ export class OCRService {
 
   async processImage(imagePathOrUrl: string): Promise<OCRResult> {
     const startTime = Date.now();
-    await this.initialize();
 
     try {
       // Get image bytes - either from URL or local file using shared fileReader
@@ -610,6 +991,40 @@ export class OCRService {
       if (isUrl(imagePathOrUrl)) {
         logger.info(`Image downloaded (${imageBuffer.length} bytes)`);
       }
+
+      // Use smart routing if VLM is enabled
+      if (FEATURE_FLAGS.VLM_OCR) {
+        const smartResult = await this.extractWithSmartRouting(imageBuffer);
+        const processingTime = Date.now() - startTime;
+
+        // Detect complexity for metadata
+        const complexity = await this.detectDocumentComplexity(imageBuffer, {
+          text: smartResult.text,
+          confidence: smartResult.confidence,
+        });
+
+        return {
+          text: smartResult.text,
+          confidence: smartResult.confidence,
+          pages: [
+            {
+              pageNumber: 1,
+              text: smartResult.text,
+              confidence: smartResult.confidence,
+            },
+          ],
+          metadata: {
+            language: 'eng',
+            processingTime,
+            pageCount: 1,
+            engineUsed: smartResult.engineUsed,
+            complexity,
+          },
+        };
+      }
+
+      // Traditional Tesseract-only path
+      await this.initialize();
 
       // Preprocess image (standalone image, not from scanned PDF)
       const { buffer: processedImage } = await this.preprocessImage(imageBuffer, false);
@@ -633,6 +1048,7 @@ export class OCRService {
           language: 'eng',
           processingTime,
           pageCount: 1,
+          engineUsed: 'tesseract',
         },
       };
     } catch (error) {

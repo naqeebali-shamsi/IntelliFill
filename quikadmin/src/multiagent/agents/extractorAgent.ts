@@ -14,11 +14,21 @@
  * @module multiagent/agents/extractorAgent
  */
 
-import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel, Part, SchemaType } from '@google/generative-ai';
 import { z, ZodError } from 'zod';
 import { DocumentCategory } from '../types/state';
 import { piiSafeLogger as logger } from '../../utils/piiSafeLogger';
 import { ExtractedFieldResult, ExtractedDataWithConfidence } from '../../types/extractedData';
+import { FEATURE_FLAGS, SELF_CORRECTION_CONFIG } from '../../config/featureFlags';
+import {
+  getExtractionSchema,
+  getGeminiSchema,
+  safeValidateExtraction,
+} from '../schemas/extractionResponseSchemas';
+import {
+  extractionCache,
+  CachedExtraction,
+} from '../../services/extractionCache.service';
 
 // ============================================================================
 // Types & Interfaces
@@ -1124,30 +1134,436 @@ function extractKeyValuePairs(text: string): Record<string, ExtractedFieldResult
 // ============================================================================
 
 /**
- * Merge LLM and pattern results, keeping higher confidence values
+ * Cross-validation confidence boost when multiple sources agree
+ */
+const CROSS_VALIDATION_BOOST = 10;
+
+/**
+ * Threshold for considering values "close enough" for weighted merge
+ */
+const CONFIDENCE_CLOSE_THRESHOLD = 10;
+
+/**
+ * Multiplier for LLM preference when confidences are close
+ */
+const LLM_PREFERENCE_MULTIPLIER = 0.85;
+
+/**
+ * Merge LLM and pattern results with enhanced confidence-weighted logic
+ *
+ * Enhanced algorithm:
+ * 1. Cross-validation boost (+10) when both sources agree on value
+ * 2. Weighted merge when confidences are within 10 points
+ * 3. LLM preference (0.85x multiplier) for close calls
+ * 4. Fallback to pattern when LLM returns null
+ *
+ * @param llmResults - Results from LLM extraction
+ * @param patternResults - Results from pattern-based extraction
+ * @param ocrConfidence - Optional OCR confidence to factor in
+ * @returns Merged results with optimized confidence scores
  */
 function mergeExtractionResults(
   llmResults: Record<string, ExtractedFieldResult>,
-  patternResults: Record<string, ExtractedFieldResult>
+  patternResults: Record<string, ExtractedFieldResult>,
+  ocrConfidence?: number
 ): Record<string, ExtractedFieldResult> {
-  const merged: Record<string, ExtractedFieldResult> = { ...llmResults };
+  const merged: Record<string, ExtractedFieldResult> = {};
 
-  for (const [fieldName, patternField] of Object.entries(patternResults)) {
-    const existingField = merged[fieldName];
+  // Get all unique field names from both sources
+  const allFieldNames = new Set([
+    ...Object.keys(llmResults),
+    ...Object.keys(patternResults),
+  ]);
 
-    if (!existingField) {
-      // Field not in LLM results, add pattern result
-      merged[fieldName] = patternField;
-    } else if (patternField.confidence > existingField.confidence) {
-      // Pattern result has higher confidence
-      merged[fieldName] = patternField;
-    } else if (existingField.value === null && patternField.value !== null) {
-      // LLM couldn't extract but pattern did
-      merged[fieldName] = patternField;
+  for (const fieldName of allFieldNames) {
+    const llmField = llmResults[fieldName];
+    const patternField = patternResults[fieldName];
+
+    // Case 1: Only LLM has result
+    if (llmField && !patternField) {
+      merged[fieldName] = { ...llmField };
+      continue;
+    }
+
+    // Case 2: Only pattern has result
+    if (!llmField && patternField) {
+      merged[fieldName] = { ...patternField };
+      continue;
+    }
+
+    // Case 3: Both have results - apply enhanced merging
+    if (llmField && patternField) {
+      const llmValue = normalizeValue(llmField.value);
+      const patternValue = normalizeValue(patternField.value);
+
+      // Check if values agree (cross-validation)
+      const valuesAgree = valuesMatch(llmValue, patternValue);
+
+      if (valuesAgree && llmValue !== null) {
+        // Cross-validation boost: both sources agree
+        const boostedConfidence = Math.min(100, llmField.confidence + CROSS_VALIDATION_BOOST);
+
+        logger.debug(`Cross-validation boost for ${fieldName}`, {
+          originalConfidence: llmField.confidence,
+          boostedConfidence,
+        });
+
+        merged[fieldName] = {
+          ...llmField,
+          confidence: boostedConfidence,
+          source: 'llm' as const,
+        };
+        continue;
+      }
+
+      // Values differ - use weighted logic
+      const confidenceDiff = Math.abs(llmField.confidence - patternField.confidence);
+
+      if (confidenceDiff < CONFIDENCE_CLOSE_THRESHOLD) {
+        // Confidences are close - prefer LLM with slight boost consideration
+        const llmAdjusted = llmField.confidence;
+        const patternAdjusted = patternField.confidence * LLM_PREFERENCE_MULTIPLIER;
+
+        if (llmAdjusted >= patternAdjusted) {
+          merged[fieldName] = { ...llmField };
+        } else {
+          merged[fieldName] = { ...patternField };
+        }
+      } else {
+        // Clear confidence winner
+        if (llmField.confidence > patternField.confidence) {
+          merged[fieldName] = { ...llmField };
+        } else {
+          merged[fieldName] = { ...patternField };
+        }
+      }
+
+      // Handle null values - prefer non-null
+      if (merged[fieldName].value === null && patternField.value !== null) {
+        merged[fieldName] = { ...patternField };
+      } else if (merged[fieldName].value === null && llmField.value !== null) {
+        merged[fieldName] = { ...llmField };
+      }
+
+      continue;
+    }
+  }
+
+  // Apply OCR confidence factor if provided
+  if (ocrConfidence !== undefined && ocrConfidence < 100) {
+    const ocrMultiplier = ocrConfidence / 100;
+    for (const fieldName of Object.keys(merged)) {
+      const field = merged[fieldName];
+      // Only apply OCR factor to pattern-based extractions (more OCR-dependent)
+      if (field.source === 'pattern') {
+        field.confidence = Math.round(field.confidence * ocrMultiplier);
+      }
     }
   }
 
   return merged;
+}
+
+/**
+ * Normalize a value for comparison (lowercase, trim whitespace)
+ */
+function normalizeValue(value: string | number | boolean | null): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return value.toString();
+  if (typeof value === 'number') return value.toString();
+  return value.toString().toLowerCase().trim();
+}
+
+/**
+ * Check if two normalized values match
+ * Handles partial matches for longer strings (e.g., names)
+ */
+function valuesMatch(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return false;
+  if (a === b) return true;
+
+  // Check if one contains the other (for partial name matches)
+  if (a.length > 5 && b.length > 5) {
+    if (a.includes(b) || b.includes(a)) return true;
+  }
+
+  // Check Levenshtein distance for close matches (typos)
+  if (a.length > 3 && b.length > 3) {
+    const distance = levenshteinDistance(a, b);
+    const maxLen = Math.max(a.length, b.length);
+    const similarity = 1 - distance / maxLen;
+    return similarity > 0.85; // 85% similarity threshold
+  }
+
+  return false;
+}
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+// ============================================================================
+// Self-Correction - Phase 2.1
+// ============================================================================
+
+/**
+ * Identify fields that need self-correction based on low confidence
+ */
+function getLowConfidenceFields(
+  fields: Record<string, ExtractedFieldResult>,
+  threshold: number = SELF_CORRECTION_CONFIG.LOW_CONFIDENCE_THRESHOLD
+): string[] {
+  return Object.entries(fields)
+    .filter(([, field]) => {
+      // Only consider fields that have a value but low confidence
+      return field.value !== null && field.confidence < threshold;
+    })
+    .sort((a, b) => a[1].confidence - b[1].confidence) // Sort by confidence (lowest first)
+    .slice(0, SELF_CORRECTION_CONFIG.MAX_FIELDS_PER_PASS) // Limit fields per pass
+    .map(([name]) => name);
+}
+
+/**
+ * Get context around a specific field from the original text
+ * This helps the LLM focus on the relevant portion of the document
+ */
+function getFieldContext(text: string, fieldName: string): string {
+  const lines = text.split('\n');
+  const fieldPatterns = [
+    fieldName.replace(/_/g, ' '),
+    fieldName.replace(/_/g, ''),
+    fieldName,
+  ];
+
+  // Find lines that might contain this field
+  const relevantLineIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase();
+    if (fieldPatterns.some((p) => line.includes(p.toLowerCase()))) {
+      relevantLineIndices.push(i);
+    }
+  }
+
+  // If found, extract context (3 lines before and after)
+  if (relevantLineIndices.length > 0) {
+    const contextLines: string[] = [];
+    for (const idx of relevantLineIndices) {
+      const start = Math.max(0, idx - 3);
+      const end = Math.min(lines.length, idx + 4);
+      contextLines.push(...lines.slice(start, end));
+    }
+    return [...new Set(contextLines)].join('\n');
+  }
+
+  // Fallback: return first 500 chars
+  return text.slice(0, 500);
+}
+
+/**
+ * Build a focused re-extraction prompt for specific fields
+ */
+function buildCorrectionPrompt(
+  fields: string[],
+  previousExtraction: Record<string, ExtractedFieldResult>,
+  context: string,
+  category: DocumentCategory
+): string {
+  const config = EXTRACTION_CONFIGS[category];
+
+  // Get field descriptions
+  const fieldDescriptions = fields.map((fieldName) => {
+    const fieldConfig = config?.fields.find(
+      (f) => f.name === fieldName || f.aliases?.includes(fieldName)
+    );
+    const prevValue = previousExtraction[fieldName];
+    const desc = fieldConfig?.description || fieldName;
+    const prev = prevValue?.value ? ` (previous: "${prevValue.value}")` : '';
+    return `- ${fieldName}: ${desc}${prev}`;
+  });
+
+  return `You are a document data extraction expert performing a FOCUSED re-extraction.
+
+The following fields had low confidence in the initial extraction. Please re-examine the document context and extract these fields with extra care:
+
+${fieldDescriptions.join('\n')}
+
+INSTRUCTIONS:
+1. Focus ONLY on these specific fields
+2. Look carefully at the context provided
+3. If the previous extraction seems correct, confirm it with higher confidence
+4. If you find a better value, provide it
+5. Be more thorough than the initial pass
+
+Respond with a JSON object for ONLY these fields:
+${JSON.stringify(
+  Object.fromEntries(
+    fields.map((f) => [
+      f,
+      { value: 'extracted_value', confidence: 85, rawText: 'matched_text' },
+    ])
+  ),
+  null,
+  2
+)}
+
+Document Context:
+${context}`;
+}
+
+/**
+ * Self-correct low-confidence fields through focused re-extraction
+ *
+ * Uses the DocETL pattern: iteratively refine extractions by
+ * re-prompting with focused context for low-confidence fields.
+ *
+ * @param extractedData - Initial extraction results
+ * @param originalText - Original document text
+ * @param category - Document category
+ * @param imageBase64 - Optional image for re-extraction
+ * @returns Corrected extraction results
+ */
+async function selfCorrectExtraction(
+  extractedData: Record<string, ExtractedFieldResult>,
+  originalText: string,
+  category: DocumentCategory,
+  imageBase64?: string
+): Promise<Record<string, ExtractedFieldResult>> {
+  // Check if self-correction is enabled
+  if (!FEATURE_FLAGS.SELF_CORRECTION) {
+    return extractedData;
+  }
+
+  let currentData = { ...extractedData };
+  let passCount = 0;
+
+  while (passCount < SELF_CORRECTION_CONFIG.MAX_PASSES) {
+    passCount++;
+
+    // Find fields needing correction
+    const lowConfidenceFields = getLowConfidenceFields(currentData);
+
+    if (lowConfidenceFields.length === 0) {
+      logger.debug('Self-correction: No low confidence fields to correct', {
+        pass: passCount,
+      });
+      break;
+    }
+
+    logger.info('Self-correction pass starting', {
+      pass: passCount,
+      fieldsToCorrect: lowConfidenceFields,
+    });
+
+    try {
+      // Get focused context for these fields
+      const combinedContext = lowConfidenceFields
+        .map((f) => getFieldContext(originalText, f))
+        .join('\n---\n');
+
+      // Build correction prompt
+      const correctionPrompt = buildCorrectionPrompt(
+        lowConfidenceFields,
+        currentData,
+        combinedContext,
+        category
+      );
+
+      // Re-extract using Gemini
+      const apiKey = getGeminiApiKey();
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
+
+      const parts: Part[] = [{ text: correctionPrompt }];
+
+      // Add image if available for visual re-verification
+      if (imageBase64) {
+        const mimeType = detectImageMimeType(imageBase64);
+        const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        parts.push({
+          inlineData: { mimeType, data: cleanBase64 },
+        });
+      }
+
+      const result = await withTimeout(
+        model.generateContent(parts),
+        GEMINI_TIMEOUT_MS,
+        'Gemini self-correction'
+      );
+
+      const responseText = result.response.text();
+      const correctedFields = parseGeminiResponse(responseText);
+
+      // Merge corrected fields if they're better
+      let improvementCount = 0;
+      for (const [fieldName, correctedField] of Object.entries(correctedFields)) {
+        const current = currentData[fieldName];
+
+        // Accept correction if confidence improved
+        if (
+          correctedField.confidence &&
+          (!current || correctedField.confidence > current.confidence)
+        ) {
+          currentData[fieldName] = {
+            value: correctedField.value,
+            confidence: correctedField.confidence,
+            source: 'llm' as const,
+            rawText: correctedField.rawText,
+          };
+          improvementCount++;
+        }
+      }
+
+      logger.info('Self-correction pass completed', {
+        pass: passCount,
+        fieldsImproved: improvementCount,
+        fieldsAttempted: lowConfidenceFields.length,
+      });
+
+      // If no improvements, stop early
+      if (improvementCount === 0) {
+        logger.debug('Self-correction: No improvements in this pass, stopping');
+        break;
+      }
+    } catch (error) {
+      logger.warn('Self-correction pass failed', {
+        pass: passCount,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      // Continue with current data on error
+      break;
+    }
+  }
+
+  return currentData;
 }
 
 // ============================================================================
@@ -1181,12 +1597,40 @@ export async function extractDocumentData(
   let modelUsed = 'pattern-fallback';
   let llmFields: Record<string, ExtractedFieldResult> = {};
   let geminiSucceeded = false;
+  let cacheHit = false;
 
   logger.info('Starting document data extraction', {
     category,
     textLength: text.length,
     hasImage: !!imageBase64,
+    cacheEnabled: FEATURE_FLAGS.EXTRACTION_CACHE,
   });
+
+  // Phase 3.2: Check extraction cache first
+  if (FEATURE_FLAGS.EXTRACTION_CACHE) {
+    try {
+      const cached = await extractionCache.get(text, category);
+      if (cached) {
+        logger.info('Extraction cache HIT - returning cached result', {
+          category,
+          cachedAt: cached.cachedAt,
+          originalProcessingTime: cached.processingTimeMs,
+        });
+
+        return {
+          fields: cached.fields,
+          documentCategory: category,
+          rawText: text,
+          processingTime: Date.now() - startTime,
+          modelUsed: `cached:${cached.modelUsed}`,
+        };
+      }
+    } catch (error) {
+      logger.warn('Cache lookup failed, proceeding with extraction', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 
   // Try Gemini extraction with retries
   try {
@@ -1211,9 +1655,26 @@ export async function extractDocumentData(
   const allPatternFields = mergeExtractionResults(patternFields, keyValueFields);
 
   // Merge LLM and pattern results
-  const mergedFields = geminiSucceeded
+  let mergedFields = geminiSucceeded
     ? mergeExtractionResults(llmFields, allPatternFields)
     : allPatternFields;
+
+  // Phase 2.1: Apply self-correction for low-confidence fields
+  if (FEATURE_FLAGS.SELF_CORRECTION && geminiSucceeded) {
+    try {
+      mergedFields = await selfCorrectExtraction(
+        mergedFields,
+        text,
+        category,
+        imageBase64
+      );
+      logger.info('Self-correction completed');
+    } catch (error) {
+      logger.warn('Self-correction failed, using original extraction', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
 
   // Count statistics
   const totalFields = Object.keys(mergedFields).length;
@@ -1231,19 +1692,41 @@ export async function extractDocumentData(
     lowConfidenceFields,
     processingTimeMs: processingTime,
     modelUsed,
+    selfCorrectionEnabled: FEATURE_FLAGS.SELF_CORRECTION,
   });
 
-  return {
+  const result: ExtractionResult = {
     fields: mergedFields,
     documentCategory: category,
     rawText: text,
     processingTime,
     modelUsed,
   };
+
+  // Phase 3.2: Cache the extraction result for future use
+  if (FEATURE_FLAGS.EXTRACTION_CACHE && geminiSucceeded) {
+    try {
+      await extractionCache.set(
+        text,
+        category,
+        mergedFields,
+        modelUsed,
+        processingTime
+      );
+      logger.debug('Extraction result cached for future use');
+    } catch (error) {
+      logger.warn('Failed to cache extraction result', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  return result;
 }
 
 /**
  * Extract data using Gemini API with retry logic, timeout, and rate limiting
+ * Supports structured outputs for 100% JSON compliance when feature flag is enabled
  */
 async function extractWithGemini(
   text: string,
@@ -1254,7 +1737,9 @@ async function extractWithGemini(
   return geminiSemaphore.run(async () => {
     const apiKey = getGeminiApiKey();
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model: GenerativeModel = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
+
+    // Use structured outputs if feature flag is enabled
+    const useStructuredOutputs = FEATURE_FLAGS.STRUCTURED_OUTPUTS;
 
     let lastError: Error | null = null;
 
@@ -1287,23 +1772,70 @@ async function extractWithGemini(
         }
 
         // Generate extraction with timeout (30 seconds)
-        logger.debug('Starting Gemini extraction with timeout', {
+        logger.debug('Starting Gemini extraction', {
           timeoutMs: GEMINI_TIMEOUT_MS,
           attempt: attempt + 1,
           category,
+          useStructuredOutputs,
         });
 
-        const result = await withTimeout(
-          model.generateContent(parts),
-          GEMINI_TIMEOUT_MS,
-          'Gemini extraction'
-        );
-        const response = result.response;
-        const responseText = response.text();
+        let result;
 
-        // Parse and convert response
-        const parsed = parseGeminiResponse(responseText);
-        return convertToExtractedFields(parsed, category);
+        if (useStructuredOutputs) {
+          // Use Gemini Structured Outputs API for guaranteed JSON compliance
+          const jsonSchema = getGeminiSchema(category);
+
+          const model: GenerativeModel = genAI.getGenerativeModel({
+            model: EXTRACTION_MODEL,
+            generationConfig: {
+              responseMimeType: 'application/json',
+              responseSchema: jsonSchema as any,
+            },
+          });
+
+          result = await withTimeout(
+            model.generateContent(parts),
+            GEMINI_TIMEOUT_MS,
+            'Gemini structured extraction'
+          );
+
+          const response = result.response;
+          const responseText = response.text();
+
+          // With structured outputs, JSON is guaranteed valid
+          const parsed = JSON.parse(responseText) as GeminiExtractionResponse;
+
+          // Validate with Zod schema for extra safety
+          const validation = safeValidateExtraction(parsed, category);
+          if (!validation.success) {
+            logger.warn('Structured output validation failed, using raw response', {
+              errors: validation.error?.errors.slice(0, 3),
+            });
+          }
+
+          logger.info('Gemini structured extraction completed', {
+            attempt: attempt + 1,
+            fieldsExtracted: Object.keys(parsed).length,
+          });
+
+          return convertToExtractedFields(parsed, category);
+        } else {
+          // Traditional extraction without structured outputs
+          const model: GenerativeModel = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
+
+          result = await withTimeout(
+            model.generateContent(parts),
+            GEMINI_TIMEOUT_MS,
+            'Gemini extraction'
+          );
+
+          const response = result.response;
+          const responseText = response.text();
+
+          // Parse and convert response (may fail on malformed JSON)
+          const parsed = parseGeminiResponse(responseText);
+          return convertToExtractedFields(parsed, category);
+        }
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error');
 
@@ -1314,6 +1846,7 @@ async function extractWithGemini(
           maxRetries: MAX_RETRIES,
           error: lastError.message,
           isTimeout,
+          useStructuredOutputs,
         });
 
         // Don't retry on certain errors
