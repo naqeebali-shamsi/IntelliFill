@@ -155,7 +155,15 @@ export function getMultiagentQueue(): Queue<MultiAgentProcessingJob, MultiAgentP
 }
 
 /**
- * Add a document to the multi-agent processing queue
+ * Job states that indicate the job is still pending or in-progress.
+ * Used for deduplication checks to avoid creating duplicate jobs.
+ */
+const PENDING_JOB_STATES = ['waiting', 'active', 'delayed'] as const;
+
+/**
+ * Add a document to the multi-agent processing queue.
+ * Uses deterministic job IDs for deduplication - if a job for the same
+ * document is already pending/active, returns the existing job.
  */
 export async function enqueueMultiagentProcessing(
   job: MultiAgentProcessingJob
@@ -164,7 +172,21 @@ export async function enqueueMultiagentProcessing(
     throw new QueueUnavailableError('multiagent-processing');
   }
 
-  const jobId = `multiagent-${job.documentId}-${Date.now()}`;
+  const jobId = `multiagent-${job.documentId}`;
+
+  // Deduplication: check for existing job
+  const existingJob = await multiagentQueue!.getJob(jobId);
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (PENDING_JOB_STATES.includes(state as (typeof PENDING_JOB_STATES)[number])) {
+      logger.info('Duplicate multi-agent job detected, returning existing', {
+        jobId,
+        state,
+        documentId: job.documentId,
+      });
+      return existingJob;
+    }
+  }
 
   logger.info('Enqueueing document for multi-agent processing', {
     documentId: job.documentId,

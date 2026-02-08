@@ -100,204 +100,273 @@ export function createClientProfileRoutes(): Router {
   /**
    * GET /api/clients/:clientId/profile - Get client profile data
    */
-  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user?.id;
-      const { clientId } = req.params;
+  router.get(
+    '/',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user?.id;
+        const { clientId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: {
-          profile: true,
-        },
-      });
-
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      // If no profile exists, create one
-      let profile = client.profile;
-      if (!profile) {
-        profile = await prisma.clientProfile.create({
-          data: {
-            clientId,
-            data: {},
-            fieldSources: {},
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: {
+            profile: true,
           },
         });
-      }
 
-      // Organize data by category
-      const profileData = (profile.data || {}) as Record<string, unknown>;
-      const fieldSources = (profile.fieldSources || {}) as Record<string, unknown>;
-
-      const categorizedData: Record<
-        string,
-        Record<string, { value: unknown; label: string; source: unknown }>
-      > = {
-        personal: {},
-        passport: {},
-        emiratesId: {},
-        visa: {},
-        company: {},
-        contact: {},
-        employment: {},
-        custom: {},
-      };
-
-      // Categorize known fields
-      for (const [fieldName, value] of Object.entries(profileData)) {
-        const fieldInfo =
-          STANDARD_PROFILE_FIELDS[fieldName as keyof typeof STANDARD_PROFILE_FIELDS];
-        if (fieldInfo) {
-          categorizedData[fieldInfo.category][fieldName] = {
-            value,
-            label: fieldInfo.label,
-            source: fieldSources[fieldName] || null,
-          };
-        } else {
-          // Custom field
-          categorizedData.custom[fieldName] = {
-            value,
-            label: fieldName,
-            source: fieldSources[fieldName] || null,
-          };
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
         }
-      }
 
-      res.json({
-        success: true,
-        data: {
-          clientId,
-          clientName: client.name,
-          clientType: client.type,
-          profile: {
-            id: profile.id,
-            data: profileData,
-            categorizedData,
-            fieldSources,
-            updatedAt: profile.updatedAt.toISOString(),
+        // If no profile exists, create one
+        let profile = client.profile;
+        if (!profile) {
+          profile = await prisma.clientProfile.create({
+            data: {
+              clientId,
+              data: {},
+              fieldSources: {},
+            },
+          });
+        }
+
+        // Decrypt profile data (handles both encrypted and legacy formats)
+        let profileData: Record<string, unknown> = {};
+        if (profile.data) {
+          if (typeof profile.data === 'string') {
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              profileData = decryptJSON(profile.data as string);
+            } catch {
+              profileData = JSON.parse(profile.data as string);
+            }
+          } else {
+            profileData = profile.data as Record<string, unknown>;
+          }
+        }
+        const fieldSources = (profile.fieldSources || {}) as Record<string, unknown>;
+
+        const categorizedData: Record<
+          string,
+          Record<string, { value: unknown; label: string; source: unknown }>
+        > = {
+          personal: {},
+          passport: {},
+          emiratesId: {},
+          visa: {},
+          company: {},
+          contact: {},
+          employment: {},
+          custom: {},
+        };
+
+        // Categorize known fields
+        for (const [fieldName, value] of Object.entries(profileData)) {
+          const fieldInfo =
+            STANDARD_PROFILE_FIELDS[fieldName as keyof typeof STANDARD_PROFILE_FIELDS];
+          if (fieldInfo) {
+            categorizedData[fieldInfo.category][fieldName] = {
+              value,
+              label: fieldInfo.label,
+              source: fieldSources[fieldName] || null,
+            };
+          } else {
+            // Custom field
+            categorizedData.custom[fieldName] = {
+              value,
+              label: fieldName,
+              source: fieldSources[fieldName] || null,
+            };
+          }
+        }
+
+        // Detect expired document date fields
+        const EXPIRY_FIELDS = [
+          'passportExpiryDate',
+          'emiratesIdExpiry',
+          'visaExpiryDate',
+          'tradeLicenseExpiry',
+          'laborCardExpiry',
+        ] as const;
+
+        const now = new Date();
+        const expiredFields: Array<{
+          field: string;
+          label: string;
+          value: string;
+          expiredSince: string;
+        }> = [];
+
+        for (const fieldName of EXPIRY_FIELDS) {
+          const rawValue = profileData[fieldName];
+          if (!rawValue || typeof rawValue !== 'string') continue;
+
+          const parsed = new Date(rawValue);
+          if (isNaN(parsed.getTime())) continue;
+
+          if (parsed < now) {
+            const fieldInfo = STANDARD_PROFILE_FIELDS[fieldName];
+            expiredFields.push({
+              field: fieldName,
+              label: fieldInfo?.label || fieldName,
+              value: rawValue,
+              expiredSince: parsed.toISOString(),
+            });
+          }
+        }
+
+        res.json({
+          success: true,
+          data: {
+            clientId,
+            clientName: client.name,
+            clientType: client.type,
+            profile: {
+              id: profile.id,
+              data: profileData,
+              categorizedData,
+              fieldSources,
+              expiredFields: expiredFields.length > 0 ? expiredFields : undefined,
+              updatedAt: profile.updatedAt.toISOString(),
+            },
+            fieldDefinitions: STANDARD_PROFILE_FIELDS,
           },
-          fieldDefinitions: STANDARD_PROFILE_FIELDS,
-        },
-      });
-    } catch (error) {
-      logger.error('Error fetching client profile:', error);
-      next(error);
+        });
+      } catch (error) {
+        logger.error('Error fetching client profile:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * PUT /api/clients/:clientId/profile - Update client profile data
    * Marks manually edited fields to prevent overwriting during extraction
    */
-  router.put('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user?.id;
-      const { clientId } = req.params;
+  router.put(
+    '/',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user?.id;
+        const { clientId } = req.params;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Validate request body
-      const validation = updateProfileSchema.safeParse(req.body);
-      if (!validation.success) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          details: validation.error.flatten().fieldErrors,
+        // Validate request body
+        const validation = updateProfileSchema.safeParse(req.body);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        // Verify client belongs to user
+        const client = await prisma.client.findFirst({
+          where: { id: clientId, userId },
+          include: { profile: true },
         });
-      }
 
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId },
-        include: { profile: true },
-      });
+        if (!client) {
+          return res.status(404).json({ error: 'Client not found' });
+        }
 
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
+        const { data, fields } = validation.data;
 
-      const { data, fields } = validation.data;
+        // Get or create profile
+        let profile = client.profile;
+        if (!profile) {
+          profile = await prisma.clientProfile.create({
+            data: {
+              clientId,
+              data: {},
+              fieldSources: {},
+            },
+          });
+        }
 
-      // Get or create profile
-      let profile = client.profile;
-      if (!profile) {
-        profile = await prisma.clientProfile.create({
+        let currentData: Record<string, any> = {};
+        if (profile.data) {
+          if (typeof profile.data === 'string') {
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              currentData = decryptJSON(profile.data as string);
+            } catch {
+              currentData = JSON.parse(profile.data as string);
+            }
+          } else {
+            currentData = profile.data as Record<string, any>;
+          }
+        }
+        const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
+
+        // Update data
+        const newData = { ...currentData };
+        const newFieldSources = { ...currentFieldSources };
+
+        if (data) {
+          // Simple data update (all fields marked as manually edited)
+          for (const [key, value] of Object.entries(data)) {
+            newData[key] = value;
+            newFieldSources[key] = {
+              ...(currentFieldSources[key] || {}),
+              manuallyEdited: true,
+              editedAt: new Date().toISOString(),
+            };
+          }
+        }
+
+        if (fields) {
+          // Detailed field update with metadata
+          for (const [key, fieldData] of Object.entries(fields)) {
+            newData[key] = fieldData.value;
+            newFieldSources[key] = {
+              ...(currentFieldSources[key] || {}),
+              manuallyEdited: fieldData.manuallyEdited !== false,
+              editedAt: new Date().toISOString(),
+            };
+          }
+        }
+
+        // Update profile (encrypt PII data before storing)
+        const { encryptJSON } = await import('../utils/encryption');
+        const updatedProfile = await prisma.clientProfile.update({
+          where: { id: profile.id },
           data: {
-            clientId,
-            data: {},
-            fieldSources: {},
+            data: encryptJSON(newData),
+            fieldSources: newFieldSources,
           },
         });
-      }
 
-      const currentData = (profile.data || {}) as Record<string, any>;
-      const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
+        logger.info(`Profile updated for client: ${clientId} by user: ${userId}`);
 
-      // Update data
-      const newData = { ...currentData };
-      const newFieldSources = { ...currentFieldSources };
-
-      if (data) {
-        // Simple data update (all fields marked as manually edited)
-        for (const [key, value] of Object.entries(data)) {
-          newData[key] = value;
-          newFieldSources[key] = {
-            ...(currentFieldSources[key] || {}),
-            manuallyEdited: true,
-            editedAt: new Date().toISOString(),
-          };
-        }
-      }
-
-      if (fields) {
-        // Detailed field update with metadata
-        for (const [key, fieldData] of Object.entries(fields)) {
-          newData[key] = fieldData.value;
-          newFieldSources[key] = {
-            ...(currentFieldSources[key] || {}),
-            manuallyEdited: fieldData.manuallyEdited !== false,
-            editedAt: new Date().toISOString(),
-          };
-        }
-      }
-
-      // Update profile
-      const updatedProfile = await prisma.clientProfile.update({
-        where: { id: profile.id },
-        data: {
-          data: newData,
-          fieldSources: newFieldSources,
-        },
-      });
-
-      logger.info(`Profile updated for client: ${clientId} by user: ${userId}`);
-
-      res.json({
-        success: true,
-        message: 'Profile updated successfully',
-        data: {
-          profile: {
-            id: updatedProfile.id,
-            data: newData as Prisma.InputJsonValue,
-            fieldSources: newFieldSources as Prisma.InputJsonValue,
-            updatedAt: updatedProfile.updatedAt.toISOString(),
+        res.json({
+          success: true,
+          message: 'Profile updated successfully',
+          data: {
+            profile: {
+              id: updatedProfile.id,
+              data: newData as Prisma.InputJsonValue,
+              fieldSources: newFieldSources as Prisma.InputJsonValue,
+              updatedAt: updatedProfile.updatedAt.toISOString(),
+            },
           },
-        },
-      });
-    } catch (error) {
-      logger.error('Error updating client profile:', error);
-      next(error);
+        });
+      } catch (error) {
+        logger.error('Error updating client profile:', error);
+        next(error);
+      }
     }
-  });
+  );
 
   /**
    * PATCH /api/clients/:clientId/profile/fields/:fieldName - Update a single field
@@ -341,7 +410,19 @@ export function createClientProfileRoutes(): Router {
           });
         }
 
-        const currentData = (profile.data || {}) as Record<string, any>;
+        let currentData: Record<string, any> = {};
+        if (profile.data) {
+          if (typeof profile.data === 'string') {
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              currentData = decryptJSON(profile.data as string);
+            } catch {
+              currentData = JSON.parse(profile.data as string);
+            }
+          } else {
+            currentData = profile.data as Record<string, any>;
+          }
+        }
         const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
 
         // Update single field
@@ -355,11 +436,12 @@ export function createClientProfileRoutes(): Router {
           },
         };
 
-        // Update profile
+        // Update profile (encrypt PII data before storing)
+        const { encryptJSON } = await import('../utils/encryption');
         await prisma.clientProfile.update({
           where: { id: profile.id },
           data: {
-            data: newData as Prisma.InputJsonValue,
+            data: encryptJSON(newData) as unknown as Prisma.InputJsonValue,
             fieldSources: newFieldSources as Prisma.InputJsonValue,
           },
         });
@@ -411,18 +493,31 @@ export function createClientProfileRoutes(): Router {
           return res.status(404).json({ error: 'Profile not found' });
         }
 
-        const currentData = (client.profile.data || {}) as Record<string, unknown>;
+        let currentData: Record<string, unknown> = {};
+        if (client.profile.data) {
+          if (typeof client.profile.data === 'string') {
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              currentData = decryptJSON(client.profile.data as string);
+            } catch {
+              currentData = JSON.parse(client.profile.data as string);
+            }
+          } else {
+            currentData = client.profile.data as Record<string, unknown>;
+          }
+        }
         const currentFieldSources = (client.profile.fieldSources || {}) as Record<string, unknown>;
 
         // Remove field
         const { [fieldName]: removedData, ...newData } = currentData;
         const { [fieldName]: removedSource, ...newFieldSources } = currentFieldSources;
 
-        // Update profile
+        // Update profile (encrypt PII data before storing)
+        const { encryptJSON } = await import('../utils/encryption');
         await prisma.clientProfile.update({
           where: { id: client.profile.id },
           data: {
-            data: newData as Prisma.InputJsonValue,
+            data: encryptJSON(newData) as unknown as Prisma.InputJsonValue,
             fieldSources: newFieldSources as Prisma.InputJsonValue,
           },
         });
@@ -466,7 +561,19 @@ export function createClientProfileRoutes(): Router {
           return res.status(404).json({ error: 'Client not found' });
         }
 
-        const profileData = (client.profile?.data || {}) as Record<string, unknown>;
+        let profileData: Record<string, unknown> = {};
+        if (client.profile?.data) {
+          if (typeof client.profile.data === 'string') {
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              profileData = decryptJSON(client.profile.data as string);
+            } catch {
+              profileData = JSON.parse(client.profile.data as string);
+            }
+          } else {
+            profileData = client.profile.data as Record<string, unknown>;
+          }
+        }
 
         if (format === 'csv') {
           // Export as CSV

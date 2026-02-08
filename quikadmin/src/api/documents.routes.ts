@@ -14,7 +14,12 @@ import { DocumentProcessingService } from '../services/DocumentProcessingService
 import { prisma } from '../utils/prisma';
 import { fileValidationService } from '../services/fileValidation.service';
 import { uploadFile as uploadToStorage, fetchFromStorage } from '../services/storageHelper';
-import { normalizeExtractedData, flattenExtractedData, ExtractedDataWithConfidence, LegacyExtractedData } from '../types/extractedData';
+import {
+  normalizeExtractedData,
+  flattenExtractedData,
+  ExtractedDataWithConfidence,
+  LegacyExtractedData,
+} from '../types/extractedData';
 import archiver from 'archiver';
 import { SharePermission } from '@prisma/client';
 import { FileValidationError } from '../utils/FileValidationError';
@@ -23,7 +28,9 @@ import { FileValidationError } from '../utils/FileValidationError';
 const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif'];
 const ALLOWED_MIMETYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/tiff'];
 
-function decodeExtractedData(raw: unknown): ExtractedDataWithConfidence | LegacyExtractedData | null {
+function decodeExtractedData(
+  raw: unknown
+): ExtractedDataWithConfidence | LegacyExtractedData | null {
   if (!raw) return null;
   if (typeof raw === 'string') {
     return decryptExtractedData(raw) as ExtractedDataWithConfidence | LegacyExtractedData | null;
@@ -994,7 +1001,13 @@ export function createDocumentRoutes(): Router {
       try {
         const userId = (req as unknown as { user: { id: string } }).user.id;
         const { id: documentId } = req.params;
-        const { email, permission = 'VIEW', expiresIn, generateLink = true } = req.body;
+        const {
+          email,
+          permission = 'VIEW',
+          expiresIn,
+          generateLink = true,
+          maxAccessCount,
+        } = req.body;
 
         if (!email || typeof email !== 'string') {
           return res.status(400).json({ error: 'Email is required' });
@@ -1043,6 +1056,18 @@ export function createDocumentRoutes(): Router {
           });
         }
 
+        // Resolve org context for share boundary
+        let sharerOrgId: string | null = null;
+        try {
+          const sharer = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { organizationId: true },
+          });
+          sharerOrgId = sharer?.organizationId ?? null;
+        } catch {
+          /* non-critical */
+        }
+
         const share = await prisma.documentShare.create({
           data: {
             documentId,
@@ -1052,6 +1077,9 @@ export function createDocumentRoutes(): Router {
             permission: permission as SharePermission,
             accessToken,
             expiresAt,
+            organizationId: sharerOrgId,
+            maxAccessCount:
+              typeof maxAccessCount === 'number' && maxAccessCount > 0 ? maxAccessCount : null,
           },
           select: {
             id: true,

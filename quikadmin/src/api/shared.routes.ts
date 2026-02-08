@@ -80,6 +80,14 @@ export function createSharedRoutes(): Router {
         });
       }
 
+      // Check if max access count exceeded
+      if (share.maxAccessCount && share.accessCount >= share.maxAccessCount) {
+        return res.status(410).json({
+          error: 'This share link has reached its maximum access limit',
+          code: 'SHARE_ACCESS_LIMIT_REACHED',
+        });
+      }
+
       // Check if document still exists
       if (!share.document) {
         return res.status(404).json({
@@ -189,6 +197,14 @@ export function createSharedRoutes(): Router {
         return res.status(410).json({
           error: 'This share link has expired',
           code: 'SHARE_EXPIRED',
+        });
+      }
+
+      // Check if max access count exceeded
+      if (share.maxAccessCount && share.accessCount >= share.maxAccessCount) {
+        return res.status(410).json({
+          error: 'This share link has reached its maximum access limit',
+          code: 'SHARE_ACCESS_LIMIT_REACHED',
         });
       }
 

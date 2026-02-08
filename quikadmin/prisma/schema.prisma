@@ -34,6 +34,7 @@ model User {
   firstName        String?
   lastName         String?
   role             UserRole                 @default(USER)
+  isSuperAdmin     Boolean                  @default(false) @map("is_super_admin")
   isActive         Boolean                  @default(true)
   emailVerified    Boolean                  @default(false)
   mfaEnabled       Boolean                  @default(false) @map("mfa_enabled")
@@ -164,16 +165,35 @@ model Client {
 }
 
 model ClientProfile {
-  id           String   @id @default(uuid())
-  clientId     String   @unique @map("client_id")
-  data         Json     @default("{}")
-  fieldSources Json     @default("{}") @map("field_sources")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id           String                  @id @default(uuid())
+  clientId     String                  @unique @map("client_id")
+  data         Json                    @default("{}")
+  fieldSources Json                    @default("{}") @map("field_sources")
+  createdAt    DateTime                @default(now()) @map("created_at")
+  updatedAt    DateTime                @updatedAt @map("updated_at")
+  client       Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  auditLogs    ClientProfileAuditLog[]
 
   @@index([clientId])
   @@map("client_profiles")
+}
+
+model ClientProfileAuditLog {
+  id               String        @id @default(uuid())
+  clientProfileId  String        @map("client_profile_id")
+  clientProfile    ClientProfile @relation(fields: [clientProfileId], references: [id], onDelete: Cascade)
+  fieldName        String        @map("field_name") @db.VarChar(255)
+  oldValue         String?       @map("old_value")
+  newValue         String?       @map("new_value")
+  source           String        @db.VarChar(50) // 'ocr', 'manual', 'merge', 'import'
+  sourceDocumentId String?       @map("source_document_id")
+  changedBy        String?       @map("changed_by")
+  changedAt        DateTime      @default(now()) @map("changed_at")
+  organizationId   String?       @map("organization_id")
+
+  @@index([clientProfileId, changedAt])
+  @@index([organizationId, changedAt])
+  @@map("client_profile_audit_logs")
 }
 
 model ClientDocument {
@@ -886,7 +906,9 @@ model DocumentShare {
   accessToken      String?         @unique @map("access_token")
   expiresAt        DateTime?       @map("expires_at")
   accessCount      Int             @default(0) @map("access_count")
+  maxAccessCount   Int?            @map("max_access_count")
   lastAccessedAt   DateTime?       @map("last_accessed_at")
+  organizationId   String?         @map("organization_id")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
@@ -899,6 +921,7 @@ model DocumentShare {
   @@index([sharedByUserId])
   @@index([sharedWithUserId])
   @@index([expiresAt])
+  @@index([organizationId])
   @@map("document_shares")
 }
 

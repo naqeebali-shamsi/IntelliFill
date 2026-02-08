@@ -146,6 +146,137 @@ const DATE_FORMATS = [
 ];
 
 // ============================================================================
+// MRZ Checksum Validation (ICAO 9303)
+// ============================================================================
+
+/**
+ * ICAO 9303 character-to-value mapping for MRZ check digit calculation.
+ * 0-9 => 0-9, A-Z => 10-35, < => 0
+ */
+function mrzCharValue(ch: string): number {
+  if (ch === '<') return 0;
+  const code = ch.charCodeAt(0);
+  if (code >= 48 && code <= 57) return code - 48; // '0'-'9'
+  if (code >= 65 && code <= 90) return code - 55; // 'A'-'Z'
+  return 0; // invalid chars treated as filler
+}
+
+/**
+ * Compute ICAO 9303 check digit over a string using weights 7, 3, 1.
+ * Returns a single digit 0-9.
+ */
+function mrzCheckDigit(input: string): number {
+  const weights = [7, 3, 1];
+  let sum = 0;
+  for (let i = 0; i < input.length; i++) {
+    sum += mrzCharValue(input[i]) * weights[i % 3];
+  }
+  return sum % 10;
+}
+
+/**
+ * Validate MRZ line 2 check digits for TD3 (passport) format.
+ * TD3 line 2 layout (44 chars):
+ *   [0-8]   passport number (9 chars)
+ *   [9]     check digit for passport number
+ *   [10-12] nationality (3 chars)
+ *   [13-18] date of birth YYMMDD (6 chars)
+ *   [19]    check digit for DOB
+ *   [20]    sex
+ *   [21-26] date of expiry YYMMDD (6 chars)
+ *   [27]    check digit for expiry
+ *   [28-42] optional data + check digit
+ *   [43]    overall check digit
+ */
+function validateMrzLine2(line2: string): ValidationResult {
+  const cleaned = line2.replace(/\s/g, '').toUpperCase();
+  if (cleaned.length !== 44) {
+    return { valid: false, message: `MRZ line 2 should be 44 characters, got ${cleaned.length}` };
+  }
+
+  const errors: string[] = [];
+
+  // Passport number check digit (positions 0-8 checked by position 9)
+  const passportNum = cleaned.substring(0, 9);
+  const passportCheck = parseInt(cleaned[9], 10);
+  if (mrzCheckDigit(passportNum) !== passportCheck) {
+    errors.push('passport number check digit invalid');
+  }
+
+  // Date of birth check digit (positions 13-18 checked by position 19)
+  const dob = cleaned.substring(13, 19);
+  const dobCheck = parseInt(cleaned[19], 10);
+  if (mrzCheckDigit(dob) !== dobCheck) {
+    errors.push('date of birth check digit invalid');
+  }
+
+  // Date of expiry check digit (positions 21-26 checked by position 27)
+  const expiry = cleaned.substring(21, 27);
+  const expiryCheck = parseInt(cleaned[27], 10);
+  if (mrzCheckDigit(expiry) !== expiryCheck) {
+    errors.push('date of expiry check digit invalid');
+  }
+
+  // Overall check digit (position 43) over positions 0-9, 13-19, 21-42
+  const compositeInput =
+    cleaned.substring(0, 10) + cleaned.substring(13, 20) + cleaned.substring(21, 43);
+  const overallCheck = parseInt(cleaned[43], 10);
+  if (mrzCheckDigit(compositeInput) !== overallCheck) {
+    errors.push('overall check digit invalid');
+  }
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      message: `MRZ checksum failures: ${errors.join(', ')}`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Cross-validate extracted passport fields against MRZ-encoded data.
+ * Compares passport_number from MRZ line 2 against the separately extracted value.
+ */
+function crossValidateMrzFields(
+  _value: string,
+  allFields: Record<string, ExtractedFieldResult>
+): ValidationResult {
+  const mrzLine2 = allFields.mrz_line2?.value;
+  if (!mrzLine2 || typeof mrzLine2 !== 'string') {
+    return { valid: true }; // No MRZ to cross-validate
+  }
+
+  const cleaned = String(mrzLine2).replace(/\s/g, '').toUpperCase();
+  if (cleaned.length !== 44) {
+    return { valid: true }; // Malformed MRZ, skip cross-validation
+  }
+
+  const mismatches: string[] = [];
+
+  // Cross-validate passport number
+  const mrzPassport = cleaned.substring(0, 9).replace(/<+$/, '');
+  const extractedPassport = allFields.passport_number?.value;
+  if (extractedPassport && typeof extractedPassport === 'string') {
+    const normalizedExtracted = extractedPassport.replace(/[\s-]/g, '').toUpperCase();
+    if (mrzPassport !== normalizedExtracted) {
+      mismatches.push(`passport_number: extracted '${extractedPassport}' vs MRZ '${mrzPassport}'`);
+    }
+  }
+
+  if (mismatches.length > 0) {
+    return {
+      valid: false,
+      message: `MRZ cross-validation mismatches: ${mismatches.join('; ')}`,
+      suggestedFix: 'Review the passport image - MRZ data and visually extracted data differ',
+    };
+  }
+
+  return { valid: true };
+}
+
+// ============================================================================
 // Category-Specific Validation Rules
 // ============================================================================
 
@@ -187,6 +318,16 @@ const PASSPORT_RULES: ValidationRule[] = [
     required: false,
     format: /^[MF]$/i,
     formatDescription: 'Gender should be M or F',
+  },
+  {
+    field: 'mrz_line2',
+    required: false,
+    validator: (value) => validateMrzLine2(value),
+  },
+  {
+    field: 'passport_number',
+    required: true,
+    validator: (value, allFields) => crossValidateMrzFields(value, allFields),
   },
 ];
 
@@ -292,7 +433,8 @@ const BANK_STATEMENT_RULES: ValidationRule[] = [
     field: 'iban',
     required: false,
     format: /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/i,
-    formatDescription: 'IBAN should start with 2 letters, 2 digits, and 10-30 alphanumeric characters',
+    formatDescription:
+      'IBAN should start with 2 letters, 2 digits, and 10-30 alphanumeric characters',
   },
 ];
 
@@ -413,7 +555,7 @@ function parseDate(dateStr: string): Date | null {
   }
 
   // Try DD/MM/YYYY format
-  const ddmmyyyy = trimmed.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
   if (ddmmyyyy) {
     const [, day, month, year] = ddmmyyyy;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -421,7 +563,7 @@ function parseDate(dateStr: string): Date | null {
   }
 
   // Try YYYY-MM-DD format
-  const yyyymmdd = trimmed.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  const yyyymmdd = trimmed.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
   if (yyyymmdd) {
     const [, year, month, day] = yyyymmdd;
     const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -680,7 +822,7 @@ export async function validateExtraction(
 
     // If no issues for this field, count as passed
     const fieldHasIssues = issues.some(
-      i => i.field === rule.field && (i.severity === 'error' || i.severity === 'warning')
+      (i) => i.field === rule.field && (i.severity === 'error' || i.severity === 'warning')
     );
     if (!fieldHasIssues) {
       passedFields++;
@@ -708,9 +850,9 @@ export async function validateExtraction(
 
   // Calculate overall score
   const averageConfidence = fieldCount > 0 ? totalConfidence / fieldCount : 0;
-  const requiredFieldsPresent = rules.filter(r => r.required).every(
-    r => fields[r.field]?.value !== null && fields[r.field]?.value !== undefined
-  );
+  const requiredFieldsPresent = rules
+    .filter((r) => r.required)
+    .every((r) => fields[r.field]?.value !== null && fields[r.field]?.value !== undefined);
 
   let score: number = SCORE_WEIGHTS.BASE_SCORE;
 
@@ -728,7 +870,7 @@ export async function validateExtraction(
     score += SCORE_WEIGHTS.HIGH_CONFIDENCE * 0.5;
   }
 
-  if (issues.filter(i => i.issueType === 'cross_field_mismatch').length === 0) {
+  if (issues.filter((i) => i.issueType === 'cross_field_mismatch').length === 0) {
     score += SCORE_WEIGHTS.NO_CROSS_FIELD_ISSUES;
   }
 
@@ -738,7 +880,7 @@ export async function validateExtraction(
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   // Determine if passed
-  const hasErrors = issues.some(i => i.severity === 'error');
+  const hasErrors = issues.some((i) => i.severity === 'error');
   const passed = !hasErrors && score >= 60;
 
   // Determine if human review is needed
@@ -786,7 +928,7 @@ export async function validateExtraction(
  */
 export function getRequiredFields(category: DocumentCategory): string[] {
   const rules = getRulesForCategory(category);
-  return rules.filter(r => r.required).map(r => r.field);
+  return rules.filter((r) => r.required).map((r) => r.field);
 }
 
 /**
@@ -797,7 +939,7 @@ export function hasAllRequiredFields(
   category: DocumentCategory
 ): boolean {
   const required = getRequiredFields(category);
-  return required.every(fieldName => {
+  return required.every((fieldName) => {
     const field = fields[fieldName];
     return field?.value !== null && field?.value !== undefined;
   });
@@ -818,9 +960,7 @@ export function getLowConfidenceFields(
 /**
  * Calculate average confidence across fields
  */
-export function calculateAverageConfidence(
-  fields: Record<string, ExtractedFieldResult>
-): number {
+export function calculateAverageConfidence(fields: Record<string, ExtractedFieldResult>): number {
   const values = Object.values(fields);
   if (values.length === 0) return 0;
 

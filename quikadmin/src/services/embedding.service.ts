@@ -94,21 +94,98 @@ const MAX_TEXT_LENGTH = 8000; // Characters, well under token limit
 const MIN_TEXT_LENGTH = 1;
 
 // ============================================================================
-// Quota Tracking (In-Memory with persistence hook)
+// Quota Tracking (Redis-backed with in-memory fallback)
 // ============================================================================
 
-const quotaUsage = new Map<string, QuotaUsage>();
+import { createClient } from 'redis';
 
-function getQuotaKey(organizationId: string): string {
-  const today = new Date().toISOString().split('T')[0];
-  return `${organizationId}:${today}`;
+let quotaRedisClient: ReturnType<typeof createClient> | null = null;
+let quotaRedisConnected = false;
+
+// In-memory fallback for when Redis is unavailable
+const quotaFallback = new Map<string, QuotaUsage>();
+
+async function getQuotaRedisClient(): Promise<ReturnType<typeof createClient> | null> {
+  if (quotaRedisConnected && quotaRedisClient) return quotaRedisClient;
+
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) return null;
+
+  try {
+    if (!quotaRedisClient) {
+      quotaRedisClient = createClient({ url: redisUrl });
+      quotaRedisClient.on('error', (err) => {
+        logger.warn('Quota Redis client error', { error: err.message });
+        quotaRedisConnected = false;
+      });
+      quotaRedisClient.on('connect', () => {
+        quotaRedisConnected = true;
+      });
+      quotaRedisClient.on('disconnect', () => {
+        quotaRedisConnected = false;
+      });
+      await quotaRedisClient.connect();
+    }
+    return quotaRedisClient;
+  } catch {
+    logger.warn('Failed to connect to Redis for quota tracking, using in-memory fallback');
+    return null;
+  }
 }
 
-function checkAndUpdateQuota(organizationId: string, count: number, dailyLimit: number): boolean {
-  const key = getQuotaKey(organizationId);
+function getQuotaRedisKey(organizationId: string): string {
   const today = new Date().toISOString().split('T')[0];
+  return `embedding:quota:${organizationId}:${today}`;
+}
 
-  let usage = quotaUsage.get(key);
+async function checkAndUpdateQuota(
+  organizationId: string,
+  count: number,
+  dailyLimit: number
+): Promise<boolean> {
+  const redis = await getQuotaRedisClient();
+
+  if (redis) {
+    try {
+      const redisKey = getQuotaRedisKey(organizationId);
+      const currentStr = await redis.get(redisKey);
+      const current = currentStr ? parseInt(currentStr, 10) : 0;
+
+      if (current + count > dailyLimit) {
+        logger.warn('Daily quota exceeded', {
+          organizationId,
+          currentUsage: current,
+          requested: count,
+          limit: dailyLimit,
+        });
+        return false;
+      }
+
+      const newTotal = await redis.incrBy(redisKey, count);
+      // Set TTL to 25 hours to cover the full day + buffer
+      await redis.expire(redisKey, 90000);
+
+      // Double-check after increment (race condition guard)
+      if (newTotal > dailyLimit) {
+        await redis.decrBy(redisKey, count);
+        logger.warn('Daily quota exceeded after increment (race)', {
+          organizationId,
+          newTotal,
+          limit: dailyLimit,
+        });
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      logger.warn('Redis quota check failed, falling back to in-memory', { error: err });
+    }
+  }
+
+  // In-memory fallback
+  const today = new Date().toISOString().split('T')[0];
+  const key = `${organizationId}:${today}`;
+  let usage = quotaFallback.get(key);
 
   if (!usage || usage.date !== today) {
     usage = {
@@ -121,7 +198,7 @@ function checkAndUpdateQuota(organizationId: string, count: number, dailyLimit: 
   }
 
   if (usage.embeddingCount + count > dailyLimit) {
-    logger.warn('Daily quota exceeded', {
+    logger.warn('Daily quota exceeded (in-memory fallback)', {
       organizationId,
       currentUsage: usage.embeddingCount,
       requested: count,
@@ -132,14 +209,35 @@ function checkAndUpdateQuota(organizationId: string, count: number, dailyLimit: 
 
   usage.embeddingCount += count;
   usage.lastUpdated = new Date();
-  quotaUsage.set(key, usage);
-
+  quotaFallback.set(key, usage);
   return true;
 }
 
-function getQuotaUsage(organizationId: string): QuotaUsage | null {
-  const key = getQuotaKey(organizationId);
-  return quotaUsage.get(key) || null;
+async function getQuotaUsage(organizationId: string): Promise<QuotaUsage | null> {
+  const redis = await getQuotaRedisClient();
+  const today = new Date().toISOString().split('T')[0];
+
+  if (redis) {
+    try {
+      const redisKey = getQuotaRedisKey(organizationId);
+      const countStr = await redis.get(redisKey);
+      if (!countStr) return null;
+
+      return {
+        organizationId,
+        date: today,
+        embeddingCount: parseInt(countStr, 10),
+        tokenCount: 0,
+        lastUpdated: new Date(),
+      };
+    } catch (err) {
+      logger.warn('Redis quota read failed, falling back to in-memory', { error: err });
+    }
+  }
+
+  // In-memory fallback
+  const key = `${organizationId}:${today}`;
+  return quotaFallback.get(key) || null;
 }
 
 // ============================================================================
@@ -271,7 +369,7 @@ export class EmbeddingService {
 
     // Check quota if organization provided
     if (organizationId) {
-      if (!checkAndUpdateQuota(organizationId, 1, this.config.dailyQuotaLimit)) {
+      if (!(await checkAndUpdateQuota(organizationId, 1, this.config.dailyQuotaLimit))) {
         throw new Error(`Daily embedding quota exceeded for organization ${organizationId}`);
       }
     }
@@ -337,7 +435,7 @@ export class EmbeddingService {
 
     // Check quota if organization provided
     if (organizationId) {
-      if (!checkAndUpdateQuota(organizationId, texts.length, this.config.dailyQuotaLimit)) {
+      if (!(await checkAndUpdateQuota(organizationId, texts.length, this.config.dailyQuotaLimit))) {
         throw new Error(`Daily embedding quota exceeded for organization ${organizationId}`);
       }
     }
@@ -517,15 +615,15 @@ export class EmbeddingService {
   /**
    * Get quota usage for an organization
    */
-  getQuotaUsage(organizationId: string): QuotaUsage | null {
+  async getQuotaUsage(organizationId: string): Promise<QuotaUsage | null> {
     return getQuotaUsage(organizationId);
   }
 
   /**
    * Get remaining quota for an organization
    */
-  getRemainingQuota(organizationId: string): number {
-    const usage = getQuotaUsage(organizationId);
+  async getRemainingQuota(organizationId: string): Promise<number> {
+    const usage = await getQuotaUsage(organizationId);
     if (!usage) {
       return this.config.dailyQuotaLimit;
     }
@@ -640,13 +738,12 @@ export class EmbeddingService {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: this.config.model });
 
-        // Process each text individually since batchEmbedContents requires complex content
-        const embeddings: number[][] = [];
-        for (const text of texts) {
-          const result = await model.embedContent(text);
-          embeddings.push(result.embedding.values);
-        }
-        return embeddings;
+        // Use Google's true batch embedding API instead of sequential calls
+        const requests = texts.map((text) => ({
+          content: { parts: [{ text }] },
+        }));
+        const result = await model.batchEmbedContents({ requests });
+        return result.embeddings.map((e) => e.values);
       } catch (error) {
         lastError = error as Error;
         this.keyManager.markKeyFailed(apiKey);

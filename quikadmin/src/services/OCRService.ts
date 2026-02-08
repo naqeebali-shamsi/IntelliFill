@@ -241,7 +241,7 @@ export class OCRService {
     if (this.initialized) return;
 
     try {
-      this.worker = await Tesseract.createWorker('eng+spa+fra+deu', 1, {
+      this.worker = await Tesseract.createWorker('eng+ara', 1, {
         logger: (m: any) => {
           if (m.status === 'recognizing text') {
             logger.debug(`OCR Progress: ${(m.progress * 100).toFixed(1)}%`);
@@ -252,9 +252,9 @@ export class OCRService {
       // Configure for better accuracy
       // Note: Using PSM.AUTO instead of PSM.AUTO_OSD to avoid requiring osd.traineddata
       // AUTO_OSD requires the OSD trained data file which may not be available on all deployments
+      // NOTE: Removed tessedit_char_whitelist to support Arabic/multilingual documents.
+      // The whitelist was ASCII-only, silently dropping Arabic characters from UAE documents.
       await this.worker.setParameters({
-        tessedit_char_whitelist:
-          '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,;:!?@#$%&*()-_+=[]{}|\\/<>"\' ',
         preserve_interword_spaces: '1',
         tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       });
@@ -462,23 +462,13 @@ Return ONLY the extracted text, no commentary or explanation.`;
     if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
       return 'image/jpeg';
     }
-    if (
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47
-    ) {
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
       return 'image/png';
     }
     if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
       return 'image/gif';
     }
-    if (
-      buffer[0] === 0x52 &&
-      buffer[1] === 0x49 &&
-      buffer[2] === 0x46 &&
-      buffer[3] === 0x46
-    ) {
+    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
       return 'image/webp';
     }
 
@@ -494,27 +484,37 @@ Return ONLY the extracted text, no commentary or explanation.`;
    * - Presence of structured data patterns
    * - Absence of error indicators
    */
+  /**
+   * Estimate confidence for VLM extraction.
+   *
+   * IMPORTANT: These are heuristic estimates, NOT model-calibrated probabilities.
+   * The score is capped at 85 for heuristic estimates. Future improvement:
+   * replace with Gemini response metadata or calibrated logits.
+   */
   private estimateVLMConfidence(text: string): number {
-    let confidence = 85; // Base confidence for VLM
+    // Start conservative - VLM confidence is inherently uncertain
+    let confidence = 60;
 
-    // Boost for substantial text extraction
+    // Text length indicates extraction happened (but not correctness)
+    if (text.length > 100) confidence += 5;
     if (text.length > 500) confidence += 5;
     if (text.length > 1000) confidence += 3;
 
-    // Boost for structured patterns (dates, IDs, key:value)
-    if (/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(text)) confidence += 2; // Date pattern
-    if (/[A-Z]{1,2}\d{6,9}/.test(text)) confidence += 2; // ID pattern
+    // Structured patterns suggest real document content
+    if (/\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(text)) confidence += 3; // Date pattern
+    if (/[A-Z]{1,2}\d{6,9}/.test(text)) confidence += 3; // ID pattern
     if (/\w+:\s*\w+/.test(text)) confidence += 2; // Key:value pattern
 
     // Penalize for uncertainty markers
     const uncertainCount = (text.match(/\[\?\]/g) || []).length;
     confidence -= uncertainCount * 3;
 
-    // Penalize for error-like responses
-    if (/unable to|cannot|sorry/i.test(text)) confidence -= 20;
-    if (text.length < 50) confidence -= 15;
+    // Negative signals
+    if (text.length < 20) confidence -= 20; // Suspiciously short
+    if (/error|sorry|unable|cannot/i.test(text)) confidence -= 15; // Error response
+    if (text.length > 100 && text === text.toUpperCase()) confidence -= 5; // All caps anomaly
 
-    return Math.max(50, Math.min(98, confidence));
+    return Math.max(10, Math.min(confidence, 85)); // Cap at 85 for heuristic estimates
   }
 
   /**
@@ -1114,7 +1114,7 @@ Return ONLY the extracted text, no commentary or explanation.`;
         .greyscale() // Convert to grayscale
         .normalize() // Normalize contrast
         .sharpen() // Sharpen text
-        .threshold(128) // Apply threshold for better text extraction
+        .threshold() // Otsu's adaptive threshold - auto-selects optimal value per image
         .resize({ width: 2400 }) // Resize for optimal OCR (300 DPI equivalent)
         .toBuffer();
 
@@ -1416,7 +1416,13 @@ Return ONLY the extracted text, no commentary or explanation.`;
       const value = kvMatch[2].trim();
 
       // Calculate confidence for key-value extraction
-      const confidence = this.calculateFieldConfidence('keyValue', value, kvMatch.index, text, ocrConfidence);
+      const confidence = this.calculateFieldConfidence(
+        'keyValue',
+        value,
+        kvMatch.index,
+        text,
+        ocrConfidence
+      );
 
       structuredData.fields[key] = {
         value,
@@ -1426,7 +1432,9 @@ Return ONLY the extracted text, no commentary or explanation.`;
       };
     }
 
-    logger.debug(`Extracted structured data with ${Object.keys(structuredData.fields).length} fields`);
+    logger.debug(
+      `Extracted structured data with ${Object.keys(structuredData.fields).length} fields`
+    );
 
     return structuredData;
   }

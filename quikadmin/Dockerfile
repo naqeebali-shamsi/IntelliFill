@@ -100,9 +100,16 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 # Copy necessary files
 COPY --chown=nodejs:nodejs package.json ./
 COPY --chown=nodejs:nodejs prisma ./prisma
+COPY --chown=nodejs:nodejs docker-entrypoint.sh ./
 
-# Create necessary directories
-RUN mkdir -p uploads outputs logs models data \
+# Install Prisma CLI for database migrations at deploy time.
+# prisma is a devDependency (pruned from prod node_modules), but we need
+# the CLI to run `prisma migrate deploy` in the entrypoint.
+RUN npm install -g prisma@6
+
+# Make entrypoint executable and create necessary directories
+RUN chmod +x docker-entrypoint.sh \
+    && mkdir -p uploads outputs logs models data \
     && chown -R nodejs:nodejs /app
 
 # Switch to non-root user
@@ -114,14 +121,14 @@ ENV NODE_ENV=production \
     NODE_OPTIONS="--max-old-space-size=2048"
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD node -e "require('http').get('http://localhost:${PORT}/api/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})" || exit 1
 
 # Expose port
 EXPOSE 3002
 
-# Use dumb-init for signal handling
-ENTRYPOINT ["dumb-init", "--"]
+# Use dumb-init for signal handling, with entrypoint for migrations
+ENTRYPOINT ["dumb-init", "--", "./docker-entrypoint.sh"]
 
-# Start application
+# Start application (passed as args to entrypoint via exec "$@")
 CMD ["node", "dist/index.js"]

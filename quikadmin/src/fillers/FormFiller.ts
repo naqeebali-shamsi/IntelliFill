@@ -52,9 +52,28 @@ export class FormFiller {
 
       logger.info(`Found ${fields.length} form fields in PDF`);
 
+      // Detect XFA or flat PDFs with no fillable fields
+      if (fields.length === 0) {
+        return {
+          success: false,
+          filledFields: [],
+          failedFields: [],
+          warnings: [
+            'No fillable form fields detected. This PDF may use XFA format (not supported) or be a flat (non-interactive) document.',
+          ],
+          outputPath: '',
+        };
+      }
+
       // Fill each mapped field
       for (const mapping of mappings.mappings) {
         try {
+          // Skip null/undefined/empty values instead of writing "null"
+          if (mapping.value === null || mapping.value === undefined || mapping.value === '') {
+            warnings.push(`Field '${mapping.formField}' skipped: no value available`);
+            continue;
+          }
+
           const field = form.getField(mapping.formField);
 
           if (!field) {
@@ -116,7 +135,7 @@ export class FormFiller {
 
             // Handle comma-separated values for multi-select
             const valuesToSelect = valueStr.includes(',')
-              ? valueStr.split(',').map(v => v.trim())
+              ? valueStr.split(',').map((v) => v.trim())
               : [valueStr];
 
             const selectedOptions: string[] = [];
@@ -168,6 +187,18 @@ export class FormFiller {
 
       // Save the filled PDF
       const filledPdfBytes = await pdfDoc.save();
+
+      // Post-fill verification: re-load and compare filled values
+      const verificationMismatches = await this.verifyFilledFields(
+        filledPdfBytes,
+        mappings.mappings
+          .filter((m) => filledFields.includes(m.formField))
+          .map((m) => ({ field: m.formField, value: String(m.value) }))
+      );
+      if (verificationMismatches.length > 0) {
+        warnings.push(...verificationMismatches);
+      }
+
       await fs.writeFile(outputPath, filledPdfBytes);
 
       return {
@@ -200,7 +231,20 @@ export class FormFiller {
         return true;
       }
       // Explicit false values
-      if (['false', 'no', 'n', '0', 'unchecked', 'off', 'single', 'unmarried', 'divorced', 'widowed'].includes(lower)) {
+      if (
+        [
+          'false',
+          'no',
+          'n',
+          '0',
+          'unchecked',
+          'off',
+          'single',
+          'unmarried',
+          'divorced',
+          'widowed',
+        ].includes(lower)
+      ) {
         return false;
       }
     }
@@ -370,6 +414,18 @@ export class FormFiller {
 
       logger.info(`Filling form with ${fields.length} fields`);
 
+      // Detect XFA or flat PDFs with no fillable fields
+      if (fields.length === 0) {
+        return {
+          success: false,
+          filledFields: [],
+          unmappedFields: [],
+          warnings: [
+            'No fillable form fields detected. This PDF may use XFA format (not supported) or be a flat (non-interactive) document.',
+          ],
+        };
+      }
+
       // Fill each mapped field
       for (const field of fields) {
         const formFieldName = field.getName();
@@ -444,7 +500,7 @@ export class FormFiller {
 
             // Handle comma-separated values for multi-select
             const valuesToSelect = valueStr.includes(',')
-              ? valueStr.split(',').map(v => v.trim())
+              ? valueStr.split(',').map((v) => v.trim())
               : [valueStr];
 
             const selectedOptions: string[] = [];
@@ -484,6 +540,19 @@ export class FormFiller {
       // Save the filled PDF
       await fs.mkdir(outputPath.substring(0, outputPath.lastIndexOf('/')), { recursive: true });
       const filledPdfBytes = await pdfDoc.save();
+
+      // Post-fill verification: re-load and compare filled values
+      const verificationMismatches = await this.verifyFilledFields(
+        filledPdfBytes,
+        filledFields.map((fieldName) => ({
+          field: fieldName,
+          value: String(profileData[fieldMappings[fieldName]] ?? ''),
+        }))
+      );
+      if (verificationMismatches.length > 0) {
+        warnings.push(...verificationMismatches);
+      }
+
       await fs.writeFile(outputPath, filledPdfBytes);
 
       return {
@@ -498,6 +567,60 @@ export class FormFiller {
         `Failed to fill PDF form: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * Post-fill verification: re-load saved PDF bytes and compare field values
+   * against expected values to detect silent data corruption.
+   */
+  private async verifyFilledFields(
+    pdfBytes: Uint8Array,
+    expectedValues: Array<{ field: string; value: string }>
+  ): Promise<string[]> {
+    const mismatches: string[] = [];
+
+    try {
+      const verifyDoc = await PDFDocument.load(pdfBytes);
+      const verifyForm = verifyDoc.getForm();
+
+      for (const { field: fieldName, value: expected } of expectedValues) {
+        try {
+          const field = verifyForm.getField(fieldName);
+          if (!field) continue;
+
+          if (field instanceof PDFTextField) {
+            const actual = field.getText() ?? '';
+            if (actual !== expected) {
+              mismatches.push(
+                `Verification mismatch: field '${fieldName}' expected '${expected}' but got '${actual}'`
+              );
+            }
+          } else if (field instanceof PDFCheckBox) {
+            const expectedChecked = this.parseBoolean(expected);
+            const actualChecked = field.isChecked();
+            if (actualChecked !== expectedChecked) {
+              mismatches.push(
+                `Verification mismatch: checkbox '${fieldName}' expected ${expectedChecked ? 'checked' : 'unchecked'} but got ${actualChecked ? 'checked' : 'unchecked'}`
+              );
+            }
+          }
+          // Dropdown, radio, and option list states are set-and-forget in pdf-lib;
+          // reading them back is unreliable, so we skip verification for those types.
+        } catch {
+          // Skip fields that can't be verified
+        }
+      }
+    } catch (error) {
+      mismatches.push(
+        `Post-fill verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+
+    if (mismatches.length > 0) {
+      logger.warn('Post-fill verification found mismatches', { count: mismatches.length });
+    }
+
+    return mismatches;
   }
 
   async fillMultipleForms(

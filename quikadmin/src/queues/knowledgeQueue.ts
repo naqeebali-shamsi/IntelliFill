@@ -253,6 +253,23 @@ if (knowledgeQueue) {
 }
 
 // ============================================================================
+// Deduplication Utilities
+// ============================================================================
+
+/**
+ * Job states that indicate the job is still pending or in-progress.
+ * Used for deduplication checks to avoid creating duplicate jobs.
+ */
+const PENDING_JOB_STATES = ['waiting', 'active', 'delayed'] as const;
+
+/**
+ * Generate a deterministic job ID for deduplication based on source and operation type.
+ */
+function generateKnowledgeJobId(sourceId: string, type: KnowledgeJobType): string {
+  return `knowledge-${type}-${sourceId}`;
+}
+
+// ============================================================================
 // Job Submission Functions
 // ============================================================================
 
@@ -271,12 +288,28 @@ export async function addProcessDocumentJob(
     throw new QueueUnavailableError('knowledge-processing');
   }
 
+  // Deduplication: check for existing job
+  const jobId = generateKnowledgeJobId(data.sourceId, 'processDocument');
+  const existingJob = await knowledgeQueue!.getJob(jobId);
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (PENDING_JOB_STATES.includes(state as (typeof PENDING_JOB_STATES)[number])) {
+      logger.info('Duplicate knowledge job detected, returning existing', {
+        jobId,
+        state,
+        sourceId: data.sourceId,
+      });
+      return existingJob as Job<ProcessDocumentJob>;
+    }
+  }
+
   const jobData: ProcessDocumentJob = {
     ...data,
     type: 'processDocument',
   };
 
   const jobOptions: JobOptions = {
+    jobId,
     priority: PRIORITY_MAP[data.priority || 'normal'],
     ...options,
   };
@@ -309,12 +342,28 @@ export async function addGenerateEmbeddingsJob(
     throw new QueueUnavailableError('knowledge-processing');
   }
 
+  // Deduplication: check for existing job
+  const jobId = generateKnowledgeJobId(data.sourceId, 'generateEmbeddings');
+  const existingJob = await knowledgeQueue!.getJob(jobId);
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (PENDING_JOB_STATES.includes(state as (typeof PENDING_JOB_STATES)[number])) {
+      logger.info('Duplicate embeddings job detected, returning existing', {
+        jobId,
+        state,
+        sourceId: data.sourceId,
+      });
+      return existingJob as Job<GenerateEmbeddingsJob>;
+    }
+  }
+
   const jobData: GenerateEmbeddingsJob = {
     ...data,
     type: 'generateEmbeddings',
   };
 
   const jobOptions: JobOptions = {
+    jobId,
     priority: PRIORITY_MAP[data.priority || 'normal'],
     ...options,
   };
@@ -346,12 +395,28 @@ export async function addReprocessChunksJob(
     throw new QueueUnavailableError('knowledge-processing');
   }
 
+  // Deduplication: check for existing job
+  const jobId = generateKnowledgeJobId(data.sourceId, 'reprocessChunks');
+  const existingJob = await knowledgeQueue!.getJob(jobId);
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (PENDING_JOB_STATES.includes(state as (typeof PENDING_JOB_STATES)[number])) {
+      logger.info('Duplicate reprocess job detected, returning existing', {
+        jobId,
+        state,
+        sourceId: data.sourceId,
+      });
+      return existingJob as Job<ReprocessChunksJob>;
+    }
+  }
+
   const jobData: ReprocessChunksJob = {
     ...data,
     type: 'reprocessChunks',
   };
 
   const jobOptions: JobOptions = {
+    jobId,
     priority: PRIORITY_MAP[data.priority || 'low'],
     ...options,
   };

@@ -26,7 +26,7 @@ services:
       # Database (Neon) - Set in Render Dashboard
       - key: DATABASE_URL
         sync: false
-      - key: DIRECT_URL
+      - key: DIRECT_DATABASE_URL
         sync: false
 
       # Redis (Upstash) - Set in Render Dashboard

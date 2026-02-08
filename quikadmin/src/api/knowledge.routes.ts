@@ -1063,7 +1063,7 @@ export function createKnowledgeRoutes(): Router {
             totalChunks: chunkCount,
             statusBreakdown: statusCounts,
             recentSources,
-            embeddingQuota: embeddingService.getRemainingQuota(organizationId),
+            embeddingQuota: await embeddingService.getRemainingQuota(organizationId),
           },
         });
       } catch (error) {

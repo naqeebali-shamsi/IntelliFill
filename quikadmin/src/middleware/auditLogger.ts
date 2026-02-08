@@ -442,10 +442,38 @@ export class AuditLoggerService {
       }
     }
 
-    // For critical alerts, consider additional actions
+    // For critical alerts, log structured security event and optionally auto-lock
     if (alert.severity === 'CRITICAL') {
-      // TODO: Send to security team, block user, etc.
-      logger.error('CRITICAL SECURITY ALERT', alert);
+      logger.error('[SECURITY_ALERT] CRITICAL anomaly detected', {
+        alertType: alert.type,
+        userId: alert.userId,
+        organizationId: alert.organizationId,
+        message: alert.message,
+        context: alert.context,
+        timestamp: alert.timestamp,
+        actionTaken:
+          process.env.SECURITY_AUTO_LOCK === 'true' ? 'account_locked' : 'shadow_mode_logged',
+      });
+
+      // Auto-lock user account when SECURITY_AUTO_LOCK is enabled
+      if (process.env.SECURITY_AUTO_LOCK === 'true') {
+        try {
+          const { prisma } = await import('../utils/prisma');
+          await prisma.user.update({
+            where: { id: alert.userId },
+            data: { isActive: false },
+          });
+          logger.error('[SECURITY_ALERT] User account locked due to critical alert', {
+            userId: alert.userId,
+            alertType: alert.type,
+          });
+        } catch (lockError) {
+          logger.error('[SECURITY_ALERT] Failed to lock user account', {
+            userId: alert.userId,
+            error: lockError,
+          });
+        }
+      }
     }
   }
 
@@ -811,7 +839,9 @@ function detectDataClassification(
 /**
  * Calculate retention days based on data classification
  */
-function calculateRetentionDays(classification: 'public' | 'internal' | 'confidential' | 'restricted'): number {
+function calculateRetentionDays(
+  classification: 'public' | 'internal' | 'confidential' | 'restricted'
+): number {
   switch (classification) {
     case 'restricted':
       return 2555; // 7 years for compliance (passport, ID documents)

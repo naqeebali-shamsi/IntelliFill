@@ -158,7 +158,6 @@ export interface RegisterRequest {
   email: string;
   password: string;
   fullName: string;
-  role?: string;
   acceptTerms?: boolean; // Required - must be true for registration
   marketingConsent?: boolean; // Optional - user consent for marketing emails
 }
@@ -230,10 +229,13 @@ export function createSupabaseAuthRoutes(): Router {
           email,
           password,
           fullName,
-          role = 'user',
           acceptTerms,
           marketingConsent = false,
         }: RegisterRequest = req.body;
+
+        // SECURITY: Never accept role from user input. All new users start as 'user'.
+        // Admin promotion must happen through an authenticated admin action.
+        const role = 'user';
 
         // ===== Input Validation =====
         if (!email || !password || !fullName) {
@@ -261,13 +263,6 @@ export function createSupabaseAuthRoutes(): Router {
         const passwordError = validatePasswordStrength(password);
         if (passwordError) {
           return res.status(400).json({ error: passwordError });
-        }
-
-        const validRoles = ['user', 'admin'];
-        if (role && !validRoles.includes(role.toLowerCase())) {
-          return res
-            .status(400)
-            .json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
         }
 
         // Parse full name into first and last name
@@ -605,11 +600,7 @@ export function createSupabaseAuthRoutes(): Router {
           }
 
           // Generate new access token
-          const accessToken = jwtTokenService.generateAccessToken(
-            user.id,
-            user.email,
-            user.role
-          );
+          const accessToken = jwtTokenService.generateAccessToken(user.id, user.email, user.role);
 
           // Update last login
           try {
@@ -1134,7 +1125,7 @@ export function createSupabaseAuthRoutes(): Router {
     const DEMO_PASSWORD = 'demo123';
 
     try {
-      if (process.env.ENABLE_DEMO_MODE === 'false') {
+      if (process.env.ENABLE_DEMO_MODE !== 'true') {
         logger.warn('Demo login attempted but demo mode is disabled');
         return res.status(403).json({ error: 'Demo mode is not enabled', code: 'DEMO_DISABLED' });
       }

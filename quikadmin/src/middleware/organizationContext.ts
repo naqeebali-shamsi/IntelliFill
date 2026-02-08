@@ -62,7 +62,7 @@ interface CacheEntry {
 // Configuration
 // ============================================================================
 
-const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_CACHE_TTL_MS = 60 * 1000; // 60 seconds (reduced from 5 min to limit stale access after role/member changes)
 const MAX_CACHE_SIZE = 10000;
 
 const config = {
@@ -288,6 +288,18 @@ export async function requireOrganization(
       name: context.organizationName,
       role: context.role,
     });
+
+    // Set org context for RLS policies on knowledge base tables
+    try {
+      await prisma.$executeRawUnsafe('SELECT set_org_context($1)', context.organizationId);
+    } catch (error) {
+      logger.warn('[OrgContext] Failed to set RLS org context', {
+        userId,
+        organizationId: context.organizationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      // Non-fatal: application-level filtering still works as fallback
+    }
 
     logger.debug('[OrgContext] Organization context attached', {
       userId,

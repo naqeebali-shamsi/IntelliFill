@@ -69,6 +69,7 @@ import {
   SecuritySeverity,
 } from './services/SecurityEventService';
 import { ErrorCode, HttpStatus } from './constants/errorCodes';
+import { startStaleJobReconciliation } from './services/staleJobReconciler';
 
 // Validate configuration explicitly at startup (will throw and exit if invalid)
 try {
@@ -245,31 +246,27 @@ async function initializeApp(): Promise<{ app: Application }> {
     // Stripe webhook - MUST be defined BEFORE body parsing middleware
     // Following Stripe's official pattern: https://docs.stripe.com/webhooks/quickstart
     // The route handler is defined here with express.raw() inline, not in a separate router
-    app.post(
-      '/api/stripe/webhook',
-      express.raw({ type: 'application/json' }),
-      async (req, res) => {
-        const { stripeService } = await import('./services/stripe.service');
+    app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+      const { stripeService } = await import('./services/stripe.service');
 
-        const signature = req.headers['stripe-signature'];
-        if (!signature || typeof signature !== 'string') {
-          logger.warn('Webhook received without signature');
-          return res.status(400).json({ error: 'Missing signature' });
-        }
-
-        try {
-          const event = stripeService.constructWebhookEvent(req.body, signature);
-          logger.info('Webhook event received', { type: event.type, id: event.id });
-          await stripeService.handleWebhookEvent(event);
-          res.json({ received: true });
-        } catch (error) {
-          logger.error('Webhook error', { error });
-          res.status(400).json({
-            error: error instanceof Error ? error.message : 'Webhook error',
-          });
-        }
+      const signature = req.headers['stripe-signature'];
+      if (!signature || typeof signature !== 'string') {
+        logger.warn('Webhook received without signature');
+        return res.status(400).json({ error: 'Missing signature' });
       }
-    );
+
+      try {
+        const event = stripeService.constructWebhookEvent(req.body, signature);
+        logger.info('Webhook event received', { type: event.type, id: event.id });
+        await stripeService.handleWebhookEvent(event);
+        res.json({ received: true });
+      } catch (error) {
+        logger.error('Webhook error', { error });
+        res.status(400).json({
+          error: error instanceof Error ? error.message : 'Webhook error',
+        });
+      }
+    });
 
     // Body parsing middleware - applied AFTER webhook route
     app.use(express.json({ limit: '10mb' }));
@@ -582,11 +579,20 @@ async function startServer() {
 
       // Start RealtimeService heartbeat for SSE connection health
       realtimeService.startHeartbeat(30000); // Send heartbeat every 30 seconds
+
+      // Start stale job reconciliation (resets stuck PROCESSING docs every 15 min)
+      const reconciler = startStaleJobReconciliation();
+      (server as any)._staleJobReconciler = reconciler;
     });
 
     // Handle server shutdown
     const shutdownHandler = async () => {
       logger.info('Shutdown signal received, closing HTTP server');
+
+      // Stop stale job reconciliation
+      if ((server as any)._staleJobReconciler) {
+        clearInterval((server as any)._staleJobReconciler);
+      }
 
       // Shutdown RealtimeService (notify clients and close SSE connections)
       realtimeService.shutdown();

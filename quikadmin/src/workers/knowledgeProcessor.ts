@@ -42,6 +42,7 @@ import {
   MemoryManagerService,
   memoryManager as memoryManagerInstance,
 } from '../services/memoryManager.service';
+import { getSearchCacheService } from '../services/searchCache.service';
 import { prisma } from '../utils/prisma';
 
 // ============================================================================
@@ -198,7 +199,7 @@ async function processDocumentJob(
   const reporter = createProgressReporter(job);
 
   // Update source status to processing
-  await updateSourceStatus(sourceId, 'processing');
+  await updateSourceStatus(sourceId, organizationId, 'processing');
 
   // Check for existing checkpoint
   const checkpoint = await getCheckpoint(sourceId);
@@ -379,6 +380,17 @@ async function processDocumentJob(
       );
     }
 
+    // Invalidate search cache so new chunks are immediately searchable
+    try {
+      const searchCache = getSearchCacheService();
+      await searchCache.invalidateOrganization(organizationId);
+    } catch (cacheError) {
+      logger.warn('Failed to invalidate search cache after processing', {
+        organizationId,
+        error: cacheError instanceof Error ? cacheError.message : 'Unknown error',
+      });
+    }
+
     // ========================================================================
     // Completion
     // ========================================================================
@@ -393,7 +405,7 @@ async function processDocumentJob(
     await reporter.complete(stats);
 
     // Update source with results
-    await updateSourceStatus(sourceId, 'completed', {
+    await updateSourceStatus(sourceId, organizationId, 'completed', {
       chunkCount: chunksStored,
       processingTimeMs: Date.now() - (checkpoint?.startedAt?.getTime() || Date.now()),
     });
@@ -410,7 +422,7 @@ async function processDocumentJob(
     };
   } catch (error) {
     // Update source status to error
-    await updateSourceStatus(sourceId, 'error', {
+    await updateSourceStatus(sourceId, organizationId, 'error', {
       errorMessage: error instanceof Error ? error.message : 'Unknown error',
     });
 
@@ -578,13 +590,18 @@ function detectDocumentType(filename: string, mimeType: string): DocumentType {
 
 /**
  * Update document source status
+ * Sets org context before UPDATE to satisfy RLS policies on document_sources
  */
 async function updateSourceStatus(
   sourceId: string,
+  organizationId: string,
   status: 'pending' | 'processing' | 'completed' | 'error',
   data?: { chunkCount?: number; processingTimeMs?: number; errorMessage?: string }
 ): Promise<void> {
   try {
+    // Set org context for RLS -- document_sources has row-level security
+    await prisma.$executeRaw`SELECT set_config('app.current_org_id', ${organizationId}, true)`;
+
     await prisma.$executeRaw`
       UPDATE document_sources
       SET status = ${status},
@@ -597,6 +614,7 @@ async function updateSourceStatus(
   } catch (error) {
     logger.error('Failed to update source status', {
       sourceId,
+      organizationId,
       status,
       error: error instanceof Error ? error.message : 'Unknown error',
     });

@@ -102,7 +102,7 @@ export class QueueService {
         },
       });
 
-      this.ocrQueue = new Bull('ocr-processing', redisConfig, {
+      this.ocrQueue = new Bull('legacy-ocr-processing', redisConfig, {
         defaultJobOptions: {
           removeOnComplete: 50,
           removeOnFail: 100,
@@ -256,10 +256,19 @@ export class QueueService {
     });
   }
 
+  static readonly MAX_BATCH_SIZE = 50;
+
   async addJob(
     jobData: ProcessingJob,
     options?: Bull.JobOptions
   ): Promise<Bull.Job<ProcessingJob>> {
+    // Prevent oversized batches that run for hours
+    if (jobData.documents.length > QueueService.MAX_BATCH_SIZE) {
+      throw new Error(
+        `Batch size ${jobData.documents.length} exceeds maximum of ${QueueService.MAX_BATCH_SIZE}. Split into smaller batches.`
+      );
+    }
+
     const job = await this.processingQueue.add(jobData, {
       priority: jobData.priority || 0,
       delay: 0,

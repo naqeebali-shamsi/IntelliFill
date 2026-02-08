@@ -63,7 +63,7 @@ jobs:
 
       - name: Run linting
         run: npm run lint
-        continue-on-error: true  # TODO: Fix lint errors then remove this
+        continue-on-error: true # TODO: Fix lint errors then remove this
 
       - name: Run backend tests
         env:
@@ -111,6 +111,32 @@ jobs:
           if [ $BUNDLE_SIZE -gt 5242880 ]; then
             echo "::warning::Bundle size exceeds 5MB"
           fi
+
+  validate-migrations:
+    name: Validate Prisma Schema
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: quikadmin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: quikadmin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
 
   security-scan:
     name: Security Scan

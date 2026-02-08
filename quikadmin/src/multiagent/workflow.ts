@@ -31,12 +31,12 @@ import {
 
 // Agent imports
 import { classifyDocument, ClassificationResult } from './agents/classifierAgent';
-
-// Node imports will be added as agents are implemented
-// import { extractNode } from './nodes/extractor';
-// import { mapNode } from './nodes/mapper';
-// import { qaNode } from './nodes/qa';
-// import { errorRecoverNode } from './nodes/errorRecovery';
+import { extractDocumentData } from './agents/extractorAgent';
+import { mapExtractedFields } from './agents/mapperAgent';
+import { validateExtraction } from './agents/qaAgent';
+import { recoverFromError } from './agents/errorRecoveryAgent';
+import type { ExtractedFieldResult } from '../types/extractedData';
+import type { ExtractedField } from './types/state';
 
 /**
  * Graph node names matching the processing stages
@@ -144,36 +144,71 @@ async function extractNode(
 
   const startTime = Date.now();
 
-  // TODO: Implement actual extraction with Llama 8B
-  // For now, return a placeholder result
+  try {
+    const result = await extractDocumentData(
+      state.ocrData?.rawText || '',
+      state.classification.category,
+      undefined // imageBase64 - pass if available in state
+    );
 
-  const execution = {
-    agent: 'extractor' as AgentName,
-    startTime: new Date(startTime),
-    endTime: new Date(),
-    status: 'completed' as const,
-    model: 'llama3.2:8b',
-    tokenCount: 0,
-    retryCount: 0,
-  };
+    // Adapt ExtractionResult.fields (ExtractedFieldResult) -> Record<string, ExtractedField>
+    const extractedFields: Record<string, ExtractedField> = {};
+    for (const [key, efr] of Object.entries(result.fields)) {
+      extractedFields[key] = {
+        value: efr.value,
+        confidence: efr.confidence,
+        source: efr.source === 'pattern' ? 'rule' : efr.source === 'llm' ? 'llm' : 'ocr',
+        rawText: efr.rawText,
+      };
+    }
 
-  return {
-    extractedFields: {},
-    extractionMetadata: {
-      model: 'llama3.2:8b',
-      promptVersion: '1.0.0',
-      processingTimeMs: Date.now() - startTime,
-      totalFields: 0,
-      highConfidenceFields: 0,
-      lowConfidenceFields: 0,
-    },
-    agentHistory: [...state.agentHistory, execution],
-    processingControl: {
-      ...state.processingControl,
-      currentNode: NODE_NAMES.MAP,
-      completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.EXTRACT],
-    },
-  };
+    const fieldCount = Object.keys(extractedFields).length;
+    const highConf = Object.values(extractedFields).filter((f) => f.confidence >= 80).length;
+
+    const execution = {
+      agent: 'extractor' as AgentName,
+      startTime: new Date(startTime),
+      endTime: new Date(),
+      status: 'completed' as const,
+      model: result.modelUsed,
+      tokenCount: 0,
+      retryCount: 0,
+    };
+
+    return {
+      extractedFields,
+      extractionMetadata: {
+        model: result.modelUsed,
+        promptVersion: '1.0.0',
+        processingTimeMs: result.processingTime,
+        totalFields: fieldCount,
+        highConfidenceFields: highConf,
+        lowConfidenceFields: fieldCount - highConf,
+      },
+      agentHistory: [...state.agentHistory, execution],
+      processingControl: {
+        ...state.processingControl,
+        currentNode: NODE_NAMES.MAP,
+        completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.EXTRACT],
+      },
+    };
+  } catch (error) {
+    logger.error('Extraction failed', { documentId: state.documentId, error });
+    return {
+      errors: [
+        ...state.errors,
+        {
+          node: NODE_NAMES.EXTRACT,
+          error: (error as Error).message,
+          timestamp: new Date(),
+        },
+      ],
+      processingControl: {
+        ...state.processingControl,
+        currentNode: NODE_NAMES.ERROR_RECOVER,
+      },
+    };
+  }
 }
 
 async function mapNode(
@@ -184,35 +219,80 @@ async function mapNode(
 
   const startTime = Date.now();
 
-  // TODO: Implement actual mapping with Mistral 7B
-  // For now, return a placeholder result
+  try {
+    // Convert state's ExtractedField -> ExtractedFieldResult for mapper agent
+    const agentInput: Record<string, ExtractedFieldResult> = {};
+    for (const [key, field] of Object.entries(state.extractedFields)) {
+      agentInput[key] = {
+        value: field.value,
+        confidence: field.confidence,
+        source: field.source === 'rule' ? 'pattern' : field.source === 'llm' ? 'llm' : 'ocr',
+        rawText: field.rawText,
+      };
+    }
 
-  const execution = {
-    agent: 'mapper' as AgentName,
-    startTime: new Date(startTime),
-    endTime: new Date(),
-    status: 'completed' as const,
-    model: 'mistral:7b',
-    tokenCount: 0,
-    retryCount: 0,
-  };
+    const result = await mapExtractedFields(agentInput, state.classification.category);
 
-  return {
-    mappedFields: state.extractedFields,
-    mappingMetadata: {
-      model: 'mistral:7b',
-      schemaVersion: '1.0.0',
-      processingTimeMs: Date.now() - startTime,
-      fieldsMatched: Object.keys(state.extractedFields).length,
-      fieldsUnmapped: 0,
-    },
-    agentHistory: [...state.agentHistory, execution],
-    processingControl: {
-      ...state.processingControl,
-      currentNode: NODE_NAMES.QA,
-      completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.MAP],
-    },
-  };
+    // Convert MappingResult -> Record<string, ExtractedField>
+    // Use mappingDetails for full info (value, confidence, canonical name)
+    const mappedFields: Record<string, ExtractedField> = {};
+    for (const detail of result.mappingDetails) {
+      if (detail.canonicalField) {
+        const originalField = state.extractedFields[detail.originalField];
+        mappedFields[detail.canonicalField] = {
+          value: detail.value,
+          confidence: detail.confidence,
+          source: originalField?.source ?? 'llm',
+          rawText: originalField?.rawText,
+        };
+      }
+    }
+
+    const execution = {
+      agent: 'mapper' as AgentName,
+      startTime: new Date(startTime),
+      endTime: new Date(),
+      status: 'completed' as const,
+      model: 'rule-based',
+      tokenCount: 0,
+      retryCount: 0,
+    };
+
+    return {
+      mappedFields,
+      mappingMetadata: {
+        model: 'rule-based',
+        schemaVersion: '1.0.0',
+        processingTimeMs: Date.now() - startTime,
+        fieldsMatched: Object.keys(mappedFields).length,
+        fieldsUnmapped: result.unmappedFields.length,
+      },
+      agentHistory: [...state.agentHistory, execution],
+      processingControl: {
+        ...state.processingControl,
+        currentNode: NODE_NAMES.QA,
+        completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.MAP],
+      },
+    };
+  } catch (error) {
+    logger.error('Mapping failed', { documentId: state.documentId, error });
+    return {
+      mappedFields: state.extractedFields, // fallback: pass through unmapped
+      errors: [
+        ...state.errors,
+        {
+          node: NODE_NAMES.MAP,
+          error: (error as Error).message,
+          timestamp: new Date(),
+        },
+      ],
+      processingControl: {
+        ...state.processingControl,
+        currentNode: NODE_NAMES.QA,
+        completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.MAP],
+      },
+    };
+  }
 }
 
 async function qaNode(
@@ -223,37 +303,90 @@ async function qaNode(
 
   const startTime = Date.now();
 
-  // TODO: Implement actual QA with Llama 8B
-  // For now, return a placeholder result
+  try {
+    // Convert ExtractedField -> ExtractedFieldResult for QA agent
+    const qaInput: Record<string, ExtractedFieldResult> = {};
+    for (const [key, field] of Object.entries(state.mappedFields)) {
+      qaInput[key] = {
+        value: field.value,
+        confidence: field.confidence,
+        source: field.source === 'rule' ? 'pattern' : field.source === 'llm' ? 'llm' : 'ocr',
+        rawText: field.rawText,
+      };
+    }
 
-  const execution = {
-    agent: 'qa' as AgentName,
-    startTime: new Date(startTime),
-    endTime: new Date(),
-    status: 'completed' as const,
-    model: 'llama3.2:8b',
-    tokenCount: 0,
-    retryCount: 0,
-  };
+    const result = await validateExtraction(qaInput, state.classification.category);
 
-  // Placeholder: assume validation passes
-  const isValid = true;
+    const execution = {
+      agent: 'qa' as AgentName,
+      startTime: new Date(startTime),
+      endTime: new Date(),
+      status: 'completed' as const,
+      model: 'rule-based',
+      tokenCount: 0,
+      retryCount: 0,
+    };
 
-  return {
-    qualityAssessment: {
-      isValid,
-      overallScore: isValid ? 85 : 50,
-      issues: [],
-      suggestions: [],
-      needsHumanReview: !isValid,
-    },
-    agentHistory: [...state.agentHistory, execution],
-    processingControl: {
-      ...state.processingControl,
-      currentNode: isValid ? NODE_NAMES.FINALIZE : NODE_NAMES.ERROR_RECOVER,
-      completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.QA],
-    },
-  };
+    // Adapt QAResult -> QualityAssessment
+    // QAIssue.issueType -> QualityIssue.type mapping
+    const issueTypeMap: Record<
+      string,
+      'missing' | 'invalid_format' | 'low_confidence' | 'inconsistent' | 'suspicious'
+    > = {
+      missing_required: 'missing',
+      invalid_format: 'invalid_format',
+      low_confidence: 'low_confidence',
+      cross_field_mismatch: 'inconsistent',
+      suspicious_value: 'suspicious',
+      date_validation: 'invalid_format',
+      length_validation: 'invalid_format',
+      pattern_mismatch: 'invalid_format',
+    };
+
+    return {
+      qualityAssessment: {
+        isValid: result.passed,
+        overallScore: result.score,
+        issues: result.issues.map((i) => ({
+          field: i.field,
+          type: issueTypeMap[i.issueType] || 'invalid_format',
+          severity: i.severity,
+          message: i.message,
+          suggestedValue: i.suggestedFix,
+        })),
+        suggestions: result.issues.filter((i) => i.suggestedFix).map((i) => i.suggestedFix!),
+        needsHumanReview: result.requiresHumanReview,
+      },
+      agentHistory: [...state.agentHistory, execution],
+      processingControl: {
+        ...state.processingControl,
+        currentNode: result.passed ? NODE_NAMES.FINALIZE : NODE_NAMES.ERROR_RECOVER,
+        completedNodes: [...state.processingControl.completedNodes, NODE_NAMES.QA],
+      },
+    };
+  } catch (error) {
+    logger.error('QA validation failed', { documentId: state.documentId, error });
+    return {
+      qualityAssessment: {
+        isValid: false,
+        overallScore: 0,
+        issues: [
+          {
+            field: '_system',
+            type: 'missing',
+            severity: 'error',
+            message: (error as Error).message,
+          },
+        ],
+        suggestions: [],
+        needsHumanReview: true,
+      },
+      processingControl: {
+        ...state.processingControl,
+        currentNode: NODE_NAMES.ERROR_RECOVER,
+      },
+    };
+  }
 }
 
 async function errorRecoverNode(
@@ -267,38 +400,77 @@ async function errorRecoverNode(
 
   const startTime = Date.now();
 
-  // TODO: Implement actual error recovery logic
-  // For now, just increment retry count
+  try {
+    const lastError = state.errors[state.errors.length - 1];
+    const error = new Error(lastError?.error ?? 'Unknown error');
 
-  const execution = {
-    agent: 'errorRecovery' as AgentName,
-    startTime: new Date(startTime),
-    endTime: new Date(),
-    status: 'completed' as const,
-    retryCount: state.processingControl.retryCount + 1,
-  };
+    const action = await recoverFromError(error, state, state.processingControl.retryCount);
 
-  const newRetryCount = state.processingControl.retryCount + 1;
-  const shouldRetry = newRetryCount < MAX_RETRIES;
+    const execution = {
+      agent: 'errorRecovery' as AgentName,
+      startTime: new Date(startTime),
+      endTime: new Date(),
+      status: 'completed' as const,
+      retryCount: state.processingControl.retryCount + 1,
+    };
 
-  return {
-    agentHistory: [...state.agentHistory, execution],
-    processingControl: {
-      ...state.processingControl,
-      retryCount: newRetryCount,
-      currentNode: shouldRetry ? NODE_NAMES.EXTRACT : NODE_NAMES.FINALIZE,
-    },
-    errors: shouldRetry
-      ? state.errors
-      : [
-          ...state.errors,
-          {
-            node: NODE_NAMES.ERROR_RECOVER,
-            error: 'Max retries exceeded',
-            timestamp: new Date(),
-          },
-        ],
-  };
+    const newRetryCount = state.processingControl.retryCount + 1;
+
+    // Determine next node based on recovery action
+    let nextNode: string;
+    if (action.type === 'retry' && newRetryCount < MAX_RETRIES) {
+      // Route to the target agent for retry
+      const agentToNode: Record<string, string> = {
+        extractor: NODE_NAMES.EXTRACT,
+        mapper: NODE_NAMES.MAP,
+        qa: NODE_NAMES.QA,
+        classifier: NODE_NAMES.CLASSIFY,
+      };
+      nextNode = agentToNode[action.targetAgent] || NODE_NAMES.EXTRACT;
+    } else if (action.type === 'skip' || action.type === 'manual') {
+      nextNode = NODE_NAMES.FINALIZE;
+    } else {
+      // Fallback or exhausted retries
+      nextNode = newRetryCount < MAX_RETRIES ? NODE_NAMES.EXTRACT : NODE_NAMES.FINALIZE;
+    }
+
+    return {
+      agentHistory: [...state.agentHistory, execution],
+      processingControl: {
+        ...state.processingControl,
+        retryCount: newRetryCount,
+        currentNode: nextNode,
+      },
+      errors:
+        action.type === 'manual'
+          ? [
+              ...state.errors,
+              {
+                node: NODE_NAMES.ERROR_RECOVER,
+                error: `Escalated: ${action.reason}`,
+                timestamp: new Date(),
+              },
+            ]
+          : state.errors,
+    };
+  } catch (recoveryError) {
+    logger.error('Error recovery itself failed', { documentId: state.documentId, recoveryError });
+    return {
+      processingControl: {
+        ...state.processingControl,
+        retryCount: state.processingControl.retryCount + 1,
+        currentNode: NODE_NAMES.FINALIZE,
+      },
+      errors: [
+        ...state.errors,
+        {
+          node: NODE_NAMES.ERROR_RECOVER,
+          error: 'Recovery failed: ' + (recoveryError as Error).message,
+          timestamp: new Date(),
+        },
+      ],
+    };
+  }
 }
 
 async function finalizeNode(

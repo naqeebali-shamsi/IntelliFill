@@ -74,10 +74,8 @@ export class PDFParsingStrategy extends BaseParsingStrategy {
       logger.error('PDF parsing error:', error);
       throw new Error(`Failed to parse PDF: ${error}`);
     } finally {
-      // Cleanup OCR service if used
-      if (this.ocrService) {
-        await this.ocrService.cleanup();
-      }
+      // Worker cleanup is handled at app shutdown, not per-request.
+      // Cleaning up here would terminate the singleton worker for concurrent requests.
     }
   }
 

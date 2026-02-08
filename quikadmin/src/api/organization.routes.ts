@@ -7,7 +7,11 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { authenticateSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
-import { requireOrgAdmin, requireOrgOwner } from '../middleware/organizationContext';
+import {
+  requireOrgAdmin,
+  requireOrgOwner,
+  invalidateOrganizationCache,
+} from '../middleware/organizationContext';
 import { validate, validateParams, validateQuery } from '../middleware/validation';
 import {
   createOrganizationSchema,
@@ -576,6 +580,9 @@ export function createOrganizationRoutes(): Router {
           },
         });
 
+        // Invalidate org cache for affected user so new role takes effect immediately
+        invalidateOrganizationCache(targetUserId);
+
         logger.info('[Organization] Member role updated', {
           organizationId,
           targetUserId,
@@ -703,6 +710,9 @@ export function createOrganizationRoutes(): Router {
             data: { organizationId: null },
           });
         }
+
+        // Invalidate org cache for removed user so access is revoked immediately
+        invalidateOrganizationCache(targetUserId);
 
         logger.info('[Organization] Member removed', {
           organizationId,

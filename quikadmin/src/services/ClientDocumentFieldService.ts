@@ -8,6 +8,20 @@
 import { DocumentCategory } from '@prisma/client';
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { resolveDate } from './DateResolver';
+
+/** Fields that contain dates and should be disambiguated via DateResolver */
+const DATE_FIELDS = new Set([
+  'dateOfBirth',
+  'passportIssueDate',
+  'passportExpiryDate',
+  'emiratesIdExpiry',
+  'tradeLicenseIssueDate',
+  'tradeLicenseExpiry',
+  'visaIssueDate',
+  'visaExpiryDate',
+  'laborCardExpiry',
+]);
 
 /**
  * Field extraction result with metadata
@@ -82,6 +96,9 @@ export class ClientDocumentFieldService {
     // Always extract common patterns if found
     this.extractCommonPatterns(structuredData, fields);
 
+    // Resolve ambiguous dates using document category as locale hint
+    this.resolveDateFields(fields, category);
+
     return fields;
   }
 
@@ -97,7 +114,8 @@ export class ClientDocumentFieldService {
   async mergeToClientProfile(
     clientId: string,
     fields: Record<string, any>,
-    documentId: string
+    documentId: string,
+    fieldConfidences?: Record<string, number>
   ): Promise<boolean> {
     try {
       // Get or create profile
@@ -115,13 +133,37 @@ export class ClientDocumentFieldService {
         });
       }
 
-      const currentData = (profile.data || {}) as Record<string, any>;
+      let currentData: Record<string, any> = {};
+      if (profile.data) {
+        if (typeof profile.data === 'string') {
+          // Encrypted data (new format)
+          const { decryptJSON } = await import('../utils/encryption');
+          try {
+            currentData = decryptJSON(profile.data as string);
+          } catch {
+            // Fallback: legacy unencrypted string
+            currentData = JSON.parse(profile.data as string);
+          }
+        } else {
+          // Legacy unencrypted JSON object - will be encrypted on next write
+          currentData = profile.data as Record<string, any>;
+        }
+      }
       const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
 
       const newData = { ...currentData };
       const newFieldSources = { ...currentFieldSources };
 
       let fieldsUpdated = 0;
+      const auditEntries: Array<{
+        clientProfileId: string;
+        fieldName: string;
+        oldValue: string | null;
+        newValue: string | null;
+        source: string;
+        sourceDocumentId: string | null;
+        organizationId: string | null;
+      }> = [];
 
       for (const [fieldName, value] of Object.entries(fields)) {
         // Skip if field was manually edited (don't overwrite user corrections)
@@ -135,24 +177,74 @@ export class ClientDocumentFieldService {
           continue;
         }
 
+        // P2-1: Confidence-gated overwrites - skip if new confidence is lower
+        const existingSource = currentFieldSources[fieldName];
+        const newConfidence = fieldConfidences?.[fieldName] ?? null;
+        if (existingSource?.confidence != null && newConfidence != null) {
+          if (newConfidence < existingSource.confidence) {
+            logger.debug(
+              `Skipping field '${fieldName}': new confidence ${newConfidence} < existing ${existingSource.confidence}`
+            );
+            continue;
+          }
+        }
+
+        // Track change for audit log
+        if (currentData[fieldName] !== value) {
+          auditEntries.push({
+            clientProfileId: profile.id,
+            fieldName,
+            oldValue: currentData[fieldName] != null ? String(currentData[fieldName]) : null,
+            newValue: String(value),
+            source: 'ocr',
+            sourceDocumentId: documentId,
+            organizationId: null, // Populated below if available
+          });
+        }
+
         // Update the field
         newData[fieldName] = value;
         newFieldSources[fieldName] = {
           documentId,
           extractedAt: new Date().toISOString(),
           manuallyEdited: false,
+          confidence: newConfidence ?? existingSource?.confidence ?? null,
         };
         fieldsUpdated++;
       }
 
       if (fieldsUpdated > 0) {
+        // Resolve organizationId for audit entries
+        let organizationId: string | null = null;
+        try {
+          const client = await prisma.client.findUnique({
+            where: { id: clientId },
+            select: { user: { select: { organizationId: true } } },
+          });
+          organizationId = client?.user?.organizationId ?? null;
+        } catch {
+          /* non-critical */
+        }
+
+        if (organizationId && auditEntries.length > 0) {
+          for (const entry of auditEntries) {
+            entry.organizationId = organizationId;
+          }
+        }
+
+        const { encryptJSON } = await import('../utils/encryption');
         await prisma.clientProfile.update({
           where: { id: profile.id },
           data: {
-            data: newData,
+            data: encryptJSON(newData),
             fieldSources: newFieldSources,
           },
         });
+
+        // Batch-insert audit entries
+        if (auditEntries.length > 0) {
+          await prisma.clientProfileAuditLog.createMany({ data: auditEntries });
+        }
 
         logger.info(`Updated ${fieldsUpdated} fields in profile for client: ${clientId}`);
         return true;
@@ -171,7 +263,8 @@ export class ClientDocumentFieldService {
   async mergeToClientProfileDetailed(
     clientId: string,
     fields: Record<string, any>,
-    documentId: string
+    documentId: string,
+    fieldConfidences?: Record<string, number>
   ): Promise<ProfileMergeResult> {
     const skippedFields: string[] = [];
 
@@ -192,13 +285,34 @@ export class ClientDocumentFieldService {
         });
       }
 
-      const currentData = (profile.data || {}) as Record<string, any>;
+      let currentData: Record<string, any> = {};
+      if (profile.data) {
+        if (typeof profile.data === 'string') {
+          const { decryptJSON } = await import('../utils/encryption');
+          try {
+            currentData = decryptJSON(profile.data as string);
+          } catch {
+            currentData = JSON.parse(profile.data as string);
+          }
+        } else {
+          currentData = profile.data as Record<string, any>;
+        }
+      }
       const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
 
       const newData = { ...currentData };
       const newFieldSources = { ...currentFieldSources };
 
       let fieldsUpdated = 0;
+      const auditEntries: Array<{
+        clientProfileId: string;
+        fieldName: string;
+        oldValue: string | null;
+        newValue: string | null;
+        source: string;
+        sourceDocumentId: string | null;
+        organizationId: string | null;
+      }> = [];
 
       for (const [fieldName, value] of Object.entries(fields)) {
         if (currentFieldSources[fieldName]?.manuallyEdited) {
@@ -210,23 +324,71 @@ export class ClientDocumentFieldService {
           continue;
         }
 
+        // P2-1: Confidence-gated overwrites
+        const existingSource = currentFieldSources[fieldName];
+        const newConfidence = fieldConfidences?.[fieldName] ?? null;
+        if (existingSource?.confidence != null && newConfidence != null) {
+          if (newConfidence < existingSource.confidence) {
+            skippedFields.push(fieldName);
+            continue;
+          }
+        }
+
+        // Track change for audit log
+        if (currentData[fieldName] !== value) {
+          auditEntries.push({
+            clientProfileId: profile.id,
+            fieldName,
+            oldValue: currentData[fieldName] != null ? String(currentData[fieldName]) : null,
+            newValue: String(value),
+            source: 'ocr',
+            sourceDocumentId: documentId,
+            organizationId: null,
+          });
+        }
+
         newData[fieldName] = value;
         newFieldSources[fieldName] = {
           documentId,
           extractedAt: new Date().toISOString(),
           manuallyEdited: false,
+          confidence: newConfidence ?? existingSource?.confidence ?? null,
         };
         fieldsUpdated++;
       }
 
       if (fieldsUpdated > 0) {
+        // Resolve organizationId for audit entries
+        let organizationId: string | null = null;
+        try {
+          const client = await prisma.client.findUnique({
+            where: { id: clientId },
+            select: { user: { select: { organizationId: true } } },
+          });
+          organizationId = client?.user?.organizationId ?? null;
+        } catch {
+          /* non-critical */
+        }
+
+        if (organizationId && auditEntries.length > 0) {
+          for (const entry of auditEntries) {
+            entry.organizationId = organizationId;
+          }
+        }
+
+        const { encryptJSON } = await import('../utils/encryption');
         await prisma.clientProfile.update({
           where: { id: profile.id },
           data: {
-            data: newData,
+            data: encryptJSON(newData),
             fieldSources: newFieldSources,
           },
         });
+
+        // Batch-insert audit entries
+        if (auditEntries.length > 0) {
+          await prisma.clientProfileAuditLog.createMany({ data: auditEntries });
+        }
       }
 
       return {
@@ -250,7 +412,10 @@ export class ClientDocumentFieldService {
   // Private Field Extraction Methods
   // ============================================================================
 
-  private extractPassportFields(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  private extractPassportFields(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.fields) {
       const f = structuredData.fields;
       if (f.passport_no || f.passport_number) {
@@ -301,7 +466,10 @@ export class ClientDocumentFieldService {
     }
   }
 
-  private extractEmiratesIdFields(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  private extractEmiratesIdFields(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.fields) {
       const f = structuredData.fields;
       if (f.id_number || f.emirates_id || f.eid) {
@@ -325,7 +493,10 @@ export class ClientDocumentFieldService {
     }
   }
 
-  private extractTradeLicenseFields(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  private extractTradeLicenseFields(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.fields) {
       const f = structuredData.fields;
       if (f.license_number || f.trade_license_no || f.licence_no) {
@@ -355,7 +526,10 @@ export class ClientDocumentFieldService {
     }
   }
 
-  private extractVisaFields(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  private extractVisaFields(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.fields) {
       const f = structuredData.fields;
       if (f.visa_number || f.visa_no) {
@@ -382,7 +556,10 @@ export class ClientDocumentFieldService {
     }
   }
 
-  private extractLaborCardFields(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  private extractLaborCardFields(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.fields) {
       const f = structuredData.fields;
       if (f.card_number || f.labor_card_no) {
@@ -403,7 +580,10 @@ export class ClientDocumentFieldService {
     }
   }
 
-  private extractGenericFields(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  private extractGenericFields(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.email) {
       fields.email = structuredData.email[0];
     }
@@ -415,7 +595,31 @@ export class ClientDocumentFieldService {
     }
   }
 
-  private extractCommonPatterns(structuredData: Record<string, any>, fields: Record<string, any>): void {
+  /**
+   * Resolve ambiguous date fields using document category as locale hint.
+   * Converts dates like "01/02/1990" to ISO format "1990-02-01" (DD/MM for UAE docs).
+   */
+  private resolveDateFields(fields: Record<string, any>, category: DocumentCategory | null): void {
+    for (const fieldName of Object.keys(fields)) {
+      if (!DATE_FIELDS.has(fieldName)) continue;
+
+      const rawValue = fields[fieldName];
+      if (typeof rawValue !== 'string' || !rawValue) continue;
+
+      const resolved = resolveDate(rawValue, category);
+      if (resolved) {
+        fields[fieldName] = resolved.iso;
+        logger.debug(
+          `Resolved date field '${fieldName}': "${rawValue}" → "${resolved.iso}" (${resolved.assumedFormat}, confidence: ${resolved.confidence})`
+        );
+      }
+    }
+  }
+
+  private extractCommonPatterns(
+    structuredData: Record<string, any>,
+    fields: Record<string, any>
+  ): void {
     if (structuredData.email && structuredData.email.length > 0 && !fields.email) {
       fields.email = structuredData.email[0];
     }
