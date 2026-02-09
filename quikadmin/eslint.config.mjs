@@ -33,5 +33,11 @@ export default tseslint.config(
       'prefer-const': 'error',
       'no-var': 'error',
     },
+  },
+  {
+    files: ['**/__tests__/**', '**/*.test.ts', '**/tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
   }
 );
