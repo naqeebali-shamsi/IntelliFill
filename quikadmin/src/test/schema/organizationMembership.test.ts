@@ -812,9 +812,14 @@ describe('Task 378: OrganizationMembership Schema Tests (TDD)', () => {
  * Creates a test organization
  */
 async function createTestOrg(name: string) {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
   return await prisma.organization.create({
     data: {
       name,
+      slug,
       status: 'ACTIVE',
     },
   });

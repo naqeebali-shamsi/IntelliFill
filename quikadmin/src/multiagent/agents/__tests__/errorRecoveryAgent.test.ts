@@ -260,8 +260,8 @@ describe('ErrorRecoveryAgent', () => {
       const result = analyzeError(error, state, 0);
 
       expect(result.category).toBe('api_rate_limit');
-      expect(result.suggestedActions.some(a => a.type === 'retry')).toBe(true);
-      expect(result.suggestedActions.some(a => a.type === 'fallback')).toBe(true);
+      expect(result.suggestedActions.some((a) => a.type === 'retry')).toBe(true);
+      expect(result.suggestedActions.some((a) => a.type === 'fallback')).toBe(true);
     });
 
     it('should provide manual escalation for quota exceeded', () => {
@@ -272,7 +272,7 @@ describe('ErrorRecoveryAgent', () => {
 
       expect(result.category).toBe('api_quota_exceeded');
       expect(result.retryable).toBe(false);
-      expect(result.suggestedActions.some(a => a.type === 'manual')).toBe(true);
+      expect(result.suggestedActions.some((a) => a.type === 'manual')).toBe(true);
     });
 
     it('should mark as non-retryable after max retries', () => {
@@ -304,9 +304,9 @@ describe('ErrorRecoveryAgent', () => {
       const result1 = analyzeError(error, state, 1);
       const result2 = analyzeError(error, state, 2);
 
-      const retry0 = result0.suggestedActions.find(a => a.type === 'retry');
-      const retry1 = result1.suggestedActions.find(a => a.type === 'retry');
-      const retry2 = result2.suggestedActions.find(a => a.type === 'retry');
+      const retry0 = result0.suggestedActions.find((a) => a.type === 'retry');
+      const retry1 = result1.suggestedActions.find((a) => a.type === 'retry');
+      const retry2 = result2.suggestedActions.find((a) => a.type === 'retry');
 
       if (retry0 && retry1 && retry2) {
         expect(retry1.successProbability).toBeLessThan(retry0.successProbability);
@@ -383,7 +383,9 @@ describe('ErrorRecoveryAgent', () => {
       const result = await executeRecoveryAction(action, state);
 
       expect(result.success).toBe(true);
-      expect(result.updatedState?.processingControl?.retryCount).toBe(state.processingControl.retryCount + 1);
+      expect(result.updatedState?.processingControl?.retryCount).toBe(
+        state.processingControl.retryCount + 1
+      );
     });
 
     it('should execute fallback action', async () => {
@@ -474,8 +476,7 @@ describe('ErrorRecoveryAgent', () => {
     it('should handle null parameters in error', async () => {
       const state = createTestState();
       const error = new Error('Test');
-      // @ts-expect-error Testing edge case
-      error.name = null;
+      error.name = null as unknown as string;
 
       const action = await recoverFromError(error, state, 0);
 
@@ -495,18 +496,12 @@ describe('ErrorRecoveryAgent', () => {
 
     it('should handle multiple concurrent recoveries', async () => {
       const state = createTestState();
-      const errors = [
-        new Error('Network error'),
-        new Error('Timeout'),
-        new Error('Parse error'),
-      ];
+      const errors = [new Error('Network error'), new Error('Timeout'), new Error('Parse error')];
 
-      const results = await Promise.all(
-        errors.map(error => recoverFromError(error, state, 0))
-      );
+      const results = await Promise.all(errors.map((error) => recoverFromError(error, state, 0)));
 
       expect(results).toHaveLength(3);
-      results.forEach(action => {
+      results.forEach((action) => {
         expect(action).toBeDefined();
         expect(action.type).toBeDefined();
       });

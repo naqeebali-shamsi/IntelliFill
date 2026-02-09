@@ -82,15 +82,11 @@ describe('EmbeddingService', () => {
 
   describe('Embedding Validation', () => {
     it('should reject non-array embeddings', () => {
-      expect(() => service.validateEmbedding('not an array' as any)).toThrow(
-        'must be an array'
-      );
+      expect(() => service.validateEmbedding('not an array' as any)).toThrow('must be an array');
     });
 
     it('should reject embeddings with wrong dimensions', () => {
-      expect(() => service.validateEmbedding(Array(100).fill(0))).toThrow(
-        'expected 768, got 100'
-      );
+      expect(() => service.validateEmbedding(Array(100).fill(0))).toThrow('expected 768, got 100');
     });
 
     it('should reject embeddings with NaN values', () => {
@@ -128,7 +124,7 @@ describe('EmbeddingService', () => {
     it('should track quota when organization is provided', async () => {
       await service.generateEmbedding('Test text', 'org-123');
 
-      const usage = service.getQuotaUsage('org-123');
+      const usage = await service.getQuotaUsage('org-123');
       expect(usage).not.toBeNull();
       expect(usage?.embeddingCount).toBe(1);
     });
@@ -141,9 +137,9 @@ describe('EmbeddingService', () => {
       });
 
       await lowQuotaService.generateEmbedding('First', 'org-limited');
-      await expect(
-        lowQuotaService.generateEmbedding('Second', 'org-limited')
-      ).rejects.toThrow('quota exceeded');
+      await expect(lowQuotaService.generateEmbedding('Second', 'org-limited')).rejects.toThrow(
+        'quota exceeded'
+      );
     });
   });
 
@@ -175,7 +171,7 @@ describe('EmbeddingService', () => {
       const texts = ['Text 1', 'Text 2', 'Text 3'];
       await service.generateBatch(texts, 'org-batch');
 
-      const usage = service.getQuotaUsage('org-batch');
+      const usage = await service.getQuotaUsage('org-batch');
       expect(usage?.embeddingCount).toBe(3);
     });
   });
@@ -187,7 +183,9 @@ describe('EmbeddingService', () => {
       mockCache = {
         get: jest.fn() as jest.MockedFunction<EmbeddingCacheInterface['get']>,
         set: jest.fn() as jest.MockedFunction<EmbeddingCacheInterface['set']>,
-        generateKey: jest.fn().mockReturnValue('cache-key') as jest.MockedFunction<EmbeddingCacheInterface['generateKey']>,
+        generateKey: jest.fn().mockReturnValue('cache-key') as jest.MockedFunction<
+          EmbeddingCacheInterface['generateKey']
+        >,
       };
       service.setCache(mockCache);
     });
@@ -224,8 +222,12 @@ describe('EmbeddingService', () => {
       });
 
       it('should return 0 for orthogonal vectors', () => {
-        const vector1 = Array(768).fill(0).map((_, i) => (i < 384 ? 1 : 0));
-        const vector2 = Array(768).fill(0).map((_, i) => (i >= 384 ? 1 : 0));
+        const vector1 = Array(768)
+          .fill(0)
+          .map((_, i) => (i < 384 ? 1 : 0));
+        const vector2 = Array(768)
+          .fill(0)
+          .map((_, i) => (i >= 384 ? 1 : 0));
         const similarity = service.cosineSimilarity(vector1, vector2);
         expect(similarity).toBeCloseTo(0, 5);
       });
@@ -240,22 +242,28 @@ describe('EmbeddingService', () => {
       it('should throw for mismatched dimensions', () => {
         const vector1 = Array(768).fill(1);
         const vector2 = Array(100).fill(1);
-        expect(() => service.cosineSimilarity(vector1, vector2)).toThrow(
-          'dimension mismatch'
-        );
+        expect(() => service.cosineSimilarity(vector1, vector2)).toThrow('dimension mismatch');
       });
     });
 
     describe('findTopK', () => {
       it('should find top K similar embeddings', () => {
         // Create query with a specific pattern
-        const query = Array(768).fill(0).map((_, i) => (i % 2 === 0 ? 0.5 : -0.5));
+        const query = Array(768)
+          .fill(0)
+          .map((_, i) => (i % 2 === 0 ? 0.5 : -0.5));
 
         // Create candidates with varying similarity to query
         const candidates = [
-          Array(768).fill(0).map((_, i) => (i % 2 === 0 ? 0.5 : -0.5)), // Identical to query
-          Array(768).fill(0).map((_, i) => (i % 2 === 0 ? 0.3 : -0.3)), // Same direction
-          Array(768).fill(0).map((_, i) => (i % 2 === 0 ? -0.5 : 0.5)), // Opposite direction
+          Array(768)
+            .fill(0)
+            .map((_, i) => (i % 2 === 0 ? 0.5 : -0.5)), // Identical to query
+          Array(768)
+            .fill(0)
+            .map((_, i) => (i % 2 === 0 ? 0.3 : -0.3)), // Same direction
+          Array(768)
+            .fill(0)
+            .map((_, i) => (i % 2 === 0 ? -0.5 : 0.5)), // Opposite direction
         ];
 
         const results = service.findTopK(query, candidates, 2);
@@ -278,20 +286,20 @@ describe('EmbeddingService', () => {
   });
 
   describe('Quota Management', () => {
-    it('should track remaining quota', () => {
-      const remaining = service.getRemainingQuota('new-org');
+    it('should track remaining quota', async () => {
+      const remaining = await service.getRemainingQuota('new-org');
       expect(remaining).toBe(10000); // Default limit
     });
 
     it('should decrease remaining quota after usage', async () => {
       await service.generateEmbedding('Test', 'org-quota');
-      const remaining = service.getRemainingQuota('org-quota');
+      const remaining = await service.getRemainingQuota('org-quota');
       expect(remaining).toBe(9999);
     });
 
-    it('should reset quota daily', () => {
+    it('should reset quota daily', async () => {
       // This is more of a behavioral test - quotas are tracked by date
-      const usage = service.getQuotaUsage('non-existent');
+      const usage = await service.getQuotaUsage('non-existent');
       expect(usage).toBeNull();
     });
   });

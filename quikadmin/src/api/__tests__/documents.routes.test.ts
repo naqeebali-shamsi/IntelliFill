@@ -29,7 +29,7 @@ import { prisma } from '../../utils/prisma';
 // ============================================================================
 
 // Create reference to mock prisma document methods for test assertions
- 
+
 const mockDocumentMethods = prisma.document as any;
 
 // Mock Supabase Auth Middleware
@@ -715,7 +715,7 @@ describe('Documents API Routes', () => {
     });
 
     it('should handle null extractedData gracefully', async () => {
-      const mockDocument = {
+      const mockDocument: { id: string; extractedData: Record<string, unknown> | null } = {
         id: testDocumentId,
         extractedData: null,
       };

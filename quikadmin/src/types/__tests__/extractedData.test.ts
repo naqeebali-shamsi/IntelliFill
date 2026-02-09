@@ -61,7 +61,7 @@ describe('extractedData utilities', () => {
 
     it('should return true for null value', () => {
       const result = {
-        value: null,
+        value: null as string | null,
         confidence: 0,
         source: 'pattern' as const,
       };

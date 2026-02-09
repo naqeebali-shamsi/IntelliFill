@@ -25,6 +25,7 @@ describe('OrganizationInvitation Schema', () => {
     const organization = await prisma.organization.create({
       data: {
         name: 'Test Organization',
+        slug: 'test-org-invitation',
         status: 'ACTIVE',
       },
     });
@@ -165,7 +166,6 @@ describe('OrganizationInvitation Schema', () => {
       expect(invitation.email).toBe('newuser@example.com');
       expect(invitation.invitedBy).toBe(testUserId);
       expect(invitation.role).toBe('MEMBER');
-      expect(invitation.token).toBeDefined(); // Auto-generated UUID
       expect(invitation.expiresAt).toEqual(expiresAt);
       expect(invitation.createdAt).toBeDefined();
     });
@@ -258,6 +258,7 @@ describe('OrganizationInvitation Schema', () => {
       const org2 = await prisma.organization.create({
         data: {
           name: 'Second Organization',
+          slug: 'second-org-invitation',
           status: 'ACTIVE',
         },
       });
@@ -294,35 +295,7 @@ describe('OrganizationInvitation Schema', () => {
       await prisma.organization.delete({ where: { id: org2.id } });
     });
 
-    it('should enforce unique constraint on token', async () => {
-      const token = 'unique-test-token-123';
-
-      // Create invitation with specific token
-      await prisma.organizationInvitation.create({
-        data: {
-          organizationId: testOrganizationId,
-          email: 'token1@example.com',
-          invitedBy: testUserId,
-          role: 'MEMBER',
-          token,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      });
-
-      // Attempt to create another invitation with same token
-      await expect(
-        prisma.organizationInvitation.create({
-          data: {
-            organizationId: testOrganizationId,
-            email: 'token2@example.com',
-            invitedBy: testUserId,
-            role: 'MEMBER',
-            token,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          },
-        })
-      ).rejects.toThrow(/unique constraint/i);
-    });
+    // Note: token field was removed from OrganizationInvitation model
   });
 
   // ==========================================================================
@@ -334,6 +307,7 @@ describe('OrganizationInvitation Schema', () => {
       const org = await prisma.organization.create({
         data: {
           name: 'Temp Organization',
+          slug: 'temp-org-cascade',
           status: 'ACTIVE',
         },
       });
@@ -536,10 +510,10 @@ describe('OrganizationInvitation Schema', () => {
 
       // Create multiple invitations for same email in different orgs
       const org1 = await prisma.organization.create({
-        data: { name: 'Org 1', status: 'ACTIVE' },
+        data: { name: 'Org 1', slug: 'org-1-email-idx', status: 'ACTIVE' },
       });
       const org2 = await prisma.organization.create({
-        data: { name: 'Org 2', status: 'ACTIVE' },
+        data: { name: 'Org 2', slug: 'org-2-email-idx', status: 'ACTIVE' },
       });
 
       await prisma.organizationInvitation.create({
@@ -581,31 +555,32 @@ describe('OrganizationInvitation Schema', () => {
   });
 
   // ==========================================================================
-  // Test 9: Token generation and uniqueness
+  // Test 9: ID generation and uniqueness
+  // Note: token field was removed from OrganizationInvitation model
   // ==========================================================================
-  describe('Token Generation', () => {
-    it('should auto-generate unique token', async () => {
+  describe('ID Generation', () => {
+    it('should auto-generate unique id', async () => {
       const invitation = await prisma.organizationInvitation.create({
         data: {
           organizationId: testOrganizationId,
-          email: 'token-gen@example.com',
+          email: 'id-gen@example.com',
           invitedBy: testUserId,
           role: 'MEMBER',
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
 
-      expect(invitation.token).toBeDefined();
-      expect(invitation.token).toMatch(
+      expect(invitation.id).toBeDefined();
+      expect(invitation.id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
       ); // UUID format
     });
 
-    it('should allow finding invitation by token', async () => {
+    it('should allow finding invitation by id', async () => {
       const invitation = await prisma.organizationInvitation.create({
         data: {
           organizationId: testOrganizationId,
-          email: 'token-lookup@example.com',
+          email: 'id-lookup@example.com',
           invitedBy: testUserId,
           role: 'MEMBER',
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -613,12 +588,12 @@ describe('OrganizationInvitation Schema', () => {
       });
 
       const found = await prisma.organizationInvitation.findUnique({
-        where: { token: invitation.token },
+        where: { id: invitation.id },
       });
 
       expect(found).toBeDefined();
       expect(found?.id).toBe(invitation.id);
-      expect(found?.email).toBe('token-lookup@example.com');
+      expect(found?.email).toBe('id-lookup@example.com');
     });
   });
 

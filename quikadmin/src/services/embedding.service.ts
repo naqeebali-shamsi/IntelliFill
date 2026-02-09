@@ -740,7 +740,7 @@ export class EmbeddingService {
 
         // Use Google's true batch embedding API instead of sequential calls
         const requests = texts.map((text) => ({
-          content: { parts: [{ text }] },
+          content: { role: 'user' as const, parts: [{ text }] },
         }));
         const result = await model.batchEmbedContents({ requests });
         return result.embeddings.map((e) => e.values);
