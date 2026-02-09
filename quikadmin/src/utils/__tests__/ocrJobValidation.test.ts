@@ -85,7 +85,7 @@ describe('OCR Job Validation Utility', () => {
     it('should fail for non-R2 URLs', () => {
       const result = validateFilePath('https://example.com/file.pdf');
       expect(result.valid).toBe(false);
-      expect(result.errors[0].code).toBe('INVALID_URL');
+      expect(result.errors[0].code).toBe('INVALID_PATH');
     });
 
     it('should fail for path traversal attempts', () => {

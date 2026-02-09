@@ -36,7 +36,7 @@ const mockJob = {
 const mockQueue = {
   add: jest.fn().mockResolvedValue(mockJob),
   process: jest.fn(),
-  getJob: jest.fn().mockResolvedValue(mockJob),
+  getJob: jest.fn().mockResolvedValue(null),
   getWaitingCount: jest.fn().mockResolvedValue(5),
   getActiveCount: jest.fn().mockResolvedValue(2),
   getCompletedCount: jest.fn().mockResolvedValue(100),
@@ -207,6 +207,8 @@ describe('Knowledge Queue', () => {
 
   describe('Job Status', () => {
     it('should get job by ID', async () => {
+      mockQueue.getJob.mockResolvedValueOnce(mockJob);
+
       const job = await getJob('123');
 
       expect(mockQueue.getJob).toHaveBeenCalledWith('123');
@@ -214,14 +216,14 @@ describe('Knowledge Queue', () => {
     });
 
     it('should return null for non-existent job', async () => {
-      mockQueue.getJob.mockResolvedValueOnce(null);
-
       const job = await getJob('non-existent');
 
       expect(job).toBeNull();
     });
 
     it('should get job status', async () => {
+      mockQueue.getJob.mockResolvedValueOnce(mockJob);
+
       const status = await getJobStatus('123');
 
       expect(status).toEqual({
@@ -237,8 +239,6 @@ describe('Knowledge Queue', () => {
     });
 
     it('should return null status for non-existent job', async () => {
-      mockQueue.getJob.mockResolvedValueOnce(null);
-
       const status = await getJobStatus('non-existent');
 
       expect(status).toBeNull();
@@ -268,6 +268,7 @@ describe('Knowledge Queue', () => {
   describe('Job Management', () => {
     describe('cancelJob', () => {
       it('should cancel waiting job', async () => {
+        mockQueue.getJob.mockResolvedValueOnce(mockJob);
         mockJob.getState.mockResolvedValueOnce('waiting');
 
         const result = await cancelJob('123');
@@ -277,6 +278,7 @@ describe('Knowledge Queue', () => {
       });
 
       it('should not cancel active job', async () => {
+        mockQueue.getJob.mockResolvedValueOnce(mockJob);
         mockJob.getState.mockResolvedValueOnce('active');
 
         const result = await cancelJob('123');
@@ -286,8 +288,6 @@ describe('Knowledge Queue', () => {
       });
 
       it('should return false for non-existent job', async () => {
-        mockQueue.getJob.mockResolvedValueOnce(null);
-
         const result = await cancelJob('non-existent');
 
         expect(result).toBe(false);
@@ -296,6 +296,7 @@ describe('Knowledge Queue', () => {
 
     describe('retryJob', () => {
       it('should retry failed job', async () => {
+        mockQueue.getJob.mockResolvedValueOnce(mockJob);
         mockJob.getState.mockResolvedValueOnce('failed');
 
         const result = await retryJob('123');
@@ -305,6 +306,7 @@ describe('Knowledge Queue', () => {
       });
 
       it('should not retry non-failed job', async () => {
+        mockQueue.getJob.mockResolvedValueOnce(mockJob);
         mockJob.getState.mockResolvedValueOnce('completed');
 
         const result = await retryJob('123');

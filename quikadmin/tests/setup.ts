@@ -18,8 +18,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key-1234567890';
 
 // Set other required environment variables
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-jwt-secret-key-with-sufficient-length-for-security-requirements-and-more';
-process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-with-sufficient-length-for-security-requirements';
+process.env.JWT_SECRET =
+  'test-jwt-secret-key-with-sufficient-length-for-security-requirements-and-more';
+process.env.JWT_REFRESH_SECRET =
+  'test-jwt-refresh-secret-key-with-sufficient-length-for-security-requirements';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ISSUER = 'test-issuer';
@@ -71,10 +73,19 @@ jest.mock('bull', () => {
       return this._progress;
     }
 
-    async getState() { return this._state; }
-    async remove() { jobStorage.delete(String(this.id)); }
-    async retry() { this._state = 'waiting'; this.attemptsMade++; }
-    async finished() { return this.returnvalue; }
+    async getState() {
+      return this._state;
+    }
+    async remove() {
+      jobStorage.delete(String(this.id));
+    }
+    async retry() {
+      this._state = 'waiting';
+      this.attemptsMade++;
+    }
+    async finished() {
+      return this.returnvalue;
+    }
     async waitUntilFinished() {
       this._state = 'completed';
       this.finishedOn = Date.now();
@@ -85,7 +96,7 @@ jest.mock('bull', () => {
   class MockQueue extends EventEmitter {
     name: string;
     private jobs = new Map();
-    private processor?: Function;
+    private processor?: (...args: unknown[]) => unknown;
 
     constructor(name: string) {
       super();
@@ -100,7 +111,7 @@ jest.mock('bull', () => {
       return job;
     }
 
-    process(concurrency: any, processor?: Function) {
+    process(concurrency: any, processor?: (...args: unknown[]) => unknown) {
       this.processor = typeof concurrency === 'function' ? concurrency : processor;
     }
 
@@ -108,16 +119,37 @@ jest.mock('bull', () => {
       return this.jobs.get(String(jobId)) || jobStorage.get(String(jobId)) || null;
     }
 
-    async empty() { this.jobs.clear(); }
-    async close() { this.jobs.clear(); this.emit('closed'); }
-    async pause() { this.emit('paused'); }
-    async resume() { this.emit('resumed'); }
-    async getWaitingCount() { return 0; }
-    async getActiveCount() { return 0; }
-    async getCompletedCount() { return 0; }
-    async getFailedCount() { return 0; }
-    async getDelayedCount() { return 0; }
-    async clean() { return []; }
+    async empty() {
+      this.jobs.clear();
+    }
+    async close() {
+      this.jobs.clear();
+      this.emit('closed');
+    }
+    async pause() {
+      this.emit('paused');
+    }
+    async resume() {
+      this.emit('resumed');
+    }
+    async getWaitingCount() {
+      return 0;
+    }
+    async getActiveCount() {
+      return 0;
+    }
+    async getCompletedCount() {
+      return 0;
+    }
+    async getFailedCount() {
+      return 0;
+    }
+    async getDelayedCount() {
+      return 0;
+    }
+    async clean() {
+      return [];
+    }
   }
 
   return MockQueue;
@@ -135,19 +167,41 @@ jest.mock('ioredis', () => {
     constructor(options?: any) {
       super();
       this.options = options;
-      setImmediate(() => { this.emit('ready'); this.emit('connect'); });
+      setImmediate(() => {
+        this.emit('ready');
+        this.emit('connect');
+      });
     }
 
-    async connect() { this.status = 'ready'; this.emit('ready'); }
-    async disconnect() { this.status = 'end'; this.emit('end'); }
-    async quit() { this.status = 'end'; this.emit('end'); return 'OK'; }
-    duplicate() { return new MockIORedis(this.options); }
+    async connect() {
+      this.status = 'ready';
+      this.emit('ready');
+    }
+    async disconnect() {
+      this.status = 'end';
+      this.emit('end');
+    }
+    async quit() {
+      this.status = 'end';
+      this.emit('end');
+      return 'OK';
+    }
+    duplicate() {
+      return new MockIORedis(this.options);
+    }
 
-    async get(key: string) { return dataStore.get(key) ?? null; }
-    async set(key: string, value: string) { dataStore.set(key, value); return 'OK'; }
+    async get(key: string) {
+      return dataStore.get(key) ?? null;
+    }
+    async set(key: string, value: string) {
+      dataStore.set(key, value);
+      return 'OK';
+    }
     async del(...keys: string[]) {
       let deleted = 0;
-      keys.forEach(key => { if (dataStore.delete(key)) deleted++; });
+      keys.forEach((key) => {
+        if (dataStore.delete(key)) deleted++;
+      });
       return deleted;
     }
     async incr(key: string) {
@@ -160,49 +214,134 @@ jest.mock('ioredis', () => {
       dataStore.set(key, String(value));
       return value;
     }
+    async incrBy(key: string, amount: number) {
+      const value = parseInt(dataStore.get(key) || '0') + amount;
+      dataStore.set(key, String(value));
+      return value;
+    }
+    async decrBy(key: string, amount: number) {
+      const value = parseInt(dataStore.get(key) || '0') - amount;
+      dataStore.set(key, String(value));
+      return value;
+    }
 
-    async expire() { return 1; }
-    async pexpire() { return 1; }
-    async ttl() { return -1; }
-    async ping() { return 'PONG'; }
-    async hset() { return 1; }
-    async hget() { return null; }
-    async hgetall() { return {}; }
-    async lpush() { return 1; }
-    async rpush() { return 1; }
-    async lrange() { return []; }
-    async zadd() { return 1; }
-    async zrangebyscore() { return []; }
-    async zrem() { return 0; }
-    async zcard() { return 0; }
-    async keys() { return []; }
-    async flushdb() { dataStore.clear(); return 'OK'; }
-    async client() { return 'OK'; }
-    async info() { return 'redis_version:7.0.0'; }
+    async expire() {
+      return 1;
+    }
+    async pexpire() {
+      return 1;
+    }
+    async ttl() {
+      return -1;
+    }
+    async ping() {
+      return 'PONG';
+    }
+    async hset() {
+      return 1;
+    }
+    async hget() {
+      return null;
+    }
+    async hgetall() {
+      return {};
+    }
+    async lpush() {
+      return 1;
+    }
+    async rpush() {
+      return 1;
+    }
+    async lrange() {
+      return [];
+    }
+    async zadd() {
+      return 1;
+    }
+    async zrangebyscore() {
+      return [];
+    }
+    async zrem() {
+      return 0;
+    }
+    async zcard() {
+      return 0;
+    }
+    async keys() {
+      return [];
+    }
+    async flushdb() {
+      dataStore.clear();
+      return 'OK';
+    }
+    async client() {
+      return 'OK';
+    }
+    async info() {
+      return 'redis_version:7.0.0';
+    }
 
-    multi() { return new MockPipeline(); }
-    pipeline() { return new MockPipeline(); }
+    multi() {
+      return new MockPipeline();
+    }
+    pipeline() {
+      return new MockPipeline();
+    }
     defineCommand() {}
   }
 
   class MockPipeline {
-    get() { return this; }
-    set() { return this; }
-    del() { return this; }
-    incr() { return this; }
-    expire() { return this; }
-    pexpire() { return this; }
-    hset() { return this; }
-    hget() { return this; }
-    lpush() { return this; }
-    rpush() { return this; }
-    lrange() { return this; }
-    zadd() { return this; }
-    zrem() { return this; }
-    zrangebyscore() { return this; }
-    lrem() { return this; }
-    hincrby() { return this; }
-    async exec() { return [[null, 'OK']]; }
+    get() {
+      return this;
+    }
+    set() {
+      return this;
+    }
+    del() {
+      return this;
+    }
+    incr() {
+      return this;
+    }
+    expire() {
+      return this;
+    }
+    pexpire() {
+      return this;
+    }
+    hset() {
+      return this;
+    }
+    hget() {
+      return this;
+    }
+    lpush() {
+      return this;
+    }
+    rpush() {
+      return this;
+    }
+    lrange() {
+      return this;
+    }
+    zadd() {
+      return this;
+    }
+    zrem() {
+      return this;
+    }
+    zrangebyscore() {
+      return this;
+    }
+    lrem() {
+      return this;
+    }
+    hincrby() {
+      return this;
+    }
+    async exec() {
+      return [[null, 'OK']];
+    }
   }
 
   return MockIORedis;
@@ -222,17 +361,35 @@ jest.mock('redis', () => {
       return this;
     }
 
-    async disconnect() { this._connected = false; this.emit('end'); }
-    async quit() { this._connected = false; this.emit('end'); return 'OK'; }
+    async disconnect() {
+      this._connected = false;
+      this.emit('end');
+    }
+    async quit() {
+      this._connected = false;
+      this.emit('end');
+      return 'OK';
+    }
 
-    get isOpen() { return this._connected; }
-    get isReady() { return this._connected; }
+    get isOpen() {
+      return this._connected;
+    }
+    get isReady() {
+      return this._connected;
+    }
 
-    async get(key: string) { return dataStore.get(key) ?? null; }
-    async set(key: string, value: string) { dataStore.set(key, value); return 'OK'; }
+    async get(key: string) {
+      return dataStore.get(key) ?? null;
+    }
+    async set(key: string, value: string) {
+      dataStore.set(key, value);
+      return 'OK';
+    }
     async del(...keys: string[]) {
       let deleted = 0;
-      keys.forEach(key => { if (dataStore.delete(key)) deleted++; });
+      keys.forEach((key) => {
+        if (dataStore.delete(key)) deleted++;
+      });
       return deleted;
     }
     async incr(key: string) {
@@ -245,16 +402,30 @@ jest.mock('redis', () => {
       dataStore.set(key, String(value));
       return value;
     }
-    async expire() { return 1; }
+    async incrBy(key: string, increment: number) {
+      const value = parseInt(dataStore.get(key) || '0') + increment;
+      dataStore.set(key, String(value));
+      return value;
+    }
+    async decrBy(key: string, decrement: number) {
+      const value = parseInt(dataStore.get(key) || '0') - decrement;
+      dataStore.set(key, String(value));
+      return value;
+    }
+    async expire() {
+      return 1;
+    }
 
     multi() {
       return {
         incr: () => ({ expire: () => ({ exec: async () => [[null, 1]] }) }),
-        exec: async () => [[null, 1]]
+        exec: async () => [[null, 1]],
       };
     }
 
-    duplicate() { return new MockRedisClient(); }
+    duplicate() {
+      return new MockRedisClient();
+    }
   }
 
   return { createClient: () => new MockRedisClient() };
@@ -278,11 +449,19 @@ const prismaDataStores: Record<string, Map<string, any>> = {
   auditLog: new Map(),
   documentSource: new Map(),
   documentChunk: new Map(),
-  processingCheckpoint: new Map()
+  processingCheckpoint: new Map(),
+  profileAuditLog: new Map(),
+  organization: new Map(),
+  organizationMembership: new Map(),
+  organizationInvitation: new Map(),
+  documentShare: new Map(),
+  client: new Map(),
+  clientProfile: new Map(),
+  refreshTokenFamily: new Map(),
 };
 
 let prismaIdCounter = 1;
-const generatePrismaId = () => 'mock-id-' + (prismaIdCounter++);
+const generatePrismaId = () => 'mock-id-' + prismaIdCounter++;
 
 const matchPrismaWhere = (record: any, where: any): boolean => {
   if (!where) return true;
@@ -308,16 +487,18 @@ const createPrismaModelDelegate = (modelName: string) => {
   }
   return {
     findUnique: jest.fn(async (args: any) => {
-      return Array.from(store.values()).find(r => matchPrismaWhere(r, args?.where)) || null;
+      return Array.from(store.values()).find((r) => matchPrismaWhere(r, args?.where)) || null;
     }),
     findFirst: jest.fn(async (args?: any) => {
       const records = Array.from(store.values());
-      const filtered = args?.where ? records.filter(r => matchPrismaWhere(r, args.where)) : records;
+      const filtered = args?.where
+        ? records.filter((r) => matchPrismaWhere(r, args.where))
+        : records;
       return filtered[0] || null;
     }),
     findMany: jest.fn(async (args?: any) => {
       let records = Array.from(store.values());
-      if (args?.where) records = records.filter(r => matchPrismaWhere(r, args.where));
+      if (args?.where) records = records.filter((r) => matchPrismaWhere(r, args.where));
       if (args?.skip) records = records.slice(args.skip);
       if (args?.take) records = records.slice(0, args.take);
       return records;
@@ -338,9 +519,19 @@ const createPrismaModelDelegate = (modelName: string) => {
       return { count };
     }),
     update: jest.fn(async (args: any) => {
-      const record = Array.from(store.values()).find(r => matchPrismaWhere(r, args.where));
+      const record = Array.from(store.values()).find((r) => matchPrismaWhere(r, args.where));
       if (!record) throw new Error('Record not found in ' + modelName);
-      const updated = { ...record, ...args.data, updatedAt: new Date() };
+      const processedData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(args.data || {})) {
+        if (typeof value === 'object' && value !== null && 'increment' in (value as any)) {
+          processedData[key] = (record[key] || 0) + (value as any).increment;
+        } else if (typeof value === 'object' && value !== null && 'decrement' in (value as any)) {
+          processedData[key] = (record[key] || 0) - (value as any).decrement;
+        } else {
+          processedData[key] = value;
+        }
+      }
+      const updated = { ...record, ...processedData, updatedAt: new Date() };
       store.set(record.id, updated);
       return updated;
     }),
@@ -355,7 +546,7 @@ const createPrismaModelDelegate = (modelName: string) => {
       return { count };
     }),
     upsert: jest.fn(async (args: any) => {
-      const existing = Array.from(store.values()).find(r => matchPrismaWhere(r, args.where));
+      const existing = Array.from(store.values()).find((r) => matchPrismaWhere(r, args.where));
       if (existing) {
         const updated = { ...existing, ...args.update, updatedAt: new Date() };
         store.set(existing.id, updated);
@@ -367,7 +558,7 @@ const createPrismaModelDelegate = (modelName: string) => {
       return record;
     }),
     delete: jest.fn(async (args: any) => {
-      const record = Array.from(store.values()).find(r => matchPrismaWhere(r, args.where));
+      const record = Array.from(store.values()).find((r) => matchPrismaWhere(r, args.where));
       if (!record) throw new Error('Record not found in ' + modelName);
       store.delete(record.id);
       return record;
@@ -389,10 +580,10 @@ const createPrismaModelDelegate = (modelName: string) => {
     }),
     count: jest.fn(async (args?: any) => {
       if (!args?.where) return store.size;
-      return Array.from(store.values()).filter(r => matchPrismaWhere(r, args.where)).length;
+      return Array.from(store.values()).filter((r) => matchPrismaWhere(r, args.where)).length;
     }),
     aggregate: jest.fn(async () => ({ _count: { _all: 0 } })),
-    groupBy: jest.fn(async () => [])
+    groupBy: jest.fn(async () => []),
   };
 };
 
@@ -411,6 +602,14 @@ const mockPrismaInstance = {
   documentSource: createPrismaModelDelegate('documentSource'),
   documentChunk: createPrismaModelDelegate('documentChunk'),
   processingCheckpoint: createPrismaModelDelegate('processingCheckpoint'),
+  profileAuditLog: createPrismaModelDelegate('profileAuditLog'),
+  organization: createPrismaModelDelegate('organization'),
+  organizationMembership: createPrismaModelDelegate('organizationMembership'),
+  organizationInvitation: createPrismaModelDelegate('organizationInvitation'),
+  documentShare: createPrismaModelDelegate('documentShare'),
+  client: createPrismaModelDelegate('client'),
+  clientProfile: createPrismaModelDelegate('clientProfile'),
+  refreshTokenFamily: createPrismaModelDelegate('refreshTokenFamily'),
   $connect: jest.fn(async () => {}),
   $disconnect: jest.fn(async () => {}),
   $executeRaw: jest.fn(async () => 0),
@@ -422,7 +621,7 @@ const mockPrismaInstance = {
     return arg(mockPrismaInstance);
   }),
   $on: jest.fn(),
-  $use: jest.fn()
+  $use: jest.fn(),
 };
 
 // Mock src/utils/prisma to prevent $on error and provide shared mock instance
@@ -431,7 +630,7 @@ jest.mock('../src/utils/prisma', () => ({
   prisma: mockPrismaInstance,
   ensureDbConnection: jest.fn(async () => true),
   startKeepalive: jest.fn(),
-  stopKeepalive: jest.fn()
+  stopKeepalive: jest.fn(),
 }));
 
 jest.mock('@prisma/client', () => {
@@ -444,11 +643,11 @@ jest.mock('@prisma/client', () => {
     formFillHistory: new Map(),
     dataField: new Map(),
     job: new Map(),
-    auditLog: new Map()
+    auditLog: new Map(),
   };
 
   let idCounter = 1;
-  const generateId = () => 'mock-id-' + (idCounter++);
+  const generateId = () => 'mock-id-' + idCounter++;
 
   const matchWhere = (record: any, where: any): boolean => {
     if (!where) return true;
@@ -470,16 +669,16 @@ jest.mock('@prisma/client', () => {
     const store = dataStores[modelName];
     return {
       findUnique: async (args: any) => {
-        return Array.from(store.values()).find(r => matchWhere(r, args.where)) || null;
+        return Array.from(store.values()).find((r) => matchWhere(r, args.where)) || null;
       },
       findFirst: async (args?: any) => {
         const records = Array.from(store.values());
-        const filtered = args?.where ? records.filter(r => matchWhere(r, args.where)) : records;
+        const filtered = args?.where ? records.filter((r) => matchWhere(r, args.where)) : records;
         return filtered[0] || null;
       },
       findMany: async (args?: any) => {
         let records = Array.from(store.values());
-        if (args?.where) records = records.filter(r => matchWhere(r, args.where));
+        if (args?.where) records = records.filter((r) => matchWhere(r, args.where));
         if (args?.skip) records = records.slice(args.skip);
         if (args?.take) records = records.slice(0, args.take);
         return records;
@@ -500,7 +699,7 @@ jest.mock('@prisma/client', () => {
         return { count };
       },
       update: async (args: any) => {
-        const record = Array.from(store.values()).find(r => matchWhere(r, args.where));
+        const record = Array.from(store.values()).find((r) => matchWhere(r, args.where));
         if (!record) throw new Error('Record not found in ' + modelName);
         const updated = { ...record, ...args.data, updatedAt: new Date() };
         store.set(record.id, updated);
@@ -517,7 +716,7 @@ jest.mock('@prisma/client', () => {
         return { count };
       },
       upsert: async (args: any) => {
-        const existing = Array.from(store.values()).find(r => matchWhere(r, args.where));
+        const existing = Array.from(store.values()).find((r) => matchWhere(r, args.where));
         if (existing) {
           const updated = { ...existing, ...args.update, updatedAt: new Date() };
           store.set(existing.id, updated);
@@ -529,7 +728,7 @@ jest.mock('@prisma/client', () => {
         return record;
       },
       delete: async (args: any) => {
-        const record = Array.from(store.values()).find(r => matchWhere(r, args.where));
+        const record = Array.from(store.values()).find((r) => matchWhere(r, args.where));
         if (!record) throw new Error('Record not found in ' + modelName);
         store.delete(record.id);
         return record;
@@ -551,10 +750,10 @@ jest.mock('@prisma/client', () => {
       },
       count: async (args?: any) => {
         if (!args?.where) return store.size;
-        return Array.from(store.values()).filter(r => matchWhere(r, args.where)).length;
+        return Array.from(store.values()).filter((r) => matchWhere(r, args.where)).length;
       },
       aggregate: async () => ({ _count: { _all: 0 } }),
-      groupBy: async () => []
+      groupBy: async () => [],
     };
   };
 
@@ -571,10 +770,18 @@ jest.mock('@prisma/client', () => {
 
     async $connect() {}
     async $disconnect() {}
-    async $executeRaw() { return 0; }
-    async $executeRawUnsafe() { return 0; }
-    async $queryRaw() { return []; }
-    async $queryRawUnsafe() { return []; }
+    async $executeRaw() {
+      return 0;
+    }
+    async $executeRawUnsafe() {
+      return 0;
+    }
+    async $queryRaw() {
+      return [];
+    }
+    async $queryRawUnsafe() {
+      return [];
+    }
     async $transaction(arg: any) {
       if (Array.isArray(arg)) return Promise.all(arg);
       return arg(this);
@@ -583,7 +790,7 @@ jest.mock('@prisma/client', () => {
     $use() {}
 
     static _resetAllStores() {
-      Object.values(dataStores).forEach(store => store.clear());
+      Object.values(dataStores).forEach((store) => store.clear());
       idCounter = 1;
     }
   }
@@ -591,13 +798,25 @@ jest.mock('@prisma/client', () => {
   return {
     PrismaClient,
     Prisma: {
-      TransactionIsolationLevel: { ReadUncommitted: 'ReadUncommitted', ReadCommitted: 'ReadCommitted', RepeatableRead: 'RepeatableRead', Serializable: 'Serializable' },
-      SortOrder: { asc: 'asc', desc: 'desc' }
+      TransactionIsolationLevel: {
+        ReadUncommitted: 'ReadUncommitted',
+        ReadCommitted: 'ReadCommitted',
+        RepeatableRead: 'RepeatableRead',
+        Serializable: 'Serializable',
+      },
+      SortOrder: { asc: 'asc', desc: 'desc' },
     },
-    PrismaClientKnownRequestError: class extends Error { code: string; constructor(msg: string, opts: any) { super(msg); this.code = opts.code; } },
+    SharePermission: { VIEW: 'VIEW', COMMENT: 'COMMENT', EDIT: 'EDIT' },
+    PrismaClientKnownRequestError: class extends Error {
+      code: string;
+      constructor(msg: string, opts: any) {
+        super(msg);
+        this.code = opts.code;
+      }
+    },
     PrismaClientUnknownRequestError: class extends Error {},
     PrismaClientInitializationError: class extends Error {},
-    PrismaClientValidationError: class extends Error {}
+    PrismaClientValidationError: class extends Error {},
   };
 });
 
@@ -612,7 +831,7 @@ jest.setTimeout(30000);
 // ========================================
 
 afterAll(async () => {
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 });
 
 export {};

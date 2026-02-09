@@ -203,10 +203,7 @@ describe('Organization API Routes', () => {
     it('should reject empty organization name', async () => {
       mockUser = { id: TEST_USER_ID, email: 'test@test.com' };
 
-      const response = await request(app)
-        .post('/api/organizations')
-        .send({ name: '' })
-        .expect(400);
+      const response = await request(app).post('/api/organizations').send({ name: '' }).expect(400);
 
       expect(response.body.error).toBe('Validation failed');
     });
@@ -326,9 +323,13 @@ describe('Organization API Routes', () => {
     it('should reject update from regular member', async () => {
       mockUser = { id: TEST_USER_ID, email: 'member@test.com' };
 
-      mockPrisma.organizationMembership.findFirst.mockResolvedValue({
-        role: 'MEMBER',
-        status: 'ACTIVE',
+      // Mock findFirst to respect role filter - ADMIN/OWNER query should return null for MEMBER
+      mockPrisma.organizationMembership.findFirst.mockImplementation(async (args: any) => {
+        const roleFilter = args?.where?.role;
+        if (roleFilter?.in && !roleFilter.in.includes('MEMBER')) {
+          return null;
+        }
+        return { role: 'MEMBER', status: 'ACTIVE' };
       });
 
       const response = await request(app)
@@ -336,15 +337,19 @@ describe('Organization API Routes', () => {
         .send({ name: 'Hacked Name' })
         .expect(403);
 
-      expect(response.body.code).toBe('INSUFFICIENT_PERMISSIONS');
+      expect(response.body.code).toBe('ADMIN_REQUIRED');
     });
 
     it('should reject update from viewer', async () => {
       mockUser = { id: TEST_USER_ID, email: 'viewer@test.com' };
 
-      mockPrisma.organizationMembership.findFirst.mockResolvedValue({
-        role: 'VIEWER',
-        status: 'ACTIVE',
+      // Mock findFirst to respect role filter - ADMIN/OWNER query should return null for VIEWER
+      mockPrisma.organizationMembership.findFirst.mockImplementation(async (args: any) => {
+        const roleFilter = args?.where?.role;
+        if (roleFilter?.in && !roleFilter.in.includes('VIEWER')) {
+          return null;
+        }
+        return { role: 'VIEWER', status: 'ACTIVE' };
       });
 
       const response = await request(app)
@@ -352,7 +357,7 @@ describe('Organization API Routes', () => {
         .send({ name: 'Hacked Name' })
         .expect(403);
 
-      expect(response.body.code).toBe('INSUFFICIENT_PERMISSIONS');
+      expect(response.body.code).toBe('ADMIN_REQUIRED');
     });
 
     it('should reject update from non-member', async () => {
@@ -365,7 +370,7 @@ describe('Organization API Routes', () => {
         .send({ name: 'Hacked Name' })
         .expect(403);
 
-      expect(response.body.code).toBe('INSUFFICIENT_PERMISSIONS');
+      expect(response.body.code).toBe('ADMIN_REQUIRED');
     });
   });
 
@@ -398,27 +403,36 @@ describe('Organization API Routes', () => {
     it('should reject deletion by admin', async () => {
       mockUser = { id: TEST_ADMIN_ID, email: 'admin@test.com' };
 
-      mockPrisma.organizationMembership.findFirst.mockResolvedValue({
-        role: 'ADMIN',
-        status: 'ACTIVE',
+      // Mock findFirst to respect role filter - OWNER-only query should return null for ADMIN
+      mockPrisma.organizationMembership.findFirst.mockImplementation(async (args: any) => {
+        const roleFilter = args?.where?.role;
+        // If querying for OWNER role specifically, return null (ADMIN is not OWNER)
+        if (roleFilter === 'OWNER' || (roleFilter?.in && !roleFilter.in.includes('ADMIN'))) {
+          return null;
+        }
+        return { role: 'ADMIN', status: 'ACTIVE' };
       });
 
       const response = await request(app).delete(`/api/organizations/${TEST_ORG_ID}`).expect(403);
 
-      expect(response.body.code).toBe('OWNER_ONLY');
+      expect(response.body.code).toBe('OWNER_REQUIRED');
     });
 
     it('should reject deletion by member', async () => {
       mockUser = { id: TEST_USER_ID, email: 'member@test.com' };
 
-      mockPrisma.organizationMembership.findFirst.mockResolvedValue({
-        role: 'MEMBER',
-        status: 'ACTIVE',
+      // Mock findFirst to respect role filter - OWNER-only query should return null for MEMBER
+      mockPrisma.organizationMembership.findFirst.mockImplementation(async (args: any) => {
+        const roleFilter = args?.where?.role;
+        if (roleFilter === 'OWNER' || (roleFilter?.in && !roleFilter.in.includes('MEMBER'))) {
+          return null;
+        }
+        return { role: 'MEMBER', status: 'ACTIVE' };
       });
 
       const response = await request(app).delete(`/api/organizations/${TEST_ORG_ID}`).expect(403);
 
-      expect(response.body.code).toBe('OWNER_ONLY');
+      expect(response.body.code).toBe('OWNER_REQUIRED');
     });
 
     it('should reject deletion by non-member', async () => {
@@ -428,7 +442,7 @@ describe('Organization API Routes', () => {
 
       const response = await request(app).delete(`/api/organizations/${TEST_ORG_ID}`).expect(403);
 
-      expect(response.body.code).toBe('OWNER_ONLY');
+      expect(response.body.code).toBe('OWNER_REQUIRED');
     });
   });
 

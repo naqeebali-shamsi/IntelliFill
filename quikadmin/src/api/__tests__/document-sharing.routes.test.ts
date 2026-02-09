@@ -64,6 +64,29 @@ const testEmail = 'recipient@test.com';
 // Express app setup
 let app: express.Application;
 
+// Override documentShare.findUnique to resolve include relations (document, sharedBy)
+const originalFindUnique = prisma.documentShare.findUnique as jest.Mock;
+(prisma.documentShare.findUnique as jest.Mock) = jest.fn(async (args: any) => {
+  const share = await originalFindUnique(args);
+  if (!share || !args?.include) return share;
+
+  const result = { ...share };
+
+  // Resolve document relation
+  if (args.include.document) {
+    const doc = await prisma.document.findUnique({ where: { id: share.documentId } });
+    result.document = doc || null;
+  }
+
+  // Resolve sharedBy (User) relation
+  if (args.include.sharedBy) {
+    const user = await prisma.user.findUnique({ where: { id: share.sharedByUserId } });
+    result.sharedBy = user || null;
+  }
+
+  return result;
+});
+
 beforeAll(async () => {
   app = express();
   app.use(express.json());

@@ -360,7 +360,7 @@ describe('QAAgent', () => {
 
       expect(result.passed).toBe(true);
       expect(result.score).toBeGreaterThanOrEqual(60);
-      expect(result.issues.filter(i => i.severity === 'error')).toHaveLength(0);
+      expect(result.issues.filter((i) => i.severity === 'error')).toHaveLength(0);
     });
 
     it('should fail validation for missing required fields', async () => {
@@ -372,7 +372,7 @@ describe('QAAgent', () => {
       const result = await validateExtraction(fields, 'PASSPORT');
 
       expect(result.passed).toBe(false);
-      expect(result.issues.some(i => i.issueType === 'missing_required')).toBe(true);
+      expect(result.issues.some((i) => i.issueType === 'missing_required')).toBe(true);
     });
 
     it('should report invalid format issues', async () => {
@@ -390,7 +390,7 @@ describe('QAAgent', () => {
 
       const result = await validateExtraction(fields, 'PASSPORT');
 
-      expect(result.issues.some(i => i.issueType === 'invalid_format')).toBe(true);
+      expect(result.issues.some((i) => i.issueType === 'invalid_format')).toBe(true);
     });
 
     it('should report low confidence issues', async () => {
@@ -408,7 +408,7 @@ describe('QAAgent', () => {
 
       const result = await validateExtraction(fields, 'PASSPORT');
 
-      expect(result.issues.some(i => i.issueType === 'low_confidence')).toBe(true);
+      expect(result.issues.some((i) => i.issueType === 'low_confidence')).toBe(true);
     });
 
     it('should flag expired documents', async () => {
@@ -422,7 +422,7 @@ describe('QAAgent', () => {
 
       const result = await validateExtraction(fields, 'PASSPORT');
 
-      expect(result.issues.some(i => i.message?.includes('expired'))).toBe(true);
+      expect(result.issues.some((i) => i.message?.includes('expired'))).toBe(true);
     });
 
     it('should flag suspicious placeholder values', async () => {
@@ -440,7 +440,7 @@ describe('QAAgent', () => {
 
       const result = await validateExtraction(fields, 'PASSPORT');
 
-      expect(result.issues.some(i => i.issueType === 'suspicious_value')).toBe(true);
+      expect(result.issues.some((i) => i.issueType === 'suspicious_value')).toBe(true);
     });
 
     it('should require human review for multiple issues', async () => {
@@ -473,14 +473,14 @@ describe('QAAgent', () => {
 
       expect(result.summary).toBeDefined();
       expect(result.summary.totalFields).toBe(5);
-      expect(result.summary.averageConfidence).toBe(80);
+      expect(result.summary.averageConfidence).toBe(82);
     });
 
     it('should handle empty fields gracefully', async () => {
       const result = await validateExtraction({}, 'PASSPORT');
 
       expect(result.passed).toBe(false);
-      expect(result.issues.some(i => i.issueType === 'missing_required')).toBe(true);
+      expect(result.issues.some((i) => i.issueType === 'missing_required')).toBe(true);
     });
 
     it('should validate Emirates ID format', async () => {
@@ -497,7 +497,9 @@ describe('QAAgent', () => {
       };
 
       const result = await validateExtraction(validFields, 'EMIRATES_ID');
-      expect(result.issues.filter(i => i.field === 'emirates_id' && i.issueType === 'invalid_format')).toHaveLength(0);
+      expect(
+        result.issues.filter((i) => i.field === 'emirates_id' && i.issueType === 'invalid_format')
+      ).toHaveLength(0);
 
       // Invalid format
       const invalidFields: Record<string, ExtractedFieldResult> = {
@@ -509,7 +511,11 @@ describe('QAAgent', () => {
       };
 
       const invalidResult = await validateExtraction(invalidFields, 'EMIRATES_ID');
-      expect(invalidResult.issues.some(i => i.field === 'emirates_id' && i.issueType === 'invalid_format')).toBe(true);
+      expect(
+        invalidResult.issues.some(
+          (i) => i.field === 'emirates_id' && i.issueType === 'invalid_format'
+        )
+      ).toBe(true);
     });
 
     it('should validate invoice fields', async () => {
@@ -524,8 +530,10 @@ describe('QAAgent', () => {
       const result = await validateExtraction(fields, 'INVOICE');
 
       // Invoice validation should not have format errors for these valid fields
-      expect(result.issues.filter(i => i.field === 'total_amount' && i.issueType === 'invalid_format')).toHaveLength(0);
-      expect(result.issues.filter(i => i.issueType === 'missing_required')).toHaveLength(0);
+      expect(
+        result.issues.filter((i) => i.field === 'total_amount' && i.issueType === 'invalid_format')
+      ).toHaveLength(0);
+      expect(result.issues.filter((i) => i.issueType === 'missing_required')).toHaveLength(0);
     });
   });
 

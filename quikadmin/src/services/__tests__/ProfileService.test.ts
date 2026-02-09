@@ -775,6 +775,7 @@ describe('ProfileService', () => {
       ];
 
       mockPrisma.document.findMany.mockResolvedValue(mockDocuments);
+      mockPrisma.userProfile.findUnique.mockResolvedValue(null);
       mockPrisma.userProfile.upsert.mockResolvedValue({});
 
       const result = await service.refreshProfile('user-1');
@@ -796,6 +797,12 @@ describe('ProfileService', () => {
 
   describe('deleteProfile', () => {
     it('should delete user profile', async () => {
+      mockPrisma.userProfile.findUnique.mockResolvedValue({
+        id: 'profile-1',
+        userId: 'user-1',
+        profileData: 'encrypted:{}',
+        lastAggregated: new Date(),
+      });
       mockPrisma.userProfile.delete.mockResolvedValue({});
 
       await service.deleteProfile('user-1');

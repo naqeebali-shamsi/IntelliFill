@@ -162,7 +162,7 @@ describe('Supabase Authentication Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({
         error: 'Unauthorized',
-        message: 'No token provided',
+        message: 'Missing or invalid Authorization header',
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -177,7 +177,7 @@ describe('Supabase Authentication Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({
         error: 'Unauthorized',
-        message: 'Token length is invalid',
+        message: 'Missing or invalid Authorization header',
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -192,7 +192,7 @@ describe('Supabase Authentication Middleware', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({
         error: 'Unauthorized',
-        message: 'Token length is invalid',
+        message: 'Missing or invalid Authorization header',
       });
       expect(next).not.toHaveBeenCalled();
     });
@@ -468,7 +468,7 @@ describe('Supabase Authentication Middleware', () => {
           expect.any(Object)
         );
         expect(piiSafeLogger.warn).toHaveBeenCalledWith(
-          'Continuing without RLS context - application-level filtering only',
+          'SECURITY: RLS context failed but RLS_FAIL_CLOSED=false - continuing with degraded security',
           expect.objectContaining({ userId: 'user-789' })
         );
         expect(next).toHaveBeenCalled();
@@ -823,9 +823,9 @@ describe('Supabase Authentication Middleware', () => {
 
         await optionalAuthSupabase(req as any, res as any, next);
 
-        // Should log at ERROR level (not silent)
+        // Should log at ERROR level (not silent) - logged by setRLSContext helper
         expect(piiSafeLogger.error).toHaveBeenCalledWith(
-          'SECURITY: Failed to set RLS context in optional auth',
+          'SECURITY: Failed to set RLS context',
           expect.objectContaining({
             userId: 'user-rls-fail',
             requestId: 'opt-req-123',

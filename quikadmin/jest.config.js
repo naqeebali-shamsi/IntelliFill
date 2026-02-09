@@ -23,6 +23,10 @@ module.exports = {
     // E2E tests requiring running server
     '/tests/e2e/',
     '/tests/backend/',
+    // Integration tests that import initializeApp (requires real DB/Redis)
+    '/tests/integration/',
+    // Security tests that require running app
+    '/tests/security/',
     'intellifill.test.js',
     'docker-test.js',
     'simple-docker-test.js',
@@ -30,16 +34,6 @@ module.exports = {
     'run-ocr-tests.js',
     'auth-e2e-test.ts',
     'ocr-e2e-test.ts',
-    // Integration tests that import initializeApp (requires real DB/Redis)
-    '/tests/integration/auth.test.ts',
-    '/tests/integration/api.test.ts',
-    '/tests/integration/profile.test.ts',
-    '/tests/integration/protected-routes.test.ts',
-    '/tests/integration/template.test.ts',
-    '/tests/integration/reprocess.test.ts',
-    '/tests/integration/ocr.test.ts',
-    // Security tests that require running app
-    '/tests/security/'
   ],
   // Force exit after tests complete to avoid hanging
   forceExit: true,

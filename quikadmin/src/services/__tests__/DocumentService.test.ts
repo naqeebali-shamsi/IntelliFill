@@ -96,7 +96,8 @@ describe('DocumentService', () => {
         'doc-1',
         'user-1',
         'https://storage.example.com/doc1.pdf',
-        'User-initiated reprocessing'
+        'User-initiated reprocessing',
+        undefined
       );
     });
 
@@ -575,7 +576,8 @@ describe('DocumentService', () => {
         'doc-1',
         'user-1',
         null,
-        'User-initiated reprocessing'
+        'User-initiated reprocessing',
+        undefined
       );
     });
 

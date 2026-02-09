@@ -15,7 +15,7 @@
  * @module api/__tests__/documents.routes.test
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import request from 'supertest';
 import express, { Express } from 'express';
@@ -229,7 +229,7 @@ describe('Documents API Routes', () => {
       expect(mockDocumentMethods.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            fileType: 'application/pdf',
+            fileType: { in: ['application/pdf'] },
           }),
         })
       );

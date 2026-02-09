@@ -16,7 +16,7 @@
  * @module api/__tests__/client-profile.routes.test
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import request from 'supertest';
 import express, { Express } from 'express';
@@ -74,6 +74,12 @@ jest.mock('../../utils/piiSafeLogger', () => ({
     error: jest.fn(),
     debug: jest.fn(),
   },
+}));
+
+// Mock encryption with pass-through functions
+jest.mock('../../utils/encryption', () => ({
+  encryptJSON: (data: unknown) => data,
+  decryptJSON: (data: unknown) => data,
 }));
 
 // ============================================================================

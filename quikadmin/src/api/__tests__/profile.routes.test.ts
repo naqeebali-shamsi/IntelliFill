@@ -15,7 +15,7 @@
  * @module api/__tests__/profile.routes.test
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
 import request from 'supertest';
 import express, { Express } from 'express';
@@ -195,7 +195,11 @@ describe('Profile API Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(mockProfileService.aggregateUserProfile).toHaveBeenCalledWith(testUserId);
-      expect(mockProfileService.saveProfile).toHaveBeenCalledWith(testUserId, freshProfile);
+      expect(mockProfileService.saveProfile).toHaveBeenCalledWith(
+        testUserId,
+        freshProfile,
+        expect.objectContaining({ ipAddress: expect.any(String) })
+      );
     });
 
     it('should refresh stale profile', async () => {
@@ -210,7 +214,10 @@ describe('Profile API Routes', () => {
       const response = await request(app).get('/api/users/me/profile').expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(mockProfileService.refreshProfile).toHaveBeenCalledWith(testUserId);
+      expect(mockProfileService.refreshProfile).toHaveBeenCalledWith(
+        testUserId,
+        expect.objectContaining({ ipAddress: expect.any(String) })
+      );
     });
 
     it('should not refresh fresh profile', async () => {
@@ -286,7 +293,11 @@ describe('Profile API Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.message).toBe('Profile updated successfully');
-      expect(mockProfileService.updateProfile).toHaveBeenCalledWith(testUserId, updates);
+      expect(mockProfileService.updateProfile).toHaveBeenCalledWith(
+        testUserId,
+        updates,
+        expect.objectContaining({ ipAddress: expect.any(String) })
+      );
     });
 
     it('should return 400 for empty updates', async () => {
@@ -336,7 +347,10 @@ describe('Profile API Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.message).toBe('Profile refreshed successfully');
-      expect(mockProfileService.refreshProfile).toHaveBeenCalledWith(testUserId);
+      expect(mockProfileService.refreshProfile).toHaveBeenCalledWith(
+        testUserId,
+        expect.objectContaining({ ipAddress: expect.any(String) })
+      );
     });
 
     it('should return 401 if user ID missing', async () => {
@@ -382,7 +396,10 @@ describe('Profile API Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.message).toBe('Profile deleted successfully');
-      expect(mockProfileService.deleteProfile).toHaveBeenCalledWith(testUserId);
+      expect(mockProfileService.deleteProfile).toHaveBeenCalledWith(
+        testUserId,
+        expect.objectContaining({ ipAddress: expect.any(String) })
+      );
     });
 
     it('should return 404 if profile not found', async () => {

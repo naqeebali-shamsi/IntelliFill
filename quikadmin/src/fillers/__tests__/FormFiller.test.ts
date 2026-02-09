@@ -28,6 +28,7 @@ import {
   PDFCheckBox,
   PDFDropdown,
   PDFRadioGroup,
+  PDFOptionList,
 } from 'pdf-lib';
 
 // Mock dependencies
@@ -39,6 +40,10 @@ jest.mock('../../utils/piiSafeLogger', () => ({
     error: jest.fn(),
     debug: jest.fn(),
   },
+}));
+jest.mock('../../utils/fileReader', () => ({
+  getFileBuffer: jest.fn(),
+  isUrl: jest.fn(() => false),
 }));
 
 // Mock pdf-lib with classes that support instanceof
@@ -104,6 +109,23 @@ jest.mock('pdf-lib', () => {
     }
   }
 
+  class MockPDFOptionList {
+    private name: string;
+    private options: string[];
+    select = jest.fn();
+
+    constructor(name = 'optionList', options = ['Item1', 'Item2', 'Item3']) {
+      this.name = name;
+      this.options = options;
+    }
+    getName() {
+      return this.name;
+    }
+    getOptions() {
+      return this.options;
+    }
+  }
+
   return {
     PDFDocument: {
       load: jest.fn(),
@@ -112,8 +134,13 @@ jest.mock('pdf-lib', () => {
     PDFCheckBox: MockPDFCheckBox,
     PDFDropdown: MockPDFDropdown,
     PDFRadioGroup: MockPDFRadioGroup,
+    PDFOptionList: MockPDFOptionList,
   };
 });
+
+// Import getFileBuffer mock
+import { getFileBuffer } from '../../utils/fileReader';
+const mockGetFileBuffer = getFileBuffer as jest.Mock;
 
 describe('FormFiller', () => {
   let filler: FormFiller;
@@ -178,7 +205,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -229,22 +256,38 @@ describe('FormFiller', () => {
       expect(mockTextField.setText).toHaveBeenCalledWith(longText);
     });
 
-    it('should handle empty string values', async () => {
+    it('should skip empty string values', async () => {
       const mappings = createMappingResult([createMapping('textField', '')]);
 
-      await filler.fillPDFForm('/test/form.pdf', mappings, '/test/output.pdf');
+      const result = await filler.fillPDFForm('/test/form.pdf', mappings, '/test/output.pdf');
 
-      expect(mockTextField.setText).toHaveBeenCalledWith('');
+      expect(mockTextField.setText).not.toHaveBeenCalled();
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining('skipped: no value available')
+      );
     });
 
-    it('should handle null and undefined as strings', async () => {
+    it('should skip null and undefined values', async () => {
       const mappings1 = createMappingResult([createMapping('textField', null)]);
-      await filler.fillPDFForm('/test/form.pdf', mappings1, '/test/output1.pdf');
-      expect(mockTextField.setText).toHaveBeenCalledWith('null');
+      const result1 = await filler.fillPDFForm('/test/form.pdf', mappings1, '/test/output1.pdf');
+      expect(mockTextField.setText).not.toHaveBeenCalled();
+      expect(result1.warnings).toContainEqual(
+        expect.stringContaining('skipped: no value available')
+      );
+
+      jest.clearAllMocks();
+      mockForm.getFields.mockReturnValue([mockTextField]);
+      mockForm.getField.mockReturnValue(mockTextField);
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
+      (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
+      mockFs.writeFile.mockResolvedValue(undefined);
 
       const mappings2 = createMappingResult([createMapping('textField', undefined)]);
-      await filler.fillPDFForm('/test/form.pdf', mappings2, '/test/output2.pdf');
-      expect(mockTextField.setText).toHaveBeenCalledWith('undefined');
+      const result2 = await filler.fillPDFForm('/test/form.pdf', mappings2, '/test/output2.pdf');
+      expect(mockTextField.setText).not.toHaveBeenCalled();
+      expect(result2.warnings).toContainEqual(
+        expect.stringContaining('skipped: no value available')
+      );
     });
   });
 
@@ -256,7 +299,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockCheckBox]);
       mockForm.getField.mockReturnValue(mockCheckBox);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -338,12 +381,17 @@ describe('FormFiller', () => {
       expect(mockCheckBox.check).toHaveBeenCalled();
     });
 
-    it('should uncheck checkbox for empty string', async () => {
+    it('should skip empty string for checkbox', async () => {
       const mappings = createMappingResult([createMapping('checkBox', '')]);
 
-      await filler.fillPDFForm('/test/form.pdf', mappings, '/test/output.pdf');
+      const result = await filler.fillPDFForm('/test/form.pdf', mappings, '/test/output.pdf');
 
-      expect(mockCheckBox.uncheck).toHaveBeenCalled();
+      // Source skips null/undefined/empty values
+      expect(mockCheckBox.uncheck).not.toHaveBeenCalled();
+      expect(mockCheckBox.check).not.toHaveBeenCalled();
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining('skipped: no value available')
+      );
     });
 
     it('should uncheck checkbox for string "false"', async () => {
@@ -371,7 +419,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockDropdown]);
       mockForm.getField.mockReturnValue(mockDropdown);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -416,7 +464,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockRadioGroup]);
       mockForm.getField.mockReturnValue(mockRadioGroup);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -467,7 +515,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -506,12 +554,12 @@ describe('FormFiller', () => {
 
   describe('Error Handling', () => {
     beforeEach(() => {
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       mockFs.writeFile.mockResolvedValue(undefined);
     });
 
     it('should throw error when PDF file cannot be read', async () => {
-      mockFs.readFile.mockRejectedValue(new Error('File not found'));
+      mockGetFileBuffer.mockRejectedValue(new Error('File not found'));
       const mappings = createMappingResult([]);
 
       await expect(
@@ -546,11 +594,13 @@ describe('FormFiller', () => {
     });
 
     it('should throw error when output file cannot be written', async () => {
-      mockForm.getFields.mockReturnValue([]);
+      mockForm.getFields.mockReturnValue([mockTextField]);
+      mockForm.getField.mockReturnValue(mockTextField);
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockRejectedValue(new Error('Permission denied'));
 
-      const mappings = createMappingResult([]);
+      const mappings = createMappingResult([createMapping('textField', 'Test')]);
 
       await expect(
         filler.fillPDFForm('/test/form.pdf', mappings, '/test/output.pdf')
@@ -565,7 +615,7 @@ describe('FormFiller', () => {
   describe('PDF with No Fillable Fields', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([]);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -575,7 +625,7 @@ describe('FormFiller', () => {
 
       const result = await filler.fillPDFForm('/test/empty-form.pdf', mappings, '/test/output.pdf');
 
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
       expect(result.filledFields).toHaveLength(0);
       expect(result.warnings.length).toBeGreaterThan(0);
     });
@@ -589,7 +639,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -636,7 +686,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -692,7 +742,7 @@ describe('FormFiller', () => {
         return null as unknown as PDFTextField;
       });
       // getName is already set via constructor in mock classes
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -742,7 +792,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
@@ -761,7 +811,7 @@ describe('FormFiller', () => {
     });
 
     it('should handle individual form failures in batch', async () => {
-      mockFs.readFile
+      mockGetFileBuffer
         .mockResolvedValueOnce(Buffer.from('pdf data'))
         .mockRejectedValueOnce(new Error('File not found'))
         .mockResolvedValueOnce(Buffer.from('pdf data'));
@@ -792,7 +842,7 @@ describe('FormFiller', () => {
       const genderField = new (PDFRadioGroup as any)('gender');
 
       mockForm.getFields.mockReturnValue([nameField, agreeField, countryField, genderField]);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
 
       const result = await filler.validateFormFields('/test/form.pdf');
@@ -811,7 +861,7 @@ describe('FormFiller', () => {
         getName: jest.fn().mockReturnValue('unknownField'),
       };
       mockForm.getFields.mockReturnValue([unknownField as any]);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
 
       const result = await filler.validateFormFields('/test/form.pdf');
@@ -820,7 +870,7 @@ describe('FormFiller', () => {
     });
 
     it('should throw error when validation fails', async () => {
-      mockFs.readFile.mockRejectedValue(new Error('File not found'));
+      mockGetFileBuffer.mockRejectedValue(new Error('File not found'));
 
       await expect(filler.validateFormFields('/test/missing.pdf')).rejects.toThrow(
         'Failed to validate form fields'
@@ -829,7 +879,7 @@ describe('FormFiller', () => {
 
     it('should handle PDF with no fields', async () => {
       mockForm.getFields.mockReturnValue([]);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
 
       const result = await filler.validateFormFields('/test/empty-form.pdf');
@@ -847,7 +897,7 @@ describe('FormFiller', () => {
     beforeEach(() => {
       mockForm.getFields.mockReturnValue([mockTextField]);
       mockForm.getField.mockReturnValue(mockTextField);
-      mockFs.readFile.mockResolvedValue(Buffer.from('pdf data'));
+      mockGetFileBuffer.mockResolvedValue(Buffer.from('pdf data'));
       (PDFDocument.load as jest.Mock).mockResolvedValue(mockPdfDoc);
       mockFs.writeFile.mockResolvedValue(undefined);
     });
