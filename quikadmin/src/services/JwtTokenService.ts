@@ -135,7 +135,7 @@ class JwtTokenService {
   async generateRefreshToken(userId: string): Promise<RefreshTokenResult> {
     try {
       const tokenFamilyService = await getTokenFamilyService();
-      const familyResult = tokenFamilyService.createNewFamily(userId);
+      const familyResult = await tokenFamilyService.createNewFamily(userId);
       return {
         token: familyResult.refreshToken,
         familyId: familyResult.familyId,

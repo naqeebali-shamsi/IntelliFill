@@ -17,7 +17,7 @@ jest.mock('../../src/utils/prisma', () => ({
     user: {
       findUnique: jest.fn(),
     },
-    $executeRawUnsafe: jest.fn(),
+    $executeRaw: jest.fn(),
   },
 }));
 jest.mock('../../src/utils/logger', () => ({
@@ -322,7 +322,7 @@ describe('Supabase Authentication Middleware', () => {
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
         // Mock successful RLS context setup
-        (prisma.$executeRawUnsafe as jest.Mock).mockResolvedValue(1);
+        (prisma.$executeRaw as jest.Mock).mockResolvedValue(1);
 
         await authenticateSupabase(req as any, res as any, next);
 
@@ -357,9 +357,7 @@ describe('Supabase Authentication Middleware', () => {
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
         // Mock RLS context failure
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(
-          new Error('RLS function not found')
-        );
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('RLS function not found'));
 
         await authenticateSupabase(req as any, res as any, next);
 
@@ -411,7 +409,7 @@ describe('Supabase Authentication Middleware', () => {
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
         // Mock RLS context failure
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(new Error('Database error'));
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('Database error'));
 
         await authenticateSupabase(req as any, res as any, next);
 
@@ -456,7 +454,7 @@ describe('Supabase Authentication Middleware', () => {
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
         // Mock RLS context failure
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(new Error('RLS setup failed'));
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('RLS setup failed'));
 
         await authenticateSupabase(req as any, res as any, next);
 
@@ -497,7 +495,7 @@ describe('Supabase Authentication Middleware', () => {
 
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(new Error('RLS error'));
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('RLS error'));
 
         await authenticateSupabase(req as any, res as any, next);
 
@@ -530,7 +528,7 @@ describe('Supabase Authentication Middleware', () => {
 
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(new Error('RLS failure'));
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('RLS failure'));
 
         await authenticateSupabase(req as any, res as any, next);
 
@@ -645,7 +643,7 @@ describe('Supabase Authentication Middleware', () => {
       (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
       // Mock successful RLS context setup
-      (prisma.$executeRawUnsafe as jest.Mock).mockResolvedValue(1);
+      (prisma.$executeRaw as jest.Mock).mockResolvedValue(1);
 
       await optionalAuthSupabase(req as any, res as any, next);
 
@@ -785,7 +783,7 @@ describe('Supabase Authentication Middleware', () => {
 
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
-        (prisma.$executeRawUnsafe as jest.Mock).mockResolvedValue(1);
+        (prisma.$executeRaw as jest.Mock).mockResolvedValue(1);
 
         await optionalAuthSupabase(req as any, res as any, next);
 
@@ -819,7 +817,7 @@ describe('Supabase Authentication Middleware', () => {
 
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(new Error('RLS optional fail'));
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('RLS optional fail'));
 
         await optionalAuthSupabase(req as any, res as any, next);
 
@@ -860,7 +858,7 @@ describe('Supabase Authentication Middleware', () => {
 
         (verifySupabaseToken as jest.Mock).mockResolvedValue(mockSupabaseUser);
         (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockDbUser);
-        (prisma.$executeRawUnsafe as jest.Mock).mockRejectedValue(new Error('RLS safe fail'));
+        (prisma.$executeRaw as jest.Mock).mockRejectedValue(new Error('RLS safe fail'));
 
         await optionalAuthSupabase(req as any, res as any, next);
 

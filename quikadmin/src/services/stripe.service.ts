@@ -24,30 +24,32 @@ export const stripeService = {
    * Get or create a Stripe customer for a user
    */
   async getOrCreateCustomer(userId: string, email: string): Promise<string> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { stripeCustomerId: true },
+    // Wrap in transaction to prevent duplicate Stripe customers from concurrent requests
+    return await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { stripeCustomerId: true },
+      });
+
+      if (user?.stripeCustomerId) {
+        return user.stripeCustomerId;
+      }
+
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email,
+        metadata: { userId },
+      });
+
+      await tx.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId: customer.id },
+      });
+
+      logger.info('Created Stripe customer', { userId, customerId: customer.id });
+
+      return customer.id;
     });
-
-    if (user?.stripeCustomerId) {
-      return user.stripeCustomerId;
-    }
-
-    // Create new Stripe customer
-    const customer = await stripe.customers.create({
-      email,
-      metadata: { userId },
-    });
-
-    // Store customer ID
-    await prisma.user.update({
-      where: { id: userId },
-      data: { stripeCustomerId: customer.id },
-    });
-
-    logger.info('Created Stripe customer', { userId, customerId: customer.id });
-
-    return customer.id;
   },
 
   /**

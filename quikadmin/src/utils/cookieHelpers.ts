@@ -10,9 +10,25 @@ import { Request, Response } from 'express';
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Cookie domain for cross-subdomain sharing in production
-const cookieDomain = isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined;
+// NOTE: When __Host- prefix is active (production), domain must NOT be set.
+const cookieDomain =
+  isProduction && process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN : undefined;
 
 const LOCALHOST_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+
+/**
+ * Get cookie name with __Host- prefix in production for enhanced security.
+ * __Host- prefix ensures: Secure flag, no Domain, Path=/.
+ */
+export function getCookieName(baseName: string): string {
+  return isProduction ? `__Host-${baseName}` : baseName;
+}
+
+/** Refresh token cookie name (prefixed in production) */
+export const REFRESH_TOKEN_COOKIE = getCookieName('refreshToken');
+
+/** CSRF token cookie name (prefixed in production) */
+export const CSRF_TOKEN_COOKIE = getCookieName('csrf_token');
 
 /**
  * Check if the request originates from localhost
@@ -35,7 +51,8 @@ export function isLocalhostRequest(req: Request): boolean {
 /**
  * Get environment-specific cookie options
  *
- * Production: secure, SameSite=None (required for cross-origin fetch)
+ * Production: secure, SameSite=None (required for cross-origin fetch),
+ *   no Domain (required by __Host- prefix)
  * Dev/Test/Local: not secure, SameSite=Lax (allows localhost)
  */
 export function getCookieEnvOptions(req: Request): {
@@ -43,7 +60,17 @@ export function getCookieEnvOptions(req: Request): {
   sameSite: 'lax' | 'strict' | 'none';
   domain?: string;
 } {
-  const useLocalOptions = !isProduction || isLocalhostRequest(req);
+  const useLocalOptions = !isProduction && isLocalhostRequest(req);
+
+  if (isProduction) {
+    // __Host- prefix requires: Secure=true, no Domain attribute
+    return {
+      secure: true,
+      sameSite: 'none',
+      // Omit domain entirely - __Host- prefix forbids it
+    };
+  }
+
   return {
     secure: !useLocalOptions,
     // SameSite=None required for cross-origin cookie sending (fetch/XHR) in production
@@ -68,7 +95,8 @@ export function getRefreshTokenCookieOptions(req: Request): {
     httpOnly: true,
     ...getCookieEnvOptions(req),
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/api', // Must cover all API endpoints including /api/realtime for SSE
+    // __Host- prefix requires Path=/; in dev we scope to /api for tighter security
+    path: isProduction ? '/' : '/api',
   };
 }
 
@@ -76,10 +104,16 @@ export function getRefreshTokenCookieOptions(req: Request): {
  * Clear legacy cookie with old path (for migration from /api/auth to /api)
  */
 export function clearLegacyCookie(req: Request, res: Response): void {
+  // Clear both prefixed and unprefixed legacy cookies to handle migration
   res.clearCookie('refreshToken', {
     httpOnly: true,
     ...getCookieEnvOptions(req),
     path: '/api/auth',
+  });
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    ...getCookieEnvOptions(req),
+    path: '/api',
   });
 }
 
@@ -89,7 +123,7 @@ export function clearLegacyCookie(req: Request, res: Response): void {
 export function setRefreshTokenCookie(req: Request, res: Response, refreshToken: string): void {
   // Clear legacy cookie path first to prevent conflicts
   clearLegacyCookie(req, res);
-  res.cookie('refreshToken', refreshToken, getRefreshTokenCookieOptions(req));
+  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, getRefreshTokenCookieOptions(req));
 }
 
 /**
@@ -100,7 +134,7 @@ export function setRefreshTokenCookie(req: Request, res: Response, refreshToken:
  */
 export function clearRefreshTokenCookie(req: Request, res: Response): void {
   const { maxAge: _maxAge, ...cookieOptions } = getRefreshTokenCookieOptions(req);
-  res.clearCookie('refreshToken', cookieOptions);
+  res.clearCookie(REFRESH_TOKEN_COOKIE, cookieOptions);
 
   // Also clear legacy cookie path to prevent conflicts after path migration
   clearLegacyCookie(req, res);

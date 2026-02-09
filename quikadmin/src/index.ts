@@ -238,7 +238,6 @@ async function initializeApp(): Promise<{ app: Application }> {
           'RateLimit-Limit',
           'RateLimit-Remaining',
           'RateLimit-Reset',
-          'X-CSP-Nonce',
         ],
       })
     );

@@ -108,6 +108,14 @@ if (documentQueue) {
   documentQueue.process(async (job) => {
     const { documentId, userId, filePath, options } = job.data;
 
+    // Input validation
+    if (!documentId || !userId) {
+      throw new Error('Missing required job fields: documentId, userId');
+    }
+    if (filePath && (filePath.includes('..') || filePath.includes('\0'))) {
+      throw new Error('Invalid file path detected');
+    }
+
     try {
       // Update progress
       await job.progress(10);
@@ -163,10 +171,25 @@ if (documentQueue) {
   });
 }
 
+// Maximum number of documents allowed in a single batch
+const MAX_BATCH_SIZE = 50;
+
 // Process batch jobs
 if (batchQueue && documentQueue) {
   batchQueue.process(async (job) => {
     const { documentIds, options } = job.data;
+
+    if (documentIds.length > MAX_BATCH_SIZE) {
+      logger.error(`Batch size ${documentIds.length} exceeds maximum of ${MAX_BATCH_SIZE}`, {
+        jobId: job.id,
+        batchSize: documentIds.length,
+        maxBatchSize: MAX_BATCH_SIZE,
+      });
+      throw new Error(
+        `Batch size ${documentIds.length} exceeds maximum allowed size of ${MAX_BATCH_SIZE}`
+      );
+    }
+
     const results = [];
 
     try {
@@ -267,7 +290,7 @@ export async function getQueueHealth() {
 }
 
 // Get job status
-export async function getJobStatus(jobId: string) {
+export async function getJobStatus(jobId: string, requestingUserId?: string) {
   if (!isDocumentQueueAvailable()) {
     throw new QueueUnavailableError('document-processing');
   }
@@ -278,6 +301,11 @@ export async function getJobStatus(jobId: string) {
     if (isBatchQueueAvailable()) {
       const batchJob = await batchQueue!.getJob(jobId);
       if (batchJob) {
+        // IDOR protection: verify ownership
+        if (requestingUserId && batchJob.data.userId && batchJob.data.userId !== requestingUserId) {
+          return null;
+        }
+
         return toJobStatusDTO({
           id: batchJob.id,
           type: 'batch_processing',
@@ -291,6 +319,11 @@ export async function getJobStatus(jobId: string) {
         });
       }
     }
+    return null;
+  }
+
+  // IDOR protection: verify ownership
+  if (requestingUserId && job.data.userId && job.data.userId !== requestingUserId) {
     return null;
   }
 

@@ -579,7 +579,16 @@ export function createClientProfileRoutes(): Router {
           // Export as CSV
           const rows = Object.entries(profileData).map(([key, value]) => {
             const fieldInfo = STANDARD_PROFILE_FIELDS[key as keyof typeof STANDARD_PROFILE_FIELDS];
-            return `"${fieldInfo?.label || key}","${String(value).replace(/"/g, '""')}"`;
+            let label = fieldInfo?.label || key;
+            let strValue = String(value);
+            // Prevent CSV formula injection
+            if (typeof label === 'string' && /^[=+\-@\t\r]/.test(label)) {
+              label = "'" + label;
+            }
+            if (/^[=+\-@\t\r]/.test(strValue)) {
+              strValue = "'" + strValue;
+            }
+            return `"${label.replace(/"/g, '""')}","${strValue.replace(/"/g, '""')}"`;
           });
           const csv = `"Field","Value"\n${rows.join('\n')}`;
 

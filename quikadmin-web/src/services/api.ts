@@ -4,6 +4,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:30
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -478,8 +479,12 @@ export const connectWebSocket = (onMessage: (data: any) => void): WebSocket => {
   const ws = new WebSocket(wsUrl);
 
   ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    onMessage(data);
+    try {
+      const data = JSON.parse(event.data);
+      onMessage(data);
+    } catch {
+      console.warn('Invalid WebSocket message received');
+    }
   };
 
   ws.onerror = (error) => {

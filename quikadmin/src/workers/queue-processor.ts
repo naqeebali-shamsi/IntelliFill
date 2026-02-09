@@ -52,7 +52,7 @@ class QueueProcessor {
 
   async start() {
     logger.info('Queue processor starting...');
-    logger.info('Redis URL:', process.env.REDIS_URL);
+    logger.info('Redis URL: [REDACTED]');
 
     // Initialize and verify Redis connectivity
     const initialized = await this.initialize();

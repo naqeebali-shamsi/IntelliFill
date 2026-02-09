@@ -354,73 +354,77 @@ export function createFilledFormRoutes(): Router {
   /**
    * GET /api/filled-forms - List all filled forms
    */
-  router.get('/', authenticateSupabase, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user?.id;
+  router.get(
+    '/',
+    authenticateSupabase,
+    async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user?.id;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
-      // Validate query params
-      const validation = listFilledFormsSchema.safeParse(req.query);
-      if (!validation.success) {
-        return res.status(400).json({
-          error: 'Invalid query parameters',
-          details: validation.error.flatten().fieldErrors,
+        // Validate query params
+        const validation = listFilledFormsSchema.safeParse(req.query);
+        if (!validation.success) {
+          return res.status(400).json({
+            error: 'Invalid query parameters',
+            details: validation.error.flatten().fieldErrors,
+          });
+        }
+
+        const { clientId, templateId, limit, offset } = validation.data;
+
+        // Build where clause
+        const whereClause: Prisma.FilledFormWhereInput = { userId };
+        if (clientId) whereClause.clientId = clientId;
+        if (templateId) whereClause.templateId = templateId;
+
+        const [filledForms, total] = await Promise.all([
+          prisma.filledForm.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+            include: {
+              client: { select: { id: true, name: true } },
+              template: { select: { id: true, name: true, category: true } },
+            },
+          }),
+          prisma.filledForm.count({ where: whereClause }),
+        ]);
+
+        const formattedForms = filledForms.map((form) => ({
+          id: form.id,
+          clientId: form.clientId,
+          clientName: form.client.name,
+          templateId: form.templateId,
+          templateName: form.template.name,
+          templateCategory: form.template.category,
+          fileUrl: form.fileUrl,
+          downloadUrl: `/api/filled-forms/${form.id}/download`,
+          createdAt: form.createdAt.toISOString(),
+        }));
+
+        res.json({
+          success: true,
+          data: {
+            filledForms: formattedForms,
+            pagination: {
+              total,
+              limit,
+              offset,
+              hasMore: offset + limit < total,
+            },
+          },
         });
+      } catch (error) {
+        logger.error('Error listing filled forms:', error);
+        next(error);
       }
-
-      const { clientId, templateId, limit, offset } = validation.data;
-
-      // Build where clause
-      const whereClause: Prisma.FilledFormWhereInput = { userId };
-      if (clientId) whereClause.clientId = clientId;
-      if (templateId) whereClause.templateId = templateId;
-
-      const [filledForms, total] = await Promise.all([
-        prisma.filledForm.findMany({
-          where: whereClause,
-          orderBy: { createdAt: 'desc' },
-          take: limit,
-          skip: offset,
-          include: {
-            client: { select: { id: true, name: true } },
-            template: { select: { id: true, name: true, category: true } },
-          },
-        }),
-        prisma.filledForm.count({ where: whereClause }),
-      ]);
-
-      const formattedForms = filledForms.map((form) => ({
-        id: form.id,
-        clientId: form.clientId,
-        clientName: form.client.name,
-        templateId: form.templateId,
-        templateName: form.template.name,
-        templateCategory: form.template.category,
-        fileUrl: form.fileUrl,
-        downloadUrl: `/api/filled-forms/${form.id}/download`,
-        createdAt: form.createdAt.toISOString(),
-      }));
-
-      res.json({
-        success: true,
-        data: {
-          filledForms: formattedForms,
-          pagination: {
-            total,
-            limit,
-            offset,
-            hasMore: offset + limit < total,
-          },
-        },
-      });
-    } catch (error) {
-      logger.error('Error listing filled forms:', error);
-      next(error);
     }
-  });
+  );
 
   /**
    * GET /api/filled-forms/:id - Get a single filled form
@@ -640,10 +644,17 @@ export function createFilledFormRoutes(): Router {
     const rows: string[] = ['Field,Value'];
 
     for (const [field, value] of Object.entries(dataSnapshot)) {
-      const escapedValue = String(value ?? '')
-        .replace(/"/g, '""')
-        .replace(/\n/g, ' ');
-      rows.push(`"${field}","${escapedValue}"`);
+      let escapedField = field;
+      let escapedValue = String(value ?? '');
+      // Prevent CSV formula injection
+      if (/^[=+\-@\t\r]/.test(escapedField)) {
+        escapedField = "'" + escapedField;
+      }
+      if (/^[=+\-@\t\r]/.test(escapedValue)) {
+        escapedValue = "'" + escapedValue;
+      }
+      escapedValue = escapedValue.replace(/"/g, '""').replace(/\n/g, ' ');
+      rows.push(`"${escapedField.replace(/"/g, '""')}","${escapedValue}"`);
     }
 
     const csvContent = rows.join('\n');
@@ -1049,7 +1060,12 @@ export function createFilledFormRoutes(): Router {
           const outputPath = `outputs/filled-forms/${outputFileName}`;
 
           try {
-            await formFiller.fillPDFFormWithData(template.fileUrl, fieldMappings, profileData, outputPath);
+            await formFiller.fillPDFFormWithData(
+              template.fileUrl,
+              fieldMappings,
+              profileData,
+              outputPath
+            );
 
             const filledForm = await prisma.filledForm.create({
               data: {

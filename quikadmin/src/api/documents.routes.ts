@@ -159,7 +159,7 @@ export function createDocumentRoutes(): Router {
           }),
         },
         orderBy: { createdAt: 'desc' },
-        take: Number(limit),
+        take: Math.min(Number(limit) || 50, 100),
         select: {
           id: true,
           fileName: true,
@@ -607,7 +607,10 @@ export function createDocumentRoutes(): Router {
 
         // Process form
         const formPath = req.file.path;
-        const outputPath = path.join('outputs', `filled-${Date.now()}-${req.file.originalname}`);
+        const sanitizedOriginalName = path
+          .basename(req.file.originalname)
+          .replace(/[^a-zA-Z0-9.-]/g, '_');
+        const outputPath = path.join('outputs', `filled-${Date.now()}-${sanitizedOriginalName}`);
 
         // Get form fields and map data
         const formFieldsInfo = await formFiller.validateFormFields(formPath);
@@ -672,14 +675,26 @@ export function createDocumentRoutes(): Router {
 
         // Read encrypted file
         const filePath = path.join(process.cwd(), document.storageUrl);
+
+        // Path traversal containment check
+        const resolvedPath = path.resolve(filePath);
+        const uploadsDir = path.resolve(process.cwd(), 'uploads');
+        if (
+          !resolvedPath.startsWith(uploadsDir) &&
+          !resolvedPath.startsWith(path.resolve(process.cwd(), 'outputs'))
+        ) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+
         const encryptedBuffer = await fs.readFile(filePath);
 
         // Decrypt file
         const decryptedBuffer = decryptFile(encryptedBuffer);
 
-        // Set headers for download
+        // Set headers for download (sanitize filename to prevent header injection)
+        const safeFilename = document.fileName.replace(/["\r\n\\]/g, '_');
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
         res.setHeader('Content-Length', decryptedBuffer.length);
 
         res.send(decryptedBuffer);
@@ -844,6 +859,17 @@ export function createDocumentRoutes(): Router {
         // Delete file from disk
         try {
           const filePath = path.join(process.cwd(), document.storageUrl);
+
+          // Path traversal containment check
+          const resolvedPath = path.resolve(filePath);
+          const uploadsDir = path.resolve(process.cwd(), 'uploads');
+          if (
+            !resolvedPath.startsWith(uploadsDir) &&
+            !resolvedPath.startsWith(path.resolve(process.cwd(), 'outputs'))
+          ) {
+            return res.status(403).json({ error: 'Access denied' });
+          }
+
           await fs.unlink(filePath);
         } catch (error) {
           logger.warn('Failed to delete file:', error);
@@ -1150,7 +1176,6 @@ export function createDocumentRoutes(): Router {
             sharedWithEmail: true,
             sharedWithUserId: true,
             permission: true,
-            accessToken: true,
             expiresAt: true,
             accessCount: true,
             lastAccessedAt: true,
@@ -1174,7 +1199,6 @@ export function createDocumentRoutes(): Router {
               null
             : null,
           permission: share.permission,
-          shareUrl: share.accessToken ? `/shared/${share.accessToken}` : null,
           expiresAt: share.expiresAt,
           accessCount: share.accessCount,
           lastAccessedAt: share.lastAccessedAt,

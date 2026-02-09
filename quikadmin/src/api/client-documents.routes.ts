@@ -288,8 +288,9 @@ export function createClientDocumentRoutes(): Router {
       } catch (error) {
         logger.error('Error listing client documents:', error);
         next(error);
+      }
     }
-  });
+  );
 
   /**
    * GET /api/clients/:clientId/documents/:documentId - Get a single document
@@ -322,7 +323,6 @@ export function createClientDocumentRoutes(): Router {
               fileName: document.fileName,
               fileType: document.fileType,
               fileSize: document.fileSize,
-              storageUrl: document.storageUrl,
               category: document.category,
               status: document.status,
               extractedData: document.extractedData
@@ -545,8 +545,14 @@ export function createClientDocumentRoutes(): Router {
             }
 
             // Extract structured fields based on document category (pass OCR confidence)
-            const structuredData = await ocrService.extractStructuredData(ocrResult.text, ocrResult.confidence);
-            const categoryFields = clientDocumentFieldService.extractFieldsByCategory(structuredData, document.category);
+            const structuredData = await ocrService.extractStructuredData(
+              ocrResult.text,
+              ocrResult.confidence
+            );
+            const categoryFields = clientDocumentFieldService.extractFieldsByCategory(
+              structuredData,
+              document.category
+            );
 
             // Update extracted data
             extractedData = await prisma.extractedData.update({
@@ -568,7 +574,11 @@ export function createClientDocumentRoutes(): Router {
             // Merge to client profile if requested
             let profileUpdated = false;
             if (mergeToProfile && Object.keys(categoryFields).length > 0) {
-              profileUpdated = await clientDocumentFieldService.mergeToClientProfile(clientId, categoryFields, documentId);
+              profileUpdated = await clientDocumentFieldService.mergeToClientProfile(
+                clientId,
+                categoryFields,
+                documentId
+              );
             }
 
             await ocrService.cleanup();
@@ -769,7 +779,11 @@ export function createClientDocumentRoutes(): Router {
         // Merge to client profile if requested
         let profileUpdated = false;
         if (mergeToProfile) {
-          profileUpdated = await clientDocumentFieldService.mergeToClientProfile(clientId, fields, documentId);
+          profileUpdated = await clientDocumentFieldService.mergeToClientProfile(
+            clientId,
+            fields,
+            documentId
+          );
         }
 
         logger.info(`Extracted data updated for document: ${documentId}`);
@@ -835,7 +849,11 @@ export function createClientDocumentRoutes(): Router {
           return res.status(400).json({ error: 'No fields to merge' });
         }
 
-        const profileUpdated = await clientDocumentFieldService.mergeToClientProfile(clientId, fieldsToMerge, documentId);
+        const profileUpdated = await clientDocumentFieldService.mergeToClientProfile(
+          clientId,
+          fieldsToMerge,
+          documentId
+        );
 
         logger.info(
           `Merged ${Object.keys(fieldsToMerge).length} fields to profile for client: ${clientId}`

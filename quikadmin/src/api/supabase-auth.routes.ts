@@ -27,7 +27,12 @@ import { getTokenFamilyService } from '../services/RefreshTokenFamilyService';
 import { lockoutService } from '../services/lockout.service';
 import { jwtTokenService } from '../services/JwtTokenService';
 import { authService } from '../services/AuthService';
-import { setRefreshTokenCookie, clearRefreshTokenCookie } from '../utils/cookieHelpers';
+import crypto from 'crypto';
+import {
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  REFRESH_TOKEN_COOKIE,
+} from '../utils/cookieHelpers';
 import { emailSchema, passwordSchema } from '../validators/schemas/common';
 
 // Test mode for E2E tests (uses Prisma/bcrypt instead of Supabase Auth)
@@ -514,7 +519,7 @@ export function createSupabaseAuthRoutes(): Router {
         }
 
         // Invalidate token cache (REQ-006) - fire-and-forget with 500ms timeout
-        const refreshToken = req.cookies?.refreshToken;
+        const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
         if (refreshToken) {
           // Non-blocking cache invalidation with timeout
           Promise.race([
@@ -557,11 +562,11 @@ export function createSupabaseAuthRoutes(): Router {
   );
 
   /** POST /api/auth/v2/refresh - Refresh access token (reads from httpOnly cookie or body) */
-  router.post('/refresh', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/refresh', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Read refreshToken from httpOnly cookie first, fallback to body
       const refreshToken =
-        req.cookies?.refreshToken || (req.body as RefreshTokenRequest)?.refreshToken;
+        req.cookies?.[REFRESH_TOKEN_COOKIE] || (req.body as RefreshTokenRequest)?.refreshToken;
 
       if (!refreshToken) {
         return res.status(400).json({ error: 'Refresh token is required' });
@@ -860,11 +865,11 @@ export function createSupabaseAuthRoutes(): Router {
 
         // Verify recovery session exists (established when user clicked email link)
         const {
-          data: { session },
+          data: { user: sessionUser },
           error: sessionError,
-        } = await supabase.auth.getSession();
+        } = await supabase.auth.getUser();
 
-        if (sessionError || !session) {
+        if (sessionError || !sessionUser) {
           logger.warn('Password reset failed: No active recovery session');
           return res
             .status(400)
@@ -872,7 +877,7 @@ export function createSupabaseAuthRoutes(): Router {
         }
 
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-          session.user.id,
+          sessionUser.id,
           { password: newPassword }
         );
 
@@ -1375,7 +1380,7 @@ export function createSupabaseAuthRoutes(): Router {
   function generateBackupCodes(): string[] {
     return Array.from({ length: BACKUP_CODE_COUNT }, () =>
       Array.from({ length: BACKUP_CODE_LENGTH }, () =>
-        BACKUP_CODE_CHARSET.charAt(Math.floor(Math.random() * BACKUP_CODE_CHARSET.length))
+        BACKUP_CODE_CHARSET.charAt(crypto.randomInt(BACKUP_CODE_CHARSET.length))
       ).join('')
     );
   }
@@ -1610,7 +1615,7 @@ export function createSupabaseAuthRoutes(): Router {
     }
   });
 
-  router.post('/mfa/challenge', async (req: Request, res: Response) => {
+  router.post('/mfa/challenge', authLimiter, async (req: Request, res: Response) => {
     try {
       const { factorId } = req.body;
 
@@ -1638,7 +1643,7 @@ export function createSupabaseAuthRoutes(): Router {
     }
   });
 
-  router.post('/mfa/verify-login', async (req: Request, res: Response) => {
+  router.post('/mfa/verify-login', authLimiter, async (req: Request, res: Response) => {
     try {
       const { factorId, challengeId, code } = req.body;
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { logger } from '../utils/logger';
+import { CSRF_TOKEN_COOKIE } from '../utils/cookieHelpers';
 
 // Double-submit cookie pattern for CSRF protection
 // No session dependency, simpler than csurf
@@ -15,10 +16,12 @@ const generateToken = (): string => {
 };
 
 // Token cookie options
+// __Host- prefix (production) requires: Secure=true, Path=/, no Domain
 const COOKIE_OPTIONS = {
   httpOnly: false, // Must be readable by JS for double-submit
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict' as const,
+  path: '/' as const,
   maxAge: 60 * 60 * 1000, // 1 hour
 };
 
@@ -30,12 +33,12 @@ export const setCSRFToken = (req: CSRFRequest, res: Response, next: NextFunction
   }
 
   // Generate token if not present
-  if (!req.cookies?.csrf_token) {
+  if (!req.cookies?.[CSRF_TOKEN_COOKIE]) {
     const token = generateToken();
-    res.cookie('csrf_token', token, COOKIE_OPTIONS);
+    res.cookie(CSRF_TOKEN_COOKIE, token, COOKIE_OPTIONS);
     req.csrfToken = token;
   } else {
-    req.csrfToken = req.cookies.csrf_token;
+    req.csrfToken = req.cookies[CSRF_TOKEN_COOKIE];
   }
 
   next();
@@ -65,7 +68,7 @@ export const verifyCSRFToken = (req: CSRFRequest, res: Response, next: NextFunct
     return next();
   }
 
-  const cookieToken = req.cookies?.csrf_token;
+  const cookieToken = req.cookies?.[CSRF_TOKEN_COOKIE];
   const headerToken = req.headers['x-csrf-token'] as string;
   const bodyToken = req.body?._csrf;
 
@@ -81,7 +84,10 @@ export const verifyCSRFToken = (req: CSRFRequest, res: Response, next: NextFunct
     return res.status(403).json({ error: 'CSRF token missing' });
   }
 
-  if (cookieToken !== submittedToken) {
+  if (
+    cookieToken.length !== submittedToken.length ||
+    !crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(submittedToken))
+  ) {
     logger.warn('CSRF token mismatch', {
       ip: req.ip,
       path: req.path,

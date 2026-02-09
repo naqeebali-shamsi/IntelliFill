@@ -102,9 +102,27 @@ export function createProfileRoutes(): Router {
           });
         }
 
-        const updates = req.body;
+        // Whitelist allowed fields to prevent mass assignment
+        const allowedFields = [
+          'firstName',
+          'lastName',
+          'middleName',
+          'dateOfBirth',
+          'nationality',
+          'gender',
+          'maritalStatus',
+          'phone',
+          'email',
+          'address',
+        ];
+        const updates: Record<string, unknown> = {};
+        for (const key of allowedFields) {
+          if (req.body[key] !== undefined) {
+            updates[key] = req.body[key];
+          }
+        }
 
-        if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) {
+        if (Object.keys(updates).length === 0) {
           return res.status(400).json({
             error: 'Bad Request',
             message: 'Profile updates are required',

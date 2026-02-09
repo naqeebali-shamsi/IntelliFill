@@ -41,6 +41,19 @@ jest.mock('../agents/classifierAgent', () => ({
   ClassificationResult: {},
 }));
 
+// Mock the extractor agent to avoid Gemini API calls in tests
+jest.mock('../agents/extractorAgent', () => ({
+  extractDocumentData: jest.fn().mockResolvedValue({
+    fields: {},
+    documentCategory: 'UNKNOWN',
+    rawText: '',
+    processingTime: 10,
+    modelUsed: 'pattern-fallback',
+  }),
+  __esModule: true,
+  default: jest.fn(),
+}));
+
 /**
  * Helper to create a test document state
  */

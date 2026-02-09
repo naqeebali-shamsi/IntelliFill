@@ -173,6 +173,12 @@ export const sanitizeRequest = (req: Request, res: Response, next: NextFunction)
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
           // Sanitize key and value
           const sanitizedKey = sanitize(key);
+          if (
+            sanitizedKey === '__proto__' ||
+            sanitizedKey === 'constructor' ||
+            sanitizedKey === 'prototype'
+          )
+            continue;
           sanitized[sanitizedKey] = sanitize(obj[key]);
         }
       }

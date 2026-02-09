@@ -2,15 +2,38 @@ import { logger } from './logger';
 
 // Fields that should never be logged (even redacted)
 const NEVER_LOG_FIELDS = new Set([
-  'password', 'secret', 'token', 'key', 'apiKey', 'authorization',
-  'creditCard', 'cvv', 'ssn'
+  'password',
+  'secret',
+  'token',
+  'key',
+  'apiKey',
+  'authorization',
+  'creditCard',
+  'cvv',
+  'ssn',
 ]);
 
 // Fields that should be redacted
 const PII_FIELDS = new Set([
-  'email', 'phone', 'name', 'firstName', 'lastName', 'fullName',
-  'passportNumber', 'emiratesId', 'address', 'dateOfBirth', 'dob',
-  'salary', 'bankAccount', 'iban'
+  'email',
+  'phone',
+  'name',
+  'firstname',
+  'lastname',
+  'fullname',
+  'passportnumber',
+  'emiratesid',
+  'address',
+  'dateofbirth',
+  'dob',
+  'salary',
+  'bankaccount',
+  'iban',
+  'rawtext',
+  'ocrdata',
+  'extractedfields',
+  'mappedfields',
+  'finaldata',
 ]);
 
 /**
@@ -30,7 +53,7 @@ export function sanitizeForLogging(obj: any, depth: number = 0): any {
 
   if (typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeForLogging(item, depth + 1));
+    return obj.map((item) => sanitizeForLogging(item, depth + 1));
   }
 
   const sanitized: any = {};
@@ -78,10 +101,18 @@ function isEmiratesIdLike(str: string): boolean {
 
 function isPIIFieldName(key: string): boolean {
   const piiPatterns = [
-    /name/i, /email/i, /phone/i, /passport/i, /emirates/i,
-    /address/i, /birth/i, /salary/i, /bank/i, /account/i
+    /name/i,
+    /email/i,
+    /phone/i,
+    /passport/i,
+    /emirates/i,
+    /address/i,
+    /birth/i,
+    /salary/i,
+    /bank/i,
+    /account/i,
   ];
-  return piiPatterns.some(pattern => pattern.test(key));
+  return piiPatterns.some((pattern) => pattern.test(key));
 }
 
 /**
@@ -102,7 +133,7 @@ export const piiSafeLogger = {
 
   debug: (message: string, data?: any) => {
     logger.debug(message, data ? sanitizeForLogging(data) : undefined);
-  }
+  },
 };
 
 /**
@@ -128,6 +159,6 @@ export function createPIISafeLogger(name: string) {
 
     debug: (message: string, data?: any) => {
       namedLogger.debug(message, data ? sanitizeForLogging(data) : undefined);
-    }
+    },
   };
 }

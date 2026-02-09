@@ -25,10 +25,7 @@ import {
   getGeminiSchema,
   safeValidateExtraction,
 } from '../schemas/extractionResponseSchemas';
-import {
-  extractionCache,
-  CachedExtraction,
-} from '../../services/extractionCache.service';
+import { extractionCache, CachedExtraction } from '../../services/extractionCache.service';
 
 // ============================================================================
 // Types & Interfaces
@@ -1170,10 +1167,7 @@ function mergeExtractionResults(
   const merged: Record<string, ExtractedFieldResult> = {};
 
   // Get all unique field names from both sources
-  const allFieldNames = new Set([
-    ...Object.keys(llmResults),
-    ...Object.keys(patternResults),
-  ]);
+  const allFieldNames = new Set([...Object.keys(llmResults), ...Object.keys(patternResults)]);
 
   for (const fieldName of allFieldNames) {
     const llmField = llmResults[fieldName];
@@ -1358,11 +1352,7 @@ function getLowConfidenceFields(
  */
 function getFieldContext(text: string, fieldName: string): string {
   const lines = text.split('\n');
-  const fieldPatterns = [
-    fieldName.replace(/_/g, ' '),
-    fieldName.replace(/_/g, ''),
-    fieldName,
-  ];
+  const fieldPatterns = [fieldName.replace(/_/g, ' '), fieldName.replace(/_/g, ''), fieldName];
 
   // Find lines that might contain this field
   const relevantLineIndices: number[] = [];
@@ -1426,10 +1416,7 @@ INSTRUCTIONS:
 Respond with a JSON object for ONLY these fields:
 ${JSON.stringify(
   Object.fromEntries(
-    fields.map((f) => [
-      f,
-      { value: 'extracted_value', confidence: 85, rawText: 'matched_text' },
-    ])
+    fields.map((f) => [f, { value: 'extracted_value', confidence: 85, rawText: 'matched_text' }])
   ),
   null,
   2
@@ -1462,7 +1449,7 @@ async function selfCorrectExtraction(
     return extractedData;
   }
 
-  let currentData = { ...extractedData };
+  const currentData = { ...extractedData };
   let passCount = 0;
 
   while (passCount < SELF_CORRECTION_CONFIG.MAX_PASSES) {
@@ -1497,30 +1484,32 @@ async function selfCorrectExtraction(
         category
       );
 
-      // Re-extract using Gemini
-      const apiKey = getGeminiApiKey();
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
+      // Re-extract using Gemini (routed through semaphore for rate limiting)
+      const correctedFields = await geminiSemaphore.run(async () => {
+        const apiKey = getGeminiApiKey();
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: EXTRACTION_MODEL });
 
-      const parts: Part[] = [{ text: correctionPrompt }];
+        const parts: Part[] = [{ text: correctionPrompt }];
 
-      // Add image if available for visual re-verification
-      if (imageBase64) {
-        const mimeType = detectImageMimeType(imageBase64);
-        const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        parts.push({
-          inlineData: { mimeType, data: cleanBase64 },
-        });
-      }
+        // Add image if available for visual re-verification
+        if (imageBase64) {
+          const mimeType = detectImageMimeType(imageBase64);
+          const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+          parts.push({
+            inlineData: { mimeType, data: cleanBase64 },
+          });
+        }
 
-      const result = await withTimeout(
-        model.generateContent(parts),
-        GEMINI_TIMEOUT_MS,
-        'Gemini self-correction'
-      );
+        const result = await withTimeout(
+          model.generateContent(parts),
+          GEMINI_TIMEOUT_MS,
+          'Gemini self-correction'
+        );
 
-      const responseText = result.response.text();
-      const correctedFields = parseGeminiResponse(responseText);
+        const responseText = result.response.text();
+        return parseGeminiResponse(responseText);
+      });
 
       // Merge corrected fields if they're better
       let improvementCount = 0;
@@ -1591,13 +1580,14 @@ async function selfCorrectExtraction(
 export async function extractDocumentData(
   text: string,
   category: DocumentCategory,
-  imageBase64?: string
+  imageBase64?: string,
+  userId?: string
 ): Promise<ExtractionResult> {
   const startTime = Date.now();
   let modelUsed = 'pattern-fallback';
   let llmFields: Record<string, ExtractedFieldResult> = {};
   let geminiSucceeded = false;
-  let cacheHit = false;
+  const cacheHit = false;
 
   logger.info('Starting document data extraction', {
     category,
@@ -1606,10 +1596,11 @@ export async function extractDocumentData(
     cacheEnabled: FEATURE_FLAGS.EXTRACTION_CACHE,
   });
 
-  // Phase 3.2: Check extraction cache first
+  // Phase 3.2: Check extraction cache first (scoped by userId to prevent cross-user leakage)
+  const cacheKey = userId ? `${userId}:${text}` : text;
   if (FEATURE_FLAGS.EXTRACTION_CACHE) {
     try {
-      const cached = await extractionCache.get(text, category);
+      const cached = await extractionCache.get(cacheKey, category);
       if (cached) {
         logger.info('Extraction cache HIT - returning cached result', {
           category,
@@ -1662,12 +1653,7 @@ export async function extractDocumentData(
   // Phase 2.1: Apply self-correction for low-confidence fields
   if (FEATURE_FLAGS.SELF_CORRECTION && geminiSucceeded) {
     try {
-      mergedFields = await selfCorrectExtraction(
-        mergedFields,
-        text,
-        category,
-        imageBase64
-      );
+      mergedFields = await selfCorrectExtraction(mergedFields, text, category, imageBase64);
       logger.info('Self-correction completed');
     } catch (error) {
       logger.warn('Self-correction failed, using original extraction', {
@@ -1703,16 +1689,10 @@ export async function extractDocumentData(
     modelUsed,
   };
 
-  // Phase 3.2: Cache the extraction result for future use
+  // Phase 3.2: Cache the extraction result for future use (scoped by userId)
   if (FEATURE_FLAGS.EXTRACTION_CACHE && geminiSucceeded) {
     try {
-      await extractionCache.set(
-        text,
-        category,
-        mergedFields,
-        modelUsed,
-        processingTime
-      );
+      await extractionCache.set(cacheKey, category, mergedFields, modelUsed, processingTime);
       logger.debug('Extraction result cached for future use');
     } catch (error) {
       logger.warn('Failed to cache extraction result', {
@@ -1805,12 +1785,19 @@ async function extractWithGemini(
           // With structured outputs, JSON is guaranteed valid
           const parsed = JSON.parse(responseText) as GeminiExtractionResponse;
 
-          // Validate with Zod schema for extra safety
+          // Validate with Zod schema - blocking: reject invalid structured outputs to trigger retry
           const validation = safeValidateExtraction(parsed, category);
           if (!validation.success) {
-            logger.warn('Structured output validation failed, using raw response', {
+            logger.warn('Structured output validation failed, triggering retry', {
               errors: validation.error?.errors.slice(0, 3),
             });
+            throw new Error(
+              'Structured output schema validation failed: ' +
+                (validation.error?.errors
+                  .slice(0, 3)
+                  .map((e) => e.message)
+                  .join(', ') ?? 'unknown')
+            );
           }
 
           logger.info('Gemini structured extraction completed', {

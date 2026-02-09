@@ -90,7 +90,7 @@ function buildRequestUser(dbUser: DbUser, supabaseUserId: string): Authenticated
  */
 async function setRLSContext(req: AuthenticatedRequest, userId: string): Promise<boolean> {
   try {
-    await prisma.$executeRawUnsafe('SELECT set_user_context($1)', userId);
+    await prisma.$executeRaw`SELECT set_user_context(${userId})`;
     return true;
   } catch (error) {
     logger.error('SECURITY: Failed to set RLS context', {

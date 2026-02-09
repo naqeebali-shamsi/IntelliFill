@@ -253,12 +253,12 @@ export async function verifySupabaseToken(token: string): Promise<User | null> {
 
     // Try primary secret first
     try {
-      decoded = jwt.verify(token, JWT_SECRET) as typeof decoded;
+      decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as typeof decoded;
     } catch (primaryError) {
       // Task 283: If primary fails with signature error and old secret exists, try fallback
       if (primaryError instanceof jwt.JsonWebTokenError && JWT_SECRET_OLD) {
         try {
-          decoded = jwt.verify(token, JWT_SECRET_OLD) as typeof decoded;
+          decoded = jwt.verify(token, JWT_SECRET_OLD, { algorithms: ['HS256'] }) as typeof decoded;
           usedOldSecret = true;
           logger.info('[Auth] Token verified using old secret (rotation in progress)');
         } catch (fallbackError) {

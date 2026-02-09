@@ -264,8 +264,8 @@ describe('Profile API Routes', () => {
   describe('PUT /api/users/me/profile', () => {
     it('should update profile with valid data', async () => {
       const updates = {
-        first_name: 'Jane',
-        phone_number: '+1234567890',
+        firstName: 'Jane',
+        phone: '+1234567890',
       };
 
       mockProfileService.updateProfile.mockResolvedValue({
@@ -279,8 +279,8 @@ describe('Profile API Routes', () => {
             confidence: 1.0,
             lastUpdated: new Date(),
           },
-          phone_number: {
-            key: 'phone_number',
+          phone: {
+            key: 'phone',
             values: ['+1234567890'],
             sources: ['manual'],
             confidence: 1.0,
@@ -313,19 +313,47 @@ describe('Profile API Routes', () => {
       expect(response.body.error).toBe('Bad Request');
     });
 
+    it('should return 400 when only non-whitelisted fields are sent', async () => {
+      const response = await request(app)
+        .put('/api/users/me/profile')
+        .send({ isAdmin: true, role: 'superuser', secretField: 'hack' })
+        .expect(400);
+
+      expect(response.body.error).toBe('Bad Request');
+      expect(response.body.message).toBe('Profile updates are required');
+      expect(mockProfileService.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('should only pass whitelisted fields to updateProfile', async () => {
+      mockProfileService.updateProfile.mockResolvedValue(mockProfile);
+
+      const response = await request(app)
+        .put('/api/users/me/profile')
+        .send({ firstName: 'Jane', isAdmin: true, role: 'superuser' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      // Only the whitelisted field should be passed through
+      expect(mockProfileService.updateProfile).toHaveBeenCalledWith(
+        testUserId,
+        { firstName: 'Jane' },
+        expect.objectContaining({ ipAddress: expect.any(String) })
+      );
+    });
+
     it('should handle update errors', async () => {
       mockProfileService.updateProfile.mockRejectedValue(new Error('Update failed'));
 
       const response = await request(app)
         .put('/api/users/me/profile')
-        .send({ first_name: 'Jane' })
+        .send({ firstName: 'Jane' })
         .expect(500);
 
       expect(response.body).toBeDefined();
     });
 
     it('should format updated profile correctly', async () => {
-      const updates = { first_name: 'Jane' };
+      const updates = { firstName: 'Jane' };
       mockProfileService.updateProfile.mockResolvedValue(mockProfile);
 
       const response = await request(app).put('/api/users/me/profile').send(updates).expect(200);

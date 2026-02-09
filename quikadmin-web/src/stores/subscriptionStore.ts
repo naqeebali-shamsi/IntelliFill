@@ -47,12 +47,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       ...initialState,
 
       fetchStatus: async () => {
-        console.log('[SubscriptionStore] fetchStatus called');
+        if (import.meta.env.DEV) console.log('[SubscriptionStore] fetchStatus called');
         set({ loading: true, error: null });
         try {
-          console.log('[SubscriptionStore] Calling stripeService.getSubscriptionStatus()');
+          if (import.meta.env.DEV)
+            console.log('[SubscriptionStore] Calling stripeService.getSubscriptionStatus()');
           const status = await stripeService.getSubscriptionStatus();
-          console.log('[SubscriptionStore] Got status:', status);
+          if (import.meta.env.DEV) console.log('[SubscriptionStore] Got status:', status);
           set({
             isPro: status.isPro,
             status: status.status,

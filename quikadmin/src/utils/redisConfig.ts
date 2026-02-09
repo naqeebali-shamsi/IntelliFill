@@ -129,6 +129,7 @@ export const defaultJobOptions = {
   removeOnComplete: 100, // Keep last 100 completed jobs
   removeOnFail: 50, // Keep last 50 failed jobs
   attempts: 3,
+  timeout: 600000, // 10 minute timeout for document processing jobs
   backoff: {
     type: 'exponential' as const,
     delay: 3000, // Start with 3s delay
@@ -150,6 +151,7 @@ export const batchJobOptions = {
   removeOnComplete: 50,
   removeOnFail: 25,
   attempts: 2,
+  timeout: 3600000, // 1 hour timeout for batch processing jobs
 } as const;
 
 export default {

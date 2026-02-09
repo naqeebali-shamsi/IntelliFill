@@ -17,6 +17,9 @@ import Redis from 'ioredis';
 import { getRedisConnectionConfig } from '../utils/redisConfig';
 import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 
+const FAIL_CLOSED =
+  process.env.NODE_ENV === 'production' && process.env.LOCKOUT_FAIL_CLOSED !== 'false';
+
 export interface LockoutStatus {
   isLocked: boolean;
   attemptsRemaining: number;
@@ -113,6 +116,12 @@ class LockoutService {
     await this.init();
 
     if (!this.redis) {
+      if (FAIL_CLOSED) {
+        logger.error(
+          `Lockout service: Redis unavailable for ${operation} - failing closed (production)`
+        );
+        throw new Error('Security service unavailable');
+      }
       return fallback;
     }
 
@@ -120,6 +129,9 @@ class LockoutService {
       return await fn(this.redis);
     } catch (error) {
       logger.error(`Lockout service: Error ${operation}`, { error: getErrorMessage(error) });
+      if (FAIL_CLOSED) {
+        throw new Error('Security service error');
+      }
       return fallback;
     }
   }
@@ -129,12 +141,19 @@ class LockoutService {
 
     return this.withRedis('checking lockout status', failOpenStatus(), async (redis) => {
       const data = await redis.get(key);
-      if (!data) {
-        return failOpenStatus();
+      if (data) {
+        const { attempts, lockedUntil }: LockoutData = JSON.parse(data);
+        return buildStatus(attempts, lockedUntil);
       }
 
-      const { attempts, lockedUntil }: LockoutData = JSON.parse(data);
-      return buildStatus(attempts, lockedUntil);
+      // Also check atomic counter
+      const counterKey = `${key}:count`;
+      const counterVal = await redis.get(counterKey);
+      if (counterVal) {
+        return buildStatus(parseInt(counterVal, 10), null);
+      }
+
+      return failOpenStatus();
     });
   }
 
@@ -142,17 +161,25 @@ class LockoutService {
     const key = this.getKey(email);
 
     return this.withRedis('recording failed attempt', failOpenStatus(1), async (redis) => {
+      // Check if already locked
       const data = await redis.get(key);
-      let attempts = 1;
-      let lockedUntil: number | null = null;
-
       if (data) {
         const parsed: LockoutData = JSON.parse(data);
         if (parsed.lockedUntil && Date.now() < parsed.lockedUntil) {
           return buildStatus(parsed.attempts, parsed.lockedUntil);
         }
-        attempts = parsed.attempts + 1;
       }
+
+      // Use atomic INCR for the counter via a separate counter key
+      const counterKey = `${key}:count`;
+      const attempts = await redis.incr(counterKey);
+
+      // Set expiry on first attempt
+      if (attempts === 1) {
+        await redis.expire(counterKey, ATTEMPT_WINDOW_SECONDS);
+      }
+
+      let lockedUntil: number | null = null;
 
       if (attempts >= MAX_ATTEMPTS) {
         lockedUntil = Date.now() + LOCKOUT_DURATION_SECONDS * 1000;
@@ -161,10 +188,11 @@ class LockoutService {
           attempts,
           lockoutDurationMinutes: LOCKOUT_DURATION_SECONDS / 60,
         });
-      }
 
-      const lockoutData: LockoutData = { attempts, lockedUntil };
-      await redis.setex(key, ATTEMPT_WINDOW_SECONDS, JSON.stringify(lockoutData));
+        // Store lockout state
+        const lockoutData: LockoutData = { attempts, lockedUntil };
+        await redis.setex(key, ATTEMPT_WINDOW_SECONDS, JSON.stringify(lockoutData));
+      }
 
       return buildStatus(attempts, lockedUntil);
     });
@@ -175,6 +203,7 @@ class LockoutService {
 
     await this.withRedis('clearing lockout', undefined, async (redis) => {
       await redis.del(key);
+      await redis.del(`${key}:count`);
       logger.debug('Lockout service: Cleared lockout', { email: maskEmail(email) });
     });
   }

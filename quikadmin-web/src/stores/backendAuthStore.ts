@@ -23,6 +23,11 @@ import { AUTH_STORAGE_KEY } from '@/utils/migrationUtils';
 import { toast } from '@/lib/toast';
 import { tokenManager } from '@/lib/tokenManager';
 
+/** Debug logger that only emits in development mode */
+const authDebug = (...args: unknown[]) => {
+  if (import.meta.env.DEV) console.log('[Auth DEBUG]', ...args);
+};
+
 interface LoginCredentials {
   email: string;
   password: string;
@@ -599,7 +604,7 @@ export const useBackendAuthStore = create<AuthStore>()(
             // Case 2: Session indicator exists but in-memory token is missing (page refresh)
             // Task 278: Attempt silent refresh using httpOnly refresh cookie
             if (!hasInMemoryToken) {
-              console.log('[Auth DEBUG] Attempting silent refresh:', {
+              authDebug('Attempting silent refresh:', {
                 sessionIndicator,
                 hasInMemoryToken,
               });
@@ -608,9 +613,9 @@ export const useBackendAuthStore = create<AuthStore>()(
               });
 
               try {
-                console.log('[Auth DEBUG] Calling authService.refreshToken()...');
+                authDebug('Calling authService.refreshToken()...');
                 const response = await authService.refreshToken();
-                console.log('[Auth DEBUG] refreshToken response:', {
+                authDebug('refreshToken response:', {
                   success: response.success,
                   hasTokens: !!response.data?.tokens,
                   error: response.error,

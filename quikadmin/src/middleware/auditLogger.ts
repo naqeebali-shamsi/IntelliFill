@@ -859,12 +859,9 @@ function calculateRetentionDays(
  * Get client IP from request (handles proxies)
  */
 function getClientIp(req: Request): string | null {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  if (forwardedFor) {
-    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-    return ips.split(',')[0].trim();
-  }
-  return req.ip || req.socket.remoteAddress || null;
+  // Use req.ip which respects Express's 'trust proxy' configuration
+  // This is safer than parsing x-forwarded-for directly, which can be spoofed
+  return req.ip || req.socket?.remoteAddress || null;
 }
 
 // Need crypto for UUID generation in middleware

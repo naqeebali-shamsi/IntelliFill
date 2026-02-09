@@ -157,100 +157,104 @@ router.post(
  * Returns the current status of a multi-agent processing job.
  * Polls the queue and database for the most up-to-date status.
  */
-router.get('/:jobId/status', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { jobId } = req.params;
-    const userId = req.user!.id;
+router.get(
+  '/:jobId/status',
+  authenticateSupabase,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      const userId = req.user!.id;
 
-    // Check if queue is available
-    if (!isMultiagentQueueAvailable()) {
-      return res.status(503).json({
-        success: false,
-        error: 'Multi-agent processing queue is not available',
+      // Check if queue is available
+      if (!isMultiagentQueueAvailable()) {
+        return res.status(503).json({
+          success: false,
+          error: 'Multi-agent processing queue is not available',
+        });
+      }
+
+      // Get job status from queue
+      const queueStatus = await getMultiagentJobStatus(jobId, userId);
+
+      // Also check database record for additional details
+      const dbRecord = await prisma.multiAgentProcessing.findFirst({
+        where: { jobId },
       });
-    }
 
-    // Get job status from queue
-    const queueStatus = await getMultiagentJobStatus(jobId);
+      // Verify user owns this job
+      if (dbRecord && dbRecord.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied',
+        });
+      }
 
-    // Also check database record for additional details
-    const dbRecord = await prisma.multiAgentProcessing.findFirst({
-      where: { jobId },
-    });
+      if (!queueStatus && !dbRecord) {
+        return res.status(404).json({
+          success: false,
+          error: 'Job not found',
+        });
+      }
 
-    // Verify user owns this job
-    if (dbRecord && dbRecord.userId !== userId) {
-      return res.status(403).json({
-        success: false,
-        error: 'Access denied',
-      });
-    }
+      // Fetch related document separately if we have a record
+      let document = null;
+      if (dbRecord?.documentId) {
+        document = await prisma.document.findUnique({
+          where: { id: dbRecord.documentId },
+          select: {
+            id: true,
+            fileName: true,
+            status: true,
+            confidence: true,
+          },
+        });
+      }
 
-    if (!queueStatus && !dbRecord) {
-      return res.status(404).json({
-        success: false,
-        error: 'Job not found',
-      });
-    }
-
-    // Fetch related document separately if we have a record
-    let document = null;
-    if (dbRecord?.documentId) {
-      document = await prisma.document.findUnique({
-        where: { id: dbRecord.documentId },
-        select: {
-          id: true,
-          fileName: true,
-          status: true,
-          confidence: true,
+      // Combine information from both sources
+      const response = {
+        success: true,
+        data: {
+          jobId,
+          status: queueStatus?.status || dbRecord?.status || 'unknown',
+          progress: queueStatus?.progress ?? 0,
+          document: document
+            ? {
+                id: document.id,
+                fileName: document.fileName,
+                status: document.status,
+                confidence: document.confidence,
+              }
+            : null,
+          result: queueStatus?.result || null,
+          error: queueStatus?.error || dbRecord?.errorMessage || null,
+          attemptsMade: queueStatus?.attemptsMade ?? 0,
+          attemptsTotal: queueStatus?.attemptsTotal ?? 3,
+          timing: {
+            createdAt: queueStatus?.createdAt || dbRecord?.createdAt,
+            startedAt: queueStatus?.startedAt || dbRecord?.startedAt,
+            completedAt: queueStatus?.completedAt || dbRecord?.completedAt,
+          },
+          agentHistory: dbRecord?.agentHistory ?? null,
+          currentAgent: dbRecord?.currentAgent ?? null,
         },
+      };
+
+      // Add cache headers
+      res.set({
+        'Cache-Control': 'no-cache',
+        'X-Job-Status': response.data.status,
+      });
+
+      return res.json(response);
+    } catch (error) {
+      logger.error('Failed to get multi-agent job status', { error });
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve job status',
       });
     }
-
-    // Combine information from both sources
-    const response = {
-      success: true,
-      data: {
-        jobId,
-        status: queueStatus?.status || dbRecord?.status || 'unknown',
-        progress: queueStatus?.progress ?? 0,
-        document: document
-          ? {
-              id: document.id,
-              fileName: document.fileName,
-              status: document.status,
-              confidence: document.confidence,
-            }
-          : null,
-        result: queueStatus?.result || null,
-        error: queueStatus?.error || dbRecord?.errorMessage || null,
-        attemptsMade: queueStatus?.attemptsMade ?? 0,
-        attemptsTotal: queueStatus?.attemptsTotal ?? 3,
-        timing: {
-          createdAt: queueStatus?.createdAt || dbRecord?.createdAt,
-          startedAt: queueStatus?.startedAt || dbRecord?.startedAt,
-          completedAt: queueStatus?.completedAt || dbRecord?.completedAt,
-        },
-        agentHistory: dbRecord?.agentHistory ?? null,
-        currentAgent: dbRecord?.currentAgent ?? null,
-      },
-    };
-
-    // Add cache headers
-    res.set({
-      'Cache-Control': 'no-cache',
-      'X-Job-Status': response.data.status,
-    });
-
-    return res.json(response);
-  } catch (error) {
-    logger.error('Failed to get multi-agent job status', { error });
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve job status',
-    });
   }
-});
+);
 
 /**
  * GET /api/process/multiagent/queue/health
@@ -258,30 +262,34 @@ router.get('/:jobId/status', authenticateSupabase, async (req: AuthenticatedRequ
  * Returns the health status of the multi-agent processing queue.
  * Used for monitoring and dashboards.
  */
-router.get('/queue/health', authenticateSupabase, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    if (!isMultiagentQueueAvailable()) {
-      return res.status(503).json({
+router.get(
+  '/queue/health',
+  authenticateSupabase,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!isMultiagentQueueAvailable()) {
+        return res.status(503).json({
+          success: false,
+          error: 'Multi-agent processing queue is not available',
+          isHealthy: false,
+        });
+      }
+
+      const health = await getMultiagentQueueHealth();
+
+      return res.json({
+        success: true,
+        data: health,
+      });
+    } catch (error) {
+      logger.error('Failed to get multi-agent queue health', { error });
+      return res.status(500).json({
         success: false,
-        error: 'Multi-agent processing queue is not available',
-        isHealthy: false,
+        error: 'Failed to retrieve queue health',
       });
     }
-
-    const health = await getMultiagentQueueHealth();
-
-    return res.json({
-      success: true,
-      data: health,
-    });
-  } catch (error) {
-    logger.error('Failed to get multi-agent queue health', { error });
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve queue health',
-    });
   }
-});
+);
 
 /**
  * GET /api/process/multiagent/recent

@@ -14,8 +14,37 @@
  */
 
 import { GoogleGenerativeAI, GenerativeModel, Part } from '@google/generative-ai';
+import { z } from 'zod';
 import { DocumentCategory } from '../types/state';
 import { piiSafeLogger as logger } from '../../utils/piiSafeLogger';
+
+// ============================================================================
+// Zod Schema for Classification Response Validation
+// ============================================================================
+
+/**
+ * Schema for validating Gemini classification responses
+ */
+const classificationSchema = z.object({
+  documentType: z.string(),
+  confidence: z.number().min(0).max(100),
+  alternativeTypes: z
+    .array(
+      z.object({
+        type: z.string(),
+        confidence: z.number().min(0).max(100),
+      })
+    )
+    .optional(),
+  language: z.string().optional(),
+  hasPhoto: z.boolean().optional(),
+  reasoning: z.string().optional(),
+});
+
+/**
+ * Timeout for classifier Gemini API calls (30 seconds)
+ */
+const CLASSIFIER_TIMEOUT_MS = 30000;
 
 // ============================================================================
 // Types & Interfaces
@@ -421,8 +450,21 @@ async function classifyWithGemini(
     });
   }
 
-  // Generate classification
-  const result = await model.generateContent(parts);
+  // Generate classification with timeout
+  const result = await Promise.race([
+    model.generateContent(parts),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              'Classifier timeout: Gemini did not respond within ' + CLASSIFIER_TIMEOUT_MS + 'ms'
+            )
+          ),
+        CLASSIFIER_TIMEOUT_MS
+      )
+    ),
+  ]);
   const response = result.response;
   const responseText = response.text();
 
@@ -447,23 +489,42 @@ async function classifyWithGemini(
  * Parse Gemini response text to extract JSON
  */
 function parseGeminiResponse(responseText: string): GeminiClassificationResponse {
-  // Try to extract JSON from the response
-  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  // Try to extract JSON from the response (non-greedy to avoid matching multiple JSON objects)
+  const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
 
   if (!jsonMatch) {
     throw new Error('No JSON object found in Gemini response');
   }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0]) as GeminiClassificationResponse;
+    const parsed = JSON.parse(jsonMatch[0]);
 
-    // Validate required fields
-    if (!parsed.documentType || typeof parsed.confidence !== 'number') {
-      throw new Error('Invalid response structure: missing documentType or confidence');
+    // Validate with Zod schema for type safety
+    const validated = classificationSchema.safeParse(parsed);
+
+    if (!validated.success) {
+      logger.warn('Classification response schema validation failed', {
+        errors: validated.error.errors.map((e) => ({ path: e.path.join('.'), message: e.message })),
+      });
+
+      // Fallback: check minimal required fields manually before using raw parsed
+      if (!parsed.documentType || typeof parsed.confidence !== 'number') {
+        throw new Error('Invalid response structure: missing documentType or confidence');
+      }
+
+      // Use raw parsed with caution when Zod fails but minimal fields exist
+      logger.warn('Using raw parsed response despite schema validation failure');
+      return parsed as GeminiClassificationResponse;
     }
 
-    return parsed;
+    return validated.data as GeminiClassificationResponse;
   } catch (parseError) {
+    if (
+      parseError instanceof Error &&
+      parseError.message.startsWith('Invalid response structure')
+    ) {
+      throw parseError;
+    }
     throw new Error(
       `Failed to parse Gemini JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
     );

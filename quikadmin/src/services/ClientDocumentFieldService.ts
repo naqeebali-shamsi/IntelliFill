@@ -7,7 +7,7 @@
 
 import { DocumentCategory } from '@prisma/client';
 import { prisma } from '../utils/prisma';
-import { logger } from '../utils/logger';
+import { piiSafeLogger as logger } from '../utils/piiSafeLogger';
 import { resolveDate } from './DateResolver';
 
 /** Fields that contain dates and should be disambiguated via DateResolver */
@@ -118,139 +118,142 @@ export class ClientDocumentFieldService {
     fieldConfidences?: Record<string, number>
   ): Promise<boolean> {
     try {
-      // Get or create profile
-      let profile = await prisma.clientProfile.findUnique({
-        where: { clientId },
-      });
-
-      if (!profile) {
-        profile = await prisma.clientProfile.create({
-          data: {
-            clientId,
-            data: {},
-            fieldSources: {},
-          },
+      // Wrap in transaction to prevent concurrent read-modify-write races
+      return await prisma.$transaction(async (tx) => {
+        // Get or create profile
+        let profile = await tx.clientProfile.findUnique({
+          where: { clientId },
         });
-      }
 
-      let currentData: Record<string, any> = {};
-      if (profile.data) {
-        if (typeof profile.data === 'string') {
-          // Encrypted data (new format)
-          const { decryptJSON } = await import('../utils/encryption');
-          try {
-            currentData = decryptJSON(profile.data as string);
-          } catch {
-            // Fallback: legacy unencrypted string
-            currentData = JSON.parse(profile.data as string);
+        if (!profile) {
+          profile = await tx.clientProfile.create({
+            data: {
+              clientId,
+              data: {},
+              fieldSources: {},
+            },
+          });
+        }
+
+        let currentData: Record<string, any> = {};
+        if (profile.data) {
+          if (typeof profile.data === 'string') {
+            // Encrypted data (new format)
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              currentData = decryptJSON(profile.data as string);
+            } catch {
+              // Fallback: legacy unencrypted string
+              currentData = JSON.parse(profile.data as string);
+            }
+          } else {
+            // Legacy unencrypted JSON object - will be encrypted on next write
+            currentData = profile.data as Record<string, any>;
           }
-        } else {
-          // Legacy unencrypted JSON object - will be encrypted on next write
-          currentData = profile.data as Record<string, any>;
         }
-      }
-      const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
+        const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
 
-      const newData = { ...currentData };
-      const newFieldSources = { ...currentFieldSources };
+        const newData = { ...currentData };
+        const newFieldSources = { ...currentFieldSources };
 
-      let fieldsUpdated = 0;
-      const auditEntries: Array<{
-        clientProfileId: string;
-        fieldName: string;
-        oldValue: string | null;
-        newValue: string | null;
-        source: string;
-        sourceDocumentId: string | null;
-        organizationId: string | null;
-      }> = [];
+        let fieldsUpdated = 0;
+        const auditEntries: Array<{
+          clientProfileId: string;
+          fieldName: string;
+          oldValue: string | null;
+          newValue: string | null;
+          source: string;
+          sourceDocumentId: string | null;
+          organizationId: string | null;
+        }> = [];
 
-      for (const [fieldName, value] of Object.entries(fields)) {
-        // Skip if field was manually edited (don't overwrite user corrections)
-        if (currentFieldSources[fieldName]?.manuallyEdited) {
-          logger.debug(`Skipping manually edited field: ${fieldName}`);
-          continue;
-        }
-
-        // Skip if value is empty or null
-        if (value === null || value === undefined || value === '') {
-          continue;
-        }
-
-        // P2-1: Confidence-gated overwrites - skip if new confidence is lower
-        const existingSource = currentFieldSources[fieldName];
-        const newConfidence = fieldConfidences?.[fieldName] ?? null;
-        if (existingSource?.confidence != null && newConfidence != null) {
-          if (newConfidence < existingSource.confidence) {
-            logger.debug(
-              `Skipping field '${fieldName}': new confidence ${newConfidence} < existing ${existingSource.confidence}`
-            );
+        for (const [fieldName, value] of Object.entries(fields)) {
+          // Skip if field was manually edited (don't overwrite user corrections)
+          if (currentFieldSources[fieldName]?.manuallyEdited) {
+            logger.debug(`Skipping manually edited field: ${fieldName}`);
             continue;
           }
-        }
 
-        // Track change for audit log
-        if (currentData[fieldName] !== value) {
-          auditEntries.push({
-            clientProfileId: profile.id,
-            fieldName,
-            oldValue: currentData[fieldName] != null ? String(currentData[fieldName]) : null,
-            newValue: String(value),
-            source: 'ocr',
-            sourceDocumentId: documentId,
-            organizationId: null, // Populated below if available
-          });
-        }
-
-        // Update the field
-        newData[fieldName] = value;
-        newFieldSources[fieldName] = {
-          documentId,
-          extractedAt: new Date().toISOString(),
-          manuallyEdited: false,
-          confidence: newConfidence ?? existingSource?.confidence ?? null,
-        };
-        fieldsUpdated++;
-      }
-
-      if (fieldsUpdated > 0) {
-        // Resolve organizationId for audit entries
-        let organizationId: string | null = null;
-        try {
-          const client = await prisma.client.findUnique({
-            where: { id: clientId },
-            select: { user: { select: { organizationId: true } } },
-          });
-          organizationId = client?.user?.organizationId ?? null;
-        } catch {
-          /* non-critical */
-        }
-
-        if (organizationId && auditEntries.length > 0) {
-          for (const entry of auditEntries) {
-            entry.organizationId = organizationId;
+          // Skip if value is empty or null
+          if (value === null || value === undefined || value === '') {
+            continue;
           }
+
+          // P2-1: Confidence-gated overwrites - skip if new confidence is lower
+          const existingSource = currentFieldSources[fieldName];
+          const newConfidence = fieldConfidences?.[fieldName] ?? null;
+          if (existingSource?.confidence != null && newConfidence != null) {
+            if (newConfidence < existingSource.confidence) {
+              logger.debug(
+                `Skipping field '${fieldName}': new confidence ${newConfidence} < existing ${existingSource.confidence}`
+              );
+              continue;
+            }
+          }
+
+          // Track change for audit log
+          if (currentData[fieldName] !== value) {
+            auditEntries.push({
+              clientProfileId: profile.id,
+              fieldName,
+              oldValue: currentData[fieldName] != null ? String(currentData[fieldName]) : null,
+              newValue: String(value),
+              source: 'ocr',
+              sourceDocumentId: documentId,
+              organizationId: null, // Populated below if available
+            });
+          }
+
+          // Update the field
+          newData[fieldName] = value;
+          newFieldSources[fieldName] = {
+            documentId,
+            extractedAt: new Date().toISOString(),
+            manuallyEdited: false,
+            confidence: newConfidence ?? existingSource?.confidence ?? null,
+          };
+          fieldsUpdated++;
         }
 
-        const { encryptJSON } = await import('../utils/encryption');
-        await prisma.clientProfile.update({
-          where: { id: profile.id },
-          data: {
-            data: encryptJSON(newData),
-            fieldSources: newFieldSources,
-          },
-        });
+        if (fieldsUpdated > 0) {
+          // Resolve organizationId for audit entries
+          let organizationId: string | null = null;
+          try {
+            const client = await tx.client.findUnique({
+              where: { id: clientId },
+              select: { user: { select: { organizationId: true } } },
+            });
+            organizationId = client?.user?.organizationId ?? null;
+          } catch {
+            /* non-critical */
+          }
 
-        // Batch-insert audit entries
-        if (auditEntries.length > 0) {
-          await prisma.clientProfileAuditLog.createMany({ data: auditEntries });
+          if (organizationId && auditEntries.length > 0) {
+            for (const entry of auditEntries) {
+              entry.organizationId = organizationId;
+            }
+          }
+
+          const { encryptJSON } = await import('../utils/encryption');
+          await tx.clientProfile.update({
+            where: { id: profile.id },
+            data: {
+              data: encryptJSON(newData),
+              fieldSources: newFieldSources,
+            },
+          });
+
+          // Batch-insert audit entries
+          if (auditEntries.length > 0) {
+            await tx.clientProfileAuditLog.createMany({ data: auditEntries });
+          }
+
+          logger.info(`Updated ${fieldsUpdated} fields in profile for client: ${clientId}`);
+          return true;
         }
 
-        logger.info(`Updated ${fieldsUpdated} fields in profile for client: ${clientId}`);
-        return true;
-      }
-
-      return false;
+        return false;
+      });
     } catch (error) {
       logger.error('Error merging to client profile:', error);
       return false;
@@ -269,134 +272,137 @@ export class ClientDocumentFieldService {
     const skippedFields: string[] = [];
 
     try {
-      let profile = await prisma.clientProfile.findUnique({
-        where: { clientId },
-      });
-
-      const newProfileCreated = !profile;
-
-      if (!profile) {
-        profile = await prisma.clientProfile.create({
-          data: {
-            clientId,
-            data: {},
-            fieldSources: {},
-          },
+      // Wrap in transaction to prevent concurrent read-modify-write races
+      return await prisma.$transaction(async (tx) => {
+        let profile = await tx.clientProfile.findUnique({
+          where: { clientId },
         });
-      }
 
-      let currentData: Record<string, any> = {};
-      if (profile.data) {
-        if (typeof profile.data === 'string') {
-          const { decryptJSON } = await import('../utils/encryption');
-          try {
-            currentData = decryptJSON(profile.data as string);
-          } catch {
-            currentData = JSON.parse(profile.data as string);
+        const newProfileCreated = !profile;
+
+        if (!profile) {
+          profile = await tx.clientProfile.create({
+            data: {
+              clientId,
+              data: {},
+              fieldSources: {},
+            },
+          });
+        }
+
+        let currentData: Record<string, any> = {};
+        if (profile.data) {
+          if (typeof profile.data === 'string') {
+            const { decryptJSON } = await import('../utils/encryption');
+            try {
+              currentData = decryptJSON(profile.data as string);
+            } catch {
+              currentData = JSON.parse(profile.data as string);
+            }
+          } else {
+            currentData = profile.data as Record<string, any>;
           }
-        } else {
-          currentData = profile.data as Record<string, any>;
         }
-      }
-      const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
+        const currentFieldSources = (profile.fieldSources || {}) as Record<string, any>;
 
-      const newData = { ...currentData };
-      const newFieldSources = { ...currentFieldSources };
+        const newData = { ...currentData };
+        const newFieldSources = { ...currentFieldSources };
 
-      let fieldsUpdated = 0;
-      const auditEntries: Array<{
-        clientProfileId: string;
-        fieldName: string;
-        oldValue: string | null;
-        newValue: string | null;
-        source: string;
-        sourceDocumentId: string | null;
-        organizationId: string | null;
-      }> = [];
+        let fieldsUpdated = 0;
+        const auditEntries: Array<{
+          clientProfileId: string;
+          fieldName: string;
+          oldValue: string | null;
+          newValue: string | null;
+          source: string;
+          sourceDocumentId: string | null;
+          organizationId: string | null;
+        }> = [];
 
-      for (const [fieldName, value] of Object.entries(fields)) {
-        if (currentFieldSources[fieldName]?.manuallyEdited) {
-          skippedFields.push(fieldName);
-          continue;
-        }
-
-        if (value === null || value === undefined || value === '') {
-          continue;
-        }
-
-        // P2-1: Confidence-gated overwrites
-        const existingSource = currentFieldSources[fieldName];
-        const newConfidence = fieldConfidences?.[fieldName] ?? null;
-        if (existingSource?.confidence != null && newConfidence != null) {
-          if (newConfidence < existingSource.confidence) {
+        for (const [fieldName, value] of Object.entries(fields)) {
+          if (currentFieldSources[fieldName]?.manuallyEdited) {
             skippedFields.push(fieldName);
             continue;
           }
+
+          if (value === null || value === undefined || value === '') {
+            continue;
+          }
+
+          // P2-1: Confidence-gated overwrites
+          const existingSource = currentFieldSources[fieldName];
+          const newConfidence = fieldConfidences?.[fieldName] ?? null;
+          if (existingSource?.confidence != null && newConfidence != null) {
+            if (newConfidence < existingSource.confidence) {
+              skippedFields.push(fieldName);
+              continue;
+            }
+          }
+
+          // Track change for audit log
+          if (currentData[fieldName] !== value) {
+            auditEntries.push({
+              clientProfileId: profile.id,
+              fieldName,
+              oldValue: currentData[fieldName] != null ? String(currentData[fieldName]) : null,
+              newValue: String(value),
+              source: 'ocr',
+              sourceDocumentId: documentId,
+              organizationId: null,
+            });
+          }
+
+          newData[fieldName] = value;
+          newFieldSources[fieldName] = {
+            documentId,
+            extractedAt: new Date().toISOString(),
+            manuallyEdited: false,
+            confidence: newConfidence ?? existingSource?.confidence ?? null,
+          };
+          fieldsUpdated++;
         }
 
-        // Track change for audit log
-        if (currentData[fieldName] !== value) {
-          auditEntries.push({
-            clientProfileId: profile.id,
-            fieldName,
-            oldValue: currentData[fieldName] != null ? String(currentData[fieldName]) : null,
-            newValue: String(value),
-            source: 'ocr',
-            sourceDocumentId: documentId,
-            organizationId: null,
+        if (fieldsUpdated > 0) {
+          // Resolve organizationId for audit entries
+          let organizationId: string | null = null;
+          try {
+            const client = await tx.client.findUnique({
+              where: { id: clientId },
+              select: { user: { select: { organizationId: true } } },
+            });
+            organizationId = client?.user?.organizationId ?? null;
+          } catch {
+            /* non-critical */
+          }
+
+          if (organizationId && auditEntries.length > 0) {
+            for (const entry of auditEntries) {
+              entry.organizationId = organizationId;
+            }
+          }
+
+          const { encryptJSON } = await import('../utils/encryption');
+          await tx.clientProfile.update({
+            where: { id: profile.id },
+            data: {
+              data: encryptJSON(newData),
+              fieldSources: newFieldSources,
+            },
           });
-        }
 
-        newData[fieldName] = value;
-        newFieldSources[fieldName] = {
-          documentId,
-          extractedAt: new Date().toISOString(),
-          manuallyEdited: false,
-          confidence: newConfidence ?? existingSource?.confidence ?? null,
-        };
-        fieldsUpdated++;
-      }
-
-      if (fieldsUpdated > 0) {
-        // Resolve organizationId for audit entries
-        let organizationId: string | null = null;
-        try {
-          const client = await prisma.client.findUnique({
-            where: { id: clientId },
-            select: { user: { select: { organizationId: true } } },
-          });
-          organizationId = client?.user?.organizationId ?? null;
-        } catch {
-          /* non-critical */
-        }
-
-        if (organizationId && auditEntries.length > 0) {
-          for (const entry of auditEntries) {
-            entry.organizationId = organizationId;
+          // Batch-insert audit entries
+          if (auditEntries.length > 0) {
+            await tx.clientProfileAuditLog.createMany({ data: auditEntries });
           }
         }
 
-        const { encryptJSON } = await import('../utils/encryption');
-        await prisma.clientProfile.update({
-          where: { id: profile.id },
-          data: {
-            data: encryptJSON(newData),
-            fieldSources: newFieldSources,
-          },
-        });
-
-        // Batch-insert audit entries
-        if (auditEntries.length > 0) {
-          await prisma.clientProfileAuditLog.createMany({ data: auditEntries });
-        }
-      }
-
-      return {
-        success: true,
-        fieldsUpdated,
-        skippedFields,
-        newProfileCreated,
-      };
+        return {
+          success: true,
+          fieldsUpdated,
+          skippedFields,
+          newProfileCreated,
+        };
+      });
     } catch (error) {
       logger.error('Error merging to client profile:', error);
       return {

@@ -16,6 +16,8 @@ jest.mock('ioredis', () => {
     get: jest.fn(),
     setex: jest.fn().mockResolvedValue('OK'),
     del: jest.fn().mockResolvedValue(1),
+    incr: jest.fn(),
+    expire: jest.fn().mockResolvedValue(1),
     quit: jest.fn().mockResolvedValue('OK'),
   };
   return jest.fn().mockImplementation(() => mRedis);
@@ -56,6 +58,7 @@ describe('LockoutService', () => {
 
   describe('checkLockout', () => {
     it('should return unlocked status for a new user with no attempts', async () => {
+      // Both main key and counter key return null for a new user
       mockRedisInstance.get.mockResolvedValue(null);
 
       const status = await lockoutService.checkLockout('newuser@example.com');
@@ -66,7 +69,7 @@ describe('LockoutService', () => {
       expect(status.lockoutExpiresAt).toBeNull();
     });
 
-    it('should return current attempts for user with some failed attempts', async () => {
+    it('should return current attempts from main key for user with some failed attempts', async () => {
       mockRedisInstance.get.mockResolvedValue(JSON.stringify({ attempts: 2, lockedUntil: null }));
 
       const status = await lockoutService.checkLockout('test@example.com');
@@ -74,6 +77,19 @@ describe('LockoutService', () => {
       expect(status.isLocked).toBe(false);
       expect(status.attemptsRemaining).toBe(3);
       expect(status.failedAttempts).toBe(2);
+    });
+
+    it('should return current attempts from counter key when main key does not exist', async () => {
+      // Main key returns null, counter key returns the attempt count
+      mockRedisInstance.get
+        .mockResolvedValueOnce(null) // main key: lockout:test@example.com
+        .mockResolvedValueOnce('3'); // counter key: lockout:test@example.com:count
+
+      const status = await lockoutService.checkLockout('test@example.com');
+
+      expect(status.isLocked).toBe(false);
+      expect(status.attemptsRemaining).toBe(2);
+      expect(status.failedAttempts).toBe(3);
     });
 
     it('should return locked status when lockout is active', async () => {
@@ -111,33 +127,43 @@ describe('LockoutService', () => {
   });
 
   describe('recordFailedAttempt', () => {
-    it('should increment attempt count for first failure', async () => {
-      mockRedisInstance.get.mockResolvedValue(null);
+    it('should record first failed attempt using atomic INCR', async () => {
+      mockRedisInstance.get.mockResolvedValue(null); // No existing lockout
+      mockRedisInstance.incr.mockResolvedValue(1); // First increment returns 1
 
       const status = await lockoutService.recordFailedAttempt('new@example.com');
 
       expect(status.failedAttempts).toBe(1);
       expect(status.attemptsRemaining).toBe(4);
       expect(status.isLocked).toBe(false);
-      expect(mockRedisInstance.setex).toHaveBeenCalledWith(
-        'lockout:new@example.com',
-        900, // 15 minutes
-        expect.stringContaining('"attempts":1')
-      );
+      // Should use atomic INCR on the counter key
+      expect(mockRedisInstance.incr).toHaveBeenCalledWith('lockout:new@example.com:count');
+      // Should set expiry on counter key for first attempt
+      expect(mockRedisInstance.expire).toHaveBeenCalledWith('lockout:new@example.com:count', 900);
+      // Should NOT write main lockout key (only 1 attempt, threshold is 5)
+      expect(mockRedisInstance.setex).not.toHaveBeenCalled();
     });
 
-    it('should increment existing attempt count', async () => {
-      mockRedisInstance.get.mockResolvedValue(JSON.stringify({ attempts: 2, lockedUntil: null }));
+    it('should increment existing attempt count via atomic INCR', async () => {
+      // Main key has no lockout data (or old non-locked data)
+      mockRedisInstance.get.mockResolvedValue(null);
+      mockRedisInstance.incr.mockResolvedValue(3); // Counter already at 2, INCR returns 3
 
       const status = await lockoutService.recordFailedAttempt('existing@example.com');
 
       expect(status.failedAttempts).toBe(3);
       expect(status.attemptsRemaining).toBe(2);
       expect(status.isLocked).toBe(false);
+      expect(mockRedisInstance.incr).toHaveBeenCalledWith('lockout:existing@example.com:count');
+      // Not first attempt, so expire should NOT be called
+      expect(mockRedisInstance.expire).not.toHaveBeenCalled();
+      // Below threshold, so setex should NOT be called
+      expect(mockRedisInstance.setex).not.toHaveBeenCalled();
     });
 
     it('should trigger lockout after 5 failed attempts', async () => {
-      mockRedisInstance.get.mockResolvedValue(JSON.stringify({ attempts: 4, lockedUntil: null }));
+      mockRedisInstance.get.mockResolvedValue(null); // No active lockout
+      mockRedisInstance.incr.mockResolvedValue(5); // INCR returns 5 (threshold reached)
 
       const status = await lockoutService.recordFailedAttempt('almostlocked@example.com');
 
@@ -149,6 +175,12 @@ describe('LockoutService', () => {
       const expectedLockoutTime = Date.now() + 15 * 60 * 1000;
       expect(status.lockoutExpiresAt!.getTime()).toBeGreaterThan(expectedLockoutTime - 1000);
       expect(status.lockoutExpiresAt!.getTime()).toBeLessThan(expectedLockoutTime + 1000);
+      // Should write lockout state to main key
+      expect(mockRedisInstance.setex).toHaveBeenCalledWith(
+        'lockout:almostlocked@example.com',
+        900,
+        expect.stringContaining('"attempts":5')
+      );
     });
 
     it('should not increment attempts while account is locked', async () => {
@@ -159,31 +191,45 @@ describe('LockoutService', () => {
 
       expect(status.isLocked).toBe(true);
       expect(status.failedAttempts).toBe(5); // Should stay at 5
-      expect(mockRedisInstance.setex).not.toHaveBeenCalled(); // No update
+      // Should NOT call INCR or write any keys - returns early
+      expect(mockRedisInstance.incr).not.toHaveBeenCalled();
+      expect(mockRedisInstance.setex).not.toHaveBeenCalled();
     });
 
     it('should start new count after lockout expires', async () => {
       const lockedUntil = Date.now() - 1000; // Expired
       mockRedisInstance.get.mockResolvedValue(JSON.stringify({ attempts: 5, lockedUntil }));
+      mockRedisInstance.incr.mockResolvedValue(6); // Counter continues from previous count
 
       const status = await lockoutService.recordFailedAttempt('expired@example.com');
 
       expect(status.failedAttempts).toBe(6); // Continues from where it was
       expect(status.isLocked).toBe(true); // Re-locks immediately (6 >= 5)
+      // Should call INCR since lockout expired
+      expect(mockRedisInstance.incr).toHaveBeenCalledWith('lockout:expired@example.com:count');
+      // Should write new lockout state
+      expect(mockRedisInstance.setex).toHaveBeenCalledWith(
+        'lockout:expired@example.com',
+        900,
+        expect.stringContaining('"attempts":6')
+      );
     });
   });
 
   describe('clearLockout', () => {
-    it('should delete the lockout key for a user', async () => {
+    it('should delete both the lockout key and counter key for a user', async () => {
       await lockoutService.clearLockout('user@example.com');
 
       expect(mockRedisInstance.del).toHaveBeenCalledWith('lockout:user@example.com');
+      expect(mockRedisInstance.del).toHaveBeenCalledWith('lockout:user@example.com:count');
+      expect(mockRedisInstance.del).toHaveBeenCalledTimes(2);
     });
 
     it('should normalize email when clearing lockout', async () => {
       await lockoutService.clearLockout('  USER@EXAMPLE.COM  ');
 
       expect(mockRedisInstance.del).toHaveBeenCalledWith('lockout:user@example.com');
+      expect(mockRedisInstance.del).toHaveBeenCalledWith('lockout:user@example.com:count');
     });
   });
 
@@ -228,13 +274,13 @@ describe('LockoutService', () => {
       expect(status.attemptsRemaining).toBe(5);
     });
 
-    it('should allow login when Redis setex fails during failed attempt', async () => {
+    it('should allow login when Redis incr fails during failed attempt', async () => {
       mockRedisInstance.get.mockResolvedValue(null);
-      mockRedisInstance.setex.mockRejectedValue(new Error('Redis write failed'));
+      mockRedisInstance.incr.mockRejectedValue(new Error('Redis write failed'));
 
       const status = await lockoutService.recordFailedAttempt('user@example.com');
 
-      // Should fail-open with partial tracking
+      // Should fail-open with fallback (1 failed attempt assumed)
       expect(status.isLocked).toBe(false);
       expect(status.failedAttempts).toBe(1);
     });
@@ -259,13 +305,28 @@ describe('LockoutService', () => {
       expect(mockRedisInstance.get).toHaveBeenCalledWith('lockout:');
     });
 
-    it('should use correct TTL for lockout data (15 minutes)', async () => {
+    it('should use correct TTL for counter expiry on first attempt (15 minutes)', async () => {
       mockRedisInstance.get.mockResolvedValue(null);
+      mockRedisInstance.incr.mockResolvedValue(1); // First attempt
 
       await lockoutService.recordFailedAttempt('user@example.com');
 
+      // Counter key should get 15 minute TTL on first attempt
+      expect(mockRedisInstance.expire).toHaveBeenCalledWith(
+        'lockout:user@example.com:count',
+        900 // 15 minutes in seconds
+      );
+    });
+
+    it('should use correct TTL for lockout key when threshold reached', async () => {
+      mockRedisInstance.get.mockResolvedValue(null);
+      mockRedisInstance.incr.mockResolvedValue(5); // Threshold reached
+
+      await lockoutService.recordFailedAttempt('user@example.com');
+
+      // Main lockout key should get 15 minute TTL
       expect(mockRedisInstance.setex).toHaveBeenCalledWith(
-        expect.any(String),
+        'lockout:user@example.com',
         900, // 15 minutes in seconds
         expect.any(String)
       );

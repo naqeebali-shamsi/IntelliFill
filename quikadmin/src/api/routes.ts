@@ -27,7 +27,11 @@ import { jobsRouter } from './jobs.routes';
 import { IntelliFillService } from '../services/IntelliFillService';
 import { prisma } from '../utils/prisma';
 import { realtimeService } from '../services/RealtimeService';
-import { authenticateSupabase, optionalAuthSupabase, AuthenticatedRequest } from '../middleware/supabaseAuth';
+import {
+  authenticateSupabase,
+  optionalAuthSupabase,
+  AuthenticatedRequest,
+} from '../middleware/supabaseAuth';
 import { encryptUploadedFiles, encryptExtractedData } from '../middleware/encryptionMiddleware';
 import { validateFilePath } from '../utils/encryption';
 import { sseConnectionLimiter } from '../middleware/rateLimiter';
@@ -209,7 +213,8 @@ export function setupRoutes(
     let userId: string | null = null;
 
     // Method 1: Cookie-based auth using refresh token (preferred - no token in URL)
-    const refreshToken = req.cookies?.refreshToken;
+    const { REFRESH_TOKEN_COOKIE } = await import('../utils/cookieHelpers');
+    const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
     if (refreshToken) {
       try {
         const { createClient } = await import('@supabase/supabase-js');

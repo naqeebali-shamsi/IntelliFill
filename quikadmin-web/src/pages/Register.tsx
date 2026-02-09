@@ -21,6 +21,11 @@ import { usePasswordValidation } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { logger } from '@/utils/logger';
 
+/** Validate that a redirect URL is a safe relative path (prevents open redirect) */
+function isSafeRedirect(url: string): boolean {
+  return url.startsWith('/') && !url.startsWith('//') && !url.includes('://');
+}
+
 const INPUT_CLASS = cn(
   'w-full h-11 bg-surface-1/50 border-sleek-line-default',
   'placeholder:text-white/30 text-white',
@@ -97,11 +102,12 @@ export default function Register(): React.ReactElement {
 
       if (!authState.tokens) {
         toast.success('Registration successful! Please check your email for verification code.');
-        const verifyUrl = `/verify-email?email=${encodeURIComponent(formData.email)}${redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : ''}`;
+        const safeRedirect = redirectParam && isSafeRedirect(redirectParam) ? redirectParam : null;
+        const verifyUrl = `/verify-email?email=${encodeURIComponent(formData.email)}${safeRedirect ? `&redirect=${encodeURIComponent(safeRedirect)}` : ''}`;
         navigate(verifyUrl);
       } else {
         toast.success('Registration successful! Welcome aboard!');
-        navigate(redirectParam || '/dashboard');
+        navigate(redirectParam && isSafeRedirect(redirectParam) ? redirectParam : '/dashboard');
       }
     } catch (err: unknown) {
       const error = err as { code?: string; message?: string };
@@ -270,10 +276,7 @@ export default function Register(): React.ReactElement {
               />
               <label htmlFor="terms" className="text-sm text-white/60 cursor-pointer">
                 I agree to the{' '}
-                <Link
-                  to="/terms"
-                  className="text-primary hover:text-primary/80 transition-colors"
-                >
+                <Link to="/terms" className="text-primary hover:text-primary/80 transition-colors">
                   Terms and Conditions
                 </Link>{' '}
                 and{' '}

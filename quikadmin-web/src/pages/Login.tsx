@@ -16,6 +16,11 @@ import { cn } from '@/lib/utils';
 import { logger } from '@/utils/logger';
 import { useBoolean, useLockoutCountdown } from '@/hooks';
 
+/** Validate that a redirect URL is a safe relative path (prevents open redirect) */
+function isSafeRedirect(url: string): boolean {
+  return url.startsWith('/') && !url.startsWith('//') && !url.includes('://');
+}
+
 // Shared input styling for auth forms
 const authInputClassName = cn(
   'w-full h-11 bg-surface-1/50 border-sleek-line-default',
@@ -84,7 +89,10 @@ export default function Login(): JSX.Element {
 
       // Navigate to intended route or dashboard
       const redirectParam = searchParams.get('redirect');
-      const redirectTo = redirectParam || location.state?.from?.pathname || '/dashboard';
+      const redirectTo =
+        redirectParam && isSafeRedirect(redirectParam)
+          ? redirectParam
+          : location.state?.from?.pathname || '/dashboard';
       navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const error = err as { code?: string; message?: string };
@@ -161,9 +169,7 @@ export default function Login(): JSX.Element {
             {wasExpired && (
               <Alert className="bg-warning/10 border-warning/30 text-warning">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Your session has expired. Please log in again.
-                </AlertDescription>
+                <AlertDescription>Your session has expired. Please log in again.</AlertDescription>
               </Alert>
             )}
 

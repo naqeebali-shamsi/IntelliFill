@@ -291,7 +291,7 @@ export async function requireOrganization(
 
     // Set org context for RLS policies on knowledge base tables
     try {
-      await prisma.$executeRawUnsafe('SELECT set_org_context($1)', context.organizationId);
+      await prisma.$executeRaw`SELECT set_org_context(${context.organizationId})`;
     } catch (error) {
       logger.warn('[OrgContext] Failed to set RLS org context', {
         userId,

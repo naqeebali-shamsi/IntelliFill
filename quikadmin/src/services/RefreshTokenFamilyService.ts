@@ -75,6 +75,7 @@ export interface NewTokenResult {
 const REDIS_KEY_PREFIX = {
   USED_TOKEN: 'auth:used_token:', // Hash of used tokens
   REVOKED_FAMILY: 'auth:revoked_family:', // Revoked family IDs
+  USER_FAMILIES: 'auth:user_families:', // Redis SET of family IDs per user
 };
 
 // Token TTL (7 days in seconds)
@@ -177,7 +178,9 @@ export class RefreshTokenFamilyService {
     token: string
   ): { payload: TokenFamilyPayload; usedOldSecret: boolean } | { error: string } {
     try {
-      const payload = jwt.verify(token, this.jwtRefreshSecret) as TokenFamilyPayload;
+      const payload = jwt.verify(token, this.jwtRefreshSecret, {
+        algorithms: ['HS256'],
+      }) as TokenFamilyPayload;
       return { payload, usedOldSecret: false };
     } catch (primaryError) {
       if (primaryError instanceof jwt.TokenExpiredError) {
@@ -185,7 +188,9 @@ export class RefreshTokenFamilyService {
       }
       if (primaryError instanceof jwt.JsonWebTokenError && this.jwtRefreshSecretOld) {
         try {
-          const payload = jwt.verify(token, this.jwtRefreshSecretOld) as TokenFamilyPayload;
+          const payload = jwt.verify(token, this.jwtRefreshSecretOld, {
+            algorithms: ['HS256'],
+          }) as TokenFamilyPayload;
           return { payload, usedOldSecret: true };
         } catch (fallbackError) {
           if (fallbackError instanceof jwt.TokenExpiredError) {
@@ -213,7 +218,7 @@ export class RefreshTokenFamilyService {
    * Hash token for storage (never store actual tokens)
    */
   private hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex').substring(0, 32);
+    return crypto.createHash('sha256').update(token).digest('hex');
   }
 
   // ==========================================================================
@@ -261,13 +266,25 @@ export class RefreshTokenFamilyService {
   /**
    * Create a new token family for initial login
    */
-  createNewFamily(userId: string): NewTokenResult {
+  async createNewFamily(userId: string): Promise<NewTokenResult> {
     const payload: TokenFamilyPayload = {
       sub: userId,
       fid: crypto.randomUUID(),
       gen: 1,
       type: 'refresh',
     };
+
+    // Track this family for per-user revocation
+    if (this.isReady()) {
+      try {
+        await this.client!.sAdd(`${REDIS_KEY_PREFIX.USER_FAMILIES}${userId}`, payload.fid);
+        await this.client!.expire(`${REDIS_KEY_PREFIX.USER_FAMILIES}${userId}`, USED_TOKEN_TTL);
+      } catch (error) {
+        logger.warn('[TokenFamily] Failed to track family for user', {
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+      }
+    }
 
     logger.debug('[TokenFamily] New family created', {
       userId,
@@ -578,9 +595,44 @@ export class RefreshTokenFamilyService {
    * Revoke all families for a user (e.g., on password change or logout from all devices)
    */
   async revokeAllFamiliesForUser(userId: string, reason: string): Promise<void> {
-    // This would require scanning all family keys, which is expensive
-    // In practice, we'd track active families per user in a separate set
-    logger.info('[TokenFamily] Revoking all families for user', { userId, reason });
+    if (!this.isReady()) {
+      logger.warn('[TokenFamily] Cannot revoke families - Redis not ready', { userId });
+      return;
+    }
+
+    try {
+      const familyKey = `${REDIS_KEY_PREFIX.USER_FAMILIES}${userId}`;
+      const familyIds = await this.client!.sMembers(familyKey);
+
+      if (familyIds.length === 0) {
+        logger.debug('[TokenFamily] No tracked families to revoke for user', { userId });
+        return;
+      }
+
+      // Revoke each family
+      const pipeline = this.client!.multi();
+      for (const familyId of familyIds) {
+        pipeline.setEx(
+          `${REDIS_KEY_PREFIX.REVOKED_FAMILY}${familyId}`,
+          USED_TOKEN_TTL,
+          JSON.stringify({ revokedAt: new Date().toISOString(), reason })
+        );
+      }
+      // Clear the user's family set
+      pipeline.del(familyKey);
+      await pipeline.exec();
+
+      logger.info('[TokenFamily] Revoked all families for user', {
+        userId,
+        familyCount: familyIds.length,
+        reason,
+      });
+    } catch (error) {
+      logger.error('[TokenFamily] Failed to revoke all families', {
+        userId,
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+    }
   }
 }
 

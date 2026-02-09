@@ -288,6 +288,14 @@ export async function addProcessDocumentJob(
     throw new QueueUnavailableError('knowledge-processing');
   }
 
+  // Input validation
+  if (!data.filePath || data.filePath.includes('..') || data.filePath.includes('\0')) {
+    throw new Error('Invalid file path for knowledge processing');
+  }
+  if (!data.sourceId || !data.organizationId) {
+    throw new Error('Missing required fields: sourceId, organizationId');
+  }
+
   // Deduplication: check for existing job
   const jobId = generateKnowledgeJobId(data.sourceId, 'processDocument');
   const existingJob = await knowledgeQueue!.getJob(jobId);

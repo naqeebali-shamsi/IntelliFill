@@ -148,7 +148,8 @@ async function extractNode(
     const result = await extractDocumentData(
       state.ocrData?.rawText || '',
       state.classification.category,
-      undefined // imageBase64 - pass if available in state
+      undefined, // imageBase64 - pass if available in state
+      state.userId // userId for cache scoping (prevents cross-user cache leakage)
     );
 
     // Adapt ExtractionResult.fields (ExtractedFieldResult) -> Record<string, ExtractedField>
@@ -366,6 +367,19 @@ async function qaNode(
     };
   } catch (error) {
     logger.error('QA validation failed', { documentId: state.documentId, error });
+
+    // Record the failed execution in agent history (mirrors the success path)
+    const failedExecution = {
+      agent: 'qa' as AgentName,
+      startTime: new Date(startTime),
+      endTime: new Date(),
+      status: 'failed' as const,
+      model: 'rule-based',
+      tokenCount: 0,
+      retryCount: 0,
+      error: (error as Error).message,
+    };
+
     return {
       qualityAssessment: {
         isValid: false,
@@ -381,6 +395,7 @@ async function qaNode(
         suggestions: [],
         needsHumanReview: true,
       },
+      agentHistory: [...state.agentHistory, failedExecution],
       processingControl: {
         ...state.processingControl,
         currentNode: NODE_NAMES.ERROR_RECOVER,
@@ -544,6 +559,16 @@ function routeAfterErrorRecovery(state: DocumentState): string {
     return NODE_NAMES.FINALIZE;
   }
 
+  // Route to the appropriate node based on where the error originated
+  const currentNode = state.processingControl.currentNode;
+  if (currentNode === NODE_NAMES.CLASSIFY) {
+    logger.info('Retrying classification after error recovery', {
+      documentId: state.documentId,
+      retryCount: state.processingControl.retryCount,
+    });
+    return NODE_NAMES.CLASSIFY;
+  }
+
   logger.info('Retrying extraction after error recovery', {
     documentId: state.documentId,
     retryCount: state.processingControl.retryCount,
@@ -610,6 +635,7 @@ export function createDocumentProcessingGraph() {
   (graph as any).addConditionalEdges(NODE_NAMES.ERROR_RECOVER, routeAfterErrorRecovery, {
     [NODE_NAMES.FINALIZE]: NODE_NAMES.FINALIZE,
     [NODE_NAMES.EXTRACT]: NODE_NAMES.EXTRACT,
+    [NODE_NAMES.CLASSIFY]: NODE_NAMES.CLASSIFY,
   });
 
   // Final edge to END
@@ -653,7 +679,22 @@ export async function processDocument(
   const graph = createDocumentProcessingGraph();
 
   try {
-    const finalState = (await graph.invoke(initialState, config)) as DocumentState;
+    // Enforce a hard workflow timeout (5 minutes) to prevent runaway processing
+    const workflowTimeoutMs = 300000; // 5 minutes
+    const finalState = (await Promise.race([
+      graph.invoke(initialState, config),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Workflow timeout exceeded: processing took longer than ${workflowTimeoutMs}ms`
+              )
+            ),
+          workflowTimeoutMs
+        )
+      ),
+    ])) as DocumentState;
 
     logger.info('Document processing completed', {
       documentId,

@@ -203,10 +203,8 @@ export function cspMiddleware(options?: {
 
     res.setHeader(headerName, cspString);
 
-    // Also expose nonce via header for SSR frameworks that need it
-    if (isProduction) {
-      res.setHeader('X-CSP-Nonce', nonce);
-    }
+    // Security: CSP nonce is NOT exposed via response headers as that would defeat nonce-based CSP.
+    // SSR frameworks should pass the nonce through request context (e.g., res.locals.cspNonce).
 
     next();
   };

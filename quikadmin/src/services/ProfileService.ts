@@ -275,48 +275,72 @@ export class ProfileService {
     auditContext?: AuditContext
   ): Promise<void> {
     try {
-      // Get existing profile for diff calculation
-      const existingProfile = await prisma.userProfile.findUnique({
-        where: { userId },
-      });
-
-      let oldFields: Record<string, ProfileField> | null = null;
-      if (existingProfile) {
-        try {
-          oldFields = decryptJSON(existingProfile.profileData as string);
-        } catch {
-          oldFields = null;
-        }
-      }
-
-      // Encrypt profile data before saving
-      const encryptedData = encryptJSON(aggregatedProfile.fields);
-
-      // Upsert profile
-      const savedProfile = await prisma.userProfile.upsert({
-        where: { userId },
-        create: {
-          userId,
-          profileData: encryptedData,
-          lastAggregated: aggregatedProfile.lastAggregated,
-        },
-        update: {
-          profileData: encryptedData,
-          lastAggregated: aggregatedProfile.lastAggregated,
-        },
-      });
-
-      // Log changes to audit trail
-      const changes = this.computeProfileDiff(oldFields, aggregatedProfile.fields);
-      if (changes.length > 0) {
-        await this.logProfileChange({
-          profileId: savedProfile.id,
-          userId,
-          changes,
-          ipAddress: auditContext?.ipAddress,
-          userAgent: auditContext?.userAgent,
+      // Wrap in transaction to ensure read-for-diff and write are atomic,
+      // preventing concurrent saves from producing incorrect audit diffs
+      await prisma.$transaction(async (tx) => {
+        // Get existing profile for diff calculation
+        const existingProfile = await tx.userProfile.findUnique({
+          where: { userId },
         });
-      }
+
+        let oldFields: Record<string, ProfileField> | null = null;
+        if (existingProfile) {
+          try {
+            oldFields = decryptJSON(existingProfile.profileData as string);
+          } catch {
+            oldFields = null;
+          }
+        }
+
+        // Encrypt profile data before saving
+        const encryptedData = encryptJSON(aggregatedProfile.fields);
+
+        // Upsert profile
+        const savedProfile = await tx.userProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            profileData: encryptedData,
+            lastAggregated: aggregatedProfile.lastAggregated,
+          },
+          update: {
+            profileData: encryptedData,
+            lastAggregated: aggregatedProfile.lastAggregated,
+          },
+        });
+
+        // Log changes to audit trail within the same transaction
+        const changes = this.computeProfileDiff(oldFields, aggregatedProfile.fields);
+        if (changes.length > 0) {
+          const auditEntries = changes.map((change) => {
+            const hasOldValue = change.old != null;
+            const hasNewValue = change.new != null;
+            let action: AuditAction;
+            if (!hasOldValue) {
+              action = 'CREATE';
+            } else if (!hasNewValue) {
+              action = 'DELETE';
+            } else {
+              action = 'UPDATE';
+            }
+            return {
+              profileId: savedProfile.id,
+              userId,
+              fieldName: change.field,
+              oldValue: hasOldValue ? JSON.stringify(change.old) : null,
+              newValue: hasNewValue ? JSON.stringify(change.new) : null,
+              action,
+              ipAddress: auditContext?.ipAddress || null,
+              userAgent: auditContext?.userAgent || null,
+            };
+          });
+
+          await tx.profileAuditLog.createMany({ data: auditEntries });
+          logger.debug(
+            `Logged ${auditEntries.length} profile changes for profile ${savedProfile.id}`
+          );
+        }
+      });
 
       logger.info(`Profile saved for user: ${userId}`);
     } catch (error) {
@@ -510,8 +534,8 @@ export class ProfileService {
           profileId: params.profileId,
           userId: params.userId,
           fieldName: change.field,
-          oldValue: hasOldValue ? JSON.stringify(change.old) : null,
-          newValue: hasNewValue ? JSON.stringify(change.new) : null,
+          oldValue: hasOldValue ? encryptJSON(change.old) : null,
+          newValue: hasNewValue ? encryptJSON(change.new) : null,
           action,
           ipAddress: params.ipAddress || null,
           userAgent: params.userAgent || null,

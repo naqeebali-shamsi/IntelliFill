@@ -172,6 +172,14 @@ export async function enqueueMultiagentProcessing(
     throw new QueueUnavailableError('multiagent-processing');
   }
 
+  // Input validation
+  if (!job.filePath || job.filePath.includes('..') || job.filePath.includes('\0')) {
+    throw new Error('Invalid file path for multiagent processing');
+  }
+  if (!job.documentId || !job.userId) {
+    throw new Error('Missing required fields: documentId, userId');
+  }
+
   const jobId = `multiagent-${job.documentId}`;
 
   // Deduplication: check for existing job
@@ -221,6 +229,8 @@ export async function enqueueMultiagentProcessing(
   }
 
   // Add to queue
+  // Note: BullMQ handles timeouts at the Worker level via lockDuration,
+  // not per-job. See worker configuration in startMultiagentWorker().
   const queuedJob = await multiagentQueue!.add('process-document', job, {
     jobId,
     priority: job.priority || 0,
@@ -268,12 +278,15 @@ export async function getMultiagentQueueHealth(): Promise<{
 /**
  * Get multi-agent job status by ID
  */
-export async function getMultiagentJobStatus(jobId: string): Promise<{
+export async function getMultiagentJobStatus(
+  jobId: string,
+  requestingUserId?: string
+): Promise<{
   id: string;
   type: string;
   status: string;
   progress: number;
-  data: MultiAgentProcessingJob | null;
+  data: Omit<MultiAgentProcessingJob, 'filePath' | 'userId'> | null;
   result: MultiAgentProcessingResult | null;
   error: string | null;
   attemptsMade: number;
@@ -292,14 +305,22 @@ export async function getMultiagentJobStatus(jobId: string): Promise<{
     return null;
   }
 
+  // IDOR protection: verify ownership
+  if (requestingUserId && job.data.userId && job.data.userId !== requestingUserId) {
+    return null;
+  }
+
   const state = await job.getState();
+
+  // Strip sensitive fields from job data before returning
+  const { filePath, userId, ...safeData } = job.data;
 
   return {
     id: job.id || '',
     type: 'multiagent_processing',
     status: state,
     progress: job.progress as number,
-    data: job.data,
+    data: safeData,
     result: job.returnvalue,
     error: job.failedReason || null,
     attemptsMade: job.attemptsMade,
@@ -551,6 +572,9 @@ export async function startMultiagentWorker(): Promise<void> {
     {
       connection: redisConfig,
       concurrency: 2, // Limit based on VRAM availability
+      lockDuration: 600000, // 10 minute timeout - job is considered stalled after this
+      lockRenewTime: 300000, // Renew lock every 5 minutes (half of lockDuration)
+      stalledInterval: 600000, // Check for stalled jobs every 10 minutes
     }
   );
 
