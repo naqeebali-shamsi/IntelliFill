@@ -24,7 +24,8 @@ export type CacheResult = { success: boolean };
 export type ContentMessage =
   | { action: 'refreshProfile' }
   | { action: 'toggleExtension'; enabled: boolean }
-  | { action: 'getStatus' };
+  | { action: 'getStatus' }
+  | { action: 'fillAll' };
 
 export interface ContentStatus {
   enabled: boolean;
