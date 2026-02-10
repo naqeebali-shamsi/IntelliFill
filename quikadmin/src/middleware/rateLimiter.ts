@@ -499,6 +499,20 @@ export const downloadLimiter = createLimiter({
   },
 });
 
+// 10 LLM inference requests per minute per user (50 in dev)
+export const inferFieldsLimiter = createLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  devMultiplier: 5,
+  prefix: 'infer-fields',
+  keyOptions: { scope: 'user', fallbackScope: 'ip' },
+  message: {
+    error: 'Inference limit exceeded',
+    message: 'Too many field inference requests. Please wait before trying again.',
+    retryAfter: 60,
+  },
+});
+
 // ============================================================================
 // Adaptive Rate Limiting (Task #284)
 // ============================================================================

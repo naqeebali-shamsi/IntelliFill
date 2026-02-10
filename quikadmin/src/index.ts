@@ -183,6 +183,8 @@ async function initializeApp(): Promise<{ app: Application }> {
       /^https:\/\/intellifill-git-[a-z0-9-]+-[a-z0-9-]+\.vercel\.app$/,
       // Local development (only localhost, not 0.0.0.0 or other IPs)
       /^http:\/\/localhost:\d{4,5}$/,
+      // Chrome/Edge browser extensions (32-char lowercase alpha ID)
+      /^chrome-extension:\/\/[a-z]{32}$/,
     ];
 
     // Validate origin with strict security
@@ -584,40 +586,43 @@ async function startServer() {
       (server as any)._staleJobReconciler = reconciler;
     });
 
-    // Handle server shutdown
+    // Handle EADDRINUSE with retry (ts-node-dev restart race on Windows)
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.warn(`Port ${PORT} in use, retrying in 1s...`);
+        setTimeout(() => {
+          server.close();
+          server.listen(PORT);
+        }, 1000);
+      }
+    });
+
+    // Handle server shutdown — close socket FIRST to free port for restarts
     const shutdownHandler = async () => {
       logger.info('Shutdown signal received, closing HTTP server');
 
-      // Stop stale job reconciliation
+      // Close the listening socket immediately so the port is freed
+      server.close(() => {
+        logger.info('HTTP server closed');
+      });
+
+      // Then clean up background services
       if ((server as any)._staleJobReconciler) {
         clearInterval((server as any)._staleJobReconciler);
       }
 
-      // Shutdown RealtimeService (notify clients and close SSE connections)
       realtimeService.shutdown();
 
-      // Stop Redis health monitoring
       const { stopRedisHealthMonitoring } = await import('./utils/redisHealth');
       stopRedisHealthMonitoring();
 
-      // Stop keepalive before shutdown
       const { stopKeepalive } = await import('./utils/prisma');
       stopKeepalive();
 
-      // Shutdown token cache (close Redis connection)
       await shutdownTokenCache();
       logger.info('Token cache shutdown complete');
 
-      server.close(async () => {
-        logger.info('HTTP server closed');
-        process.exit(0);
-      });
-
-      // Force exit after 10 seconds if graceful shutdown fails
-      setTimeout(() => {
-        logger.error('Forced shutdown after timeout');
-        process.exit(1);
-      }, 10000);
+      process.exit(0);
     };
 
     // Replace previous handlers with new ones that include cleanup

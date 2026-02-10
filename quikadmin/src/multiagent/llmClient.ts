@@ -113,9 +113,9 @@ const PROVIDER_CONFIGS: Record<LLMProvider, ProviderConfig> = {
     enabled: true,
     apiKeyEnv: 'GEMINI_API_KEY',
     models: {
-      default: 'gemini-2.5-flash',
-      fast: 'gemini-2.0-flash-lite',
-      vision: 'gemini-1.5-pro',
+      default: 'gemini-3-flash-preview',
+      fast: 'gemini-3-flash-preview',
+      vision: 'gemini-3-flash-preview',
     },
     costPer1kTokens: {
       input: 0.000075,
@@ -657,13 +657,21 @@ export class LLMClient {
     // Parse JSON
     let parsed: T;
     try {
-      // Try to extract JSON from markdown code blocks if present
-      const jsonMatch =
-        response.content.match(/```(?:json)?\s*([\s\S]*?)```/) ||
-        response.content.match(/\{[\s\S]*\}/);
+      let rawParsed: unknown;
 
-      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : response.content;
-      const rawParsed = JSON.parse(jsonStr.trim());
+      // First try direct parse (works when responseMimeType: 'application/json' is set)
+      try {
+        rawParsed = JSON.parse(response.content.trim());
+      } catch {
+        // Fallback: extract JSON from markdown code blocks or bare JSON
+        const jsonMatch =
+          response.content.match(/```(?:json)?\s*([\s\S]*?)```/) ||
+          response.content.match(/\[[\s\S]*\]/) ||
+          response.content.match(/\{[\s\S]*\}/);
+
+        const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : response.content;
+        rawParsed = JSON.parse(jsonStr.trim());
+      }
 
       // Validate with Zod schema
       parsed = options.schema.parse(rawParsed);

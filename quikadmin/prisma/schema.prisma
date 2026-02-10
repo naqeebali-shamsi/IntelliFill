@@ -931,6 +931,24 @@ model DocumentShare {
   @@map("document_shares")
 }
 
+model FieldInferenceCache {
+  id          String   @id @default(uuid())
+  fieldHash   String   @unique @map("field_hash") @db.VarChar(64)
+  name        String   @default("") @db.VarChar(200)
+  label       String   @default("") @db.VarChar(200)
+  inputType   String   @default("") @map("input_type") @db.VarChar(50)
+  placeholder String   @default("") @db.VarChar(200)
+  profileKey  String   @map("profile_key") @db.VarChar(50)
+  confidence  Float    @default(0.9)
+  hitCount    Int      @default(1) @map("hit_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([fieldHash])
+  @@index([profileKey])
+  @@map("field_inference_cache")
+}
+
 model CspReport {
   id                 String    @id @default(uuid())
   documentUri        String    @map("document_uri") @db.VarChar(2000)

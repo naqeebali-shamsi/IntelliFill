@@ -18,6 +18,7 @@ import { createAdminAccuracyRoutes } from './admin-accuracy.routes';
 import { createOrganizationRoutes } from './organization.routes';
 import { createInvitationRoutes } from './invitation.routes';
 import { createE2ERoutes, isE2ETestMode } from './e2e.routes';
+import { createExtensionRoutes } from './extension.routes';
 import { createNotificationRoutes } from './notifications.routes';
 import { createSharedRoutes } from './shared.routes';
 import { createSmartProfileRoutes } from './smart-profile.routes';
@@ -185,6 +186,11 @@ export function setupRoutes(
   // Setup jobs routes for queue status polling
   // Mounted at /api for job status, cancel, retry endpoints
   app.use('/api', jobsRouter);
+
+  // Setup Extension API routes (LLM field inference)
+  // Mounted at /api/extension for browser extension communication
+  const extensionRoutes = createExtensionRoutes();
+  app.use('/api/extension', extensionRoutes);
 
   // Setup E2E test routes (Task 478)
   // ONLY available when E2E_TEST_MODE=true or NODE_ENV=test

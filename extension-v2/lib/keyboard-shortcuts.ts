@@ -3,11 +3,13 @@
  *
  * Ctrl+Shift+F: Fill all matched fields
  * Ctrl+Shift+R: Refresh profile data
+ * Ctrl+Shift+L: Infer unmatched fields via LLM
  */
 
 export interface ShortcutHandlers {
   onFillAll: () => void;
   onRefreshProfile: () => void;
+  onInferFields?: () => void;
 }
 
 let keydownListener: ((e: KeyboardEvent) => void) | null = null;
@@ -27,6 +29,10 @@ export function setupShortcuts(handlers: ShortcutHandlers): void {
       case 'R':
         e.preventDefault();
         handlers.onRefreshProfile();
+        break;
+      case 'L':
+        e.preventDefault();
+        handlers.onInferFields?.();
         break;
     }
   };

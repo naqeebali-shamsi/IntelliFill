@@ -23,7 +23,9 @@ import type {
   UserResult,
   AuthCheckResult,
   CacheResult,
+  InferFieldsResult,
 } from '../shared/types';
+import type { FieldContext } from '../shared/types/field-matching';
 
 export default defineBackground(() => {
   console.log('IntelliFill: Background service worker started');
@@ -109,6 +111,22 @@ export default defineBackground(() => {
     return { success: true };
   }
 
+  /** Infer field mappings via LLM backend */
+  async function handleInferFields(
+    fields: FieldContext[],
+    profileKeys: string[],
+  ): Promise<InferFieldsResult> {
+    try {
+      const mappings = await api.inferFields({ fields, profileKeys });
+      return { success: true, mappings };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Inference failed',
+      };
+    }
+  }
+
   // Message handler for popup and content scripts
   browser.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const message = raw as BackgroundMessage;
@@ -128,6 +146,8 @@ export default defineBackground(() => {
           return handleIsAuthenticated();
         case 'clearCache':
           return handleClearCache();
+        case 'inferFields':
+          return handleInferFields(message.fields, message.profileKeys);
       }
     };
 

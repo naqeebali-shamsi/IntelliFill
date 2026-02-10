@@ -81,7 +81,7 @@ export default function MainView({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate">
-              {user?.name || user?.email || 'Loading...'}
+              {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Loading...'}
             </div>
             <div className="text-xs text-gray-500 truncate">{user?.email}</div>
           </div>

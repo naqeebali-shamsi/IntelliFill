@@ -2,10 +2,14 @@ import { authToken, refreshToken, extensionSettings } from '../shared/storage';
 import type {
   LoginRequest,
   LoginResponse,
-  RefreshResponse,
+  RawLoginResponse,
+  RawRefreshResponse,
+  RawUserResponse,
   User,
   UserProfile,
   UserProfileResponse,
+  FieldInferenceRequest,
+  FieldInferenceResult,
 } from '../shared/types';
 
 /** Custom error for authentication failures */
@@ -87,7 +91,8 @@ export class IntelliFillAPI {
     return response.json() as Promise<T>;
   }
 
-  /** Attempt to refresh the access token using the refresh token */
+  /** Attempt to refresh the access token using the refresh token.
+   *  Backend returns: { success, message, data: { tokens: { accessToken, expiresIn, tokenType } } } */
   private async refreshAccessToken(): Promise<boolean> {
     const token = await refreshToken.getValue();
     if (!token) return false;
@@ -98,39 +103,56 @@ export class IntelliFillAPI {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: token }),
+        credentials: 'include', // Required for httpOnly cookie
       });
 
       if (!response.ok) return false;
 
-      const data = (await response.json()) as RefreshResponse;
-      if (data.accessToken) {
-        await authToken.setValue(data.accessToken);
+      const raw = (await response.json()) as RawRefreshResponse;
+      const newAccessToken = raw.data?.tokens?.accessToken;
+
+      if (newAccessToken) {
+        await authToken.setValue(newAccessToken);
       }
-      if (data.refreshToken) {
-        await refreshToken.setValue(data.refreshToken);
-      }
-      return true;
+      return !!newAccessToken;
     } catch {
       return false;
     }
   }
 
-  /** Login with email and password */
+  /** Login with email and password.
+   *  Backend returns: { success, message, data: { user: {...}, tokens: { accessToken, ... } } }
+   *  Refresh token is set via httpOnly cookie by the backend, not in the response body. */
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     const baseUrl = await this.getBaseUrl();
     const response = await fetch(`${baseUrl}/auth/v2/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
+      credentials: 'include', // Required for httpOnly refresh token cookie
     });
 
-    const data = (await response.json()) as LoginResponse;
+    const raw = (await response.json()) as RawLoginResponse;
+
+    const user = raw.data?.user
+      ? {
+          id: raw.data.user.id,
+          email: raw.data.user.email,
+          firstName: raw.data.user.firstName,
+          lastName: raw.data.user.lastName,
+          role: raw.data.user.role,
+        }
+      : undefined;
+
+    const data: LoginResponse = {
+      success: !!raw.success,
+      message: raw.message,
+      user,
+      accessToken: raw.data?.tokens?.accessToken,
+    };
 
     if (data.success && data.accessToken) {
       await authToken.setValue(data.accessToken);
-      if (data.refreshToken) {
-        await refreshToken.setValue(data.refreshToken);
-      }
     }
 
     return data;
@@ -146,13 +168,35 @@ export class IntelliFillAPI {
     }
   }
 
-  /** Get current user info */
+  /** Get current user info.
+   *  Backend returns: { success, data: { user: { id, email, firstName, lastName, role, ... } } } */
   async getCurrentUser(): Promise<User | null> {
     try {
-      const data = await this.request<{ success: boolean; user?: User }>('/users/me');
-      return data.user ?? null;
+      const raw = await this.request<RawUserResponse>('/auth/v2/me');
+      const u = raw.data?.user;
+      if (!u) return null;
+      return {
+        id: u.id,
+        email: u.email,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        role: u.role,
+      };
     } catch {
       return null;
+    }
+  }
+
+  /** Infer field-to-profile mappings via LLM */
+  async inferFields(request: FieldInferenceRequest): Promise<FieldInferenceResult[]> {
+    try {
+      const data = await this.request<{ success: boolean; mappings?: FieldInferenceResult[] }>(
+        '/extension/infer-fields',
+        { method: 'POST', body: JSON.stringify(request) },
+      );
+      return data.mappings ?? [];
+    } catch {
+      return [];
     }
   }
 }

@@ -12,13 +12,14 @@ import {
   isProcessed,
   observeDOMChanges,
 } from '../lib/field-detector';
-import { matchFields } from '../lib/field-matcher';
+import { matchFields, matchFieldsAsync, buildFieldContext } from '../lib/field-matcher';
 import { fillAllFields } from '../lib/form-filler';
 import { AutocompleteManager } from '../lib/autocomplete-ui';
 import { setupShortcuts, teardownShortcuts } from '../lib/keyboard-shortcuts';
 import type { DetectedField } from '../shared/types/field-detection';
 import type { UserProfile } from '../shared/types/api';
-import type { ContentMessage, ContentStatus } from '../shared/types/messages';
+import type { ContentMessage, ContentStatus, InferFieldsResult } from '../shared/types/messages';
+import type { FieldContext, FieldMatch, MatchedField } from '../shared/types/field-matching';
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -75,6 +76,60 @@ export default defineContentScript({
       }
     }
 
+    // Track unmatched fields for LLM inference
+    let unmatchedFieldsCache: { field: DetectedField; context: FieldContext }[] = [];
+
+    /** Send unmatched fields to background for LLM inference, then attach UI */
+    async function inferAndAttach(
+      unmatchedItems: { field: DetectedField; context: FieldContext }[],
+    ): Promise<void> {
+      if (!userProfile || unmatchedItems.length === 0) return;
+
+      const profileKeys = userProfile.fields.map((f) => f.key);
+      const profileMap = new Map(
+        userProfile.fields.map((f) => [f.key, f.values[0] ?? '']),
+      );
+
+      try {
+        const result = (await browser.runtime.sendMessage({
+          action: 'inferFields',
+          fields: unmatchedItems.map((u) => u.context),
+          profileKeys,
+        })) as InferFieldsResult;
+
+        if (!result.success || result.mappings.length === 0) return;
+
+        const newMatched: MatchedField[] = [];
+        for (const mapping of result.mappings) {
+          const item = unmatchedItems[mapping.index];
+          if (!item) continue;
+
+          const value = profileMap.get(mapping.profileKey);
+          if (!value) continue;
+
+          const match: FieldMatch = {
+            profileField: mapping.profileKey,
+            value,
+            confidence: mapping.confidence, // Already capped at 0.9 by backend
+            matchMethod: 'llm',
+          };
+          newMatched.push({ field: item.field, matches: [match] });
+        }
+
+        if (newMatched.length > 0) {
+          console.log(`IntelliFill: LLM matched ${newMatched.length} additional fields`);
+          autocompleteManager.attachToFields(newMatched);
+          // Remove newly matched from cache by element reference
+          const matchedElements = new Set(newMatched.map((m) => m.field.element));
+          unmatchedFieldsCache = unmatchedFieldsCache.filter(
+            (item) => !matchedElements.has(item.field.element),
+          );
+        }
+      } catch (error) {
+        console.error('IntelliFill: LLM inference failed, heuristic matching still active', error);
+      }
+    }
+
     /** Process all detected form fields on the page */
     function processFields(): void {
       if (!userProfile) return;
@@ -95,13 +150,45 @@ export default defineContentScript({
 
       console.log(`IntelliFill: Processing ${newFields.length} new fields`);
 
-      // Match fields to profile data and attach autocomplete UI
-      const matched = matchFields(newFields, userProfile.fields);
+      // Match fields with heuristics, collecting unmatched for LLM
+      const { matched, unmatched } = matchFieldsAsync(newFields, userProfile.fields);
       console.log(`IntelliFill: Matched ${matched.length} fields to profile data`);
 
       if (matched.length > 0) {
         autocompleteManager.attachToFields(matched);
       }
+
+      // Async LLM inference for unmatched fields (non-blocking)
+      if (unmatched.length > 0) {
+        console.log(`IntelliFill: ${unmatched.length} unmatched fields, requesting LLM inference`);
+        unmatchedFieldsCache = [...unmatchedFieldsCache, ...unmatched];
+        inferAndAttach(unmatched);
+      }
+    }
+
+    /** Manually trigger LLM inference for all unmatched fields (Ctrl+Shift+I) */
+    async function handleInferFields(): Promise<void> {
+      if (!userProfile) {
+        autocompleteManager.showToast('IntelliFill: No profile loaded');
+        return;
+      }
+
+      // Rebuild unmatched list from all processed fields
+      const allFields = detectFields();
+      const { unmatched } = matchFieldsAsync(allFields, userProfile.fields);
+      const unmatchedItems = unmatched.map((u, i) => ({
+        field: u.field,
+        context: buildFieldContext(u.field, i),
+      }));
+
+      if (unmatchedItems.length === 0) {
+        autocompleteManager.showToast('IntelliFill: All fields already matched');
+        return;
+      }
+
+      autocompleteManager.showToast(`IntelliFill: Inferring ${unmatchedItems.length} fields...`);
+      unmatchedFieldsCache = unmatchedItems;
+      await inferAndAttach(unmatchedItems);
     }
 
     /** Initialize the content script */
@@ -133,6 +220,7 @@ export default defineContentScript({
         setupShortcuts({
           onFillAll: handleFillAll,
           onRefreshProfile: handleRefreshProfile,
+          onInferFields: handleInferFields,
         });
       } catch (error) {
         console.error('IntelliFill: Initialization failed', error);
@@ -156,6 +244,7 @@ export default defineContentScript({
             setupShortcuts({
               onFillAll: handleFillAll,
               onRefreshProfile: handleRefreshProfile,
+              onInferFields: handleInferFields,
             });
           } else {
             processedFields.clear();
@@ -172,6 +261,12 @@ export default defineContentScript({
         case 'fillAll':
           handleFillAll();
           sendResponse({ success: true });
+          break;
+
+        case 'inferFields':
+          handleInferFields()
+            .then(() => sendResponse({ success: true }))
+            .catch(() => sendResponse({ success: false }));
           break;
 
         case 'getStatus': {
